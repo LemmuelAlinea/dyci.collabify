@@ -4646,3 +4646,50 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
   saved and held across a reload; dragged back to Planning. Build passes.
 - **Not verified:** a touch drag (hold to lift) on a phone.
 - **Next:** on a phone, hold a card on a class board and drag it to another stage.
+
+## Professor flow (2026-11-13)
+
+**On branch `professor-flow`, not on `main`; not pushed.** One new SQL file, **not yet applied** to live.
+Spec: `docs/superpowers/specs/2026-11-13-professor-flow-design.md`; plan:
+`docs/superpowers/plans/2026-11-13-professor-flow.md`.
+
+- **Rail.** A teaching member's rail is Home, Waiting on you (with a count), Inbox, Calendar, Meetings, then
+  their live classes (the open class lists its live projects) and + New class; Work only with work or the
+  Project manager switch; Resources; Account. Projects, Groups, Submissions, Reassignments, Analytics and
+  Reports are gone from it. The admin's rail and `/teaching/*` pages are unchanged.
+- **Waiting on you** (`/waiting`, `pages/app/waiting/WaitingOnYou.tsx`): the whole Submissions tracker (opens on
+  Waiting) above the reassignment requests. `?section=reassignments` scrolls there once both lists have loaded.
+- **Class tabs.** Overview (with this class's waiting and groups-behind tiles, and a next-step card on an empty
+  class), Projects, Groups (sets made and deleted here), Students, Reports (with an all-my-classes switch),
+  Syllabus, Settings. Old `?tab=submissions|analytics|reports|members` land on Overview, Reports, Reports and
+  Students.
+- **Project tabs** (professor): Groups (cards per group, a waiting strip, Manage groups), Brief, Tasks (What you
+  set plus every group's tasks), Milestones, Grades. The professor's Work tab is gone; the back link goes to the
+  class's Projects tab.
+- **Group page** (`/class-projects/:projectId/boards/:boardId`): Overview, Plan, Files, Hand-in & grade, with
+  previous and next. A student opening one lands on the project, query kept (so a search hit's
+  `tab=files&path=` still opens their Files).
+- **Read-only group files.** The group page's Files tab shows the group's files, shares and reviews with no
+  write control. A viewer who does not teach the class is told only the class's teachers can read them.
+- **Groups in the wizard.** The new-project wizard can make a group set (random, by hand, students pick) for
+  the class and for every extra section; sets made there are taken back if the wizard is cancelled or the page
+  goes away.
+- **Old links.** `/groups` (professor), `/teaching/*` (members) and the old `?tab=work&…`, `board=`, `task=`
+  project links land on the new places (`lib/classProjectNav.ts` `legacyProfessorTarget`,
+  `routes/TeachingRedirect.tsx`, `routes/ProfessorGroupsRedirect.tsx`). Workspace search opens a group's file
+  on that group's page and names the group or student.
+- **SQL.** `supabase/class-files-teacher-read.sql` gives whoever teaches the class SELECT on its groups' hidden
+  Files projects, and owns `class_board_repo_id`. It runs after `task-comment-scope.sql` and before
+  `anon-lockdown.sql`; `docs/07-backup.md` lists it and what re-running it requires. **Not applied.**
+- **Deploy order.** Apply `supabase/class-files-teacher-read.sql`, then `supabase/anon-lockdown.sql`; run
+  `supabase/tests/class-files-teacher-read.test.sql`; then push the frontend. Frontend first would leave the
+  group page's Files tab erroring, because `class_board_repo_id` does not exist yet.
+- **Known failure, not from this branch.** `supabase/tests/class-files.test.sql` already fails on live data at
+  `main`: its fixture reads live rows.
+- **Dropped:** unreleased grades on Waiting on you (the spec allowed dropping it; it needs per-project score
+  reads).
+- **Verified:** `npm run build` and `npm test` (207 files, 2,190 tests) pass.
+- **Not verified:** any browser walk (it needs a teacher sign-in), the read-only Files tab against real data,
+  and phones.
+- **Next:** the owner walks the flow as a teacher, a student and an admin, including every old link in spec §9,
+  then approves applying the SQL and pushing.
