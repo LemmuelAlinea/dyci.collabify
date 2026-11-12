@@ -13,8 +13,9 @@
 -- opens and keeps its members in step every time after.
 --
 --   board students   Member + edit_files: commit, draft, review
---   class teachers   no access (2026-09-28): a group's files are the group's
---                    own. Teachers see what is handed in, not the working files.
+--   class teachers   not members, so they never write (2026-09-28). They read
+--                    the working files through class-files-teacher-read.sql
+--                    (2026-11-13): SELECT-only policies, no membership.
 --
 -- Handing the board in, or the professor closing or archiving the project,
 -- freezes its Files the way it freezes its tasks. Returning it unfreezes them.

@@ -178,6 +178,15 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   lead holds. The project manager, coordinators, QA and the `manage_tasks` grant comment on any task; a class board
   keeps its rule. `canCommentTask` mirrors `general_can_comment_task`. Re-running `general-tasks.sql` or
   `project-stakeholders.sql` means re-running it afterwards. Suite: `supabase/tests/task-comment-scope.test.sql`.
+- Class files, teacher read (`supabase/class-files-teacher-read.sql`, after `task-comment-scope.sql`, before
+  `anon-lockdown.sql`): whoever teaches a class (`is_class_professor`) reads its groups' hidden Files projects
+  through `class_board_teacher_reads` and SELECT-only `<table>_class_teacher_read` policies on `general_projects`,
+  `general_members`, the repo tables, `general_shares` / `general_share_recipients` and the `general-files`
+  `<project>/files/` objects; `class_board_repo_id(board)` gives a teacher the project id (null if never opened,
+  never creates). Teachers are never members, so every write still refuses them, and `ensure_class_board_repo`
+  stays students-only. Re-running `general-repo.sql`, `general-files.sql`, `general-shares.sql`, `class-files.sql`
+  or `project-settings-general.sql` means re-running it afterwards. Suite:
+  `supabase/tests/class-files-teacher-read.test.sql`.
 - Sprint organization (`supabase/sprint-organization.sql`, after `space-roles.sql`, before
   `anon-lockdown.sql`): `general_sprint_settings.organization` is `sequential` (default), `streams` or
   `parallel`. `check_general_sprint_start` replaced the unique index, under one advisory lock per project.
