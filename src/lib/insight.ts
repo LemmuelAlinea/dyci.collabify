@@ -316,7 +316,7 @@ function routeFor(a: ActionRow): string | null {
       return `${paths.class(a.class_id)}?tab=groups`
     default:
       // A card about one board opens that board, not the project's brief.
-      if (a.project_id && a.board_id) return `${paths.classProject(a.project_id)}?tab=work&board=${a.board_id}`
+      if (a.project_id && a.board_id) return paths.classProjectBoard(a.project_id, a.board_id)
       return a.project_id ? paths.classProject(a.project_id) : null
   }
 }
@@ -465,7 +465,7 @@ export function rankActions(rows: ActionRow[], burns: BoardBurn[], extra: Action
         `${projectBurnRate(b)} a day. The remaining ${b.task_count - b.done_count} need about ` +
         `${f.burn.state === 'projected' ? f.burn.daysNeeded : 0} days and ${b.days_left} are left, ` +
         `so it lands around ${f.finishOn ? shortDate(f.finishOn) : '—'}, ${f.lateBy} days late.`,
-      to: `${paths.classProject(b.project_id)}?tab=work&board=${b.board_id}`,
+      to: paths.classProjectBoard(b.project_id, b.board_id),
       classId: b.class_id,
       boardId: b.board_id,
       projectId: b.project_id,

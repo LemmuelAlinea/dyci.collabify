@@ -8,7 +8,7 @@ export function destination(n: AppNotification, role: Role | null, teaches: bool
     case 'reassign_decided':
       // Someone who teaches answers reassignments on their own page; a student
       // falls through to the class project the task is on.
-      if (teaches) return paths.reassignments
+      if (teaches) return `${paths.waiting}?section=reassignments`
       break
     case 'general_invited':
       return n.general_project_id ? `${paths.inbox}?invite=project:${n.general_project_id}` : paths.inbox
@@ -72,8 +72,9 @@ export function destination(n: AppNotification, role: Role | null, teaches: bool
     case 'meeting_cancelled':
       return n.meeting_id ? `${paths.meetings}?meeting=${n.meeting_id}` : paths.meetings
     case 'board_submitted':
-      // A hand-in is answered from its class's Submissions, where it waits.
-      if (teaches && n.class_id) return `${paths.class(n.class_id)}?tab=submissions&status=waiting`
+      // A hand-in is answered on the class project's groups; without a project, from Waiting.
+      if (teaches && n.project_id) return paths.classProject(n.project_id)
+      if (teaches && n.class_id) return `${paths.waiting}?status=waiting`
       break
     case 'group_leader':
       return n.group_id ? paths.group(n.group_id) : paths.home

@@ -37,3 +37,17 @@ it('opens the task for a workflow rule notice, and the project without one', () 
   expect(destination(rule({}), 'member', false)).toBe('/projects/p1')
   expect(destination(note({ type: 'workflow_rule' }), 'member', false)).toBe('/home')
 })
+
+it('sends a teacher\'s hand-in to the class project, or to Waiting without one', () => {
+  const sub = (over: Partial<AppNotification>) => note({ type: 'board_submitted', class_id: 'c1', ...over })
+  expect(destination(sub({ project_id: 'p1' }), 'member', true)).toBe('/class-projects/p1')
+  expect(destination(sub({}), 'member', true)).toBe('/waiting?status=waiting')
+})
+
+it('sends a teacher\'s reassignment notice to Waiting', () => {
+  expect(destination(note({ type: 'reassign_requested' }), 'member', true)).toBe('/waiting?section=reassignments')
+})
+
+it('leaves a student\'s hand-in notice on the class project', () => {
+  expect(destination(note({ type: 'board_submitted', class_id: 'c1', project_id: 'p1' }), 'student', false)).toBe('/class-projects/p1')
+})

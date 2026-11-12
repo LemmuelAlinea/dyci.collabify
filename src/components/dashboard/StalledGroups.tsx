@@ -59,7 +59,7 @@ export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
             {/* Stretched over the card, so the card stays one click target
                 and Remind can sit on top of it. */}
             <Link
-              to={paths.classProject(b.project_id)}
+              to={paths.classProjectBoard(b.project_id, b.id)}
               className="block truncate text-[14px] font-medium text-ink after:absolute after:inset-0 after:rounded-lg hover:underline"
             >
               {b.group_name ?? 'One student'}

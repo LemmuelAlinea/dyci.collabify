@@ -181,7 +181,7 @@ export function LinkList({ links, teacher }: { links: AnnouncementLink[]; teache
 
   async function openTask(l: Extract<AnnouncementLink, { kind: 'task' }>) {
     const tasksTab = `${paths.classProject(l.project_id)}?tab=work`
-    if (teacher) return navigate(tasksTab)
+    if (teacher) return navigate(`${paths.classProject(l.project_id)}?tab=tasks&task=${l.id}`)
     setOpening(l.id)
     try {
       const copy = await findMyTaskCopy(l.id)
