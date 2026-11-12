@@ -193,6 +193,24 @@ export function findStalled(boards: BoardSummary[], days = 7): StalledBoard[] {
     .sort((a, b) => b.days - a.days)
 }
 
+/** A board behind: stalled (with its reason), or only carrying late tasks (reason null). */
+export type BehindBoard = BoardSummary & { reason: StalledBoard['reason'] | null; days: number }
+
+/**
+ * The groups behind in a class: stalled ones first, the longest quiet at the
+ * top, then unfinished boards with late tasks, the most late first. At most
+ * `limit`, each once.
+ */
+export function groupsBehind(boards: BoardSummary[], limit = 5): BehindBoard[] {
+  const stalled = findStalled(boards)
+  const seen = new Set(stalled.map((b) => b.id))
+  const late = boards
+    .filter((b) => b.late_count > 0 && Number(b.done_pct) < 100 && !seen.has(b.id))
+    .sort((a, b) => b.late_count - a.late_count)
+    .map((b) => ({ ...b, reason: null, days: 0 }))
+  return [...stalled, ...late].slice(0, limit)
+}
+
 export async function professorDashboard(
   professorId: string,
   classes: ClassSummary[],

@@ -1,13 +1,15 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLive } from '../../../hooks/useLive'
 import { Alert } from '../../../components/ui/Alert'
-import { Spinner } from '../../../components/ui/Icon'
+import { Icon, Spinner } from '../../../components/ui/Icon'
 import type { IconName } from '../../../components/ui/Icon'
 import { Tabs } from '../../../components/ui/Tabs'
 import { useToast } from '../../../components/ui/Toast'
+import { FilterPills } from '../../../components/app/PageHeader'
 import { AnnouncementFeed } from '../../../components/classes/AnnouncementFeed'
 import { ClassAbout } from '../../../components/classes/ClassAbout'
+import { ClassAttention } from '../../../components/classes/ClassAttention'
 import { ClassHeader } from '../../../components/classes/ClassHeader'
 import { ClassSettings } from '../../../components/classes/ClassSettings'
 import { FacultyPanel } from '../../../components/classes/FacultyPanel'
@@ -22,13 +24,12 @@ import { listAnnouncements } from '../../../lib/api/announcements'
 import { getClass, listMembers, removeMember, restoreMember, updateClass } from '../../../lib/api/classes'
 import { currentWeekFor } from '../../../lib/api/dashboard'
 import { authErrorMessage } from '../../../lib/authError'
-import { classTabs, readClassTab, seatKnown, teachesClass } from '../../../lib/classSpace'
+import { classTabRedirect, classTabs, readClassTab, seatKnown, teachesClass } from '../../../lib/classSpace'
 import type { ClassTab } from '../../../lib/classSpace'
 import { paths } from '../../../lib/paths'
 import type { Announcement, ClassMember, ClassSummary, ClassWeek } from '../../../lib/types'
 
 // The faculty tabs pull in whole pages; students never load them.
-const Submissions = lazy(() => import('../submissions/Submissions'))
 const Analytics = lazy(() => import('../analytics/Analytics'))
 const Reports = lazy(() => import('../reports/Reports'))
 
@@ -38,11 +39,17 @@ const TAB_META: Record<ClassTab, { label: string; icon: IconName }> = {
   groups: { label: 'Groups', icon: 'kanban' },
   members: { label: 'Members', icon: 'users' },
   syllabus: { label: 'Syllabus', icon: 'calendar' },
-  submissions: { label: 'Submissions', icon: 'upload' },
-  analytics: { label: 'Analytics', icon: 'chart' },
-  reports: { label: 'Reports', icon: 'file' },
+  reports: { label: 'Reports', icon: 'chart' },
   settings: { label: 'Settings', icon: 'settings' },
 }
+
+type ReportView = 'figures' | 'reports'
+
+/** Reports holds this class's figures and its reports, each with a way out to every class. */
+const REPORT_VIEWS: { value: ReportView; label: string; all: string }[] = [
+  { value: 'figures', label: 'Figures', all: paths.analytics },
+  { value: 'reports', label: 'Reports', all: paths.teachingReports },
+]
 
 /**
  * A class, opened as its education space. One page for everybody in it:
@@ -108,6 +115,9 @@ function ClassSpaceView({ classId }: { classId: string }) {
     ? seatKnown(profile?.role, profile?.id, cls.professor_id, spaces !== null)
     : false
   const tab = readClassTab(params.get('tab'), teaching)
+  // An old Analytics link opens on the figures it held.
+  const reportView: ReportView =
+    params.get('view') === 'reports' && params.get('tab') !== 'analytics' ? 'reports' : 'figures'
 
   const setTab = (next: ClassTab) =>
     setParams(
@@ -115,8 +125,9 @@ function ClassSpaceView({ classId }: { classId: string }) {
         const out = new URLSearchParams(prev)
         if (next === 'overview') out.delete('tab')
         else out.set('tab', next)
-        // Submissions' status filter means nothing on another tab.
-        if (next !== 'submissions') out.delete('status')
+        // An old Submissions status filter, or Reports' view, means nothing on another tab.
+        out.delete('status')
+        out.delete('view')
         return out
       },
       { replace: true },
@@ -131,6 +142,18 @@ function ClassSpaceView({ classId }: { classId: string }) {
       </div>
     )
   }
+
+  const setReportView = (next: ReportView) =>
+    setParams(
+      (prev) => {
+        const out = new URLSearchParams(prev)
+        out.set('tab', 'reports')
+        if (next === 'figures') out.delete('view')
+        else out.set('view', next)
+        return out
+      },
+      { replace: true },
+    )
 
   if (loading || (cls && !knowsSeat)) {
     return (
@@ -149,6 +172,10 @@ function ClassSpaceView({ classId }: { classId: string }) {
     )
   }
 
+  // An old Submissions link with a status filter: that filter lives on Waiting on you now.
+  const redirect = classTabRedirect(params.get('tab'), params.get('status'), teaching)
+  if (redirect) return <Navigate to={redirect} replace />
+
   const active = members.filter((m) => m.status === 'active')
   const removedCount = members.filter((m) => m.status === 'removed').length
   const canManage = teaching && !cls.archived_at
@@ -157,8 +184,10 @@ function ClassSpaceView({ classId }: { classId: string }) {
     id,
     icon: TAB_META[id].icon,
     label:
-      id === 'members' && teaching && removedCount
-        ? `Members · ${removedCount} removed`
+      id === 'members' && teaching
+        ? removedCount
+          ? `Students · ${removedCount} removed`
+          : 'Students'
         : TAB_META[id].label,
     count:
       id === 'overview' ? announcements.length : id === 'members' ? active.length : undefined,
@@ -201,6 +230,7 @@ function ClassSpaceView({ classId }: { classId: string }) {
       <div className="mx-auto mt-6 w-full max-w-[1280px]">
         {tab === 'overview' && (
           <div className="space-y-6">
+            {teaching && <ClassAttention cls={cls} />}
             <ThisWeek cls={cls} weeks={weeks} />
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
               <div className="min-w-0">
@@ -280,20 +310,27 @@ function ClassSpaceView({ classId }: { classId: string }) {
             <ClassSyllabusTab cls={cls} role="student" />
           ))}
 
-        {tab === 'submissions' && (
-          <Suspense fallback={pageLoading}>
-            <Submissions classId={classId} />
-          </Suspense>
-        )}
-        {tab === 'analytics' && (
-          <Suspense fallback={pageLoading}>
-            <Analytics classId={classId} />
-          </Suspense>
-        )}
         {tab === 'reports' && (
-          <Suspense fallback={pageLoading}>
-            <Reports classId={classId} />
-          </Suspense>
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <FilterPills<ReportView>
+                label="Show"
+                options={REPORT_VIEWS}
+                value={reportView}
+                onChange={setReportView}
+              />
+              <Link
+                to={REPORT_VIEWS.find((v) => v.value === reportView)?.all ?? paths.analytics}
+                className="flex items-center gap-1 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+              >
+                All my classes
+                <Icon name="chevronRight" size={13} />
+              </Link>
+            </div>
+            <Suspense fallback={pageLoading}>
+              {reportView === 'figures' ? <Analytics classId={classId} /> : <Reports classId={classId} />}
+            </Suspense>
+          </div>
         )}
         {tab === 'settings' && <ClassSettings cls={cls} onChanged={load} />}
       </div>

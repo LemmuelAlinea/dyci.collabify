@@ -15,7 +15,7 @@ vi.mock('../submissions', () => ({
   submissionStatus: (b: { waiting: boolean }) => (b.waiting ? 'waiting' : 'accepted'),
 }))
 
-import { teachingWaitingCount } from './waiting'
+import { teachingWaitingCount, teachingWaitingCounts } from './waiting'
 
 beforeEach(() => {
   m.classes.mockResolvedValue([{ id: 'a' }, { id: 'b' }])
@@ -39,4 +39,9 @@ it('counts waiting hand-ins and pending requests across classes', async () => {
 it('narrows to one class when given its id', async () => {
   expect(await teachingWaitingCount('u', 'b')).toBe(1 + 1)
   expect(m.projects).toHaveBeenLastCalledWith(['b'])
+})
+
+it('keeps hand-ins and requests apart for a class', async () => {
+  expect(await teachingWaitingCounts('u', 'a')).toEqual({ handIns: 1, requests: 1 })
+  expect(await teachingWaitingCounts('u')).toEqual({ handIns: 2, requests: 2 })
 })

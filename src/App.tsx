@@ -5,6 +5,7 @@ import { StatusBarSync } from './components/StatusBarSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
 import { TeachingRedirect } from './routes/TeachingRedirect'
+import { ProfessorGroupsRedirect } from './routes/ProfessorGroupsRedirect'
 import { ProtectedRoute, RequireAdmitted, RequireTeaching } from './routes/ProtectedRoute'
 import { RoleSwitch } from './routes/RoleSwitch'
 import { LegacyRedirect } from './routes/LegacyRedirect'
@@ -60,7 +61,6 @@ const Messages = lazy(() => import('./pages/app/messages/Messages'))
 const MyTasks = lazy(() => import('./pages/app/tasks/MyTasks'))
 const Notices = lazy(() => import('./pages/app/admin/Notices'))
 const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
-const ProfessorGroups = lazy(() => import('./pages/app/groups/ProfessorGroups'))
 const ProgramClasses = lazy(() => import('./pages/app/admin/ProgramClasses'))
 const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
 const ProjectDetail = lazy(() => import('./pages/app/projects/ProjectDetail'))
@@ -213,7 +213,7 @@ export default function App() {
 
               <Route
                 path="/groups"
-                element={<RoleSwitch student={<StudentGroups />} member={<ProfessorGroups />} />}
+                element={<RoleSwitch student={<StudentGroups />} member={<ProfessorGroupsRedirect />} />}
               />
               <Route
                 path="/groups/:groupId"

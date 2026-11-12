@@ -1,5 +1,6 @@
 import type { GeneralLevel } from './general/permissions'
 import { isMemberRole } from './access'
+import { paths } from './paths'
 import type { Role } from './types'
 
 /**
@@ -20,13 +21,21 @@ export type ClassTab =
   | 'groups'
   | 'members'
   | 'syllabus'
-  | 'submissions'
-  | 'analytics'
   | 'reports'
   | 'settings'
 
 const SHARED: ClassTab[] = ['overview', 'projects', 'groups', 'members', 'syllabus']
-const TEACHING: ClassTab[] = ['submissions', 'analytics', 'reports', 'settings']
+// Teaching puts Reports beside Students, ahead of Syllabus and Settings.
+const TEACHING: ClassTab[] = ['overview', 'projects', 'groups', 'members', 'reports', 'syllabus', 'settings']
+
+/**
+ * Tabs a class page used to have, and where they live now: hand-ins moved to
+ * Overview (and Waiting on you), figures into Reports.
+ */
+const RETIRED = new Map<string, ClassTab>([
+  ['submissions', 'overview'],
+  ['analytics', 'reports'],
+])
 
 /**
  * Whether this viewer teaches the class: its professor, or a member with Can
@@ -45,7 +54,7 @@ export function teachesClass(
 }
 
 export function classTabs(teaching: boolean): ClassTab[] {
-  return teaching ? [...SHARED, ...TEACHING] : [...SHARED]
+  return teaching ? [...TEACHING] : [...SHARED]
 }
 
 /**
@@ -63,8 +72,38 @@ export function seatKnown(
   return role === 'student' || viewerId === professorId || spacesLoaded
 }
 
-/** The `?tab=` value, if the viewer has that tab; Overview otherwise. */
+/**
+ * The `?tab=` value, if the viewer has that tab; Overview otherwise. A
+ * teacher's old Submissions and Analytics tabs land where their content went.
+ */
 export function readClassTab(value: string | null, teaching: boolean): ClassTab {
   const tabs = classTabs(teaching)
-  return tabs.includes(value as ClassTab) ? (value as ClassTab) : 'overview'
+  const tab = (teaching && value && RETIRED.get(value)) || value
+  return tabs.includes(tab as ClassTab) ? (tab as ClassTab) : 'overview'
+}
+
+/**
+ * An old `?tab=submissions&status=…` link a teacher follows: the status
+ * filter now lives on Waiting on you. Null when the class page answers it.
+ */
+export function classTabRedirect(
+  tab: string | null,
+  status: string | null,
+  teaching: boolean,
+): string | null {
+  if (!teaching || tab !== 'submissions' || !status) return null
+  return `${paths.waiting}?status=${encodeURIComponent(status)}`
+}
+
+/** A class with nobody in it and nothing set: its Overview points to the next step. */
+export function isEmptyClass(students: number, projects: number): boolean {
+  return students === 0 && projects === 0
+}
+
+/**
+ * Where `/groups` sends a teacher now that groups live in each class: the
+ * only class's Groups tab, or the Classes page to pick one.
+ */
+export function groupsHomeFor(classIds: string[]): string {
+  return classIds.length === 1 ? `${paths.class(classIds[0])}?tab=groups` : paths.classes
 }
