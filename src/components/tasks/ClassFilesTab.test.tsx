@@ -213,3 +213,22 @@ it('still opens, and sets up, a student group files as before', async () => {
   expect(page()).toContain('My workspace')
   expect(buttons()).toContain('New')
 })
+
+it('tells a viewer who does not teach the class why the files stay shut', async () => {
+  // What class_board_repo_id raises for someone who does not teach the class.
+  vi.mocked(classBoardRepoId).mockRejectedValue({
+    code: '42501',
+    message: "Only the people who teach this class can read its groups' files.",
+  })
+  await show({ readOnly: true })
+  expect(page()).toContain('Only the class\'s teachers can read a group\'s files.')
+  expect(errors()).toHaveLength(0)
+  expect(getRepo).not.toHaveBeenCalled()
+})
+
+it('still shows any other failure as an error', async () => {
+  vi.mocked(classBoardRepoId).mockRejectedValue({ code: '08006', message: 'connection failure' })
+  await show({ readOnly: true })
+  expect(errors()).toHaveLength(1)
+  expect(page()).not.toContain('Only the class\'s teachers')
+})

@@ -35,15 +35,23 @@ export function ClassFilesTab({
   // undefined while it is being found; null when a teacher finds the group never opened Files.
   const [projectId, setProjectId] = useState<string | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
+  // A teacher's view, refused because this viewer does not teach the class (an
+  // adviser can see the project but not its groups' files).
+  const [refused, setRefused] = useState(false)
 
   useEffect(() => {
     let live = true
     setProjectId(undefined)
     setError(null)
+    setRefused(false)
     if (!board) return
     ;(readOnly ? classBoardRepoId(board.id) : ensureClassBoardRepo(board.id))
       .then((id) => live && setProjectId(id))
-      .catch((err) => live && setError(authErrorMessage(err, 'Could not open these files. Try again.')))
+      .catch((err) => {
+        if (!live) return
+        if (readOnly && (err as { code?: string } | null)?.code === '42501') setRefused(true)
+        else setError(authErrorMessage(err, 'Could not open these files. Try again.'))
+      })
     return () => {
       live = false
     }
@@ -75,6 +83,16 @@ export function ClassFilesTab({
   const view = readOnly
     ? { ...state, archived: true, readOnly: true, classTeacher: true, can: () => false }
     : { ...state, archived: state.archived || frozen }
+
+  if (readOnly && refused) {
+    return (
+      <EmptyState
+        icon="folder"
+        title="Files are for the class's teachers"
+        body="Only the class's teachers can read a group's files."
+      />
+    )
+  }
 
   if (readOnly && projectId === null) {
     return (

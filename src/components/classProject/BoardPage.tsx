@@ -174,7 +174,8 @@ export function BoardPage({
       <div className="mt-6 space-y-6">
         {t.error && <Alert tone="error">{t.error}</Alert>}
         {!board ? (
-          <Loading />
+          // A failed load leaves no board; the error above says so.
+          t.error ? null : <Loading />
         ) : (
           <>
             {tab === 'overview' && <BoardOverview project={project} t={t} board={board} viewerId={viewerId} />}

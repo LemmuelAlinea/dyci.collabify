@@ -60,7 +60,7 @@ export function BoardCards({
                   {boardOwnerName(b)}
                 </span>
                 {!solo && (
-                  <span className="shrink-0 text-[12px] text-faint">{b.member_count} members</span>
+                  <span className="shrink-0 text-[12px] text-faint">{b.member_count} {b.member_count === 1 ? 'member' : 'members'}</span>
                 )}
               </div>
 

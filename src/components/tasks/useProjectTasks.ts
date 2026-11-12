@@ -97,7 +97,9 @@ export function useProjectTasks({
     : (boards?.[0] ?? null)
 
   // The page named a board this project does not have (a stale or mistyped link).
-  const boardMissing = Boolean(boardId) && boards !== null && !boards.some((b) => b.id === boardId)
+  // A failed load empties the boards too; that is the error's to say, not this.
+  const boardMissing =
+    Boolean(boardId) && !error && boards !== null && !boards.some((b) => b.id === boardId)
 
   const { tasks, members, loading: boardLoading, reload } = useTaskBoard(active)
 

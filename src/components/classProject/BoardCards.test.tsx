@@ -103,3 +103,18 @@ it('leaves member counts off student cards and opens through onOpen', async () =
   await act(async () => card('Ana Cruz').click())
   expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 's' }))
 })
+
+it('says one member, not one members', async () => {
+  await render(
+    <BoardCards
+      boards={[board('one', { member_count: 1 }), board('two', { member_count: 2 })]}
+      rows={[]}
+      stages={STAGES}
+      solo={false}
+      onOpen={vi.fn()}
+    />,
+  )
+  expect(card('Group one').textContent).toContain('1 member')
+  expect(card('Group one').textContent).not.toContain('1 members')
+  expect(card('Group two').textContent).toContain('2 members')
+})
