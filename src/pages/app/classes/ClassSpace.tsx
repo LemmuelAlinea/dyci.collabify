@@ -20,6 +20,7 @@ import { ClassProjectsTab } from '../../../components/projects/ClassProjectsTab'
 import { ClassSyllabusTab } from '../../../components/syllabus/ClassSyllabusTab'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
+import { useClassLooks } from '../../../hooks/useClassLooks'
 import { listAnnouncements } from '../../../lib/api/announcements'
 import { getClass, listMembers, removeMember, restoreMember, updateClass } from '../../../lib/api/classes'
 import { currentWeekFor } from '../../../lib/api/dashboard'
@@ -30,6 +31,7 @@ import {
   readClassTab,
   readPeopleView,
   seatKnown,
+  teacherSettingsSection,
   teachesClass,
 } from '../../../lib/classSpace'
 import type { ClassTab, PeopleView } from '../../../lib/classSpace'
@@ -68,6 +70,7 @@ function ClassSpaceView({ classId }: { classId: string }) {
   const { spaces, error: navError, reload: reloadNav } = useGeneralNavigation()
   const { show } = useToast()
   const [params, setParams] = useSearchParams()
+  const look = useClassLooks([classId])[classId] ?? null
 
   const [cls, setCls] = useState<ClassSummary | null>(null)
   const [members, setMembers] = useState<ClassMember[]>([])
@@ -136,6 +139,7 @@ function ClassSpaceView({ classId }: { classId: string }) {
         // An old Submissions status filter, or Reports' view, means nothing on another tab.
         out.delete('status')
         out.delete('view')
+        out.delete('section')
         return out
       },
       { replace: true },
@@ -211,11 +215,50 @@ function ClassSpaceView({ classId }: { classId: string }) {
   const peopleViews: { value: PeopleView; label: string; count?: number }[] = [
     {
       value: 'students',
-      label: teaching && removedCount ? `Students · ${removedCount} removed` : 'Students',
+      label: 'Students',
       count: active.length,
     },
     { value: 'groups', label: 'Groups' },
   ]
+
+  const toggleJoin = async (open: boolean) => {
+    try {
+      await updateClass(classId, { join_open: open })
+      setCls({ ...cls, join_open: open })
+      show(open ? 'Students can join again' : 'Joining closed')
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not change that.'), 'error')
+    }
+  }
+
+  const faculty = <FacultyPanel cls={cls} />
+  const teacherRoster = (
+    <div className="space-y-6">
+      {faculty}
+      <section className="space-y-3">
+        <h2 className="text-[15px]">{removedCount ? `Students · ${removedCount} removed` : 'Students'}</h2>
+        <RosterTable
+          members={members}
+          canManage={canManage}
+          canMessage
+          classId={classId}
+          onRecovered={load}
+          showEmail
+          emptyBody={`Share the code ${cls.code} with your section. Students join themselves — you never add them by hand.`}
+          onRemove={async (m) => {
+            if (!profile) return
+            await removeMember(classId, m.student_id, profile.id)
+            await load()
+          }}
+          onRestore={async (m) => {
+            const res = await restoreMember(classId, m.student_id)
+            await load()
+            return res
+          }}
+        />
+      </section>
+    </div>
+  )
 
   const pageLoading = (
     <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
@@ -230,20 +273,9 @@ function ClassSpaceView({ classId }: { classId: string }) {
         <ClassHeader
           cls={cls}
           backTo={paths.classes}
+          look={look}
           canManage={teaching}
-          onToggleJoin={
-            teaching
-              ? async (open) => {
-                  try {
-                    await updateClass(classId, { join_open: open })
-                    setCls({ ...cls, join_open: open })
-                    show(open ? 'Students can join again' : 'Joining closed')
-                  } catch (err) {
-                    show(authErrorMessage(err, 'Could not change that.'), 'error')
-                  }
-                }
-              : undefined
-          }
+          onToggleJoin={teaching ? toggleJoin : undefined}
         />
 
         <div className="mt-6">
@@ -294,47 +326,21 @@ function ClassSpaceView({ classId }: { classId: string }) {
           </div>
         )}
 
-        {tab === 'people' &&
-          peopleView === 'groups' &&
-          (teaching ? (
-            <ClassGroupsTab cls={cls} role="professor" />
-          ) : (
-            <ClassGroupsTab cls={cls} role="student" viewerId={profile?.id} />
-          ))}
+        {tab === 'people' && peopleView === 'groups' && (
+          <ClassGroupsTab cls={cls} role="student" viewerId={profile?.id} />
+        )}
 
         {tab === 'people' && peopleView === 'students' && (
           <div className="space-y-6">
-            <FacultyPanel cls={cls} />
+            {faculty}
             <section className="space-y-3">
               <h2 className="text-[15px]">Students</h2>
-              {teaching ? (
-                <RosterTable
-                  members={members}
-                  canManage={canManage}
-                  canMessage
-                  classId={classId}
-                  onRecovered={load}
-                  showEmail
-                  emptyBody={`Share the code ${cls.code} with your section. Students join themselves — you never add them by hand.`}
-                  onRemove={async (m) => {
-                    if (!profile) return
-                    await removeMember(classId, m.student_id, profile.id)
-                    await load()
-                  }}
-                  onRestore={async (m) => {
-                    const res = await restoreMember(classId, m.student_id)
-                    await load()
-                    return res
-                  }}
-                />
-              ) : (
-                <RosterTable
-                  members={members}
-                  canManage={false}
-                  showEmail={false}
-                  emptyBody="You're the first one here. Others show up as they join with the code."
-                />
-              )}
+              <RosterTable
+                members={members}
+                canManage={false}
+                showEmail={false}
+                emptyBody="You're the first one here. Others show up as they join with the code."
+              />
             </section>
           </div>
         )}
@@ -368,7 +374,18 @@ function ClassSpaceView({ classId }: { classId: string }) {
             </Suspense>
           </div>
         )}
-        {tab === 'settings' && <ClassSettings cls={cls} onChanged={load} />}
+        {tab === 'settings' && (
+          <ClassSettings
+            cls={cls}
+            look={look}
+            onChanged={load}
+            onToggleJoin={toggleJoin}
+            section={teacherSettingsSection(params.get('tab'), params.get('view'), params.get('section'))}
+            removedCount={removedCount}
+            members={teacherRoster}
+            groups={<ClassGroupsTab cls={cls} role="professor" />}
+          />
+        )}
       </div>
     </div>
   )

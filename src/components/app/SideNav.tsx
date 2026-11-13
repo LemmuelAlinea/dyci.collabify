@@ -9,6 +9,7 @@ import { useUnreadTotal } from '../../hooks/useConversations'
 import { useLive } from '../../hooks/useLive'
 import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { useProjectLooks } from '../../hooks/useProjectLooks'
+import { useClassLooks } from '../../hooks/useClassLooks'
 import { canTeach, membershipOf } from '../../lib/access'
 import { teachingWaitingCount } from '../../lib/api/waiting'
 import { paths } from '../../lib/paths'
@@ -82,6 +83,13 @@ export function SideNav({
       .map((project) => project.id),
   )
 
+  // The places card's class tiles: every class the reader is in, in one request.
+  const classLooks = useClassLooks(
+    (navigation.spaces ?? []).flatMap((space) => (space.kind === 'education' && space.class_id ? [space.class_id] : [])),
+  )
+  const withClassLooks = (rows: LiveRow[]): LiveRow[] =>
+    rows.map((row) => (row.classId && classLooks[row.classId] ? { ...row, classLook: classLooks[row.classId] } : row))
+
   const unread = useUnreadTotal(profile?.id, 'all')
   const pendingProjects = usePendingInvitations(profile?.id).invitations?.length ?? 0
   // Unread messages plus invitations waiting: everything the Inbox holds for them.
@@ -153,10 +161,10 @@ export function SideNav({
     const cap = collapsed ? 1 : Infinity
     const lists: PlaceList[] = picker.map((kind) =>
       kind === 'classes'
-        ? { kind, rows: classRows(spaces, cap), more: { to: paths.classes, label: 'All classes' } }
+        ? { kind, rows: withClassLooks(classRows(spaces, cap)), more: { to: paths.classes, label: 'All classes' } }
         : {
             kind,
-            rows: withClasses ? spaceAndClassRows(spaces, cap) : workSpaceRows(spaces, cap),
+            rows: withClassLooks(withClasses ? spaceAndClassRows(spaces, cap) : workSpaceRows(spaces, cap)),
             more: { to: paths.spaces, label: 'All spaces' },
           },
     )

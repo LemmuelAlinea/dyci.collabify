@@ -6,6 +6,7 @@ import {
   isEmptyClass,
   readClassTab,
   readPeopleView,
+  teacherSettingsSection,
   seatKnown,
   teachesClass,
   teachingClassFilter,
@@ -56,13 +57,11 @@ describe('classTabs', () => {
     expect(classTabs(false)).toEqual(['overview', 'projects', 'people', 'syllabus'])
   })
 
-  it('gives faculty who teach it the class run from its own tabs', () => {
-    expect(classTabs(true)).toEqual([
-      'overview', 'projects', 'people', 'reports', 'syllabus', 'settings',
-    ])
+  it('gives faculty who teach it the class run from its own tabs, people inside Settings', () => {
+    expect(classTabs(true)).toEqual(['overview', 'projects', 'reports', 'syllabus', 'settings'])
   })
 
-  it('holds students and groups in one People tab', () => {
+  it('holds students and groups in one People tab for a student', () => {
     for (const teaching of [true, false]) {
       expect(classTabs(teaching)).not.toContain('groups')
       expect(classTabs(teaching)).not.toContain('members')
@@ -100,11 +99,15 @@ describe('readClassTab', () => {
     expect(readClassTab('settings', true)).toBe('settings')
   })
 
-  it('lands the old Groups and Members tabs on People, for everyone', () => {
-    for (const teaching of [true, false]) {
-      expect(readClassTab('groups', teaching)).toBe('people')
-      expect(readClassTab('members', teaching)).toBe('people')
-    }
+  it('lands the old Groups and Members tabs on People for a student', () => {
+    expect(readClassTab('groups', false)).toBe('people')
+    expect(readClassTab('members', false)).toBe('people')
+  })
+
+  it("lands a teacher's People, Groups and Members on Settings", () => {
+    expect(readClassTab('people', true)).toBe('settings')
+    expect(readClassTab('groups', true)).toBe('settings')
+    expect(readClassTab('members', true)).toBe('settings')
   })
 
   it('falls back to Overview for no tab, an unknown one, or one the viewer lacks', () => {
@@ -122,6 +125,22 @@ describe('readClassTab', () => {
     expect(readClassTab('submissions', false)).toBe('overview')
     expect(readClassTab('analytics', false)).toBe('overview')
     expect(readClassTab('reports', false)).toBe('overview')
+  })
+})
+
+describe('teacherSettingsSection', () => {
+  it('reads the section, General by default', () => {
+    expect(teacherSettingsSection('settings', null, null)).toBe('general')
+    expect(teacherSettingsSection('settings', null, 'members')).toBe('members')
+    expect(teacherSettingsSection('settings', null, 'groups')).toBe('groups')
+    expect(teacherSettingsSection('settings', null, 'nope')).toBe('general')
+  })
+
+  it('opens an old People, Groups or Members link on the matching section', () => {
+    expect(teacherSettingsSection('people', null, null)).toBe('members')
+    expect(teacherSettingsSection('people', 'groups', null)).toBe('groups')
+    expect(teacherSettingsSection('members', null, null)).toBe('members')
+    expect(teacherSettingsSection('groups', null, null)).toBe('groups')
   })
 })
 
@@ -174,8 +193,8 @@ describe('isEmptyClass', () => {
 })
 
 describe('groupsHomeFor', () => {
-  it("opens the only class's People tab on Groups", () => {
-    expect(groupsHomeFor(['c1'])).toBe('/classes/c1?tab=people&view=groups')
+  it("opens the only class's Settings on Groups", () => {
+    expect(groupsHomeFor(['c1'])).toBe('/classes/c1?tab=settings&section=groups')
   })
 
   it('opens the Classes page for several classes, or none', () => {

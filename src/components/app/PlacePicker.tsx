@@ -3,6 +3,7 @@ import { NavLink, matchPath, useLocation } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import type { PlaceKind } from './nav'
 import type { LiveRow } from './spaceRows'
+import { CLASS_TILE, ClassMark } from '../classes/ClassMark'
 
 export type PlaceList = {
   kind: PlaceKind
@@ -165,12 +166,11 @@ export function PlacePicker({
           onClick={onNavigate}
           className="place-row-active mt-2.5 flex items-center gap-3 rounded-xl p-2"
         >
-          <span
-            aria-hidden
-            className="place-tile grid h-10 w-10 shrink-0 place-items-center rounded-[10px] font-mono text-[14px] font-bold text-ink"
-          >
-            {row.name.trim().charAt(0).toUpperCase()}
-          </span>
+          <ClassMark
+            look={row.classLook}
+            initial={row.name.trim().charAt(0).toUpperCase()}
+            {...CLASS_TILE.rail}
+          />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[14px] font-semibold text-ink">{row.name}</span>
             <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">

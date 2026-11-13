@@ -128,9 +128,11 @@ type Props = {
    * class leaves this out and keeps the open picker.
    */
   assignedTo?: string
+  /** Settings sets the size limit under Access, so its Details form leaves it out and never writes it. */
+  hideCap?: boolean
 }
 
-export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmit, assignedTo }: Props) {
+export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmit, assignedTo, hideCap = false }: Props) {
   const [name, setName] = useState(defaults?.name ?? '')
   const [initial, setInitial] = useState(defaults?.initial ?? '')
   const [initialTouched, setInitialTouched] = useState(Boolean(defaults?.initial))
@@ -222,7 +224,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
       description,
       syllabus_id: syllabusId || null,
       curriculum_id: curriculumId || null,
-      student_cap: cap.trim() ? Number(cap) : null,
+      ...(hideCap ? {} : { student_cap: cap.trim() ? Number(cap) : null }),
     })
   }
 
@@ -414,6 +416,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
         }
       </Field>
 
+      {!hideCap && (
       <Field
         label="Class size limit"
         optional
@@ -433,6 +436,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
           />
         )}
       </Field>
+      )}
 
       <Field label="Description" optional>
         {(id) => (

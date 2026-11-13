@@ -187,6 +187,14 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   stays students-only; its final copy lives here, with a per-board lock so two first opens make one project. Re-running `general-repo.sql`, `general-files.sql`, `general-shares.sql`, `class-files.sql`
   or `project-settings-general.sql` means re-running it afterwards. Suite:
   `supabase/tests/class-files-teacher-read.test.sql`.
+- Class look and Settings (`supabase/class-look.sql`, after `class-files-teacher-read.sql`, before
+  `anon-lockdown.sql`): `classes.color` and `classes.icon` (`CLASS_ICONS` in `lib/classLook.ts`, held to the SQL
+  check by a test), written through `classes_update`, read with `useClassLooks` (never via `class_overview`) and
+  drawn by `ClassMark` / `CLASS_TILE` on the class banner, class cards, Home's class list and the rail's class card.
+  A teacher's class tabs are Overview, Projects, Reports, Syllabus, Settings; Settings (`ClassSettings.tsx`) has
+  General (Look and access, Details, Danger zone), Members and Groups in `?section=`. Students keep a People tab.
+  A teacher's old `?tab=people|members|groups` opens the matching section (`teacherSettingsSection`).
+  Suite: `supabase/tests/class-look.test.sql`.
 - Sprint organization (`supabase/sprint-organization.sql`, after `space-roles.sql`, before
   `anon-lockdown.sql`): `general_sprint_settings.organization` is `sequential` (default), `streams` or
   `parallel`. `check_general_sprint_start` replaced the unique index, under one advisory lock per project.

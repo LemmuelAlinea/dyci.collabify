@@ -24,8 +24,30 @@ export type ClassTab =
   | 'settings'
 
 const SHARED: ClassTab[] = ['overview', 'projects', 'people', 'syllabus']
-// Teaching puts Reports beside People, ahead of Syllabus and Settings.
-const TEACHING: ClassTab[] = ['overview', 'projects', 'people', 'reports', 'syllabus', 'settings']
+// A teacher's people live in Settings; Reports sits ahead of Syllabus and Settings.
+const TEACHING: ClassTab[] = ['overview', 'projects', 'reports', 'syllabus', 'settings']
+
+/** A teacher's class Settings, one section at a time. */
+export type ClassSettingsSection = 'general' | 'members' | 'groups'
+
+/** The open Settings section; General unless `?section=` names another. */
+export function readClassSettingsSection(value: string | null): ClassSettingsSection {
+  return value === 'members' || value === 'groups' ? value : 'general'
+}
+
+/**
+ * The Settings section a teacher's address opens: `?section=`, or, for an old
+ * People, Groups or Members link, the section that holds it now.
+ */
+export function teacherSettingsSection(
+  tab: string | null,
+  view: string | null,
+  section: string | null,
+): ClassSettingsSection {
+  if (tab === 'groups' || (tab === 'people' && view === 'groups')) return 'groups'
+  if (tab === 'people' || tab === 'members') return 'members'
+  return readClassSettingsSection(section)
+}
 
 /** People holds the class's students and its groups, one at a time. */
 export type PeopleView = 'students' | 'groups'
@@ -82,7 +104,8 @@ export function seatKnown(
  * teacher's old Submissions and Analytics tabs land where their content went.
  */
 export function readClassTab(value: string | null, teaching: boolean): ClassTab {
-  if (value && PEOPLE_TABS.has(value)) return 'people'
+  // A teacher's people moved into Settings; a student's stay on People.
+  if (value && (PEOPLE_TABS.has(value) || value === 'people')) return teaching ? 'settings' : 'people'
   const tabs = classTabs(teaching)
   const tab = (teaching && value && RETIRED.get(value)) || value
   return tabs.includes(tab as ClassTab) ? (tab as ClassTab) : 'overview'
@@ -116,18 +139,18 @@ export function isEmptyClass(students: number, projects: number): boolean {
 
 /**
  * Where `/groups` sends a teacher now that groups live in each class: the
- * only class's People tab on its groups, or the Classes page to pick one.
+ * only class's Settings → Groups, or the Classes page to pick one.
  */
 export function groupsHomeFor(classIds: string[]): string {
   return classIds.length === 1 ? classGroupsPath(classIds[0]) : paths.classes
 }
 
-/** A class's People tab, on its groups. */
+/** A teacher's way to a class's groups: Settings → Groups. */
 export function classGroupsPath(classId: string): string {
-  return `${paths.class(classId)}?tab=people&view=groups`
+  return `${paths.class(classId)}?tab=settings&section=groups`
 }
 
-/** A class's People tab, on its students. */
+/** A teacher's way to a class's roster: Settings → Members. */
 export function classStudentsPath(classId: string): string {
-  return `${paths.class(classId)}?tab=people`
+  return `${paths.class(classId)}?tab=settings&section=members`
 }

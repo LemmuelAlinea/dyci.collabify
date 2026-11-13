@@ -4713,3 +4713,17 @@ half; `classGroupsPath` / `classStudentsPath` (`lib/classSpace.ts`) build the li
 button, All groups, `/groups` for a teacher, the group page's back link, the insight card). No SQL.
 Verified: build, 2,195 tests, and the preview as a teacher (both halves, both old links, phone width).
 Student view not walked in the browser.
+
+## Class Settings and look (2026-11-13)
+
+A teacher's class tabs are Overview, Projects, Reports, Syllabus, Settings; People moved into Settings, laid out
+like a work project's: General (Look and access: 8 colors plus custom, 23 class icons or the initials, the code,
+invite link, joining switch and size limit; Details: the class form without the size limit; Danger zone: archive or
+restore), Members (faculty and the roster) and Groups (group sets), in `?section=`. Students keep their People tab.
+A teacher's old `?tab=people|members|groups` opens the matching section; in-app teacher links go there directly.
+The look shows on the class banner, class cards, Home's "Your classes" and the rail's class card (`ClassMark`).
+New icons are drawn in `components/ui/Icon.tsx` (school, code, database, network, server, cpu, terminal, globe,
+mobile, cloud, brain, math, flask, pen, language, briefcase, presentation, certificate).
+SQL: `supabase/class-look.sql` (two columns and checks, no view change), suite `supabase/tests/class-look.test.sql`
+(11 checks, passed in a rolled-back run). Until it is applied, the look reads as none (a 400 per load, handled) and
+saving a look fails. Deploy order: apply `class-look.sql`, then `anon-lockdown.sql`, run the suite, then push.

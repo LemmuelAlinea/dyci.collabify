@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useLive } from '../../../hooks/useLive'
+import { useClassLooks } from '../../../hooks/useClassLooks'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
@@ -23,6 +24,7 @@ export default function ProfessorClasses() {
 
   const [view, setView] = useState<View>('active')
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
+  const looks = useClassLooks((classes ?? []).map((c) => c.id))
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -147,6 +149,7 @@ export default function ProfessorClasses() {
                 to={paths.class(c.id)}
                 audience="professor"
                 index={index}
+                look={looks[c.id]}
               />
             ))}
           </div>

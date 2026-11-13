@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { classMeta, fullName } from '../../lib/types'
 import type { ClassSummary } from '../../lib/types'
+import type { ClassLook } from '../../lib/classLook'
+import { CLASS_TILE, ClassMark } from './ClassMark'
 
 export function ClassCodePill({ code, tone = 'quiet' }: { code: string; tone?: 'quiet' | 'loud' }) {
   return (
@@ -33,11 +35,13 @@ export function ClassCard({
   to,
   audience,
   index,
+  look = null,
 }: {
   cls: ClassSummary
   to: string
   audience: 'professor' | 'student'
   index: number
+  look?: ClassLook | null
 }) {
   const archived = Boolean(cls.archived_at)
   const ready = Boolean(cls.syllabus_id && cls.term_start && cls.term_end)
@@ -73,9 +77,7 @@ export function ClassCard({
         </div>
 
         <div className="mt-5 flex items-start gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-icon-tile font-display text-[14px] font-bold text-icon-glyph ring-1 ring-white/10">
-            {cls.initial}
-          </span>
+          <ClassMark look={look} initial={cls.initial} {...CLASS_TILE.card} />
           <div className="min-w-0 flex-1">
             <h3 className="line-clamp-2 text-[17px] leading-snug text-ink transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
               {cls.name}

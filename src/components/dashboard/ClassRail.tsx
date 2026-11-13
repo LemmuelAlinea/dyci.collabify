@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { paths } from '../../lib/paths'
 import type { ClassSummary } from '../../lib/types'
+import { useClassLooks } from '../../hooks/useClassLooks'
+import { CLASS_TILE, ClassMark } from '../classes/ClassMark'
 
 /**
  * The professor's classes, compact, with a way into each.
@@ -17,6 +19,7 @@ import type { ClassSummary } from '../../lib/types'
  * it was never on.
  */
 export function ClassRail({ classes }: { classes: ClassSummary[] }) {
+  const looks = useClassLooks(classes.map((c) => c.id))
   if (classes.length === 0) return null
 
   return (
@@ -32,9 +35,7 @@ export function ClassRail({ classes }: { classes: ClassSummary[] }) {
               to={paths.class(c.id)}
               className="flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg surface-sunken font-mono text-[11px] font-bold text-navy-600 dark:text-amber-300">
-                {c.initial}
-              </span>
+              <ClassMark look={looks[c.id]} initial={c.initial} {...CLASS_TILE.home} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14px] font-medium text-ink">
                   {c.name}

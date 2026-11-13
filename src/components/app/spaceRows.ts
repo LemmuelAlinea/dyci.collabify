@@ -1,5 +1,6 @@
 import type { GeneralSpaceSummary, ProjectColor, ProjectIcon } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
+import type { ClassLook } from '../../lib/classLook'
 
 export type LiveRow = {
   id: string
@@ -10,6 +11,9 @@ export type LiveRow = {
   detail?: string
   /** A work project's color and icon, when it has set them; a class project keeps its letter. */
   look?: { color: ProjectColor | null; icon: ProjectIcon | null }
+  /** A class row's class, and its color and icon once loaded. */
+  classId?: string
+  classLook?: ClassLook
 }
 
 /** Three rows per section: the rest are one click away behind the All link under them. */
@@ -42,6 +46,7 @@ export function classRows(spaces: GeneralSpaceSummary[], cap = CAP): LiveRow[] {
         detail: cut > 0 ? space.name.slice(cut + 3) : 'Class',
         to: paths.class(space.class_id!),
         tone: 'education',
+        classId: space.class_id!,
       }
     })
 }

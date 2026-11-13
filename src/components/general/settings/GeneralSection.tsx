@@ -81,7 +81,7 @@ type Look = {
  * One choice in the color and icon pickers. The radio inside is visually
  * hidden; the tile shows whether it is picked, focused or disabled.
  */
-const PICK =
+export const PICK =
   'relative grid h-11 min-w-11 cursor-pointer place-items-center rounded-xl border border-[var(--control-line)] text-muted transition-colors ' +
   'hover:border-[var(--line-strong)] has-[:checked]:border-navy-500 has-[:checked]:ring-2 has-[:checked]:ring-navy-500/30 ' +
   'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--ring)] ' +
@@ -313,7 +313,7 @@ const CUSTOM_START = '#3a6ff7'
  * The color tile for any color: picking it, or dragging in its picker, makes
  * the project's color the one chosen. The hex box takes a typed code.
  */
-function CustomColor({
+export function CustomColor({
   group,
   value,
   disabled,

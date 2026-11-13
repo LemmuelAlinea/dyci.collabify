@@ -1,6 +1,8 @@
 import { supabase } from '../supabase'
 import { byLastName } from '../types'
 import { teachingClassFilter } from '../classSpace'
+import type { ClassLook } from '../classLook'
+import { isMissingColumn } from './missingRelation'
 import type {
   ClassMember,
   ClassRow,
@@ -114,7 +116,25 @@ export async function createClass(professorId: string, input: ClassInput) {
   return data as ClassRow
 }
 
-export async function updateClass(classId: string, patch: Partial<ClassInput & { join_open: boolean }>) {
+/**
+ * The color and icon of the listed classes, in one request. Read from classes
+ * itself (class_overview does not carry them). Until class-look.sql is live
+ * there is no look to draw, so a missing column reads as none.
+ */
+export async function listClassLooks(classIds: string[]) {
+  if (classIds.length === 0) return []
+  const { data, error } = await supabase.from('classes').select('id, color, icon').in('id', classIds)
+  if (error) {
+    if (isMissingColumn(error)) return []
+    throw error
+  }
+  return (data ?? []) as { id: string; color: ClassLook['color']; icon: ClassLook['icon'] }[]
+}
+
+export async function updateClass(
+  classId: string,
+  patch: Partial<ClassInput & { join_open: boolean } & ClassLook>,
+) {
   const { data, error } = await supabase
     .from('classes')
     .update(patch)

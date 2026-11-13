@@ -7,6 +7,8 @@ import { ClampedText } from '../ui/ClampedText'
 import { classMeta, fullName } from '../../lib/types'
 import type { ClassSummary } from '../../lib/types'
 import { inviteLink } from '../../lib/pendingJoin'
+import type { ClassLook } from '../../lib/classLook'
+import { CLASS_TILE, ClassMark } from './ClassMark'
 
 export function ClassHeader({
   cls,
@@ -14,9 +16,12 @@ export function ClassHeader({
   canManage,
   onToggleJoin,
   actions,
+  look = null,
 }: {
   cls: ClassSummary
   backTo: string
+  /** The class's color and icon; without them the tile shows the initials. */
+  look?: ClassLook | null
   canManage: boolean
   onToggleJoin?: (open: boolean) => Promise<void>
   actions?: React.ReactNode
@@ -98,9 +103,7 @@ export function ClassHeader({
 
           <div className="mt-4 grid gap-5 @min-[960px]:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)] @min-[960px]:items-end @min-[960px]:gap-7">
             <div className="flex min-w-0 items-start gap-4 @min-[960px]:gap-5">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-banner-ink/8 font-display text-[15px] font-bold text-banner-accent-text ring-1 ring-banner-ink/12 @min-[960px]:h-16 @min-[960px]:w-16 @min-[960px]:text-[18px]">
-                {cls.initial}
-              </span>
+              <ClassMark look={look} initial={cls.initial} {...CLASS_TILE.banner} />
               <div className="min-w-0">
                 <h1 className="text-balance text-banner-ink">{cls.name}</h1>
                 <p className="mt-1.5 text-[13px] text-banner-muted @min-[960px]:mt-2">{classMeta(cls)}</p>
