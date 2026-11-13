@@ -4701,3 +4701,15 @@ Spec: `docs/superpowers/specs/2026-11-13-professor-flow-design.md`; plan:
 - **Noticed, not changed:** a group card reads its earliest stage with open work, so a 57%-done group can say
   "Planning"; the class Overview tab's badge counts announcements and reads 0 off that tab (as on `main`).
 - **Next:** the owner approves merging `professor-flow` into `main` and pushing.
+
+## Class People tab (2026-11-13)
+
+A class's Groups and Students tabs are one **People** tab, for teachers and students alike: teachers see
+Overview, Projects, People, Reports, Syllabus, Settings; students Overview, Projects, People, Syllabus.
+People opens on Students (the teachers panel, then the roster; "· N removed" for teachers) with a
+Students | Groups switch kept in `?view=groups`. The tab's count is the class's active students.
+`readClassTab` lands old `?tab=groups` / `?tab=members` on People and `readPeopleView` opens the matching
+half; `classGroupsPath` / `classStudentsPath` (`lib/classSpace.ts`) build the links (Overview's Students
+button, All groups, `/groups` for a teacher, the group page's back link, the insight card). No SQL.
+Verified: build, 2,195 tests, and the preview as a teacher (both halves, both old links, phone width).
+Student view not walked in the browser.
