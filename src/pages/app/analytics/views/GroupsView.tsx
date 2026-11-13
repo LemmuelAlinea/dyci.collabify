@@ -117,6 +117,7 @@ export function GroupsView({
       </Section>
 
       <Section
+        collapsible
         title="How teammates rated each other"
         subtitle="Each group's latest peer evaluation. A factor below 0.85 means teammates rated someone well under the group's average. Use it to start a conversation, not to decide a grade."
       >
