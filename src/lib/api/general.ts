@@ -30,7 +30,6 @@ import type {
   ArchivedGeneralFile,
   GeneralAccessRequest,
   GeneralComment,
-  GeneralCounts,
   GeneralField,
   GeneralFieldValue,
   GeneralFile,
@@ -1525,15 +1524,6 @@ export async function listTaskEvents(taskId: string) {
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as GeneralTaskEvent[]
-}
-
-/* ---------------------------------------------------------------- admin */
-
-export async function generalCounts() {
-  const { data, error } = await supabase.rpc('general_counts')
-  if (error) throw error
-  const row = ((data ?? []) as GeneralCounts[])[0]
-  return row ?? { projects: 0, active_projects: 0, archived_projects: 0, people: 0 }
 }
 
 /* -------------------------------------------------------------- repository */

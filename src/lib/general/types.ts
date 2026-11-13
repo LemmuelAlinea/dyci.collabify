@@ -489,13 +489,6 @@ export type AdminWorkProject = {
   archived_at: string | null
 }
 
-export type GeneralCounts = {
-  projects: number
-  active_projects: number
-  archived_projects: number
-  people: number
-}
-
 /* ------------------------------------------------------------------ review */
 
 /** Where a proposed change stands. Shared by file changes of every kind. */
