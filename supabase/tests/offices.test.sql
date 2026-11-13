@@ -47,6 +47,26 @@ begin
 end;
 $$;
 
+/**
+ * Like must_refuse_with, but the message must hold the needle exactly as written, case
+ * and all, so a message echoing the caller's input instead of the stored name fails.
+ */
+create or replace function pg_temp.must_refuse_exact(p_label text, p_sql text, p_needle text)
+returns void language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    if position(p_needle in sqlerrm) > 0 then
+      raise notice 'PASS  %  (refused: %)', p_label, left(sqlerrm, 70);
+      return;
+    end if;
+    raise exception 'FAIL  % — refused with another message: %', p_label, sqlerrm;
+  end;
+  raise exception 'FAIL  % — the write went through and should not have', p_label;
+end;
+$$;
+
 /** Audit rows of one action about one subject, read as the database. */
 create or replace function pg_temp.audits(p_action text, p_subject uuid) returns int
 language sql as $$
@@ -135,8 +155,9 @@ begin
   perform pg_temp.must_be('create leaves one office_created row',
     pg_temp.audits('office_created', v_reg) = 1);
 
-  perform pg_temp.must_refuse_with('a second office named "  registrar " is refused',
-    'select public.create_office(''  zz  registrar '')', 'Zz Registrar');
+  perform pg_temp.must_refuse_exact('a second office named "  zz  registrar " is refused, naming the live one',
+    'select public.create_office(''  zz  registrar '')',
+    'An office named Zz Registrar already exists. Pick another name.');
   perform pg_temp.must_refuse_with('an empty office name is refused',
     'select public.create_office(''   '')', '1 to 80 characters');
 
@@ -281,17 +302,18 @@ begin
 
   o := public.create_office('ZZ registrar');
   v_reg2 := o.id;
-  perform pg_temp.must_refuse_with('restore is refused while a live office has the same name',
+  perform pg_temp.must_refuse_exact('restore is refused while a live office has the same name, naming the live one',
     format('select public.restore_office(%L)', v_reg),
-    'An office named Zz Registrar already exists. Rename one of them first.');
+    'An office named ZZ registrar already exists. Rename one of them first.');
 
   perform public.restore_office(v_cash);
   perform pg_temp.must_be('restore leaves one office_restored row',
     pg_temp.audits('office_restored', v_cash) = 1
     and (select archived_at is null from public.offices where id = v_cash));
 
-  perform pg_temp.must_refuse_with('a rename onto a live name is refused',
-    format('select public.rename_office(%L, '' zz cashier'', '''')', v_reg2), 'Zz Cashier');
+  perform pg_temp.must_refuse_exact('a rename onto a live name is refused, naming the live one',
+    format('select public.rename_office(%L, '' zz cashier'', '''')', v_reg2),
+    'An office named Zz Cashier already exists. Pick another name.');
   o := public.rename_office(v_reg2, 'Zz Records', 'Student records');
   perform pg_temp.must_be('rename leaves one office_renamed row with both names',
     o.name = 'Zz Records' and o.description = 'Student records'
@@ -299,7 +321,9 @@ begin
     and exists (select 1 from public.audit_events where action = 'office_renamed'
                  and subject_id = v_reg2 and before_value = 'ZZ registrar'
                  and after_value = 'Zz Records'));
-  o := public.rename_office(v_reg2, 'Zz Registrar', 'Student records');
+  o := public.rename_office(v_reg2, 'Zz Registrar', null);
+  perform pg_temp.must_be('a rename with no description keeps the description',
+    o.name = 'Zz Registrar' and o.description = 'Student records');
 
   -- ------------------------------------------------------------ delete
 
@@ -323,6 +347,32 @@ begin
     (select count(*) from public.audit_events where action = 'office_changed'
       and subject_id = v_m2 and actor_id = v_admin
       and before_value = 'Zz Registrar' and after_value = '') = 1);
+
+  -- An admin is made from the command line (scripts/set-role.mjs), as the database.
+  perform public.set_member_office(v_m4, v_reg2);
+  n := pg_temp.audits('office_changed', v_m4);
+  perform pg_temp.act_as_service();
+  update public.profiles set role = 'admin' where id = v_m4;
+  perform pg_temp.must_be('a member made admin loses their office',
+    not exists (select 1 from public.office_members where user_id = v_m4));
+  perform pg_temp.must_be('...and the change leaves one office_changed row',
+    pg_temp.audits('office_changed', v_m4) = n + 1
+    and exists (select 1 from public.audit_events where action = 'office_changed'
+                 and subject_id = v_m4 and actor_id is null
+                 and before_value = 'Zz Registrar' and after_value = ''));
+  update public.profiles set role = 'member' where id = v_m4;
+
+  perform pg_temp.act_as(v_admin);
+  perform public.set_member_office(v_m3, v_reg2);
+  n := pg_temp.audits('office_changed', v_m3);
+  update public.profiles set status = 'rejected' where id = v_m3;
+  perform pg_temp.must_be('a member who is rejected keeps their office',
+    exists (select 1 from public.office_members where user_id = v_m3 and office_id = v_reg2));
+  update public.profiles set status = 'active' where id = v_m3;
+  perform pg_temp.must_be('...and keeps it when made active again, with no audit row',
+    exists (select 1 from public.office_members where user_id = v_m3 and office_id = v_reg2)
+    and pg_temp.audits('office_changed', v_m3) = n);
+  perform public.set_member_office(v_m3, null);
 
   -- ------------------------------------------------------------ by name
 

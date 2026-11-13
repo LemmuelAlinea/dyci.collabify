@@ -89,6 +89,20 @@ returns text language sql immutable set search_path = public as $$
 $$;
 
 /**
+ * The live office whose name clashes with p_name, leaving p_except out (the office being
+ * renamed or restored). Null when there is none. A clash message names this office, as
+ * it is stored, rather than echoing what the admin typed.
+ */
+create or replace function public.office_live_name(p_name text, p_except uuid)
+returns text language sql stable security definer set search_path = public as $$
+  select name from public.offices
+   where archived_at is null
+     and id is distinct from p_except
+     and public.office_name_key(name) = public.office_name_key(p_name)
+   limit 1;
+$$;
+
+/**
  * is_admin() checks the role only. Changing offices also needs the admin's account to be
  * active, so a pending or rejected admin account changes nothing.
  */
@@ -156,18 +170,30 @@ create trigger office_spaces_work_only before insert or update on public.office_
 /**
  * A new work space starts in its creator's home office, so a member's spaces are filed
  * without the admin doing anything. A creator with no office, or an archived one, leaves
- * the space unassigned.
+ * the space unassigned. It never stops the space being made: the office is locked as it
+ * is read, so an archive that lands first is seen and skipped, and one that comes after
+ * waits and then counts this space.
  */
 create or replace function public.general_spaces_office_default()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_office uuid;
 begin
   if new.kind = 'work' and new.created_by is not null then
-    insert into public.office_spaces (space_id, office_id, assigned_by)
-    select new.id, m.office_id, new.created_by
+    select o.id into v_office
       from public.office_members m
-      join public.offices o on o.id = m.office_id and o.archived_at is null
-     where m.user_id = new.created_by
-    on conflict (space_id) do nothing;
+      join public.offices o on o.id = m.office_id
+     where m.user_id = new.created_by and o.archived_at is null
+       for share of o;
+    if v_office is not null then
+      begin
+        insert into public.office_spaces (space_id, office_id, assigned_by)
+        values (new.id, v_office, new.created_by)
+        on conflict (space_id) do nothing;
+      exception when check_violation then
+        null; -- the office was archived after all: the space stays unassigned
+      end;
+    end if;
   end if;
   return new;
 end;
@@ -246,16 +272,22 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  select name into v_clash from public.offices
-   where archived_at is null and public.office_name_key(name) = public.office_name_key(v_name);
+  v_clash := public.office_live_name(v_name, null);
   if v_clash is not null then
     raise exception 'An office named % already exists. Pick another name.', v_clash
       using errcode = 'unique_violation';
   end if;
 
-  insert into public.offices (name, description, created_by)
-  values (v_name, coalesce(btrim(p_description), ''), auth.uid())
-  returning * into o;
+  -- Another admin can take the name between the check and the insert.
+  begin
+    insert into public.offices (name, description, created_by)
+    values (v_name, coalesce(btrim(p_description), ''), auth.uid())
+    returning * into o;
+  exception when unique_violation then
+    raise exception 'An office named % already exists. Pick another name.',
+      coalesce(public.office_live_name(v_name, null), v_name)
+      using errcode = 'unique_violation';
+  end;
 
   insert into public.audit_events (action, actor_id, subject_id, subject_label)
   values ('office_created', auth.uid(), o.id, o.name);
@@ -284,19 +316,23 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  select name into v_clash from public.offices
-   where archived_at is null and id <> p_office
-     and public.office_name_key(name) = public.office_name_key(v_name);
+  v_clash := public.office_live_name(v_name, p_office);
   if v_clash is not null then
     raise exception 'An office named % already exists. Pick another name.', v_clash
       using errcode = 'unique_violation';
   end if;
 
   v_old := o.name;
-  update public.offices
-     set name = v_name, description = coalesce(btrim(p_description), '')
-   where id = p_office
-  returning * into o;
+  begin
+    update public.offices
+       set name = v_name, description = coalesce(btrim(p_description), o.description)
+     where id = p_office
+    returning * into o;
+  exception when unique_violation then
+    raise exception 'An office named % already exists. Pick another name.',
+      coalesce(public.office_live_name(v_name, p_office), v_name)
+      using errcode = 'unique_violation';
+  end;
 
   insert into public.audit_events
     (action, actor_id, subject_id, subject_label, before_value, after_value)
@@ -366,7 +402,8 @@ $$;
 create or replace function public.restore_office(p_office uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
-  o public.offices%rowtype;
+  o       public.offices%rowtype;
+  v_clash text;
 begin
   perform public.require_office_admin();
 
@@ -378,14 +415,19 @@ begin
     return;
   end if;
 
-  if exists (select 1 from public.offices
-              where archived_at is null
-                and public.office_name_key(name) = public.office_name_key(o.name)) then
-    raise exception 'An office named % already exists. Rename one of them first.', o.name
+  v_clash := public.office_live_name(o.name, p_office);
+  if v_clash is not null then
+    raise exception 'An office named % already exists. Rename one of them first.', v_clash
       using errcode = 'unique_violation';
   end if;
 
-  update public.offices set archived_at = null where id = p_office;
+  begin
+    update public.offices set archived_at = null where id = p_office;
+  exception when unique_violation then
+    raise exception 'An office named % already exists. Rename one of them first.',
+      coalesce(public.office_live_name(o.name, p_office), o.name)
+      using errcode = 'unique_violation';
+  end;
 
   insert into public.audit_events (action, actor_id, subject_id, subject_label)
   values ('office_restored', auth.uid(), o.id, o.name);
@@ -550,6 +592,7 @@ $$;
 
 -- Internal helpers and trigger functions: nobody calls them directly.
 revoke all on function public.office_name_key(text) from public, anon, authenticated;
+revoke all on function public.office_live_name(text, uuid) from public, anon, authenticated;
 revoke all on function public.require_office_admin() from public, anon, authenticated;
 revoke all on function public.office_refuse_archived(uuid) from public, anon, authenticated;
 revoke all on function public.office_members_member_only() from public, anon, authenticated;
