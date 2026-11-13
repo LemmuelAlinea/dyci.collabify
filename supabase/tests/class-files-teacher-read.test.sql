@@ -312,7 +312,16 @@ begin
   end;
   perform pg_temp.must_be('...on a group that never opened them too', refused);
 
+  ------------------------------------------------------------ 7. opening again finds the same Files
+  perform pg_temp.act_as(v_s2);
+  perform pg_temp.must_be('a second open returns the same project',
+    public.ensure_class_board_repo(b1) = gp);
   perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and the board still has one',
+    (select count(*) from public.general_projects where class_board_id = b1) = 1);
+  perform pg_temp.must_be('ensure_class_board_repo takes a per-board lock',
+    position('pg_advisory_xact_lock' in
+      pg_get_functiondef('public.ensure_class_board_repo(uuid)'::regprocedure)) > 0);
 end;
 $$;
 

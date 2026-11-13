@@ -15,9 +15,13 @@
 -- class_board_repo_id(board) answers the hidden project's id to a teacher
 -- without creating anything: null while the group has never opened its Files.
 --
+-- It also takes over ensure_class_board_repo from class-files.sql, the same body
+-- with a per-board lock so two first opens at once make one project, not a
+-- duplicate-name error.
+--
 -- Adds two functions and new policies named <table>_class_teacher_read (and
--- general_project_files_class_teacher_read on storage.objects); it redefines no
--- existing function or policy. Each new policy sits beside the table's existing
+-- general_project_files_class_teacher_read on storage.objects); apart from
+-- ensure_class_board_repo it redefines no existing function or policy. Each new policy sits beside the table's existing
 -- SELECT policy, which keeps its owner (general-repo.sql, general-files.sql,
 -- general-shares.sql, project-settings-general.sql and the files that took
 -- them over).
@@ -84,6 +88,89 @@ revoke execute on function public.class_board_teacher_reads(uuid) from public, a
 grant execute on function public.class_board_teacher_reads(uuid) to authenticated;
 revoke execute on function public.class_board_repo_id(uuid) from public, anon;
 grant execute on function public.class_board_repo_id(uuid) to authenticated;
+
+-- ---------------------------------------------------------------- open the Files, one at a time
+
+-- class-files.sql's body, with one change: a per-board lock before the lookup.
+-- Two first opens at once (a double-mounted tab, two students together) both
+-- found no project and both inserted, and the second failed on the name. Now
+-- the second waits, then finds the first one's project.
+create or replace function public.ensure_class_board_repo(p_board uuid)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  me     uuid := auth.uid();
+  b      public.project_boards%rowtype;
+  proj   public.projects%rowtype;
+  gp_id  uuid;
+  holder uuid;
+  who    text;
+  student boolean;
+begin
+  select * into b from public.project_boards where id = p_board;
+  if b.id is null then
+    raise exception 'That board is gone' using errcode = 'no_data_found';
+  end if;
+  select * into proj from public.projects where id = b.project_id;
+
+  student := exists (select 1 from public.board_student_ids(b.id) s where s = me);
+  if me is null or not student then
+    raise exception 'A group''s files are theirs alone. Only the students on this board open them.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('ensure_class_board_repo:' || b.id::text, 0));
+
+  select id into gp_id from public.general_projects where class_board_id = b.id;
+  if gp_id is null then
+    if b.group_id is not null then
+      select name into who from public.groups where id = b.group_id;
+    else
+      who := public.display_name(b.student_id);
+    end if;
+    perform set_config('collabify.class_board_repo', 'on', true);
+    select space_id into holder from public.class_board_files_space;
+    if holder is null then
+      insert into public.general_spaces (name, description, created_by)
+      values ('Class project files', '', null)
+      returning id into holder;
+      insert into public.class_board_files_space (space_id) values (holder)
+      on conflict (only_one) do nothing;
+      select space_id into holder from public.class_board_files_space;
+    end if;
+    insert into public.general_projects (name, description, created_by, preset, class_board_id, space_id)
+    values (left(proj.title || coalesce(' · ' || who, ''), 200), '', me, 'class-board', b.id, holder)
+    returning id into gp_id;
+    perform set_config('collabify.class_board_repo', 'off', true);
+    -- A board already has its group chat; its Files need no second one.
+    delete from public.conversations where kind = 'project' and general_project_id = gp_id;
+    insert into public.general_repos (project_id, name, description, created_by)
+    values (gp_id, 'Files', '', me);
+  end if;
+
+  -- Members follow the board: its students, and nobody else.
+  delete from public.general_members m
+   where m.project_id = gp_id
+     and m.user_id not in (select s from public.board_student_ids(b.id) s);
+
+  insert into public.general_members (project_id, user_id, level)
+  select gp_id, s, 'member'::public.general_level from public.board_student_ids(b.id) s
+  on conflict (project_id, user_id) do nothing;
+
+  insert into public.general_grants (project_id, user_id, permission, granted_by)
+  select gp_id, s, 'edit_files'::public.general_permission, me from public.board_student_ids(b.id) s
+  on conflict do nothing;
+
+  -- A teacher who is also on the board would be rare; one who is not never writes.
+  delete from public.general_grants g
+   where g.project_id = gp_id
+     and g.user_id not in (select s from public.board_student_ids(b.id) s);
+
+  return gp_id;
+end;
+$$;
+
+revoke execute on function public.ensure_class_board_repo(uuid) from public, anon;
+grant execute on function public.ensure_class_board_repo(uuid) to authenticated;
 
 -- ---------------------------------------------------------------- what they read
 

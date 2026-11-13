@@ -966,7 +966,9 @@ class (`is_class_professor`: the professor, or a co-teacher managing the class s
 Files projects: `general_projects_class_teacher_read`, and `<table>_class_teacher_read` on `general_members`,
 `general_repos`, `general_commits`, `general_blobs`, `general_repo_changes`, `general_repo_comments`,
 `general_shares` and `general_share_recipients`, plus `general_project_files_class_teacher_read` on
-`storage.objects` for `<project>/files/...` in `general-files`. It redefines no existing function or policy and
+`storage.objects` for `<project>/files/...` in `general-files`. It also holds the final
+`ensure_class_board_repo`: `class-files.sql`'s body with a per-board advisory lock, so two first opens at once
+make one Files project instead of failing on the name. It redefines no other function or policy and
 gives no write: teachers never become members, so every write path still refuses them. Re-running
 `general-repo.sql`, `general-files.sql`, `general-shares.sql`, `class-files.sql` or
 `project-settings-general.sql` means re-running it afterwards, then `anon-lockdown.sql`. Suite:

@@ -106,6 +106,8 @@ $$;
 
 -- ---------------------------------------------------------------- open the Files
 
+-- Superseded: class-files-teacher-read.sql holds the final copy (with a
+-- per-board lock). Re-running this file means re-running that one afterwards.
 create or replace function public.ensure_class_board_repo(p_board uuid)
 returns uuid language plpgsql security definer set search_path = public as $$
 declare

@@ -184,7 +184,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general_members`, the repo tables, `general_shares` / `general_share_recipients` and the `general-files`
   `<project>/files/` objects; `class_board_repo_id(board)` gives a teacher the project id (null if never opened,
   never creates). Teachers are never members, so every write still refuses them, and `ensure_class_board_repo`
-  stays students-only. Re-running `general-repo.sql`, `general-files.sql`, `general-shares.sql`, `class-files.sql`
+  stays students-only; its final copy lives here, with a per-board lock so two first opens make one project. Re-running `general-repo.sql`, `general-files.sql`, `general-shares.sql`, `class-files.sql`
   or `project-settings-general.sql` means re-running it afterwards. Suite:
   `supabase/tests/class-files-teacher-read.test.sql`.
 - Sprint organization (`supabase/sprint-organization.sql`, after `space-roles.sql`, before
