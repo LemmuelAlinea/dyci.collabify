@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
 import { TONE_CELL } from '../charts/format'
 import { confirmMemberScores, saveBoardScores } from '../../lib/api/scores'
@@ -13,16 +14,23 @@ import type { ProjectScores } from './useProjectScores'
 const dateFmt = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })
 const box =
   'h-9 w-20 rounded-lg border border-line surface px-2 text-right font-mono text-[13px] text-ink aria-[invalid=true]:border-danger-500'
+/** A confirmed score read back, in the same place the box sits while editing. */
+const shown = 'inline-flex h-9 w-20 items-center justify-end px-2 font-mono text-[13px] text-ink'
 
 /**
  * Score one board against the rubric, then confirm each member's score. Inputs
  * hold only what was edited, so a live reload never wipes what is being typed.
+ *
+ * Once every member's score is confirmed the card reads back, with Edit to
+ * change it. The database takes a change at any time; the read-back only keeps
+ * a finished score from being changed by a stray keystroke.
  */
 export function ScoreCard({ board, scores }: { board: BoardSummary; scores: ProjectScores }) {
   const { show } = useToast()
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [finals, setFinals] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   if (!scores.loaded) return null
   const { criteria } = scores
@@ -74,6 +82,12 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
   const confirmedRows = rows.filter((r) => r.confirmed_at)
   const someConfirmed = confirmedRows.length > 0
   const unconfirmed = rows.filter((r) => !r.confirmed_at)
+  const readOnly = rows.length > 0 && unconfirmed.length === 0 && !editing
+  const stopEditing = () => {
+    setEdits({})
+    setFinals({})
+    setEditing(false)
+  }
   const latestConfirmed = confirmedRows.reduce<string | null>(
     (m, r) => (m === null || (r.confirmed_at ?? '') > m ? r.confirmed_at : m),
     null,
@@ -112,6 +126,12 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
       <header className="flex flex-wrap items-center gap-2">
         <h3 id={`score-${board.id}`} className="mr-auto">Score</h3>
         <span className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[status.tone]}`}>{status.label}</span>
+        {readOnly && (
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+            <Icon name="edit" size={14} />
+            Edit
+          </Button>
+        )}
       </header>
 
       {!handedIn && <Alert tone="info">This has not been handed in. You can still score it.</Alert>}
@@ -133,19 +153,23 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
                 {c.description && <span className="block text-[12px] text-muted">{c.description}</span>}
               </label>
               <span className="flex items-center gap-2">
-                <input
-                  id={`pts-${board.id}-${c.id}`}
-                  type="number"
-                  inputMode="decimal"
-                  step={0.5}
-                  min={0}
-                  max={c.max_points}
-                  value={value(c)}
-                  aria-invalid={err ? true : undefined}
-                  aria-describedby={err ? `pts-${board.id}-${c.id}-err` : undefined}
-                  onChange={(e) => setEdits((d) => ({ ...d, [c.id]: e.target.value }))}
-                  className={box}
-                />
+                {readOnly ? (
+                  <span className={shown}>{value(c)}</span>
+                ) : (
+                  <input
+                    id={`pts-${board.id}-${c.id}`}
+                    type="number"
+                    inputMode="decimal"
+                    step={0.5}
+                    min={0}
+                    max={c.max_points}
+                    value={value(c)}
+                    aria-invalid={err ? true : undefined}
+                    aria-describedby={err ? `pts-${board.id}-${c.id}-err` : undefined}
+                    onChange={(e) => setEdits((d) => ({ ...d, [c.id]: e.target.value }))}
+                    className={box}
+                  />
+                )}
                 <span className="w-12 text-left font-mono text-[12px] tabular-nums text-faint">/ {c.max_points}</span>
               </span>
               {err && (
@@ -162,20 +186,22 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
         <p className="mr-auto font-mono text-[14px] text-ink" aria-live="polite">
           {formatPoints(liveTotal)} <span className="text-faint">/ {total}</span>
         </p>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy || !complete || !dirty}
-          onClick={() =>
-            run(
-              () => saveBoardScores(board.id, criteria.map((c) => ({ criterion_id: c.id, points: Number(value(c)) }))),
-              'Scores saved',
-              () => setEdits({}),
-            )
-          }
-        >
-          Save scores
-        </Button>
+        {!readOnly && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || !complete || !dirty}
+            onClick={() =>
+              run(
+                () => saveBoardScores(board.id, criteria.map((c) => ({ criterion_id: c.id, points: Number(value(c)) }))),
+                'Scores saved',
+                () => setEdits({}),
+              )
+            }
+          >
+            Save scores
+          </Button>
+        )}
       </div>
 
       {!solo && rows.length > 0 && (
@@ -221,19 +247,23 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
                       <td className="px-2 py-2 font-mono text-muted">{formatPoints(s)}</td>
                       <td className="px-2 py-2">
                         <span className="flex flex-wrap items-center gap-1.5">
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            step={0.5}
-                            min={0}
-                            max={total}
-                            value={finalText(r)}
-                            disabled={!fullySaved}
-                            aria-label={`Final score for ${r.student_name}`}
-                            aria-invalid={err ? true : undefined}
-                            onChange={(e) => setFinals((d) => ({ ...d, [r.student_id]: e.target.value }))}
-                            className={box}
-                          />
+                          {readOnly ? (
+                            <span className={shown}>{finalText(r)}</span>
+                          ) : (
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              step={0.5}
+                              min={0}
+                              max={total}
+                              value={finalText(r)}
+                              disabled={!fullySaved}
+                              aria-label={`Final score for ${r.student_name}`}
+                              aria-invalid={err ? true : undefined}
+                              onChange={(e) => setFinals((d) => ({ ...d, [r.student_id]: e.target.value }))}
+                              className={box}
+                            />
+                          )}
                           {over && (
                             <span className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL.pending}`}>Overridden</span>
                           )}
@@ -276,23 +306,30 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
         <p className="mr-auto text-[12px] text-faint">
           {footerText}
         </p>
-        <Button
-          size="sm"
-          disabled={busy || !canConfirm}
-          onClick={() =>
-            run(
-              () =>
-                confirmMemberScores(
-                  board.id,
-                  solo ? [] : rows.map((r) => ({ student_id: r.student_id, final: Number(finalText(r)) })),
-                ),
-              solo ? 'Score confirmed' : 'Scores confirmed',
-              () => setFinals({}),
-            )
-          }
-        >
-          {solo ? 'Confirm score' : 'Confirm scores'}
-        </Button>
+        {editing && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={stopEditing}>
+            Cancel
+          </Button>
+        )}
+        {!readOnly && (
+          <Button
+            size="sm"
+            disabled={busy || !canConfirm}
+            onClick={() =>
+              run(
+                () =>
+                  confirmMemberScores(
+                    board.id,
+                    solo ? [] : rows.map((r) => ({ student_id: r.student_id, final: Number(finalText(r)) })),
+                  ),
+                solo ? 'Score confirmed' : 'Scores confirmed',
+                stopEditing,
+              )
+            }
+          >
+            {solo ? 'Confirm score' : 'Confirm scores'}
+          </Button>
+        )}
       </div>
     </section>
   )
