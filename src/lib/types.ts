@@ -1618,6 +1618,13 @@ export type AuditAction =
   | 'class_professor_changed'
   | 'class_deleted'
   | 'teaching_changed'
+  | 'office_created'
+  | 'office_renamed'
+  | 'office_archived'
+  | 'office_restored'
+  | 'office_deleted'
+  | 'office_changed'
+  | 'space_office_changed'
 
 export type AuditEvent = {
   id: string
@@ -1645,6 +1652,13 @@ export const AUDIT_ACTIONS: { value: AuditAction; label: string }[] = [
   { value: 'class_restored', label: 'Class restored' },
   { value: 'class_professor_changed', label: 'Class handed over' },
   { value: 'class_deleted', label: 'Class deleted' },
+  { value: 'office_created', label: 'Office created' },
+  { value: 'office_renamed', label: 'Office renamed' },
+  { value: 'office_archived', label: 'Office archived' },
+  { value: 'office_restored', label: 'Office restored' },
+  { value: 'office_deleted', label: 'Office deleted' },
+  { value: 'office_changed', label: 'Office changed' },
+  { value: 'space_office_changed', label: 'Space moved' },
 ]
 
 /** One line saying what happened, without naming anything academic. */
@@ -1669,6 +1683,20 @@ export function auditSentence(e: AuditEvent) {
       return `${e.class_label} moved from ${e.before_value || 'nobody'} to ${e.after_value}`
     case 'class_deleted':
       return `${e.class_label} was deleted`
+    case 'office_created':
+      return `${who} office was created`
+    case 'office_renamed':
+      return `${e.before_value} office was renamed ${e.after_value}`
+    case 'office_archived':
+      return `${who} office was archived`
+    case 'office_restored':
+      return `${who} office was put back`
+    case 'office_deleted':
+      return `${who} office was deleted`
+    case 'office_changed':
+      return `${who} moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
+    case 'space_office_changed':
+      return `${who} space moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
   }
 }
 

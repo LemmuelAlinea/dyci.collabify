@@ -11,7 +11,7 @@ import { authErrorMessage } from '../../../lib/authError'
 import { AUDIT_ACTIONS, auditSentence, calendarDaysUntil } from '../../../lib/types'
 import type { AuditAction, AuditEvent } from '../../../lib/types'
 
-const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refresh' | 'archive'> = {
+const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refresh' | 'archive' | 'briefcase'> = {
   account_created: 'user',
   role_changed: 'shield',
   status_changed: 'shield',
@@ -21,6 +21,13 @@ const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refres
   class_restored: 'refresh',
   class_professor_changed: 'refresh',
   class_deleted: 'trash',
+  office_created: 'briefcase',
+  office_renamed: 'briefcase',
+  office_archived: 'briefcase',
+  office_restored: 'briefcase',
+  office_deleted: 'briefcase',
+  office_changed: 'briefcase',
+  space_office_changed: 'briefcase',
 }
 
 const TONE: Record<AuditAction, string> = {
@@ -33,6 +40,13 @@ const TONE: Record<AuditAction, string> = {
   class_restored: 'surface-sunken text-muted',
   class_professor_changed: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
   class_deleted: 'bg-danger-500/15 text-danger-700 dark:text-danger-300',
+  office_created: 'surface-sunken text-muted',
+  office_renamed: 'surface-sunken text-muted',
+  office_archived: 'surface-sunken text-muted',
+  office_restored: 'surface-sunken text-muted',
+  office_deleted: 'bg-danger-500/15 text-danger-700 dark:text-danger-300',
+  office_changed: 'surface-sunken text-muted',
+  space_office_changed: 'surface-sunken text-muted',
 }
 
 function when(iso: string) {
