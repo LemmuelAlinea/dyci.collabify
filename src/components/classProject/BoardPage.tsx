@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { DirectoryHero } from '../app/DirectoryHero'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
@@ -73,7 +74,7 @@ export function BoardHeader({
         {dir === 'Next' && <Icon name="chevronRight" size={15} />}
       </>
     )
-    const look = cls({ variant: 'outline', size: 'sm', className: '!px-3', children: body })
+    const look = cls({ variant: 'onNavy', size: 'sm', className: '!px-3', children: body })
     const aria = `${dir} ${label.one}`
     return id ? (
       <Link to={boardHref(project.id, id, tab)} aria-label={aria} className={look}>
@@ -86,46 +87,47 @@ export function BoardHeader({
     )
   }
 
-  return (
-    <header className="space-y-3">
-      <nav aria-label="Breadcrumb" className="min-w-0">
-        <ol className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
-          <li className="min-w-0 truncate">
-            <Link to={paths.class(project.class_id)} className="hover:text-ink hover:underline">
-              {project.class_initial}
-            </Link>
-          </li>
-          <li aria-hidden className="text-faint">›</li>
-          <li className="min-w-0 max-w-full truncate">
-            <Link to={paths.classProject(project.id)} className="hover:text-ink hover:underline">
-              {project.title}
-            </Link>
-          </li>
-          <li aria-hidden className="text-faint">›</li>
-          <li>
-            <Link to={paths.classProject(project.id)} className="hover:text-ink hover:underline">
-              {label.title}
-            </Link>
-          </li>
-        </ol>
-      </nav>
+  const crumbs = (
+    <nav aria-label="Breadcrumb" className="min-w-0">
+      <ol className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-banner-muted">
+        <li className="min-w-0 truncate">
+          <Link to={paths.class(project.class_id)} className="hover:text-banner-ink hover:underline">
+            {project.class_initial}
+          </Link>
+        </li>
+        <li aria-hidden className="text-banner-faint">›</li>
+        <li className="min-w-0 max-w-full truncate">
+          <Link to={paths.classProject(project.id)} className="hover:text-banner-ink hover:underline">
+            {project.title}
+          </Link>
+        </li>
+        <li aria-hidden className="text-banner-faint">›</li>
+        <li>
+          <Link to={paths.classProject(project.id)} className="hover:text-banner-ink hover:underline">
+            {label.title}
+          </Link>
+        </li>
+      </ol>
+    </nav>
+  )
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate">{board ? boardOwnerName(board) : t.boards === null ? 'Loading…' : ''}</h1>
-          {board && project.audience === 'group' && (
-            <p className="mt-1 text-[13px] text-muted">
-              {leader && <>Leader {leader} · </>}
-              {board.member_count} {board.member_count === 1 ? 'member' : 'members'}
-            </p>
-          )}
-        </div>
+  return (
+    <DirectoryHero
+      compact
+      crumbs={crumbs}
+      title={board ? boardOwnerName(board) : t.boards === null ? 'Loading…' : ''}
+      description={
+        board && project.audience === 'group'
+          ? `${leader ? `Leader ${leader} · ` : ''}${board.member_count} ${board.member_count === 1 ? 'member' : 'members'}`
+          : undefined
+      }
+      action={
         <div className="flex shrink-0 items-center gap-2">
           {step(prev, 'Previous')}
           {step(next, 'Next')}
         </div>
-      </div>
-    </header>
+      }
+    />
   )
 }
 

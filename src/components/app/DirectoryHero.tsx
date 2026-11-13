@@ -15,10 +15,12 @@ export function DirectoryHero({
   accentStyle,
   accentWeight,
   compact = false,
+  crumbs,
 }: {
   title: string
-  accent: string
-  description: string
+  /** The coloured word after the title. A page named for one thing (a group, a person) leaves it out. */
+  accent?: string
+  description?: string
   action?: ReactNode
   /** A small control pinned to the top right, such as a view switch. */
   corner?: ReactNode
@@ -32,8 +34,10 @@ export function DirectoryHero({
   accentWeight?: string
   /** A thin banner, for a working page whose content should start high. */
   compact?: boolean
+  /** A breadcrumb above the title, for a page that sits inside another. */
+  crumbs?: ReactNode
 }) {
-  const accentWord = (
+  const accentWord = accent && (
     <span className={[accentStyle ? undefined : accentClass, accentWeight].filter(Boolean).join(' ') || undefined} style={accentStyle}>
       {accent}
     </span>
@@ -67,20 +71,26 @@ export function DirectoryHero({
         }`}
       >
         <div className={`max-w-[720px] ${corner ? 'pr-10' : ''}`}>
+          {crumbs && <div className="mb-2 min-w-0">{crumbs}</div>}
           <h1 className={`font-display text-banner-ink ${mark ? 'flex items-center gap-3' : ''}`}>
             {mark ? (
               <>
                 {mark}
                 <span className="min-w-0 break-words">
-                  {title} {accentWord}
+                  {accentWord ? <>{title} {accentWord}</> : title}
                 </span>
               </>
             ) : (
-              <>
-                {title} {accentWord}
-              </>
+              accentWord ? (
+                <>
+                  {title} {accentWord}
+                </>
+              ) : (
+                title
+              )
             )}
           </h1>
+          {description && (
           <p
             className={`max-w-[62ch] leading-relaxed text-banner-muted ${
               compact ? 'mt-1 text-[13px]' : 'mt-3 text-[14px]'
@@ -88,6 +98,7 @@ export function DirectoryHero({
           >
             {description}
           </p>
+          )}
         </div>
         {action && <div className="directory-hero__action lg:pb-1">{action}</div>}
       </div>
