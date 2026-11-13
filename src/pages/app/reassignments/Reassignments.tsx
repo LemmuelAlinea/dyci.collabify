@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
@@ -9,11 +8,12 @@ import { Select, Textarea } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { Reveal } from '../../../components/motion/Reveal'
+import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
+import { useAuth } from '../../../context/AuthContext'
 import { decideReassignment, listReassignments } from '../../../lib/api/reassignments'
 import { listGroupMembers } from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
-import { paths } from '../../../lib/paths'
 import { fullName, reassignmentStatusLabel } from '../../../lib/types'
 import type { GroupMember, ReassignmentRow } from '../../../lib/types'
 
@@ -48,9 +48,13 @@ export default function Reassignments({
   onReady?: () => void
 }) {
   const { show } = useToast()
+  const { profile } = useAuth()
   const [rows, setRows] = useState<ReassignmentRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [deciding, setDeciding] = useState<ReassignmentRow | null>(null)
+  // The task opens over this page, so the professor reads it and comes back to
+  // the queue instead of landing on the group's board.
+  const [openTask, setOpenTask] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -125,7 +129,11 @@ export default function Reassignments({
           <div className="grid gap-3 p-4 lg:grid-cols-2 sm:p-5">
             {pending.map((r, i) => (
               <Reveal key={r.id} delay={i * 0.04}>
-                <RequestCard row={r} onDecide={() => setDeciding(r)} />
+                <RequestCard
+                  row={r}
+                  onDecide={() => setDeciding(r)}
+                  onOpen={() => setOpenTask(r.task_id)}
+                />
               </Reveal>
             ))}
           </div>
@@ -175,11 +183,28 @@ export default function Reassignments({
           show('Request decided')
         }}
       />
+
+      <TaskDetailModal
+        taskId={openTask}
+        onClose={() => setOpenTask(null)}
+        viewerId={profile?.id}
+        role="professor"
+        boardWeight={0}
+        onChanged={load}
+      />
     </div>
   )
 }
 
-function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => void }) {
+function RequestCard({
+  row,
+  onDecide,
+  onOpen,
+}: {
+  row: ReassignmentRow
+  onDecide: () => void
+  onOpen: () => void
+}) {
   return (
     <article className="h-full rounded-card border border-line bg-[var(--surface)] p-4 transition-colors hover:border-line-strong sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -206,13 +231,14 @@ function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => 
         {row.reason}
       </blockquote>
 
-      <Link
-        to={`${paths.classProjectBoard(row.project_id, row.board_id)}?task=${row.task_id}`}
+      <button
+        type="button"
+        onClick={onOpen}
         className="mt-3 inline-flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
       >
         <Icon name="kanban" size={14} />
         Open the task
-      </Link>
+      </button>
     </article>
   )
 }
