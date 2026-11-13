@@ -75,32 +75,31 @@ const show = (at: string, collapsed = false) =>
     ),
   )
 const links = () => [...host.querySelectorAll('a')].map((a) => a.textContent?.trim() ?? '')
-const projectsUnder = (name: string) =>
-  [...(host.querySelector(`ul[aria-label="Projects in ${name}"]`)?.querySelectorAll('a') ?? [])].map(
-    (a) => a.textContent?.trim().slice(1),
-  )
+const hrefs = () => [...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))
+const projectNames = ['Capstone draft', 'Lab two', 'Lab three', 'Lab one', 'Network plan']
 
-it('lists the taught classes with their sections and opens the class in view onto its projects', async () => {
-  await show('/classes/k1')
-  expect(links()).toContain('IIT 301 · BSIT 3A')
-  expect(links()).toContain('IIT 302 · BSIT 3B')
-  expect(projectsUnder('IT 301 · BSIT 3A')).toEqual(['Capstone draft', 'Lab two', 'Lab three'])
-  expect(host.querySelector('ul[aria-label="Projects in IT 302 · BSIT 3B"]')).toBeNull()
-})
-
-it('keeps the class open on one of its projects, and keeps that project listed past the cap', async () => {
-  await show('/class-projects/p4/boards/b1')
-  expect(projectsUnder('IT 301 · BSIT 3A')).toEqual(['Capstone draft', 'Lab two', 'Lab one'])
-  await show('/class-projects/q1')
-  expect(projectsUnder('IT 302 · BSIT 3B')).toEqual(['Network plan'])
-  expect(host.querySelector('ul[aria-label="Projects in IT 301 · BSIT 3A"]')).toBeNull()
-})
-
-it('opens no class anywhere else, and ends the list with New class', async () => {
+it('opens the rail on the class card, as a student has it, with All classes', async () => {
   await show('/home')
-  expect(host.querySelector('ul[aria-label^="Projects in"]')).toBeNull()
-  const add = [...host.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'New class')
-  expect(add?.getAttribute('href')).toBe('/classes?new=1')
+  expect(hrefs()).toContain('/classes/k1')
+  const all = [...host.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'All classes')
+  expect(all?.getAttribute('href')).toBe('/classes')
+  // The card comes before Main's Home row.
+  const order = hrefs()
+  expect(order.indexOf('/classes/k1')).toBeLessThan(order.indexOf('/home', 1))
+})
+
+it('lists no projects under a class, in a class or on one of its projects', async () => {
+  for (const at of ['/classes/k1', '/class-projects/p4/boards/b1', '/class-projects/q1']) {
+    await show(at)
+    for (const name of projectNames) expect(links().some((l) => l.includes(name))).toBe(false)
+    expect(host.querySelector('ul[aria-label^="Projects in"]')).toBeNull()
+  }
+})
+
+it('has no New class row; a class starts from All classes', async () => {
+  await show('/home')
+  expect(links()).not.toContain('New class')
+  expect(hrefs()).not.toContain('/classes?new=1')
 })
 
 it('badges Waiting on you with what waits across every class', async () => {
@@ -111,11 +110,9 @@ it('badges Waiting on you with what waits across every class', async () => {
   expect(badge?.closest('a')?.getAttribute('href')).toBe('/waiting')
 })
 
-it('keeps only the class letters on the collapsed rail', async () => {
+it('keeps the classes on the collapsed rail, with no projects', async () => {
   await show('/classes/k1', true)
-  const named = [...host.querySelectorAll('a[aria-label]')].map((a) => a.getAttribute('aria-label'))
-  expect(named).toContain('IT 301 · BSIT 3A')
-  expect(host.querySelector('ul[aria-label^="Projects in"]')).toBeNull()
+  for (const name of projectNames) expect(links().some((l) => l.includes(name))).toBe(false)
   expect(links()).not.toContain('New class')
 })
 

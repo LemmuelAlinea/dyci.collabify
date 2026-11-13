@@ -44,12 +44,6 @@ export type NavGroup = {
   withClasses?: boolean
   /** The header folds the section away, live rows included. Remembered per device. */
   collapsible?: boolean
-  /**
-   * Live rows `SideNav` fills in: the classes the reader teaches, each opening
-   * its class. The class in view (`/classes/:id`, or one of its projects)
-   * lists its live projects under it, then a `+ New class` row closes the list.
-   */
-  classList?: true
 }
 
 
@@ -174,10 +168,10 @@ const QUICK_ACCESS: NavGroup = {
 }
 
 /**
- * The teaching rail is organized around the classes, and everything a class
- * holds — its projects, groups, hand-ins and reports — lives inside the class.
- * Main keeps only what crosses classes: Waiting on you gathers the hand-ins and
- * reassignment requests from all of them, with a count.
+ * Everything a class holds — its projects, groups, hand-ins and reports —
+ * lives inside the class. A teacher's Main keeps only what crosses classes:
+ * Waiting on you gathers the hand-ins and reassignment requests from all of
+ * them, with a count.
  */
 const TEACHING_MAIN: NavGroup = {
   title: 'Main',
@@ -191,12 +185,11 @@ const TEACHING_MAIN: NavGroup = {
   ],
 }
 
-const CLASS_LIST: NavGroup = {
-  title: 'Classes',
-  classList: true,
-  collapsible: true,
-  items: [],
-}
+/**
+ * The card at the top of a teacher's rail, the one a student has: their
+ * classes, and All classes. Spaces stay in Work's own card.
+ */
+const TEACHING_CLASSES = placesGroup(['classes'])
 
 /**
  * A teacher's work-side pages, only for one who has work or may make spaces:
@@ -293,15 +286,15 @@ const MAIN_WAITING: NavGroup = {
  * isn't active, has nothing to open but Settings — every other page here
  * needs an admitted account.
  *
- * Every admitted rail but the teaching one opens on the places card. A
- * student's lists Classes, then Spaces once somebody invites them into one.
- * Spaces drops out while empty for anyone who cannot make one — students,
- * faculty who do not teach, admins.
+ * Every admitted rail opens on the places card. A student's lists Classes,
+ * then Spaces once somebody invites them into one. Spaces drops out while
+ * empty for anyone who cannot make one — students, faculty who do not teach,
+ * admins.
  *
- * Teaching faculty get a rail built around their classes: Main (Home, Waiting
- * on you, Inbox, Calendar, Meetings), then each class they teach, then Work —
- * their spaces, Projects and My tasks — only once they have work or the
- * Project manager switch, then Resources and Account.
+ * Teaching faculty's card lists their classes only, then Main (Home, Waiting
+ * on you, Inbox, Calendar, Meetings), then Work — their spaces, Projects and
+ * My tasks — only once they have work or the Project manager switch, then
+ * Resources and Account. A class's projects live on its Projects tab.
  *
  * An admin runs the program rather than sitting in it, so until someone
  * invites them into a class, space or project their rail is Admin and
@@ -347,8 +340,8 @@ export function navFor(
   if (canTeach(profile)) {
     const manager = canManageProjects(profile)
     return [
+      TEACHING_CLASSES,
       TEACHING_MAIN,
-      CLASS_LIST,
       ...(membership?.hasWork || manager ? [teachingWork(manager)] : []),
       resourcesGroup(role),
       ACCOUNT_WITH_ARCHIVE,

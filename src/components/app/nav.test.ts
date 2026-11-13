@@ -64,14 +64,14 @@ describe('navFor', () => {
     const manager = account('member', 'active', true, true)
     const gone = ['Groups', 'Submissions', 'Reassignments', 'Analytics', 'Reports']
 
-    it('opens on Main, then Classes, Resources and Account', () => {
+    it('opens on the classes card, then Main, Resources and Account', () => {
       const groups = navFor(teacher, true)
-      expect(titles(groups)).toEqual(['Main', 'Classes', 'Resources', 'Account'])
+      expect(titles(groups)).toEqual(['Classes', 'Main', 'Resources', 'Account'])
       expect(section(groups, 'Resources')).toEqual(['Syllabi', 'Curriculum'])
       expect(labels(groups)).not.toContain('Your record')
       expect(titles(navFor(teacher, true, { inClass: true, hasWork: false }))).toEqual([
-        'Main',
         'Classes',
+        'Main',
         'Resources',
         'Account',
       ])
@@ -85,19 +85,22 @@ describe('navFor', () => {
       expect(waiting.to).toBe('/waiting')
     })
 
-    it('lists the classes as live rows', () => {
-      const classes = navFor(teacher, true).find((g) => g.title === 'Classes')
-      expect(classes?.classList).toBe(true)
-      expect(classes?.items).toEqual([])
+    it('puts the classes in the card at the top, as a student has it, with no projects under them', () => {
+      const classes = navFor(teacher, true)[0]
+      expect(classes.title).toBe('Classes')
+      expect(classes.picker).toEqual(['classes'])
+      expect(classes.items).toEqual([])
+      // Spaces stay in Work's own card, so the top card never lists them twice.
+      expect(navFor(manager, true)[0].picker).toEqual(['classes'])
     })
 
-    it('adds Work between Classes and Resources for work or the Project manager switch', () => {
+    it('adds Work between Main and Resources for work or the Project manager switch', () => {
       for (const groups of [
         navFor(teacher, true, { inClass: true, hasWork: true }),
         navFor(manager, true),
         navFor(manager, true, { inClass: false, hasWork: false }),
       ]) {
-        expect(titles(groups)).toEqual(['Main', 'Classes', 'Work', 'Resources', 'Account'])
+        expect(titles(groups)).toEqual(['Classes', 'Main', 'Work', 'Resources', 'Account'])
         const work = groups.find((g) => g.title === 'Work')!
         expect(work.picker).toEqual(['spaces'])
         expect(work.items.map((i) => i.label)).toEqual(['Projects', 'My tasks'])
@@ -120,7 +123,7 @@ describe('navFor', () => {
   })
 
   it('never narrows faculty on the admission flag', () => {
-    expect(navFor(teacher, false).find((g) => g.classList)).toBeDefined()
+    expect(navFor(teacher, false)[0].picker).toEqual(['classes'])
   })
 
   it('gives an admin in nothing only Admin and Account', () => {
