@@ -2,10 +2,17 @@
 import * as React from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import Offices from './Offices'
-import { archiveOffice, listOffices, setMemberOffice } from '../../../lib/api/offices'
+import {
+  archiveOffice,
+  createOffice,
+  listOffices,
+  listOfficeSpaces,
+  setMemberOffice,
+  setSpaceOffice,
+} from '../../../lib/api/offices'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -29,12 +36,19 @@ vi.mock('../../../lib/api/offices', () => ({
     { id: 's2', name: 'Retired space', office_id: 'o1', archived: true, running_projects: 0 },
     { id: 's3', name: 'Loose space', office_id: null, archived: false, running_projects: 1 },
   ]),
-  createOffice: vi.fn(async () => {}),
+  createOffice: vi.fn(async () => ({ id: 'o8', name: 'x', description: '', archived_at: null })),
   renameOffice: vi.fn(async () => {}),
   archiveOffice: vi.fn(async () => {}),
   setMemberOffice: vi.fn(async () => {}),
   setSpaceOffice: vi.fn(async () => {}),
 }))
+
+let where = ''
+function Probe() {
+  const l = useLocation()
+  where = l.pathname + l.search
+  return null
+}
 
 let host: HTMLDivElement | null = null
 let root: ReturnType<typeof createRoot> | null = null
@@ -55,6 +69,7 @@ async function renderAt(url: string) {
     root!.render(
       <MemoryRouter initialEntries={[url]}>
         <Offices />
+        <Probe />
       </MemoryRouter>,
     ),
   )
@@ -132,4 +147,44 @@ it('an empty program shows "No offices yet" with New office', async () => {
   await act(async () => add!.click())
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain('New office')
   expect(document.querySelector('[aria-label="Offices"]')).toBeNull()
+})
+
+it('a space filed under an archived office can be moved to No office', async () => {
+  vi.mocked(listOfficeSpaces).mockResolvedValueOnce([
+    { id: 's4', name: 'Restored space', office_id: 'o3', archived: false, running_projects: 0 },
+  ])
+  await renderAt('/admin/offices?office=unassigned')
+  const select = document.querySelector<HTMLSelectElement>('select[aria-label="Move Restored space to"]')!
+  expect(select.value).toBe('o3')
+  expect([...select.options].map((o) => o.textContent)).toContain('Old desk (archived)')
+  await choose(select, '')
+  expect(setSpaceOffice).toHaveBeenCalledWith('s4', null)
+})
+
+it('an unknown or archived ?office= drops the param so the list shows', async () => {
+  await renderAt('/admin/offices?office=o3')
+  expect(where).toBe('/admin/offices')
+  expect(document.querySelector('[aria-label="Offices"]')?.className).not.toContain('hidden sm:block')
+})
+
+it('a new office opens by the id createOffice returns', async () => {
+  vi.mocked(createOffice).mockResolvedValueOnce({
+    id: 'o9',
+    name: 'Front desk',
+    description: '',
+    archived_at: null,
+  })
+  await renderAt('/admin/offices?office=o1')
+  vi.mocked(listOffices).mockResolvedValue([
+    { id: 'o9', name: 'Front  desk', description: '', archived_at: null },
+    { id: 'o1', name: 'IT services', description: '', archived_at: null },
+  ])
+  await act(async () => button('New office')!.click())
+  const input = document.querySelector<HTMLInputElement>('[role="dialog"] input')!
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Front desk')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await act(async () => button('Add office')!.click())
+  expect(where).toBe('/admin/offices?office=o9')
 })

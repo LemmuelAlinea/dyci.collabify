@@ -199,12 +199,17 @@ export default function Accounts() {
     [liveOffices],
   )
 
+  // An office filter that no longer exists (archived, or the read failed) resets.
+  useEffect(() => {
+    if (office && !officeFilters.some((o) => o.value === office)) setOffice('')
+  }, [office, officeFilters])
+
   useEffect(() => {
     document.title = 'Accounts · Collabify'
     void load()
   }, [load])
 
-  useLive(load, ['profiles'])
+  useLive(load, ['profiles', 'offices', 'office_members'])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -347,7 +352,10 @@ export default function Accounts() {
                   {a.role ? ROLE_LABEL[a.role] : 'No role'}
                 </span>
                 {a.role === 'member' && offices && (
-                  <span className="max-w-[180px] shrink-0 truncate rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
+                  <span
+                    title={officeName(officeIdOf(a), liveOffices)}
+                    className="max-w-[180px] shrink-0 truncate rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted"
+                  >
                     {officeName(officeIdOf(a), liveOffices)}
                   </span>
                 )}

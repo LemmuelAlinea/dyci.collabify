@@ -28,6 +28,11 @@ async function fileOffice(
 ): Promise<BulkResult> {
   if (!user.office) return result
   if (user.role === 'student') return { ...result, warning: 'Students have no office. It was ignored.' }
+  // Office names hold 80 characters at most, so a longer one names nothing. Skip it
+  // with the unknown-office warning, echoing only the first 80 characters.
+  if (user.office.length > 80) {
+    return { ...result, warning: `No office named ${user.office.slice(0, 80)}…. Imported with no office.` }
+  }
   const { data, error } = await caller.rpc('set_member_office_by_name', {
     p_email: user.email,
     p_office_name: user.office,

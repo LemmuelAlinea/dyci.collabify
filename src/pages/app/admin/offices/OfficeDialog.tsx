@@ -25,7 +25,8 @@ export function OfficeDialog({
   /** The office being renamed; null makes a new one. */
   office: Office | null
   onClose: () => void
-  onSaved: (name: string) => Promise<void>
+  /** The office just created; null after a rename. */
+  onSaved: (created: Office | null) => Promise<void>
 }) {
   const { show } = useToast()
   const [name, setName] = useState('')
@@ -50,10 +51,11 @@ export function OfficeDialog({
     setBusy(true)
     setError(null)
     try {
+      let created: Office | null = null
       if (office) await renameOffice(office.id, next, description.trim())
-      else await createOffice(next, description.trim())
+      else created = await createOffice(next, description.trim())
       show(office ? `${next} saved` : `${next} added`)
-      await onSaved(next)
+      await onSaved(created)
       onClose()
     } catch (err) {
       setError(authErrorMessage(err, 'Could not save that office. Try again.'))

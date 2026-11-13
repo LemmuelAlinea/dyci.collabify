@@ -30,6 +30,7 @@ export function OfficeDetail({
   people,
   spaces,
   offices,
+  allOffices,
   onMoved,
 }: {
   eyebrow: string
@@ -44,6 +45,8 @@ export function OfficeDetail({
   spaces: OfficeSpace[]
   /** Live offices, sorted, for Move to. */
   offices: Office[]
+  /** Every office, so a row still linked to an archived one can name it. */
+  allOffices: Office[]
   onMoved: () => Promise<void>
 }) {
   const { show } = useToast()
@@ -66,18 +69,32 @@ export function OfficeDetail({
     }
   }
 
-  const moveTo = (id: string, label: string, write: typeof setMemberOffice) => (
+  const moveTo = (
+    id: string,
+    label: string,
+    write: typeof setMemberOffice,
+    linked: string | null,
+  ) => {
+    // A row still linked to an archived office shows that office as its value,
+    // so "No office" is a real change and clears the link.
+    const archived = allOffices.find((o) => o.id === linked && o.archived_at !== null)
+    return (
     <div className="w-full shrink-0 sm:w-[210px]">
       <Select
         aria-label={`Move ${label} to`}
-        value={officeId ?? ''}
+        value={archived ? archived.id : (officeId ?? '')}
         disabled={moving !== null}
         onChange={(e) => void move(id, label, e.target.value, write)}
-        options={options}
+        options={
+          archived
+            ? [{ value: archived.id, label: `${archived.name} (archived)`, disabled: true }, ...options]
+            : options
+        }
         className="!h-10 text-[13px]"
       />
     </div>
-  )
+    )
+  }
 
   return (
     <section data-office-detail className="surface overflow-hidden rounded-panel border border-line">
@@ -112,7 +129,7 @@ export function OfficeDetail({
               name={who(p)}
               detail={p.name ? p.email : null}
               note={STATUS_NOTE[p.status]}
-              control={moveTo(p.id, who(p), setMemberOffice)}
+              control={moveTo(p.id, who(p), setMemberOffice, p.office_id)}
             />
           ))}
         </Group>
@@ -133,7 +150,7 @@ export function OfficeDetail({
               name={s.name}
               detail={`${s.running_projects} running ${s.running_projects === 1 ? 'project' : 'projects'}`}
               note={null}
-              control={moveTo(s.id, s.name, setSpaceOffice)}
+              control={moveTo(s.id, s.name, setSpaceOffice, s.office_id)}
             />
           ))}
         </Group>

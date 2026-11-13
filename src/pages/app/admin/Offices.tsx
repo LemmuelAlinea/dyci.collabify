@@ -44,7 +44,6 @@ export default function Offices() {
   const [renaming, setRenaming] = useState<Office | null>(null)
   const [archiving, setArchiving] = useState<Office | null>(null)
 
-  /** Returns the offices read, so a new office can be opened once it exists. */
   const fetchAll = useCallback(async () => {
     try {
       const [offices, people, spaces] = await Promise.all([
@@ -54,10 +53,8 @@ export default function Offices() {
       ])
       setData({ offices, people, spaces })
       setError(null)
-      return offices
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the offices. Try again.'))
-      return null
     }
   }, [])
 
@@ -102,16 +99,19 @@ export default function Offices() {
     asked === UNASSIGNED ? null : (live.find((o) => o.id === asked) ?? live[0] ?? null)
   const selectedKey = selected?.id ?? ''
 
+  // A link to an office that is gone or archived drops its id, so the list shows.
+  const stale = data !== null && asked !== null && asked !== UNASSIGNED && !live.some((o) => o.id === asked)
+  useEffect(() => {
+    if (stale) setParams({}, { replace: true })
+  }, [stale, setParams])
+
   function open(key: string) {
     setParams({ office: key || UNASSIGNED })
   }
 
-  async function saved(name: string) {
-    const offices = await fetchAll()
-    const made = offices?.find(
-      (o) => o.archived_at === null && o.name.toLowerCase() === name.toLowerCase(),
-    )
-    if (made && !renaming) open(made.id)
+  async function saved(created: Office | null) {
+    await fetchAll()
+    if (created) open(created.id)
   }
 
   const newOffice = (
@@ -301,6 +301,7 @@ export default function Offices() {
             people={filed.people.get(selectedKey) ?? []}
             spaces={filed.spaces.get(selectedKey) ?? []}
             offices={live}
+            allOffices={data.offices}
             onMoved={load}
           />
         </div>

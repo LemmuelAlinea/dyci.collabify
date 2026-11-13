@@ -209,7 +209,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
           <div className="space-y-3">
             <p><strong className="text-ink">{creating.length} new accounts</strong> will be created. <strong className="text-ink">{updating.length} existing accounts</strong> will have their names and roles updated. {skipped} rows will be skipped.</p>
             {updating.length > 0 && <p>Existing passwords and account status stay as they are: {updating.map((row) => `${fullName(existing.get(row.email)!)} (${row.email})`).join(', ')}.</p>}
-            {updating.some((row) => existing.get(row.email)?.role === 'member' && row.user?.role === 'student') && <p>Members changed to students lose both access switches.</p>}
+            {updating.some((row) => existing.get(row.email)?.role === 'member' && row.user?.role === 'student') && <p>Members changed to students lose both access switches and their office.</p>}
             {updating.some((row) => row.user?.role === 'member') && <p>For members being updated, a named office replaces the current one and a blank office keeps it.</p>}
             {creating.length > 0 && <p>Give new users their credentials through your existing channel. They will accept the terms and privacy policy and set a new password on first sign-in.</p>}
             {busy && <p>Processed {processed} of {selected.length} users…</p>}

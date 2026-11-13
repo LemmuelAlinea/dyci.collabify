@@ -19,11 +19,12 @@ export async function listOffices() {
 }
 
 export async function createOffice(name: string, description: string) {
-  const { error } = await supabase.rpc('create_office', {
+  const { data, error } = await supabase.rpc('create_office', {
     p_name: name,
     p_description: description,
   })
   if (error) throw error
+  return data as Office
 }
 
 export async function renameOffice(id: string, name: string, description: string) {
