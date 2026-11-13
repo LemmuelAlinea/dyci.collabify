@@ -1,5 +1,6 @@
 import { CARRYING_ALONE_PCT, burnOwner, calendarDaysUntil, projectBurn } from './types'
 import type { BoardBurn } from './types'
+import { classGroupsPath } from './classSpace'
 import { paths } from './paths'
 
 /**
@@ -313,7 +314,7 @@ function routeFor(a: ActionRow): string | null {
       return paths.calendar
     case 'not_in_a_group':
     case 'holding_nothing':
-      return `${paths.class(a.class_id)}?tab=groups`
+      return classGroupsPath(a.class_id)
     default:
       // A card about one board opens that board, not the project's brief.
       if (a.project_id && a.board_id) return paths.classProjectBoard(a.project_id, a.board_id)

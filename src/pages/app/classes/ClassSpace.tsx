@@ -24,8 +24,15 @@ import { listAnnouncements } from '../../../lib/api/announcements'
 import { getClass, listMembers, removeMember, restoreMember, updateClass } from '../../../lib/api/classes'
 import { currentWeekFor } from '../../../lib/api/dashboard'
 import { authErrorMessage } from '../../../lib/authError'
-import { classTabRedirect, classTabs, readClassTab, seatKnown, teachesClass } from '../../../lib/classSpace'
-import type { ClassTab } from '../../../lib/classSpace'
+import {
+  classTabRedirect,
+  classTabs,
+  readClassTab,
+  readPeopleView,
+  seatKnown,
+  teachesClass,
+} from '../../../lib/classSpace'
+import type { ClassTab, PeopleView } from '../../../lib/classSpace'
 import { paths } from '../../../lib/paths'
 import type { Announcement, ClassMember, ClassSummary, ClassWeek } from '../../../lib/types'
 
@@ -36,8 +43,7 @@ const Reports = lazy(() => import('../reports/Reports'))
 const TAB_META: Record<ClassTab, { label: string; icon: IconName }> = {
   overview: { label: 'Overview', icon: 'info' },
   projects: { label: 'Projects', icon: 'board' },
-  groups: { label: 'Groups', icon: 'kanban' },
-  members: { label: 'Members', icon: 'users' },
+  people: { label: 'People', icon: 'users' },
   syllabus: { label: 'Syllabus', icon: 'calendar' },
   reports: { label: 'Reports', icon: 'chart' },
   settings: { label: 'Settings', icon: 'settings' },
@@ -115,6 +121,8 @@ function ClassSpaceView({ classId }: { classId: string }) {
     ? seatKnown(profile?.role, profile?.id, cls.professor_id, spaces !== null)
     : false
   const tab = readClassTab(params.get('tab'), teaching)
+  // People holds the students and the groups; an old Groups link opens the groups.
+  const peopleView = readPeopleView(params.get('tab'), params.get('view'))
   // An old Analytics link opens on the figures it held.
   const reportView: ReportView =
     params.get('view') === 'reports' && params.get('tab') !== 'analytics' ? 'reports' : 'figures'
@@ -142,6 +150,18 @@ function ClassSpaceView({ classId }: { classId: string }) {
       </div>
     )
   }
+
+  const setPeopleView = (next: PeopleView) =>
+    setParams(
+      (prev) => {
+        const out = new URLSearchParams(prev)
+        out.set('tab', 'people')
+        if (next === 'students') out.delete('view')
+        else out.set('view', next)
+        return out
+      },
+      { replace: true },
+    )
 
   const setReportView = (next: ReportView) =>
     setParams(
@@ -183,15 +203,19 @@ function ClassSpaceView({ classId }: { classId: string }) {
   const tabs = classTabs(teaching).map((id) => ({
     id,
     icon: TAB_META[id].icon,
-    label:
-      id === 'members' && teaching
-        ? removedCount
-          ? `Students · ${removedCount} removed`
-          : 'Students'
-        : TAB_META[id].label,
+    label: TAB_META[id].label,
     count:
-      id === 'overview' ? announcements.length : id === 'members' ? active.length : undefined,
+      id === 'overview' ? announcements.length : id === 'people' ? active.length : undefined,
   }))
+
+  const peopleViews: { value: PeopleView; label: string; count?: number }[] = [
+    {
+      value: 'students',
+      label: teaching && removedCount ? `Students · ${removedCount} removed` : 'Students',
+      count: active.length,
+    },
+    { value: 'groups', label: 'Groups' },
+  ]
 
   const pageLoading = (
     <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
@@ -259,14 +283,26 @@ function ClassSpaceView({ classId }: { classId: string }) {
           />
         )}
 
-        {tab === 'groups' &&
+        {tab === 'people' && (
+          <div className="mb-6">
+            <FilterPills<PeopleView>
+              label="Show"
+              options={peopleViews}
+              value={peopleView}
+              onChange={setPeopleView}
+            />
+          </div>
+        )}
+
+        {tab === 'people' &&
+          peopleView === 'groups' &&
           (teaching ? (
             <ClassGroupsTab cls={cls} role="professor" />
           ) : (
             <ClassGroupsTab cls={cls} role="student" viewerId={profile?.id} />
           ))}
 
-        {tab === 'members' && (
+        {tab === 'people' && peopleView === 'students' && (
           <div className="space-y-6">
             <FacultyPanel cls={cls} />
             <section className="space-y-3">

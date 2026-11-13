@@ -35,6 +35,7 @@ import {
   JOIN_GROUP_MESSAGE,
 } from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
+import { classGroupsPath } from '../../../lib/classSpace'
 import { paths } from '../../../lib/paths'
 import { fullName, modeLabel } from '../../../lib/types'
 import type { ClassMember, ClassSummary, GroupMember, GroupSummary } from '../../../lib/types'
@@ -91,7 +92,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   const canManage = role === 'professor' && !group?.set_closed_at
   // A professor's groups live in each class's Groups tab; a student keeps /groups.
   const allGroups =
-    role === 'professor' && group ? `${paths.class(group.class_id)}?tab=groups` : paths.groups
+    role === 'professor' && group ? classGroupsPath(group.class_id) : paths.groups
   const isMember = members.some((m) => m.student_id === profile?.id)
   const canRename = Boolean(group && !group.set_closed_at && (role === 'professor' || isMember))
   const leader = members.find((m) => m.student_id === group?.leader_id) ?? null

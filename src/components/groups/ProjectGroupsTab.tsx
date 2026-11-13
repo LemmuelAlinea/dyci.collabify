@@ -7,6 +7,7 @@ import { GroupsBoard } from './GroupsBoard'
 import { useGroupsData } from '../../hooks/useGroupsData'
 import { setClosed } from '../../lib/api/groups'
 import { authErrorMessage } from '../../lib/authError'
+import { classGroupsPath } from '../../lib/classSpace'
 import { paths } from '../../lib/paths'
 import type { ClassSummary, ProjectSummary } from '../../lib/types'
 
@@ -80,7 +81,7 @@ export function ProjectGroupsTab({
             'The set of groups this project was made with is no longer there.'
           )}
         </p>
-        <ButtonLink to={`${paths.class(classId)}?tab=groups`} variant="ghost" size="sm" className="shrink-0 !rounded-lg">
+        <ButtonLink to={classGroupsPath(classId)} variant="ghost" size="sm" className="shrink-0 !rounded-lg">
           <Icon name="users" size={15} />
           All groups
         </ButtonLink>

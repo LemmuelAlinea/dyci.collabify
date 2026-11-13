@@ -12,7 +12,7 @@ import type { BehindBoard } from '../../lib/api/dashboard'
 import { listProjectsForClasses } from '../../lib/api/projects'
 import { teachingWaitingCounts } from '../../lib/api/waiting'
 import { authErrorMessage } from '../../lib/authError'
-import { isEmptyClass } from '../../lib/classSpace'
+import { classStudentsPath, isEmptyClass } from '../../lib/classSpace'
 import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
 import type { ClassSummary } from '../../lib/types'
@@ -196,7 +196,7 @@ function NextSteps({ cls }: { cls: ClassSummary }) {
                 <Icon name={copied ? 'check' : 'copy'} size={14} />
                 {copied ? 'Copied' : 'Copy code'}
               </Button>
-              <ButtonLink size="sm" variant="outline" to={`${paths.class(cls.id)}?tab=members`}>
+              <ButtonLink size="sm" variant="outline" to={classStudentsPath(cls.id)}>
                 Open Students
               </ButtonLink>
             </div>

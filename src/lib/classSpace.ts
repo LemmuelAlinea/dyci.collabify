@@ -18,15 +18,20 @@ export function teachingClassFilter(userId: string, spaceIds: string[]): string 
 export type ClassTab =
   | 'overview'
   | 'projects'
-  | 'groups'
-  | 'members'
+  | 'people'
   | 'syllabus'
   | 'reports'
   | 'settings'
 
-const SHARED: ClassTab[] = ['overview', 'projects', 'groups', 'members', 'syllabus']
-// Teaching puts Reports beside Students, ahead of Syllabus and Settings.
-const TEACHING: ClassTab[] = ['overview', 'projects', 'groups', 'members', 'reports', 'syllabus', 'settings']
+const SHARED: ClassTab[] = ['overview', 'projects', 'people', 'syllabus']
+// Teaching puts Reports beside People, ahead of Syllabus and Settings.
+const TEACHING: ClassTab[] = ['overview', 'projects', 'people', 'reports', 'syllabus', 'settings']
+
+/** People holds the class's students and its groups, one at a time. */
+export type PeopleView = 'students' | 'groups'
+
+/** Groups and Members were two tabs before People held both; old links still name them. */
+const PEOPLE_TABS = new Set(['groups', 'members'])
 
 /**
  * Tabs a class page used to have, and where they live now: hand-ins moved to
@@ -77,9 +82,18 @@ export function seatKnown(
  * teacher's old Submissions and Analytics tabs land where their content went.
  */
 export function readClassTab(value: string | null, teaching: boolean): ClassTab {
+  if (value && PEOPLE_TABS.has(value)) return 'people'
   const tabs = classTabs(teaching)
   const tab = (teaching && value && RETIRED.get(value)) || value
   return tabs.includes(tab as ClassTab) ? (tab as ClassTab) : 'overview'
+}
+
+/**
+ * Which half of People is open: `?view=groups`, or an old Groups link, opens
+ * the groups; everything else the students.
+ */
+export function readPeopleView(tab: string | null, view: string | null): PeopleView {
+  return tab === 'groups' || view === 'groups' ? 'groups' : 'students'
 }
 
 /**
@@ -102,8 +116,18 @@ export function isEmptyClass(students: number, projects: number): boolean {
 
 /**
  * Where `/groups` sends a teacher now that groups live in each class: the
- * only class's Groups tab, or the Classes page to pick one.
+ * only class's People tab on its groups, or the Classes page to pick one.
  */
 export function groupsHomeFor(classIds: string[]): string {
-  return classIds.length === 1 ? `${paths.class(classIds[0])}?tab=groups` : paths.classes
+  return classIds.length === 1 ? classGroupsPath(classIds[0]) : paths.classes
+}
+
+/** A class's People tab, on its groups. */
+export function classGroupsPath(classId: string): string {
+  return `${paths.class(classId)}?tab=people&view=groups`
+}
+
+/** A class's People tab, on its students. */
+export function classStudentsPath(classId: string): string {
+  return `${paths.class(classId)}?tab=people`
 }

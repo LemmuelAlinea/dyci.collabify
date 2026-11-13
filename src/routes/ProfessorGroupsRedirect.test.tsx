@@ -36,7 +36,7 @@ async function land(classes: Promise<{ id: string }[]>) {
 }
 
 it("opens the only taught class's Groups tab", async () => {
-  expect(await land(Promise.resolve([{ id: 'c1' }]))).toBe('at /classes/c1?tab=groups')
+  expect(await land(Promise.resolve([{ id: 'c1' }]))).toBe('at /classes/c1?tab=people&view=groups')
 })
 
 it('opens the Classes page for several classes', async () => {

@@ -5,6 +5,7 @@ import {
   groupsHomeFor,
   isEmptyClass,
   readClassTab,
+  readPeopleView,
   seatKnown,
   teachesClass,
   teachingClassFilter,
@@ -51,14 +52,21 @@ describe('teachesClass', () => {
 })
 
 describe('classTabs', () => {
-  it('gives everyone the five shared tabs', () => {
-    expect(classTabs(false)).toEqual(['overview', 'projects', 'groups', 'members', 'syllabus'])
+  it('gives everyone the four shared tabs', () => {
+    expect(classTabs(false)).toEqual(['overview', 'projects', 'people', 'syllabus'])
   })
 
   it('gives faculty who teach it the class run from its own tabs', () => {
     expect(classTabs(true)).toEqual([
-      'overview', 'projects', 'groups', 'members', 'reports', 'syllabus', 'settings',
+      'overview', 'projects', 'people', 'reports', 'syllabus', 'settings',
     ])
+  })
+
+  it('holds students and groups in one People tab', () => {
+    for (const teaching of [true, false]) {
+      expect(classTabs(teaching)).not.toContain('groups')
+      expect(classTabs(teaching)).not.toContain('members')
+    }
   })
 
   it('no longer has Submissions or Analytics tabs', () => {
@@ -88,8 +96,15 @@ describe('seatKnown', () => {
 
 describe('readClassTab', () => {
   it('reads a tab the viewer has', () => {
-    expect(readClassTab('groups', false)).toBe('groups')
+    expect(readClassTab('people', false)).toBe('people')
     expect(readClassTab('settings', true)).toBe('settings')
+  })
+
+  it('lands the old Groups and Members tabs on People, for everyone', () => {
+    for (const teaching of [true, false]) {
+      expect(readClassTab('groups', teaching)).toBe('people')
+      expect(readClassTab('members', teaching)).toBe('people')
+    }
   })
 
   it('falls back to Overview for no tab, an unknown one, or one the viewer lacks', () => {
@@ -107,6 +122,23 @@ describe('readClassTab', () => {
     expect(readClassTab('submissions', false)).toBe('overview')
     expect(readClassTab('analytics', false)).toBe('overview')
     expect(readClassTab('reports', false)).toBe('overview')
+  })
+})
+
+describe('readPeopleView', () => {
+  it('opens on Students by default', () => {
+    expect(readPeopleView('people', null)).toBe('students')
+    expect(readPeopleView('people', 'nope')).toBe('students')
+  })
+
+  it('reads the switch', () => {
+    expect(readPeopleView('people', 'groups')).toBe('groups')
+    expect(readPeopleView('people', 'students')).toBe('students')
+  })
+
+  it('opens an old Groups link on Groups and an old Members link on Students', () => {
+    expect(readPeopleView('groups', null)).toBe('groups')
+    expect(readPeopleView('members', null)).toBe('students')
   })
 })
 
@@ -142,8 +174,8 @@ describe('isEmptyClass', () => {
 })
 
 describe('groupsHomeFor', () => {
-  it("opens the only class's Groups tab", () => {
-    expect(groupsHomeFor(['c1'])).toBe('/classes/c1?tab=groups')
+  it("opens the only class's People tab on Groups", () => {
+    expect(groupsHomeFor(['c1'])).toBe('/classes/c1?tab=people&view=groups')
   })
 
   it('opens the Classes page for several classes, or none', () => {
