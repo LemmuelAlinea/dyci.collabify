@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Reveal } from '../../components/motion/Reveal'
 import { Icon } from '../../components/ui/Icon'
@@ -19,10 +20,13 @@ export function RoleHome({
   headline,
   intro,
   upcoming,
+  children,
 }: {
   headline: string
   intro: string
   upcoming: Upcoming[]
+  /** The figures this home reads, between the masthead and the tools. */
+  children?: ReactNode
 }) {
   const { profile } = useAuth()
 
@@ -35,7 +39,7 @@ export function RoleHome({
   return (
     <div className="w-full">
       {/* The masthead, matching the one the student and professor dashboards
-          use. This role's home has no figures to put in it, so the greeting and
+          use. The figures sit in their own bands below it, so the greeting and
           the intro carry the band on their own. */}
       <Reveal once>
         <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-7 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-10">
@@ -60,7 +64,7 @@ export function RoleHome({
           />
           <div className="relative">
             <p className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft uppercase">
-              Program
+              Organization
             </p>
             <h1 className="mt-5 font-display leading-tight text-banner-ink">
               {greeting()}, {profile.first_name}.
@@ -72,9 +76,11 @@ export function RoleHome({
         </section>
       </Reveal>
 
-      <div className="mt-8">
+      {children && <div className="mt-8">{children}</div>}
+
+      <div className="mt-10">
         <Reveal once className="flex items-baseline justify-between gap-4">
-          <h2>Program tools</h2>
+          <h2>Organization tools</h2>
           <span className="font-mono text-[12px] tracking-wider text-faint uppercase">
             Quick access
           </span>
