@@ -9,6 +9,7 @@ import {
   archiveOffice,
   createOffice,
   listOffices,
+  listOfficePeople,
   listOfficeSpaces,
   setMemberOffice,
   setSpaceOffice,
@@ -115,6 +116,17 @@ it('selecting an office from ?office= shows its people and spaces', async () => 
   expect(detail()).toContain('Cara Lim')
   expect(detail()).toContain('Loose space')
   expect(detail()).not.toContain('Ana Cruz')
+})
+
+it('labels a deactivated account the way Accounts does', async () => {
+  vi.mocked(listOfficePeople).mockResolvedValueOnce([
+    { id: 'p1', name: 'Ana Cruz', email: 'ana@example.com', status: 'active', office_id: 'o1' },
+    { id: 'p4', name: 'Dan Uy', email: 'dan@example.com', status: 'rejected', office_id: 'o1' },
+  ])
+  await renderAt('/admin/offices?office=o1')
+  expect(detail()).toContain('Dan Uy')
+  expect(detail()).toContain('Deactivated')
+  expect(detail()).not.toContain('Account rejected')
 })
 
 it('Move to calls setMemberOffice with the chosen office', async () => {

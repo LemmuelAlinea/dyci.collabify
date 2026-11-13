@@ -253,7 +253,7 @@ export default function AdminArchive() {
           deleting?.kind === 'section'
             ? 'The section and its faculty assignments are deleted and cannot be recovered. Classes already under this name keep running and keep the name.'
             : deleting?.kind === 'office'
-              ? 'The office is deleted and cannot be recovered. It is refused while anybody is still filed under it.'
+              ? 'The office is deleted and cannot be recovered. Its archived spaces become Unassigned.'
               : `The ${deleting?.kind === 'syllabus' ? 'syllabus' : 'curriculum'} and its file are deleted and cannot be recovered. Any class using it loses it${deleting?.kind === 'syllabus' ? ', along with its week map' : ''}.`
         }
         confirmLabel="Delete for good"

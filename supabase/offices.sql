@@ -16,6 +16,9 @@
 -- admin_attention_projects, admin_org_summary) return names and counts only, never a
 -- task, comment, file, milestone title or due date.
 --
+-- Quiet reads general_task_events alone, by choice: comments, time logs and project events
+-- don't reset quiet; only person-made task events do.
+--
 -- Additive: it creates its own tables, triggers, functions and one index on
 -- general_task_events, and redefines nothing an earlier file owns. The general_spaces and profiles triggers here are separate triggers,
 -- so no existing space or profile trigger changes. Runs before anon-lockdown.sql.
@@ -770,7 +773,8 @@ $$;
 
 /**
  * Two counts for the admin's Home: bulk-imported accounts still waiting on first-sign-in
- * setup, and privacy requests within two days of (or past) their next deadline.
+ * setup, and privacy requests within two days of (or past) their next deadline, by the
+ * Manila date rather than the database's UTC one.
  */
 create or replace function public.admin_org_summary()
 returns table (accounts_in_setup int, privacy_due int)
@@ -778,8 +782,10 @@ language sql stable security definer set search_path = public as $$
   select (select count(*) from public.profiles p
            where p.bulk_setup_required and p.status = 'pending')::int,
          (select count(*) from public.privacy_requests r
-           where (r.status = 'open' and r.acknowledge_by <= current_date + 2)
-              or (r.status = 'acknowledged' and r.complete_by <= current_date + 2))::int
+           where (r.status = 'open'
+                  and r.acknowledge_by <= (now() at time zone 'Asia/Manila')::date + 2)
+              or (r.status = 'acknowledged'
+                  and r.complete_by <= (now() at time zone 'Asia/Manila')::date + 2))::int
    where public.office_admin_reads();
 $$;
 

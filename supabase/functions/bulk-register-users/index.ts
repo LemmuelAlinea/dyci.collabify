@@ -6,6 +6,7 @@ import {
   bulkPasswordError,
   isActiveBulkAdmin,
   normalizeBulkUser,
+  unknownOfficeWarning,
 } from '../_shared/bulkAccounts.ts'
 import type { BulkResult, BulkUser } from '../_shared/bulkAccounts.ts'
 
@@ -19,7 +20,8 @@ function json(headers: Record<string, string>, body: unknown, status = 200) {
 /**
  * Files a member into the office the row names, with the admin's own rights. A
  * blank office calls nothing, so an overwrite keeps the current office. An
- * unknown name or a student's office leaves the account as imported and warns.
+ * unknown name or a student's office warns and changes no office: a new account
+ * has none, an updated one keeps the office it had.
  */
 async function fileOffice(
   caller: SupabaseClient,
@@ -28,19 +30,17 @@ async function fileOffice(
 ): Promise<BulkResult> {
   if (!user.office) return result
   if (user.role === 'student') return { ...result, warning: 'Students have no office. It was ignored.' }
+  // A new account is imported with no office; an updated one keeps the office it had.
+  const unknown = unknownOfficeWarning(user.office, result.status === 'updated' ? 'updated' : 'created')
   // Office names hold 80 characters at most, so a longer one names nothing. Skip it
   // with the unknown-office warning, echoing only the first 80 characters.
-  if (user.office.length > 80) {
-    return { ...result, warning: `No office named ${user.office.slice(0, 80)}…. Imported with no office.` }
-  }
+  if (user.office.length > 80) return { ...result, warning: unknown }
   const { data, error } = await caller.rpc('set_member_office_by_name', {
     p_email: user.email,
     p_office_name: user.office,
   })
   if (error) return { ...result, warning: 'The office could not be set. Set it on Accounts.' }
-  if (data === 'unknown_office') {
-    return { ...result, warning: `No office named ${user.office}. Imported with no office.` }
-  }
+  if (data === 'unknown_office') return { ...result, warning: unknown }
   if (data !== 'set') return { ...result, warning: 'The office could not be set. Set it on Accounts.' }
   return result
 }

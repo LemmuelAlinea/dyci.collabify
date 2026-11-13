@@ -19,6 +19,17 @@ export type BulkResult = {
   warning?: string
 }
 
+/**
+ * The warning for a row whose office matches no live office. A new account is imported
+ * with none; an updated one keeps the office it had. Office names hold 80 characters at
+ * most, so a longer one is echoed cut to 80 with an ellipsis, which ends the sentence.
+ */
+export function unknownOfficeWarning(name: string, status: 'created' | 'updated'): string {
+  const named = name.length > 80 ? `${name.slice(0, 80)}…` : `${name}.`
+  const outcome = status === 'updated' ? 'Office left as it was.' : 'Imported with no office.'
+  return `No office named ${named} ${outcome}`
+}
+
 export function isActiveBulkAdmin(profile: unknown): boolean {
   if (!profile || typeof profile !== 'object') return false
   const row = profile as Record<string, unknown>

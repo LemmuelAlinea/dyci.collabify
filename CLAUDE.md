@@ -284,7 +284,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `set_member_office`, `set_space_office` and the rest); there is no write policy, and every write is audited. The
   admin's overview reads (`admin_office_people`, `admin_office_spaces`, `admin_org_overview`,
   `admin_attention_projects`, `admin_org_summary`) return names and counts only, never project content. Quiet means
-  no person-made task event (non-null `actor_id`) for 14 days with open work. It redefines nothing another file
+  no person-made task event (non-null `actor_id`) for 14 days with open work; comments, time logs and project
+  events don't reset quiet; only person-made task events do. It redefines nothing another file
   owns. The admin rail is Organization / Academic program / Compliance, and Admin Home is the organization overview.
   Suite: `supabase/tests/offices.test.sql`.
 

@@ -126,6 +126,7 @@ declare
   u1        record;
   sm0       record;
   sm1       record;
+  v_today   date := (now() at time zone 'Asia/Manila')::date;  -- the school's day, not UTC's
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           created_at, updated_at)
@@ -628,12 +629,12 @@ begin
   insert into public.privacy_requests
     (requester_name, requester_email, kind, status, acknowledge_by, complete_by)
   values
-    ('Zz Of', 'zz-of-pr@example.test', 'access', 'open',         current_date - 1, current_date + 10),
-    ('Zz Of', 'zz-of-pr@example.test', 'access', 'open',         current_date + 2, current_date + 10),
-    ('Zz Of', 'zz-of-pr@example.test', 'access', 'open',         current_date + 3, current_date + 10),
-    ('Zz Of', 'zz-of-pr@example.test', 'access', 'acknowledged', current_date - 5, current_date + 1),
-    ('Zz Of', 'zz-of-pr@example.test', 'access', 'acknowledged', current_date - 5, current_date + 9),
-    ('Zz Of', 'zz-of-pr@example.test', 'access', 'completed',    current_date - 9, current_date - 1);
+    ('Zz Of', 'zz-of-pr@example.test', 'access', 'open',         v_today - 1, v_today + 10),
+    ('Zz Of', 'zz-of-pr@example.test', 'access', 'open',         v_today + 2, v_today + 10),
+    ('Zz Of', 'zz-of-pr@example.test', 'access', 'open',         v_today + 3, v_today + 10),
+    ('Zz Of', 'zz-of-pr@example.test', 'access', 'acknowledged', v_today - 5, v_today + 1),
+    ('Zz Of', 'zz-of-pr@example.test', 'access', 'acknowledged', v_today - 5, v_today + 9),
+    ('Zz Of', 'zz-of-pr@example.test', 'access', 'completed',    v_today - 9, v_today - 1);
   perform pg_temp.act_as(v_admin);
   select * into sm1 from public.admin_org_summary();
   perform pg_temp.must_be('accounts_in_setup counts a pending bulk import, not an active one',

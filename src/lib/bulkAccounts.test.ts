@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { bulkPasswordError, bulkSetupChoice, isActiveBulkAdmin, normalizeBulkUser } from '../../supabase/functions/_shared/bulkAccounts'
+import {
+  bulkPasswordError,
+  bulkSetupChoice,
+  isActiveBulkAdmin,
+  normalizeBulkUser,
+  unknownOfficeWarning,
+} from '../../supabase/functions/_shared/bulkAccounts'
 import { parseBulkCsv } from './bulkAccounts'
 
 const header = 'first_name,middle_name,last_name,email,role\n'
@@ -79,5 +85,18 @@ describe('server-side bulk validation', () => {
     expect(isActiveBulkAdmin({ role: 'member', status: 'active' })).toBe(false)
     expect(isActiveBulkAdmin({ role: 'admin', status: 'pending' })).toBe(false)
     expect(isActiveBulkAdmin(null)).toBe(false)
+  })
+
+  it('says what happened to the office an unknown name named', () => {
+    expect(unknownOfficeWarning('Registrar', 'created')).toBe('No office named Registrar. Imported with no office.')
+    expect(unknownOfficeWarning('Registrar', 'updated')).toBe('No office named Registrar. Office left as it was.')
+  })
+
+  it('cuts an over-long office name to 80 characters without doubling the stop', () => {
+    const long = 'x'.repeat(90)
+    const created = unknownOfficeWarning(long, 'created')
+    expect(created).toBe(`No office named ${'x'.repeat(80)}… Imported with no office.`)
+    expect(created).not.toContain('….')
+    expect(unknownOfficeWarning(long, 'updated')).toBe(`No office named ${'x'.repeat(80)}… Office left as it was.`)
   })
 })

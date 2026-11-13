@@ -7,11 +7,13 @@ import { setMemberOffice, setSpaceOffice } from '../../../../lib/api/offices'
 import { authErrorMessage } from '../../../../lib/authError'
 import { officeName } from '../../../../lib/offices'
 import type { Office, OfficePerson, OfficeSpace } from '../../../../lib/offices'
+import { ACCOUNT_STATUS_LABEL } from '../../../../lib/types'
 
 const STATUS_NOTE: Record<OfficePerson['status'], string | null> = {
   active: null,
   pending: 'Not active yet',
-  rejected: 'Account rejected',
+  // Accounts' own word for it, so both pages name the same account the same way.
+  rejected: ACCOUNT_STATUS_LABEL.rejected,
 }
 
 const who = (p: OfficePerson) => p.name || p.email
