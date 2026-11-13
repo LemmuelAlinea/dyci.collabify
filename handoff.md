@@ -4649,7 +4649,7 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 
 ## Professor flow (2026-11-13)
 
-**On branch `professor-flow`, not on `main`; not pushed.** One new SQL file, **not yet applied** to live.
+**On branch `professor-flow`, not on `main`; not pushed.** Its SQL file **is applied** to live (2026-11-13).
 Spec: `docs/superpowers/specs/2026-11-13-professor-flow-design.md`; plan:
 `docs/superpowers/plans/2026-11-13-professor-flow.md`.
 
@@ -4680,7 +4680,10 @@ Spec: `docs/superpowers/specs/2026-11-13-professor-flow-design.md`; plan:
   on that group's page and names the group or student.
 - **SQL.** `supabase/class-files-teacher-read.sql` gives whoever teaches the class SELECT on its groups' hidden
   Files projects, and owns `class_board_repo_id`. It runs after `task-comment-scope.sql` and before
-  `anon-lockdown.sql`; `docs/07-backup.md` lists it and what re-running it requires. **Not applied.**
+  `anon-lockdown.sql`; `docs/07-backup.md` lists it and what re-running it requires. It also holds the final
+  `ensure_class_board_repo`, with a per-board advisory lock: two first opens of a group's Files at once
+  (React StrictMode always does this in dev) made the second fail with "That name is already used here".
+  **Applied to live** with `anon-lockdown.sql` after it; the suite passes there (40 checks).
 - **Deploy order.** Apply `supabase/class-files-teacher-read.sql`, then `supabase/anon-lockdown.sql`; run
   `supabase/tests/class-files-teacher-read.test.sql`; then push the frontend. Frontend first would leave the
   group page's Files tab erroring, because `class_board_repo_id` does not exist yet.
@@ -4689,7 +4692,12 @@ Spec: `docs/superpowers/specs/2026-11-13-professor-flow-design.md`; plan:
 - **Dropped:** unreleased grades on Waiting on you (the spec allowed dropping it; it needs per-project score
   reads).
 - **Verified:** `npm run build` and `npm test` (207 files, 2,190 tests) pass.
-- **Not verified:** any browser walk (it needs a teacher sign-in), the read-only Files tab against real data,
-  and phones.
-- **Next:** the owner walks the flow as a teacher, a student and an admin, including every old link in spec §9,
-  then approves applying the SQL and pushing.
+- **Walked** in the preview against live data: teacher (rail, class tabs, project tabs, group page and its four
+  tabs, previous and next, read-only Files, Waiting on you, old links), student (screens as on `main`; a group-page
+  link returns to their project) and admin (`/teaching/*` unchanged; class project pages send them Home, as on
+  `main`). The search embed `profiles!student_id` was run against live and works.
+- **Not verified:** opening a committed file as a teacher (no group in the walked class has commits; the suite
+  covers it), and phones.
+- **Noticed, not changed:** a group card reads its earliest stage with open work, so a 57%-done group can say
+  "Planning"; the class Overview tab's badge counts announcements and reads 0 off that tab (as on `main`).
+- **Next:** the owner approves merging `professor-flow` into `main` and pushing.
