@@ -134,9 +134,56 @@ it('names why a project needs attention', async () => {
   expect(lines[0].textContent).toContain('Helpdesk')
   expect(lines[0].textContent).toContain('IT services')
   expect(lines[0].textContent).toContain('No project manager')
-  expect(lines[0].querySelector('a')?.getAttribute('href')).toBe('/admin/projects')
+  expect(lines[0].querySelector('a')?.getAttribute('href')).toBe('/admin/projects?assign=p1')
   expect(lines[1].textContent).toContain('Quiet since')
   expect(lines[1].querySelector('a')).toBeNull()
+})
+
+it('calls a project with no office Unassigned', async () => {
+  vi.mocked(attentionProjects).mockResolvedValueOnce([
+    {
+      project_id: 'p9',
+      project_name: 'Loose ends',
+      space_name: 'Loose space',
+      office_id: null,
+      office_name: '',
+      no_pm: true,
+      quiet_since: null,
+    },
+  ])
+  await render()
+  const line = band('attention')!.querySelector('li')!
+  expect(line.textContent).toContain('Loose space · Unassigned')
+  expect(line.textContent).not.toContain('No office')
+})
+
+it('shows the first six projects that need attention, then how many more', async () => {
+  vi.mocked(attentionProjects).mockResolvedValueOnce(
+    Array.from({ length: 8 }, (_, i) => ({
+      project_id: `p${i}`,
+      project_name: `Project ${i}`,
+      space_name: 'Helpdesk',
+      office_id: 'o1',
+      office_name: 'IT services',
+      no_pm: false,
+      quiet_since: '2026-10-28T03:00:00Z',
+    })),
+  )
+  await render()
+  const attention = band('attention')!
+  expect(attention.querySelectorAll('li')).toHaveLength(6)
+  expect(attention.textContent).not.toContain('Project 6')
+  const more = attention.querySelector('[data-attention-more]')!
+  expect(more.textContent).toBe('2 more')
+  expect(more.getAttribute('href')).toBe('/admin/projects')
+})
+
+it('says notices reach professors and students', async () => {
+  await render()
+  expect(document.body.textContent).toContain(
+    'Program-wide notices that reach every professor and student in one send.',
+  )
+  expect(document.body.textContent).not.toContain('members, faculty and students')
 })
 
 it('says so when nothing needs attention', async () => {
@@ -178,6 +225,47 @@ it('counts classes that cannot start and classes behind', async () => {
   expect(program.querySelector('[data-program="behind"] [data-count]')?.textContent).toBe('1')
   expect(program.querySelector('[data-program="behind"]')?.textContent).toContain('IT 202')
   expect(program.querySelector('a[href="/admin/classes"]')).not.toBeNull()
+})
+
+it('leaves ended classes and other school years out of the academic band', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-11-14T02:00:00Z'))
+  try {
+    vi.mocked(programClasses).mockResolvedValueOnce([
+      cls({ class_id: 'c1', class_initial: 'IT 101', term_start: null, term_end: null }),
+      cls({ class_id: 'c2', class_initial: 'IT 202', weeks_covered: 4, weeks_elapsed: 9 }),
+      cls({ class_id: 'c3', class_initial: 'IT 303' }),
+      // Ended last month, never archived: weeks_elapsed keeps growing.
+      cls({
+        class_id: 'c4',
+        class_initial: 'IT 404',
+        term_start: '2026-06-01',
+        term_end: '2026-10-01',
+        weeks_covered: 10,
+        weeks_elapsed: 23,
+      }),
+      // Last school year, still running by its dates and not ready.
+      cls({
+        class_id: 'c5',
+        class_initial: 'IT 505',
+        school_year: '2025-2026',
+        term_start: null,
+        term_end: null,
+        weeks_covered: 1,
+        weeks_elapsed: 30,
+      }),
+    ])
+    await render()
+    const program = band('program')!
+    const notReady = program.querySelector('[data-program="not-ready"]')!
+    const behind = program.querySelector('[data-program="behind"]')!
+    expect(notReady.querySelector('[data-count]')?.textContent).toBe('1')
+    expect(behind.querySelector('[data-count]')?.textContent).toBe('1')
+    expect(program.textContent).not.toContain('IT 404')
+    expect(program.textContent).not.toContain('IT 505')
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 it('shows zero accounts in setup as 0', async () => {

@@ -1,7 +1,8 @@
 import { Alert } from '../../../../components/ui/Alert'
 import { Badge } from '../../../../components/ui/Badge'
 import { programClasses } from '../../../../lib/api/admin'
-import { paceOf, readiness } from '../../../../lib/program'
+import { manilaDay } from '../../../../lib/analyticsMath'
+import { currentSchoolYear, paceOf, readiness } from '../../../../lib/program'
 import type { ProgramClass } from '../../../../lib/program'
 import { paths } from '../../../../lib/paths'
 import { Band, BandLoading } from './Band'
@@ -10,17 +11,23 @@ import { useRead } from './useRead'
 const SHOWN = 4
 
 /**
- * The academic program, read the way Program classes reads it: classes that
- * cannot start and classes behind on the syllabus. Classes whose term has
- * ended are left out, since neither question applies to them any more. The
- * band is absent when the program has no classes at all.
+ * The academic program, read the way Program classes reads it: the school year
+ * that page opens on, and in it the classes that cannot start and the classes
+ * behind on the syllabus. Archived classes and classes whose term has ended
+ * (by the Manila date) are left out, since neither question applies to them
+ * any more. The band is absent when the program has no classes at all.
  */
 export function ProgramBand() {
   const { data, failed, load } = useRead(programClasses)
 
   if (data && data.length === 0) return null
 
-  const running = (data ?? []).filter((c) => c.archived_at === null)
+  const year = currentSchoolYear(data ?? [])
+  const today = manilaDay(new Date())
+  const running = (data ?? []).filter(
+    (c) =>
+      c.school_year === year && c.archived_at === null && (!c.term_end || c.term_end >= today),
+  )
   const notReady = running.filter((c) => readiness(c).length > 0)
   const behind = running.filter((c) => {
     const p = paceOf(c)

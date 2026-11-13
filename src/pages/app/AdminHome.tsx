@@ -22,7 +22,7 @@ const UPCOMING: Upcoming[] = [
   {
     icon: 'bell',
     title: 'Notices',
-    body: 'Organization-wide notices that reach members, faculty and students in one send.',
+    body: 'Program-wide notices that reach every professor and student in one send.',
     to: paths.admin.notices,
   },
 ]

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { AssignPmDialog } from '../../../components/general/NoPmNotice'
 import { Alert } from '../../../components/ui/Alert'
@@ -42,6 +43,25 @@ export default function WorkProjects() {
   }, [refresh])
 
   useLive(refresh, ['general_projects', 'general_members', 'profiles'])
+
+  // Home's Needs attention links here with ?assign=<project> for a project with
+  // no manager. Once the rows load, open its Assign, then drop the param so a
+  // reload or Back doesn't open it again. An unknown or already managed project
+  // just shows the list.
+  const [params, setParams] = useSearchParams()
+  const assignId = params.get('assign')
+  useEffect(() => {
+    if (!assignId || rows === null) return
+    const hit = rows.find((r) => r.id === assignId && !r.has_pm)
+    if (hit) setAssigning(hit)
+    setParams(
+      (p) => {
+        p.delete('assign')
+        return p
+      },
+      { replace: true },
+    )
+  }, [assignId, rows, setParams])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
