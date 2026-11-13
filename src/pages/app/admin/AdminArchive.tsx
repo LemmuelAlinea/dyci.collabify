@@ -9,6 +9,7 @@ import type { IconName } from '../../../components/ui/Icon'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { useLive } from '../../../hooks/useLive'
+import { deleteOffice, listOffices, restoreOffice } from '../../../lib/api/offices'
 import { deleteSection, listArchivedSections, updateSection } from '../../../lib/api/program'
 import {
   archiveResource,
@@ -16,10 +17,11 @@ import {
   listArchivedResources,
 } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
+import type { Office } from '../../../lib/offices'
 import type { ProgramSection } from '../../../lib/program'
 import type { TeachingResource } from '../../../lib/types'
 
-type Kind = 'section' | 'syllabus' | 'curriculum'
+type Kind = 'section' | 'office' | 'syllabus' | 'curriculum'
 
 type Row = {
   kind: Kind
@@ -38,6 +40,13 @@ const GROUPS: { kind: Kind; title: string; icon: IconName; noun: string; hint: s
     icon: 'kanban',
     noun: 'section',
     hint: 'Archive a section from its row on the Sections page.',
+  },
+  {
+    kind: 'office',
+    title: 'Offices',
+    icon: 'briefcase',
+    noun: 'office',
+    hint: 'Archive an office from its page on Offices.',
   },
   {
     kind: 'syllabus',
@@ -69,6 +78,17 @@ function fromSection(s: ProgramSection): Row {
   }
 }
 
+function fromOffice(o: Office): Row {
+  return {
+    kind: 'office',
+    id: o.id,
+    name: o.name,
+    meta: o.description || 'No description',
+    archivedAt: o.archived_at,
+    blocked: null,
+  }
+}
+
 function fromResource(r: TeachingResource, me: string | undefined): Row {
   return {
     kind: r.kind === 'syllabus' ? 'syllabus' : 'curriculum',
@@ -81,7 +101,7 @@ function fromResource(r: TeachingResource, me: string | undefined): Row {
 }
 
 /**
- * The program office's archive: every section, published syllabus and
+ * The program office's archive: every section, office, published syllabus and
  * published curriculum an admin put away, in one place. Restore puts it back
  * where it was; Delete for good removes it at once, after a confirmation.
  *
@@ -99,13 +119,15 @@ export default function AdminArchive() {
 
   const load = useCallback(async () => {
     try {
-      const [sections, syllabi, curricula] = await Promise.all([
+      const [sections, offices, syllabi, curricula] = await Promise.all([
         listArchivedSections(),
+        listOffices(),
         listArchivedResources('syllabus', 'program'),
         listArchivedResources('curriculum', 'program'),
       ])
       setRows([
         ...sections.map(fromSection),
+        ...offices.filter((o) => o.archived_at !== null).map(fromOffice),
         ...[...syllabi, ...curricula].map((r) => fromResource(r, me)),
       ])
       setError(null)
@@ -120,12 +142,13 @@ export default function AdminArchive() {
     void load()
   }, [load])
 
-  useLive(load, ['program_sections', 'teaching_resources'])
+  useLive(load, ['program_sections', 'offices', 'teaching_resources'])
 
   async function restore(row: Row) {
     setBusy(row.id)
     try {
       if (row.kind === 'section') await updateSection(row.id, { archived_at: null })
+      else if (row.kind === 'office') await restoreOffice(row.id)
       else await archiveResource(row.id, false)
       show(`${row.name} restored`)
       await load()
@@ -143,7 +166,7 @@ export default function AdminArchive() {
       <DirectoryHero
         title="Program"
         accent="archive."
-        description="Sections, syllabi and curricula you put away wait here. Restore puts one back where it was. Delete for good removes it at once."
+        description="Sections, offices, syllabi and curricula you put away wait here. Restore puts one back where it was. Delete for good removes it at once."
       />
 
       {error && (
@@ -229,12 +252,15 @@ export default function AdminArchive() {
         body={
           deleting?.kind === 'section'
             ? 'The section and its faculty assignments are deleted and cannot be recovered. Classes already under this name keep running and keep the name.'
-            : `The ${deleting?.kind === 'syllabus' ? 'syllabus' : 'curriculum'} and its file are deleted and cannot be recovered. Any class using it loses it${deleting?.kind === 'syllabus' ? ', along with its week map' : ''}.`
+            : deleting?.kind === 'office'
+              ? 'The office is deleted and cannot be recovered. It is refused while anybody is still filed under it.'
+              : `The ${deleting?.kind === 'syllabus' ? 'syllabus' : 'curriculum'} and its file are deleted and cannot be recovered. Any class using it loses it${deleting?.kind === 'syllabus' ? ', along with its week map' : ''}.`
         }
         confirmLabel="Delete for good"
         onConfirm={async () => {
           if (!deleting) return
           if (deleting.kind === 'section') await deleteSection(deleting.id)
+          else if (deleting.kind === 'office') await deleteOffice(deleting.id)
           else await deleteResourceForGood(deleting.id)
           show(`${deleting.name} deleted`)
           await load()
