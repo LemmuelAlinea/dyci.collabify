@@ -61,6 +61,7 @@ const Home = lazy(() => import('./pages/Home'))
 const Messages = lazy(() => import('./pages/app/messages/Messages'))
 const MyTasks = lazy(() => import('./pages/app/tasks/MyTasks'))
 const Notices = lazy(() => import('./pages/app/admin/Notices'))
+const Offices = lazy(() => import('./pages/app/admin/Offices'))
 const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
 const ProgramClasses = lazy(() => import('./pages/app/admin/ProgramClasses'))
 const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
@@ -284,6 +285,7 @@ export default function App() {
             <Route element={<RequireAdmitted allow={['admin']} />}>
               <Route path="/admin/approvals" element={<Navigate to={paths.admin.accounts} replace />} />
               <Route path="/admin/notices" element={<Notices />} />
+              <Route path="/admin/offices" element={<Offices />} />
               <Route path="/admin/sections" element={<Sections />} />
               <Route path="/admin/syllabi" element={<ProgramLibrary kind="syllabus" />} />
               <Route path="/admin/curriculum" element={<ProgramLibrary kind="curriculum" />} />

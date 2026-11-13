@@ -190,7 +190,7 @@ describe('navFor', () => {
     }
   })
 
-  it('gives an admin in work the non-teaching faculty rail with Admin, and never Classes', () => {
+  it('gives an admin in work the non-teaching faculty rail with Organization, and never Classes', () => {
     const groups = navFor(admin, true, { inClass: false, hasWork: true })
     expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Organization', 'Academic program', 'Compliance', 'Account'])
   })
