@@ -253,6 +253,7 @@ export default function Submissions({
         ) : all.length === 0 ? (
           <EmptyState
             icon="upload"
+            art="handins"
             title={classes.length === 0 ? 'No classes yet' : 'Nothing handed in yet'}
             body={
               classes.length === 0

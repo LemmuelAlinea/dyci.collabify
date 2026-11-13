@@ -1,78 +1,73 @@
 // @vitest-environment happy-dom
 import * as React from 'react'
-import { act, useEffect } from 'react'
+import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
-import { expect, it, vi } from 'vitest'
+import { MemoryRouter, useLocation } from 'react-router-dom'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import WaitingOnYou from './WaitingOnYou'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
-/** Each list reports ready only when the test says it has loaded. */
-const lists = vi.hoisted(() => ({ handIns: false, requests: false, rerender: [] as (() => void)[] }))
+vi.mock('../submissions/Submissions', () => ({ default: () => <p>hand-ins list</p> }))
+vi.mock('../reassignments/Reassignments', () => ({ default: () => <p>requests list</p> }))
+vi.mock('../../../hooks/useLive', () => ({ useLive: () => undefined }))
+vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ profile: { id: 'me' } }) }))
+const counts = vi.hoisted(() => vi.fn(async () => ({ handIns: 3, requests: 1 })))
+vi.mock('../../../lib/api/waiting', () => ({ teachingWaitingCounts: counts }))
 
-function Fake({ ready, onReady, text }: { ready: () => boolean; onReady?: () => void; text: string }) {
-  const [, tick] = React.useState(0)
-  useEffect(() => {
-    lists.rerender.push(() => tick((n) => n + 1))
-  }, [])
-  const done = ready()
-  useEffect(() => {
-    if (done) onReady?.()
-  }, [done, onReady])
-  return <p>{done ? text : 'loading'}</p>
+let host: HTMLDivElement
+let root: ReturnType<typeof createRoot>
+let search = ''
+function Where() {
+  search = useLocation().search
+  return null
 }
+beforeEach(() => {
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+})
+afterEach(async () => {
+  await act(async () => root.unmount())
+  host.remove()
+})
 
-vi.mock('../submissions/Submissions', () => ({
-  default: ({ onReady }: { onReady?: () => void }) => (
-    <Fake ready={() => lists.handIns} onReady={onReady} text="hand-ins list" />
-  ),
-}))
-vi.mock('../reassignments/Reassignments', () => ({
-  default: ({ onReady }: { onReady?: () => void }) => (
-    <Fake ready={() => lists.requests} onReady={onReady} text="requests list" />
-  ),
-}))
-
-const frame = () => new Promise((r) => setTimeout(r, 50))
-
-it('scrolls to the requests only once both lists have loaded, and only once', async () => {
-  const el = document.createElement('div')
-  document.body.appendChild(el)
-  const scroll = vi.fn()
-  Element.prototype.scrollIntoView = scroll
-  await act(async () => {
-    createRoot(el).render(
-      <MemoryRouter initialEntries={['/waiting?section=reassignments']}>
+const show = (at: string) =>
+  act(async () => {
+    root.render(
+      <MemoryRouter initialEntries={[at]}>
         <WaitingOnYou />
+        <Where />
       </MemoryRouter>,
     )
-    await frame()
+    await new Promise((r) => setTimeout(r, 20))
   })
-  expect(el.querySelector('#hand-ins h2')?.textContent).toBe('Hand-ins')
-  expect(el.querySelector('#reassignments h2')?.textContent).toBe('Reassignment requests')
-  expect(scroll).not.toHaveBeenCalled()
+const radios = () =>
+  [...host.querySelectorAll('[role="radio"]')].map((b) => `${b.textContent?.trim()}:${b.getAttribute('aria-checked')}`)
 
-  // The requests land first; the hand-ins above them are still loading.
-  await act(async () => {
-    lists.requests = true
-    lists.rerender.forEach((r) => r())
-    await frame()
-  })
-  expect(scroll).not.toHaveBeenCalled()
+it('opens on the hand-ins alone, with both counts on the switch', async () => {
+  await show('/waiting')
+  expect(host.textContent).toContain('hand-ins list')
+  expect(host.textContent).not.toContain('requests list')
+  expect(radios()).toEqual(['Hand-ins3:true', 'Reassignment requests1:false'])
+  expect(counts).toHaveBeenCalledWith('me')
+})
 
-  await act(async () => {
-    lists.handIns = true
-    lists.rerender.forEach((r) => r())
-    await frame()
-  })
-  expect(scroll).toHaveBeenCalledTimes(1)
+it('opens an old reassignments link on the requests', async () => {
+  await show('/waiting?section=reassignments')
+  expect(host.textContent).toContain('requests list')
+  expect(host.textContent).not.toContain('hand-ins list')
+})
 
-  // A later reload of either list does not pull the page back.
-  await act(async () => {
-    lists.rerender.forEach((r) => r())
-    await frame()
-  })
-  expect(scroll).toHaveBeenCalledTimes(1)
+it('switches between the two and keeps the choice in the address', async () => {
+  await show('/waiting')
+  const requests = [...host.querySelectorAll('[role="radio"]')][1] as HTMLButtonElement
+  await act(async () => requests.click())
+  expect(host.textContent).toContain('requests list')
+  expect(search).toBe('?section=reassignments')
+  const handIns = [...host.querySelectorAll('[role="radio"]')][0] as HTMLButtonElement
+  await act(async () => handIns.click())
+  expect(host.textContent).toContain('hand-ins list')
+  expect(search).toBe('')
 })

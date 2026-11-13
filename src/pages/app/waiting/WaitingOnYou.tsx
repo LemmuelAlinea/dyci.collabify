@@ -1,38 +1,54 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
+import { FilterPills } from '../../../components/app/PageHeader'
+import { useAuth } from '../../../context/AuthContext'
+import { useLive } from '../../../hooks/useLive'
+import { teachingWaitingCounts } from '../../../lib/api/waiting'
 import Submissions from '../submissions/Submissions'
 import Reassignments from '../reassignments/Reassignments'
 
+type View = 'handins' | 'requests'
+
 /**
- * One place for what a teacher has to answer: hand-ins first, then requests to
- * move stalled work. `?section=reassignments` scrolls to the second once both
- * lists have loaded.
+ * What a teacher has to answer, one list at a time: hand-ins, or requests to
+ * move stalled work. The switch carries what waits in each. The choice lives in
+ * `?section=reassignments`, which old Reassignments links already use.
  */
 export default function WaitingOnYou() {
-  const [params] = useSearchParams()
-  const section = params.get('section')
+  const { profile } = useAuth()
+  const userId = profile?.id
+  const [params, setParams] = useSearchParams()
+  const view: View = params.get('section') === 'reassignments' ? 'requests' : 'handins'
+  const [counts, setCounts] = useState<{ handIns: number; requests: number } | null>(null)
 
   useEffect(() => {
     document.title = 'Waiting on you · Collabify'
   }, [])
 
-  // Each list loads on its own, and the hand-ins above can grow after the
-  // requests have; scroll once both have landed, a frame later so they are laid out.
-  const [handInsReady, setHandInsReady] = useState(false)
-  const [requestsReady, setRequestsReady] = useState(false)
-  const onHandInsReady = useCallback(() => setHandInsReady(true), [])
-  const onRequestsReady = useCallback(() => setRequestsReady(true), [])
-  const scrolled = useRef(false)
-
+  const loadCounts = useCallback(async () => {
+    if (!userId) return
+    try {
+      setCounts(await teachingWaitingCounts(userId))
+    } catch {
+      // The switch keeps its last counts; each list reports its own errors.
+    }
+  }, [userId])
   useEffect(() => {
-    if (section !== 'reassignments' || scrolled.current || !handInsReady || !requestsReady) return
-    const frame = requestAnimationFrame(() => {
-      scrolled.current = true
-      document.getElementById('reassignments')?.scrollIntoView({ block: 'start' })
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [section, handInsReady, requestsReady])
+    void loadCounts()
+  }, [loadCounts])
+  useLive(loadCounts, ['project_boards', 'board_results', 'task_reassignments'], { enabled: Boolean(userId) })
+
+  const pick = (next: View) =>
+    setParams(
+      (prev) => {
+        const out = new URLSearchParams(prev)
+        if (next === 'requests') out.set('section', 'reassignments')
+        else out.delete('section')
+        return out
+      },
+      { replace: true },
+    )
 
   return (
     <div className="w-full">
@@ -42,15 +58,27 @@ export default function WaitingOnYou() {
         accent="on you."
         description="Hand-ins to answer and requests to move stalled work, across your classes."
       />
-      <div className="mt-8 space-y-10">
-        <section id="hand-ins" aria-labelledby="hand-ins-title" className="scroll-mt-24">
-          <h2 id="hand-ins-title" className="mb-4">Hand-ins</h2>
-          <Submissions embedded onReady={onHandInsReady} />
-        </section>
-        <section id="reassignments" aria-labelledby="reassignments-title" className="scroll-mt-24">
-          <h2 id="reassignments-title" className="mb-4">Reassignment requests</h2>
-          <Reassignments embedded onReady={onRequestsReady} />
-        </section>
+      <div className="mt-6">
+        <FilterPills<View>
+          label="Show"
+          options={[
+            { value: 'handins', label: 'Hand-ins', count: counts?.handIns },
+            { value: 'requests', label: 'Reassignment requests', count: counts?.requests },
+          ]}
+          value={view}
+          onChange={pick}
+        />
+      </div>
+      <div className="mt-6">
+        {view === 'handins' ? (
+          <section aria-label="Hand-ins">
+            <Submissions embedded />
+          </section>
+        ) : (
+          <section aria-label="Reassignment requests">
+            <Reassignments embedded />
+          </section>
+        )}
       </div>
     </div>
   )

@@ -18,6 +18,7 @@ export type EmptyArt =
   | 'announcements'
   | 'classes'
   | 'groups'
+  | 'handins'
   | 'meetings'
   | 'projects'
   | 'reassignments'
