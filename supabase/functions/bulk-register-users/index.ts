@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { cors, denied } from '../_shared/cors.ts'
 import {
   BULK_CHUNK_SIZE,
@@ -6,13 +7,37 @@ import {
   isActiveBulkAdmin,
   normalizeBulkUser,
 } from '../_shared/bulkAccounts.ts'
-import type { BulkResult } from '../_shared/bulkAccounts.ts'
+import type { BulkResult, BulkUser } from '../_shared/bulkAccounts.ts'
 
 function json(headers: Record<string, string>, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...headers, 'Content-Type': 'application/json' },
   })
+}
+
+/**
+ * Files a member into the office the row names, with the admin's own rights. A
+ * blank office calls nothing, so an overwrite keeps the current office. An
+ * unknown name or a student's office leaves the account as imported and warns.
+ */
+async function fileOffice(
+  caller: SupabaseClient,
+  result: BulkResult,
+  user: BulkUser,
+): Promise<BulkResult> {
+  if (!user.office) return result
+  if (user.role === 'student') return { ...result, warning: 'Students have no office. It was ignored.' }
+  const { data, error } = await caller.rpc('set_member_office_by_name', {
+    p_email: user.email,
+    p_office_name: user.office,
+  })
+  if (error) return { ...result, warning: 'The office could not be set. Set it on Accounts.' }
+  if (data === 'unknown_office') {
+    return { ...result, warning: `No office named ${user.office}. Imported with no office.` }
+  }
+  if (data !== 'set') return { ...result, warning: 'The office could not be set. Set it on Accounts.' }
+  return result
 }
 
 Deno.serve(async (req) => {
@@ -86,7 +111,7 @@ Deno.serve(async (req) => {
       })
       results.push(error
         ? { row, email, status: 'failed', reason: error.message }
-        : { row, email, status: 'updated' })
+        : await fileOffice(caller, { row, email, status: 'updated' }, normalized.user))
       continue
     }
 
@@ -114,7 +139,7 @@ Deno.serve(async (req) => {
         .single()
       results.push(setupError
         ? { row, email, status: 'failed', reason: 'Account created, but setup could not be required. Contact an admin before sharing its password.' }
-        : { row, email, status: 'created' })
+        : await fileOffice(caller, { row, email, status: 'created' }, normalized.user))
     } else if (error.code === 'email_exists' || error.code === 'user_already_exists' ||
                /already.*(registered|exists)|email.*(already|exists)/i.test(error.message)) {
       results.push({ row, email, status: 'skipped', reason: 'Account already exists.' })

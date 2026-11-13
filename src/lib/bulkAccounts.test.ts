@@ -29,6 +29,27 @@ describe('bulk registration CSV', () => {
     const tooMany = Array.from({ length: 101 }, (_, i) => `A,,B,user${i}@dyci.edu.ph,student`).join('\n')
     expect(() => parseBulkCsv(`${header}${tooMany}`)).toThrow('at most 100')
   })
+
+  it('reads an optional office column and trims it', () => {
+    const rows = parseBulkCsv('first_name,last_name,email,role,office\nAna,Cruz,ana@dyci.edu.ph,member,"  IT Services  "')
+    expect(rows[0].office).toBe('IT Services')
+    expect(rows[0].user?.office).toBe('IT Services')
+    expect(rows[0].warning).toBeUndefined()
+  })
+
+  it('a file without an office column still parses', () => {
+    const rows = parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph,member`)
+    expect(rows[0].error).toBeUndefined()
+    expect(rows[0].office).toBe('')
+    expect(rows[0].user?.office).toBeUndefined()
+  })
+
+  it('an office on a student row is kept for the preview with a warning', () => {
+    const rows = parseBulkCsv('first_name,last_name,email,role,office\nAna,Cruz,ana@dyci.edu.ph,student,Registrar')
+    expect(rows[0].user).toBeDefined()
+    expect(rows[0].office).toBe('Registrar')
+    expect(rows[0].warning).toBe('Students have no office. It will be ignored.')
+  })
 })
 
 describe('server-side bulk validation', () => {

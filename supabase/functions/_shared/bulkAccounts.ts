@@ -4,6 +4,8 @@ export type BulkUser = {
   last_name: string
   email: string
   role: 'student' | 'member'
+  /** An office name, matched on the server. Only set when the row names one. */
+  office?: string
 }
 
 export const BULK_MAX_ROWS = 100
@@ -14,6 +16,7 @@ export type BulkResult = {
   email: string
   status: 'created' | 'updated' | 'skipped' | 'failed'
   reason?: string
+  warning?: string
 }
 
 export function isActiveBulkAdmin(profile: unknown): boolean {
@@ -51,6 +54,7 @@ export function normalizeBulkUser(value: unknown): { user?: BulkUser; error?: st
   const last_name = typeof row.last_name === 'string' ? row.last_name.trim() : ''
   const email = typeof row.email === 'string' ? row.email.trim().toLowerCase() : ''
   const role = typeof row.role === 'string' ? row.role.trim().toLowerCase() : ''
+  const office = typeof row.office === 'string' ? row.office.trim() : ''
 
   if (!first_name || !last_name) return { error: 'First and last name are required.' }
   if ([first_name, middle_name, last_name].some((name) => name.length > 80)) {
@@ -62,5 +66,7 @@ export function normalizeBulkUser(value: unknown): { user?: BulkUser; error?: st
   if (role !== 'student' && role !== 'member') {
     return { error: 'Role must be student or member.' }
   }
-  return { user: { first_name, middle_name: middle_name || null, last_name, email, role } }
+  const user: BulkUser = { first_name, middle_name: middle_name || null, last_name, email, role }
+  if (office) user.office = office
+  return { user }
 }

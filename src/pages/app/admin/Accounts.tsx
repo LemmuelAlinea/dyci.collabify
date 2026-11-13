@@ -11,7 +11,8 @@ import {
   FilterPopover,
   FilterSearch,
 } from '../../../components/ui/FilterPopover'
-import { Toggle } from '../../../components/ui/Field'
+import { Field, Toggle } from '../../../components/ui/Field'
+import { Modal } from '../../../components/ui/Modal'
 import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
@@ -23,6 +24,9 @@ import {
   setProjectManager,
 } from '../../../lib/api/accounts'
 import { setCanTeach } from '../../../lib/api/admin'
+import { listOffices, listOfficePeople, setMemberOffice } from '../../../lib/api/offices'
+import { liveOfficeId, officeName } from '../../../lib/offices'
+import type { Office } from '../../../lib/offices'
 import { authErrorMessage } from '../../../lib/authError'
 import { ACCOUNT_STATUS_LABEL, fullName, ROLE_LABEL } from '../../../lib/types'
 import type { Account, AccountStatus } from '../../../lib/types'
@@ -56,6 +60,63 @@ const ROLE_FILTERS = [
   { value: 'admin', label: 'Admins' },
 ]
 
+/** The office filter's value for members with no live office. */
+const NO_OFFICE = 'none'
+
+/** Change office: one select of live offices, plus No office. */
+function ChangeOfficeDialog({
+  account,
+  current,
+  offices,
+  busy,
+  onClose,
+  onSave,
+}: {
+  account: Account | null
+  current: string | null
+  offices: Office[]
+  busy: boolean
+  onClose: () => void
+  onSave: (officeId: string | null) => void
+}) {
+  const [picked, setPicked] = useState('')
+  useEffect(() => {
+    if (account) setPicked(current ?? '')
+  }, [account, current])
+
+  return (
+    <Modal
+      open={Boolean(account)}
+      onClose={() => !busy && onClose()}
+      title="Change office"
+      description={account ? `Choose the office ${fullName(account)} works in.` : undefined}
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={() => onSave(picked || null)} loading={busy} disabled={picked === (current ?? '')}>
+            Save office
+          </Button>
+        </>
+      }
+    >
+      <Field label="Office">
+        {(id) => (
+          <Select
+            id={id}
+            value={picked}
+            onChange={(e) => setPicked(e.target.value)}
+            options={[
+              ...offices.map((o) => ({ value: o.id, label: o.name })),
+              { value: '', label: 'No office' },
+            ]}
+          />
+        )}
+      </Field>
+    </Modal>
+  )
+}
+
 /** A switch with its label beside it, so the state reads without hovering. */
 function SwitchRow({
   label,
@@ -87,8 +148,26 @@ export default function Accounts() {
   const [changing, setChanging] = useState<{ account: Account; to: 'student' | 'member' } | null>(null)
   const [deactivating, setDeactivating] = useState<Account | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+  // Offices load on their own, so the directory still works when they fail.
+  const [offices, setOffices] = useState<Office[] | null>(null)
+  const [officeOf, setOfficeOf] = useState<Map<string, string | null>>(new Map())
+  const [officeError, setOfficeError] = useState<string | null>(null)
+  const [office, setOffice] = useState('')
+  const [moving, setMoving] = useState<Account | null>(null)
+
+  const loadOffices = useCallback(async () => {
+    try {
+      const [all, people] = await Promise.all([listOffices(), listOfficePeople()])
+      setOffices(all)
+      setOfficeOf(new Map(people.map((p) => [p.id, p.office_id])))
+      setOfficeError(null)
+    } catch (err) {
+      setOfficeError(authErrorMessage(err, 'Could not load offices. Retry to see and change them.'))
+    }
+  }, [])
 
   const load = useCallback(async () => {
+    const officesRead = loadOffices()
     try {
       setRows(await listAccounts())
       setError(null)
@@ -96,7 +175,29 @@ export default function Accounts() {
       setError(authErrorMessage(err, 'Could not load the accounts.'))
       setRows([])
     }
-  }, [])
+    await officesRead
+  }, [loadOffices])
+
+  /** Live offices, by name, for the filter and Change office. */
+  const liveOffices = useMemo(
+    () =>
+      (offices ?? [])
+        .filter((o) => o.archived_at === null)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+    [offices],
+  )
+  /** A member's live office id; a link to an archived office reads as none. */
+  const officeIdOf = useCallback(
+    (a: Account) => liveOfficeId(officeOf.get(a.id) ?? null, offices ?? []),
+    [officeOf, offices],
+  )
+  const officeFilters = useMemo(
+    () => [
+      ...liveOffices.map((o) => ({ value: o.id, label: o.name })),
+      { value: NO_OFFICE, label: 'No office' },
+    ],
+    [liveOffices],
+  )
 
   useEffect(() => {
     document.title = 'Accounts · Collabify'
@@ -109,8 +210,11 @@ export default function Accounts() {
     const q = query.trim().toLowerCase()
     return (rows ?? [])
       .filter((a) => (role ? a.role === role : true))
+      .filter((a) =>
+        office ? a.role === 'member' && (officeIdOf(a) ?? NO_OFFICE) === office : true,
+      )
       .filter((a) => (q ? `${fullName(a)} ${a.email}`.toLowerCase().includes(q) : true))
-  }, [rows, query, role])
+  }, [rows, query, role, office, officeIdOf])
 
   async function run(id: string, work: () => Promise<void>, done: string) {
     setBusy(id)
@@ -119,6 +223,7 @@ export default function Accounts() {
       show(done)
       setChanging(null)
       setDeactivating(null)
+      setMoving(null)
       // A change to your own account changes what the rail and pages offer you.
       if (id === profile?.id) await refreshProfile()
       await load()
@@ -148,6 +253,7 @@ export default function Accounts() {
       />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
+      {officeError && <Alert tone="error" onRetry={loadOffices}>{officeError}</Alert>}
 
       <section className="surface overflow-hidden rounded-panel border border-line">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
@@ -162,9 +268,19 @@ export default function Accounts() {
               <FilterSearch value={query} onChange={setQuery} placeholder="Search name or email" />
             </label>
             <FilterPopover
-              active={role ? 1 : 0}
-              summary={ROLE_FILTERS.find((r) => r.value === role)?.label}
-              onClear={() => setRole('')}
+              active={(role ? 1 : 0) + (office ? 1 : 0)}
+              summary={
+                [
+                  ROLE_FILTERS.find((r) => r.value === role)?.label,
+                  officeFilters.find((o) => o.value === office)?.label,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || undefined
+              }
+              onClear={() => {
+                setRole('')
+                setOffice('')
+              }}
               label="Filter accounts"
             >
               <FilterField label="Role">
@@ -176,6 +292,17 @@ export default function Accounts() {
                   className="!h-10 !text-[13px]"
                 />
               </FilterField>
+              {offices && (
+                <FilterField label="Office">
+                  <Select
+                    value={office}
+                    onChange={(e) => setOffice(e.target.value)}
+                    placeholder="Every office"
+                    options={officeFilters}
+                    className="!h-10 !text-[13px]"
+                  />
+                </FilterField>
+              )}
             </FilterPopover>
             <p className="font-mono text-[12px] text-faint">
               {shown.length === rows.length ? `${rows.length} accounts` : `${shown.length} of ${rows.length}`}
@@ -190,7 +317,7 @@ export default function Accounts() {
           </p>
 
           {shown.length === 0 ? (
-            <EmptyState icon="users" title="Nobody matches" body="Try a different name, email or role." />
+            <EmptyState icon="users" title="Nobody matches" body="Try a different name, email, role or office." />
           ) : (
             <ul className="space-y-2">
           {shown.map((a) => {
@@ -219,6 +346,11 @@ export default function Accounts() {
                 <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">
                   {a.role ? ROLE_LABEL[a.role] : 'No role'}
                 </span>
+                {a.role === 'member' && offices && (
+                  <span className="max-w-[180px] shrink-0 truncate rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
+                    {officeName(officeIdOf(a), liveOffices)}
+                  </span>
+                )}
                 <span
                   className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${STATUS_TONE[a.status]}`}
                 >
@@ -271,6 +403,11 @@ export default function Accounts() {
                     >
                       {a.role === 'student' ? 'Make member' : 'Make student'}
                     </Button>
+                    {a.role === 'member' && offices && (
+                      <Button variant="ghost" size="sm" disabled={working} onClick={() => setMoving(a)}>
+                        Change office
+                      </Button>
+                    )}
                     {!(a.bulk_setup_required && a.status === 'pending') && (
                       <Button
                         variant="ghost"
@@ -355,6 +492,23 @@ export default function Accounts() {
             )}
           </>
         }
+      />
+      <ChangeOfficeDialog
+        account={moving}
+        current={moving ? officeIdOf(moving) : null}
+        offices={liveOffices}
+        busy={moving !== null && busy === moving.id}
+        onClose={() => setMoving(null)}
+        onSave={(to) => {
+          if (!moving) return
+          void run(
+            moving.id,
+            () => setMemberOffice(moving.id, to),
+            to
+              ? `${fullName(moving)} moved to ${officeName(to, liveOffices)}`
+              : `${fullName(moving)} has no office now`,
+          )
+        }}
       />
       <BulkRegisterDialog open={bulkOpen} onClose={() => setBulkOpen(false)} onImported={load} />
     </div>

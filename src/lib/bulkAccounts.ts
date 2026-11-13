@@ -7,11 +7,17 @@ import type { BulkUser } from '../../supabase/functions/_shared/bulkAccounts'
 export type BulkPreviewRow = {
   row: number
   email: string
+  /** The office the row names, trimmed; '' when none. The server matches it by name. */
+  office: string
   user?: BulkUser
   error?: string
+  warning?: string
 }
 
-export const BULK_HEADERS = ['first_name', 'middle_name', 'last_name', 'email', 'role'] as const
+/** `middle_name` and `office` are optional. */
+export const BULK_HEADERS = ['first_name', 'middle_name', 'last_name', 'email', 'role', 'office'] as const
+
+export const STUDENT_OFFICE_PREVIEW = 'Students have no office. It will be ignored.'
 
 /** CSV with quoted commas, quotes and line breaks; rejects broken quoting. */
 export function parseBulkCsv(source: string): BulkPreviewRow[] {
@@ -78,16 +84,19 @@ export function parseBulkCsv(source: string): BulkPreviewRow[] {
   const seen = new Set<string>()
   return records.slice(1).map(({ row: rowNumber, cells: values }) => {
     if (values.length !== headers.length) {
-      return { row: rowNumber, email: '', error: 'Column count does not match the header.' }
+      return { row: rowNumber, email: '', office: '', error: 'Column count does not match the header.' }
     }
     const raw = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
     const normalized = normalizeBulkUser(raw)
     const email = String(raw.email ?? '').trim().toLowerCase()
-    if (!normalized.user) return { row: rowNumber, email, error: normalized.error }
+    const office = String(raw.office ?? '').trim()
+    if (!normalized.user) return { row: rowNumber, email, office, error: normalized.error }
     if (seen.has(normalized.user.email)) {
-      return { row: rowNumber, email, error: 'Duplicate email in this CSV.' }
+      return { row: rowNumber, email, office, error: 'Duplicate email in this CSV.' }
     }
     seen.add(normalized.user.email)
-    return { row: rowNumber, email, user: normalized.user }
+    return office && normalized.user.role === 'student'
+      ? { row: rowNumber, email, office, user: normalized.user, warning: STUDENT_OFFICE_PREVIEW }
+      : { row: rowNumber, email, office, user: normalized.user }
   })
 }

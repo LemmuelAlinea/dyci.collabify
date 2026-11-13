@@ -157,7 +157,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
                 <input type="file" accept=".csv,text/csv" className="sr-only" onChange={(event) => void pickFile(event)} />
               </label>
             </div>
-            <p>Columns: first_name, middle_name (optional), last_name, email, role. Use student or member for role. At most 100 users.</p>
+            <p>Columns: first_name, middle_name (optional), last_name, email, role, office (optional). Use student or member for role. An office is matched by name and applies to members only. At most 100 users.</p>
             {rows.length > 0 && (
               <>
                 <p className="font-medium text-ink">{creating.length} new · {updating.length} to update · {skipped} skipped</p>
@@ -165,8 +165,8 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
                   <Alert>{repeated.length} already registered: {repeated.map((row) => `${fullName(existing.get(row.email)!) || row.email} (${row.email})`).join(', ')}. Select overwrite beside each eligible account you want to update.</Alert>
                 )}
                 <div className="max-h-64 overflow-auto rounded-xl border border-line">
-                  <table className="w-full min-w-[620px] text-left text-[12px]">
-                    <thead className="surface-sunken text-faint"><tr><th className="p-2">Row</th><th className="p-2">CSV name</th><th className="p-2">Email</th><th className="p-2">Role / issue</th><th className="p-2">Action</th></tr></thead>
+                  <table className="w-full min-w-[720px] text-left text-[12px]">
+                    <thead className="surface-sunken text-faint"><tr><th className="p-2">Row</th><th className="p-2">CSV name</th><th className="p-2">Email</th><th className="p-2">Role / issue</th><th className="p-2">Office</th><th className="p-2">Action</th></tr></thead>
                     <tbody>{rows.map((row) => (
                       <tr key={row.row} className="border-t border-line">
                         <td className="p-2">{row.row}</td>
@@ -177,6 +177,10 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
                             ? `Already registered: ${fullName(existing.get(row.email)!) || row.email} · Admin account cannot be overwritten`
                             : `Current: ${fullName(existing.get(row.email)!) || row.email} · ${ROLE_LABEL[existing.get(row.email)!.role!]} → CSV: ${ROLE_LABEL[row.user!.role]}`
                           : row.user?.role)}</td>
+                        <td className="p-2">
+                          {row.office || '—'}
+                          {row.warning && <span className="mt-0.5 block text-warning-700 dark:text-warning-300">{row.warning}</span>}
+                        </td>
                         <td className="p-2">{row.user && existing.has(row.email) && existing.get(row.email)?.role !== 'admin' && (
                           <label className="flex items-center gap-1.5 whitespace-nowrap text-ink">
                             <input type="checkbox" aria-label={`Overwrite ${row.email}`} checked={overwrite.has(row.email)} onChange={(event) => setOverwrite((current) => {
@@ -206,6 +210,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
             <p><strong className="text-ink">{creating.length} new accounts</strong> will be created. <strong className="text-ink">{updating.length} existing accounts</strong> will have their names and roles updated. {skipped} rows will be skipped.</p>
             {updating.length > 0 && <p>Existing passwords and account status stay as they are: {updating.map((row) => `${fullName(existing.get(row.email)!)} (${row.email})`).join(', ')}.</p>}
             {updating.some((row) => existing.get(row.email)?.role === 'member' && row.user?.role === 'student') && <p>Members changed to students lose both access switches.</p>}
+            {updating.some((row) => row.user?.role === 'member') && <p>For members being updated, a named office replaces the current one and a blank office keeps it.</p>}
             {creating.length > 0 && <p>Give new users their credentials through your existing channel. They will accept the terms and privacy policy and set a new password on first sign-in.</p>}
             {busy && <p>Processed {processed} of {selected.length} users…</p>}
             {!busy && <Button variant="ghost" size="sm" onClick={() => setStep('preview')}>Back to preview</Button>}
@@ -216,9 +221,10 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
             <p className="font-medium text-ink">{counts.created} created · {counts.updated} updated · {counts.skipped} skipped · {counts.failed} failed</p>
             <div className="max-h-72 space-y-1 overflow-auto">
               {results.map((result) => (
-                <p key={result.row} className="rounded-lg surface-sunken px-3 py-2">
-                  Row {result.row} · {result.email || 'No email'} · {result.status}{result.reason ? `: ${result.reason}` : ''}
-                </p>
+                <div key={result.row} className="rounded-lg surface-sunken px-3 py-2">
+                  <p>Row {result.row} · {result.email || 'No email'} · {result.status}{result.reason ? `: ${result.reason}` : ''}</p>
+                  {result.warning && <p className="mt-0.5 text-warning-700 dark:text-warning-300">{result.warning}</p>}
+                </div>
               ))}
             </div>
           </>
