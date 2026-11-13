@@ -423,7 +423,6 @@ export default function Calendar() {
         onClose={() => showTask(null)}
         viewerId={profile?.id}
         role={role === 'student' ? 'student' : 'professor'}
-        boardWeight={0}
         onChanged={load}
       />
     </div>

@@ -237,7 +237,6 @@ export default function Analytics({ classId }: { classId?: string }) {
         onClose={() => setOpenTask(null)}
         viewerId={profile?.id}
         role="professor"
-        boardWeight={0}
         onChanged={data.reload}
       />
     </div>

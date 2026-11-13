@@ -6,6 +6,8 @@ import { useToast } from '../../ui/Toast'
 import { TaskDetailBody } from './TaskDetailBody'
 import { useTaskDetail } from '../../../hooks/useTaskDetail'
 import { pendingReassignment } from '../../../lib/api/reassignments'
+import { getTaskBoardFacts } from '../../../lib/api/taskDetail'
+import type { TaskBoardFacts } from '../../../lib/api/taskDetail'
 import { getProjectStages } from '../../../lib/api/projects'
 import { setTaskStatus } from '../../../lib/api/tasks'
 import { stageName, stagesOf } from '../../../lib/stages'
@@ -20,9 +22,10 @@ export function TaskDetailModal({
   taskId,
   onClose,
   viewerId, role,
-  /** Total weight on the board, so the share can be shown honestly. */
-  boardWeight,
-  /** The project is closed: the board still reads, nothing writes. */
+  /**
+   * The host already knows the board is shut. The dialog also reads the
+   * task's own board, so a page that does not know still gets it right.
+   */
   locked = false,
   onChanged,
 }: {
@@ -30,7 +33,6 @@ export function TaskDetailModal({
   onClose: () => void
   viewerId: string | undefined
   role: TeachingViewRole
-  boardWeight: number
   locked?: boolean
   onChanged: () => Promise<void> | void
 }) {
@@ -41,6 +43,31 @@ export function TaskDetailModal({
   // The project's own stage names, read beside the task.
   const [stages, setStages] = useState<string[] | null>(null)
   const projectId = task?.project_id
+
+  // The worth and the lock come from the task's own board, never the page's:
+  // a page opened from a queue or the calendar has no board of its own loaded.
+  // Read again on each reload of the task, so a task added to the board since
+  // changes this one's share.
+  const [board, setBoard] = useState<TaskBoardFacts | null>(null)
+  const boardId = task?.board_id
+  useEffect(() => {
+    if (!taskId) setBoard(null)
+  }, [taskId])
+  useEffect(() => {
+    if (!boardId) return
+    let live = true
+    getTaskBoardFacts(boardId)
+      .then((b) => live && setBoard(b))
+      .catch(() => live && setBoard(null))
+    return () => {
+      live = false
+    }
+  }, [boardId, task])
+  // A professor is never locked out of a task by the project closing; a
+  // student is, and by their board being handed in.
+  const shut =
+    role !== 'professor' &&
+    (locked || Boolean(board?.project_locked_at || board?.submitted_at))
   useEffect(() => {
     if (!projectId) return
     let live = true
@@ -107,8 +134,8 @@ export function TaskDetailModal({
           worklog={worklog}
           viewerId={viewerId}
           role={role}
-          boardWeight={boardWeight}
-          locked={locked}
+          boardWeight={board && board.total_weight > 0 ? board.total_weight : null}
+          locked={shut}
           reassignment={ask}
           viewerCanRequest={role !== 'professor'}
           stages={stagesOf(stages)}

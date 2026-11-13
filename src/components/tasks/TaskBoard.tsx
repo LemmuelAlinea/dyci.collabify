@@ -344,7 +344,6 @@ export function TaskBoard({
         onClose={() => showTask(null)}
         viewerId={viewerId}
         role={role}
-        boardWeight={total}
         onChanged={onChanged}
       />
     </div>

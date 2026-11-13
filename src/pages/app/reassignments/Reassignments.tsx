@@ -189,7 +189,6 @@ export default function Reassignments({
         onClose={() => setOpenTask(null)}
         viewerId={profile?.id}
         role="professor"
-        boardWeight={0}
         onChanged={load}
       />
     </div>

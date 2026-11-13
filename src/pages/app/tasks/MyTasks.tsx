@@ -464,7 +464,6 @@ export default function MyTasks() {
   const totalShown = classFiltered.length + workFiltered.length
   // The filter, not the lists, emptied the page.
   const emptiedByFilter = priorityView.priorities.length > 0 && totalShown === 0 && classInScope.length + workInScope.length > 0
-  const activeBoard = (classTasks ?? []).find((t) => t.id === openTask)
   const loadError = error ?? navError ?? dashError
 
   const emptyCopy =
@@ -761,7 +760,6 @@ export default function MyTasks() {
         onClose={() => showTask(null)}
         viewerId={profile?.id}
         role="student"
-        boardWeight={activeBoard?.board_weight ?? 0}
         onChanged={load}
       />
 

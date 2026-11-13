@@ -8,7 +8,7 @@ import { TaskDetailModal } from '../tasks/detail/TaskDetailModal'
 import { listGroupBoards } from '../../lib/api/groupWork'
 import { listTasks } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { boardWeight, dueSoonLabel, taskStatusLabel } from '../../lib/types'
+import { dueSoonLabel, taskStatusLabel } from '../../lib/types'
 import type { BoardSummary, ProjectTask, TeachingViewRole } from '../../lib/types'
 import { paths } from '../../lib/paths'
 
@@ -107,8 +107,6 @@ export function GroupWork({
   // A teacher goes to this group's own page in the project; a student to the project.
   const projectLink = (board: BoardSummary) =>
     role === 'professor' ? paths.classProjectBoard(board.project_id, board.id) : paths.classProject(board.project_id)
-
-  const activeBoard = boards.find((b) => tasks[b.id]?.some((t) => t.id === openTask))
 
   return (
     <div className="space-y-3">
@@ -272,7 +270,6 @@ export function GroupWork({
         onClose={() => showTask(null)}
         viewerId={viewerId}
         role={role}
-        boardWeight={activeBoard ? boardWeight(tasks[activeBoard.id] ?? []) : 0}
         onChanged={async () => {
           await load()
           if (open) await loadTasks(open)

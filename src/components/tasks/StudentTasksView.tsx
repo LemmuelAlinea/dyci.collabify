@@ -265,9 +265,6 @@ export function StudentTasksView({
               onClose={() => t.showTask(null)}
               viewerId={viewerId}
               role={role}
-              boardWeight={
-                t.weightByBoard.get(t.rows.find((r) => r.id === t.openTask)?.board_id ?? '') ?? 0
-              }
               locked={locked || isBoardSubmitted(active)}
               onChanged={t.refresh}
             />

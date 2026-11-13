@@ -68,7 +68,8 @@ export function TaskDetailBody({
   worklog: WorkLogEntry[]
   viewerId: string | undefined
   role: TeachingViewRole
-  boardWeight: number
+  /** Total weight on the task's board; null while it is still being read. */
+  boardWeight: number | null
   /** The project is closed, so nothing on the task may change. */
   locked?: boolean
   reassignment?: ReassignmentRow | null
@@ -85,7 +86,7 @@ export function TaskDetailBody({
   // On an individual board the viewer is the owner, so the work is theirs.
   const solo = Boolean(task.group_id === null)
   const yours = solo ? onBoard : viewerId ? isMine(task, viewerId) : false
-  const share = taskShare(task, boardWeight || task.weight)
+  const share = boardWeight === null ? null : taskShare(task, boardWeight)
   const now = useNow()
   const late = Boolean(task.due_at && task.status !== 'done' && new Date(task.due_at).getTime() < now)
 
@@ -101,7 +102,7 @@ export function TaskDetailBody({
             <div>
               <dt className="text-[12px] text-faint">Worth</dt>
               <dd className="text-ink">
-                <span className="font-mono">{share}%</span>
+                <span className="font-mono">{share === null ? '—' : `${share}%`}</span>
                 <span className="ml-1 text-[12px] text-faint">of the project</span>
               </dd>
             </div>

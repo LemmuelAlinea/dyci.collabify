@@ -197,7 +197,6 @@ export function BoardPage({
           onClose={() => t.showTask(null)}
           viewerId={viewerId}
           role="professor"
-          boardWeight={t.weightByBoard.get(t.rows.find((r) => r.id === t.openTask)?.board_id ?? '') ?? 0}
           // A professor is never locked out of a task by the project closing.
           locked={false}
           onChanged={t.refresh}

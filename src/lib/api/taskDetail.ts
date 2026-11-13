@@ -26,6 +26,27 @@ export async function getTaskDetail(taskId: string) {
   return { ...task, assignees: (rows ?? []) as unknown as TaskDetail['assignees'] }
 }
 
+/**
+ * What a task's worth and lock depend on, read from its own board, so the
+ * dialog never leans on whatever board the page behind it has loaded.
+ */
+export type TaskBoardFacts = {
+  total_weight: number
+  submitted_at: string | null
+  project_locked_at: string | null
+}
+
+export async function getTaskBoardFacts(boardId: string): Promise<TaskBoardFacts | null> {
+  const { data, error } = await supabase
+    .from('task_board_overview')
+    .select('total_weight, submitted_at, project_locked_at')
+    .eq('id', boardId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return { ...data, total_weight: Number(data.total_weight) } as TaskBoardFacts
+}
+
 /* ---------------------------------------------------------------- comments */
 
 export async function listComments(taskId: string) {
