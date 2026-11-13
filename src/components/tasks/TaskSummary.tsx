@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
 import { Spinner } from '../ui/Icon'
+import { ScrollTenList } from '../ui/ScrollTenList'
 import { listEventsForTasks } from '../../lib/api/taskDetail'
 import { formatMinutes, fullName, TASK_STATUSES } from '../../lib/types'
 import type { TaskEvent, TaskEventKind, TaskStatus } from '../../lib/types'
@@ -203,6 +204,8 @@ export function TaskSummary({
     }
   }
 
+  const carriers = [...load.values()].sort((a, b) => b.held - a.held)
+
   return (
     <div className="space-y-5">
       {/* The late tile only appears once there is something late, so a class
@@ -248,7 +251,7 @@ export function TaskSummary({
           )}
         </section>
 
-        <section className="surface flex max-h-[380px] flex-col rounded-card border border-line p-4 sm:p-5 shadow-card">
+        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
           <h3>Recent activity</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">What has moved lately.</p>
           {events === null ? (
@@ -259,8 +262,14 @@ export function TaskSummary({
           ) : events.length === 0 ? (
             <p className="text-[13px] text-muted">Nothing has happened here yet.</p>
           ) : (
-            // Fixed height, scrolled: a long trail should not push the page down.
-            <ol className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+            // Five shown, the rest scrolled: a long trail should not push the page down.
+            <ScrollTenList
+              ordered
+              ids={events.map((e) => e.id)}
+              label="Recent activity"
+              visibleRows={5}
+              className="-mr-2 space-y-3 pr-2"
+            >
               {events.map((e) => (
                 <li key={e.id} className="flex items-baseline justify-between gap-3">
                   <p className="min-w-0 text-[13px] text-muted">
@@ -278,7 +287,7 @@ export function TaskSummary({
                   </p>
                 </li>
               ))}
-            </ol>
+            </ScrollTenList>
           )}
         </section>
       </div>
@@ -289,25 +298,28 @@ export function TaskSummary({
           <p className="mt-1 mb-3 text-[13px] text-muted">
             Tasks held, and how many of them are finished.
           </p>
-          <ul className="divide-y divide-[var(--line)]">
-            {[...load.values()]
-              .sort((a, b) => b.held - a.held)
-              .map((p) => (
-                <li key={p.name} className="flex items-center gap-3 py-2.5 first:pt-0">
-                  {p.avatar && <Avatar profile={p.avatar} size={28} />}
-                  <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{p.name}</span>
-                  <span className="h-1.5 w-24 overflow-hidden rounded-full surface-sunken">
-                    <span
-                      className="block h-full rounded-full bg-progress"
-                      style={{ width: `${p.held ? (p.done / p.held) * 100 : 0}%` }}
-                    />
-                  </span>
-                  <span className="w-14 shrink-0 text-right font-mono text-[12px] text-faint">
-                    {p.done}/{p.held}
-                  </span>
-                </li>
-              ))}
-          </ul>
+          <ScrollTenList
+            ids={carriers.map((p) => p.name)}
+            label="Who is carrying what"
+            visibleRows={5}
+            className="divide-y divide-[var(--line)]"
+          >
+            {carriers.map((p) => (
+              <li key={p.name} className="flex items-center gap-3 py-2.5 first:pt-0">
+                {p.avatar && <Avatar profile={p.avatar} size={28} />}
+                <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{p.name}</span>
+                <span className="h-1.5 w-24 overflow-hidden rounded-full surface-sunken">
+                  <span
+                    className="block h-full rounded-full bg-progress"
+                    style={{ width: `${p.held ? (p.done / p.held) * 100 : 0}%` }}
+                  />
+                </span>
+                <span className="w-14 shrink-0 text-right font-mono text-[12px] text-faint">
+                  {p.done}/{p.held}
+                </span>
+              </li>
+            ))}
+          </ScrollTenList>
         </section>
       )}
     </div>

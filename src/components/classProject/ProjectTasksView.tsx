@@ -3,6 +3,7 @@ import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
+import { ScrollTenList } from '../ui/ScrollTenList'
 import { useToast } from '../ui/Toast'
 import { FanOutForm } from '../tasks/FanOutForm'
 import { GenerateTasksModal } from '../tasks/GenerateTasksModal'
@@ -45,6 +46,9 @@ export function ProjectTasksView({
   const [setTaskOpen, setSetTaskOpen] = useState(false)
   const [editingOrigin, setEditingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const [deletingOrigin, setDeletingOrigin] = useState<ProfessorTaskGroup | null>(null)
+  // Both sections fold, so a long project reads as two headings until opened.
+  const [setOpen, setSetOpen] = useState(true)
+  const [allOpen, setAllOpen] = useState(true)
   const { active, solo, boards } = t
   const { one: who, many: whoPlural } = boardLabel(solo)
   // An address left on the board layout reads as the list here.
@@ -63,12 +67,14 @@ export function ProjectTasksView({
       {/* 1 ── what you set for every group */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3>What you set</h3>
-            <p className="mt-0.5 text-[13px] text-muted">
-              Handed to every {who}. They decide who does it.
-            </p>
-          </div>
+          <SectionToggle
+            open={setOpen}
+            onToggle={() => setSetOpen((o) => !o)}
+            controls="tasks-set"
+            title="What you set"
+            count={t.mine.length}
+            sub={`Handed to every ${who}. They decide who does it.`}
+          />
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -86,56 +92,65 @@ export function ProjectTasksView({
           </div>
         </div>
 
-        {t.mine.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">
-            You have set none. A {who} can still break the project down themselves.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {t.mine.map((task) => (
-              <li
-                key={task.origin_id}
-                className="surface flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-medium text-ink">{task.title}</p>
-                  <p className="mt-0.5 text-[12px] text-faint">
-                    {task.boards} {task.boards === 1 ? who : whoPlural} · {task.started}{' '}
-                    started · {task.done} done
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditingOrigin(task)}
-                  aria-label={`Edit ${task.title}`}
-                  className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+        <div id="tasks-set" hidden={!setOpen}>
+          {t.mine.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">
+              You have set none. A {who} can still break the project down themselves.
+            </p>
+          ) : (
+            <ScrollTenList
+              ids={t.mine.map((task) => task.origin_id)}
+              label="What you set"
+              visibleRows={5}
+              className="-mr-1 space-y-2 pr-1"
+            >
+              {t.mine.map((task) => (
+                <li
+                  key={task.origin_id}
+                  className="surface flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3"
                 >
-                  <Icon name="edit" size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeletingOrigin(task)}
-                  aria-label={`Withdraw ${task.title}`}
-                  className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
-                >
-                  <Icon name="trash" size={15} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-medium text-ink">{task.title}</p>
+                    <p className="mt-0.5 text-[12px] text-faint">
+                      {task.boards} {task.boards === 1 ? who : whoPlural} · {task.started}{' '}
+                      started · {task.done} done
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrigin(task)}
+                    aria-label={`Edit ${task.title}`}
+                    className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+                  >
+                    <Icon name="edit" size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeletingOrigin(task)}
+                    aria-label={`Withdraw ${task.title}`}
+                    className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
+                </li>
+              ))}
+            </ScrollTenList>
+          )}
+        </div>
       </section>
 
       {/* 2 ── every task across the groups */}
       <section className="space-y-4 border-t border-line pt-6">
-        <div>
-          <h3>Every {who} task</h3>
-          <p className="mt-0.5 text-[13px] text-muted">
-            Every task across all {whoPlural}. Choose one in the filter to narrow this.
-          </p>
-        </div>
+        <SectionToggle
+          open={allOpen}
+          onToggle={() => setAllOpen((o) => !o)}
+          controls="tasks-all"
+          title={`Every ${who} task`}
+          count={t.scope.length}
+          sub={`Every task across all ${whoPlural}. Choose one in the filter to narrow this.`}
+        />
 
-        <div className="space-y-3">
+        <div id="tasks-all" hidden={!allOpen} className="space-y-3">
           <TaskViewSwitch
             view={view}
             onView={t.setView}
@@ -160,6 +175,7 @@ export function ProjectTasksView({
               ownerFor={t.ownerFor}
               onOpen={t.showTask}
               stages={stagesOf(project.stages)}
+              visibleRows={5}
             />
           )}
           {view === 'timeline' && (
@@ -184,6 +200,7 @@ export function ProjectTasksView({
           )}
         </div>
 
+        {/* Outside the fold, so the summary stays when the list is put away. */}
         <TaskSummary rows={t.scope} showLoad />
       </section>
 
@@ -247,6 +264,46 @@ export function ProjectTasksView({
         confirmLabel="Withdraw"
         tone="danger"
       />
+    </div>
+  )
+}
+
+/** A section heading that folds the section away. */
+function SectionToggle({
+  open,
+  onToggle,
+  controls,
+  title,
+  count,
+  sub,
+}: {
+  open: boolean
+  onToggle: () => void
+  controls: string
+  title: string
+  count: number
+  sub: string
+}) {
+  return (
+    <div className="min-w-0">
+      <h3>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={controls}
+          className="group -ml-1 flex items-center gap-2 rounded-lg px-1 text-left"
+        >
+          <Icon
+            name="chevronDown"
+            size={16}
+            className={`shrink-0 text-faint transition-transform group-hover:text-ink motion-reduce:transition-none ${open ? '' : '-rotate-90'}`}
+          />
+          {title}
+          <span className="font-mono text-[12px] font-normal text-faint">{count}</span>
+        </button>
+      </h3>
+      <p className="mt-0.5 pl-6 text-[13px] text-muted">{sub}</p>
     </div>
   )
 }
