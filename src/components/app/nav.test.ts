@@ -126,24 +126,55 @@ describe('navFor', () => {
     expect(navFor(teacher, false)[0].picker).toEqual(['classes'])
   })
 
-  it('gives an admin in nothing only Admin and Account', () => {
+  it('gives an admin in nothing Organization, Academic program, Compliance and Account', () => {
     const none = { inClass: false, hasWork: false }
-    expect(titles(navFor(admin, true, none))).toEqual(['Admin', 'Account'])
-    expect(titles(navFor(admin, true))).toEqual(['Admin', 'Account'])
+    const want = ['Organization', 'Academic program', 'Compliance', 'Account']
+    expect(titles(navFor(admin, true, none))).toEqual(want)
+    expect(titles(navFor(admin, true))).toEqual(want)
+    expect(navFor(admin, true, none)[0].items[0].label).toBe('Home')
     expect(labels(navFor(admin, true, none))).toContain('Accounts')
     expect(labels(navFor(admin, true, none))).not.toContain('Faculty approvals')
   })
 
   it('puts Work projects in the admin rail, right after Accounts', () => {
-    const rail = section(navFor(admin, true), 'Admin') ?? []
+    const rail = section(navFor(admin, true), 'Organization') ?? []
     expect(rail).toContain('Work projects')
     expect(rail.indexOf('Work projects')).toBe(rail.indexOf('Accounts') + 1)
   })
 
+  it('puts Offices right after Home in Organization and opens /admin/offices', () => {
+    const org = navFor(admin, true).find((g) => g.title === 'Organization')!
+    expect(org.items.map((i) => i.label).slice(0, 2)).toEqual(['Home', 'Offices'])
+    expect(org.items[1].to).toBe('/admin/offices')
+    expect(org.items[1].icon).toBe('briefcase')
+  })
+
+  it('makes Academic program collapsible', () => {
+    const prog = navFor(admin, true).find((g) => g.title === 'Academic program')!
+    expect(prog.collapsible).toBe(true)
+    expect(prog.items.map((i) => i.label)).toEqual([
+      'Sections', 'Syllabi', 'Curriculum', 'Classes', 'Faculty', 'Cohort',
+    ])
+  })
+
+  it('keeps Audit log and Privacy requests under Compliance', () => {
+    expect(section(navFor(admin, true), 'Compliance')).toEqual(['Audit log', 'Privacy requests'])
+  })
+
   it('gives an admin in nothing but invited Home and Inbox, so they can answer', () => {
     const groups = navFor(admin, true, { inClass: false, hasWork: false, invited: true })
-    expect(titles(groups)).toEqual(['Main', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Main', 'Organization', 'Academic program', 'Compliance', 'Account'])
     expect(groups[0].items.map((i) => i.label)).toEqual(['Home', 'Inbox'])
+  })
+
+  it('shows an invited admin Home once', () => {
+    const groups = navFor(admin, true, { inClass: false, hasWork: false, invited: true })
+    expect(labels(groups).filter((l) => l === 'Home')).toHaveLength(1)
+  })
+
+  it('shows an admin in a space Home once', () => {
+    const groups = navFor(admin, true, { inClass: false, hasWork: true })
+    expect(labels(groups).filter((l) => l === 'Home')).toHaveLength(1)
   })
 
   it('splits the spine into Overview and Main', () => {
@@ -161,12 +192,12 @@ describe('navFor', () => {
 
   it('gives an admin in work the non-teaching faculty rail with Admin, and never Classes', () => {
     const groups = navFor(admin, true, { inClass: false, hasWork: true })
-    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Organization', 'Academic program', 'Compliance', 'Account'])
   })
 
   it('lists an admin\'s classes under Spaces once one invites them', () => {
     const groups = navFor(admin, true, { inClass: true, hasWork: false })
-    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Organization', 'Academic program', 'Compliance', 'Account'])
     expect(spaces(groups)?.withClasses).toBe(true)
   })
 

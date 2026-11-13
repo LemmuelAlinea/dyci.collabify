@@ -55,6 +55,7 @@ export const paths = {
   privacyQueue: '/privacy/queue',
 
   admin: {
+    offices: '/admin/offices',
     notices: '/admin/notices',
     sections: '/admin/sections',
     /** Kept so old links land somewhere: it forwards to `syllabi`. */

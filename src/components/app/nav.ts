@@ -225,26 +225,49 @@ function resourcesGroup(role: Role): NavGroup {
 }
 
 /**
- * What the office sets up, who is in the program, and the program read back
- * as figures — the same three bands the admin rail always had.
+ * The admin's pages in three groups: Organization (offices, accounts, work
+ * projects, notices), Academic program (the program read back as sections,
+ * syllabi, classes and figures; folds away) and Compliance (audit log and
+ * privacy requests).
+ *
+ * `withHome` puts Home first in Organization, for the one admin rail that has
+ * no other Home: an admin in nothing and not invited. `OVERVIEW` and
+ * `ADMIN_INVITED` already carry Home, and an admin never gets two.
  */
-const ADMIN: NavGroup = {
-  title: 'Admin',
-  items: [
-    { label: 'Accounts', icon: 'users', to: paths.admin.accounts },
-    { label: 'Work projects', icon: 'kanban', to: paths.admin.projects },
-    { label: 'Audit log', icon: 'clock', to: paths.admin.audit },
-    // Admins are the fallback handler while nobody is named, so this row is
-    // never dead for them the way it would be for most faculty.
-    { label: 'Privacy requests', icon: 'shield', to: paths.admin.privacy },
-    { label: 'Notices', icon: 'bell', to: paths.admin.notices },
-    { label: 'Sections', icon: 'kanban', to: paths.admin.sections },
-    { label: 'Syllabi', icon: 'file', to: paths.admin.syllabi },
-    { label: 'Curriculum', icon: 'target', to: paths.admin.curriculum },
-    { label: 'Classes', icon: 'folder', to: paths.admin.classes },
-    { label: 'Faculty', icon: 'user', to: paths.admin.faculty },
-    { label: 'Cohort', icon: 'chart', to: paths.admin.cohort },
-  ],
+function adminGroups(withHome: boolean): NavGroup[] {
+  return [
+    {
+      title: 'Organization',
+      items: [
+        ...(withHome ? [HOME] : []),
+        { label: 'Offices', icon: 'briefcase', to: paths.admin.offices },
+        { label: 'Accounts', icon: 'users', to: paths.admin.accounts },
+        { label: 'Work projects', icon: 'kanban', to: paths.admin.projects },
+        { label: 'Notices', icon: 'bell', to: paths.admin.notices },
+      ],
+    },
+    {
+      title: 'Academic program',
+      collapsible: true,
+      items: [
+        { label: 'Sections', icon: 'kanban', to: paths.admin.sections },
+        { label: 'Syllabi', icon: 'file', to: paths.admin.syllabi },
+        { label: 'Curriculum', icon: 'target', to: paths.admin.curriculum },
+        { label: 'Classes', icon: 'folder', to: paths.admin.classes },
+        { label: 'Faculty', icon: 'user', to: paths.admin.faculty },
+        { label: 'Cohort', icon: 'chart', to: paths.admin.cohort },
+      ],
+    },
+    {
+      title: 'Compliance',
+      items: [
+        { label: 'Audit log', icon: 'clock', to: paths.admin.audit },
+        // Admins are the fallback handler while nobody is named, so this row is
+        // never dead for them the way it would be for most faculty.
+        { label: 'Privacy requests', icon: 'shield', to: paths.admin.privacy },
+      ],
+    },
+  ]
 }
 
 /**
@@ -297,9 +320,10 @@ const MAIN_WAITING: NavGroup = {
  * Resources and Account. A class's projects live on its Projects tab.
  *
  * An admin runs the program rather than sitting in it, so until someone
- * invites them into a class, space or project their rail is Admin and
- * Account. Once they belong to something they get the same rail as faculty
- * who do not teach, with Admin above Account. `membership` still loading
+ * invites them into a class, space or project their rail is Organization
+ * (Home first), Academic program, Compliance and Account. Once they belong to
+ * something they get the same rail as faculty who do not teach, with those
+ * three groups above Account. `membership` still loading
  * counts as belonging to nothing, so Overview never flashes in and out.
  *
  * A member who is only a stakeholder (no class, neither switch) gets Home,
@@ -320,9 +344,11 @@ export function navFor(
   if (role === 'admin') {
     if (!membership?.inClass && !membership?.hasWork) {
       // Invited but not yet in: the Inbox is where they answer.
-      return membership?.invited ? [ADMIN_INVITED, ADMIN, ADMIN_ACCOUNT] : [ADMIN, ADMIN_ACCOUNT]
+      return membership?.invited
+        ? [ADMIN_INVITED, ...adminGroups(false), ADMIN_ACCOUNT]
+        : [...adminGroups(true), ADMIN_ACCOUNT]
     }
-    return [SPACES_ONLY, OVERVIEW, workGroup(false), QUICK_ACCESS, ADMIN, ADMIN_ACCOUNT]
+    return [SPACES_ONLY, OVERVIEW, workGroup(false), QUICK_ACCESS, ...adminGroups(false), ADMIN_ACCOUNT]
   }
   if (role === 'student') {
     if (!admitted) return [MAIN_WAITING, ACCOUNT]
