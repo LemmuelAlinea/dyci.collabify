@@ -12,8 +12,12 @@
 -- so the office's name rides in subject_label or before_value / after_value, and an
 -- empty string means no office.
 --
--- Additive: it creates its own tables, triggers and functions and redefines nothing an
--- earlier file owns. The general_spaces and profiles triggers here are separate triggers,
+-- The admin's overview reads (admin_office_people, admin_office_spaces, admin_org_overview,
+-- admin_attention_projects, admin_org_summary) return names and counts only, never a
+-- task, comment, file, milestone title or due date.
+--
+-- Additive: it creates its own tables, triggers, functions and one index on
+-- general_task_events, and redefines nothing an earlier file owns. The general_spaces and profiles triggers here are separate triggers,
 -- so no existing space or profile trigger changes. Runs before anon-lockdown.sql.
 --
 -- Idempotent. Safe to re-run.
@@ -588,6 +592,197 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- admin reads
+--
+-- The admin's view of the organization: names and counts, never project content. None of
+-- these returns a task, comment, file, milestone title or due date, and the suite pins
+-- each one's columns so nothing can be added unnoticed. The admin reads no project rows
+-- through RLS, so these are definer functions that answer an active admin and return no
+-- rows to anyone else.
+--
+-- A running project: a work project (no class board), not archived, not trashed, in a
+-- work space that is not archived or trashed. Quiet: no task event made by a person (a
+-- non-null actor) for 14 days, falling back to the project's own creation time, while the
+-- project has a live task that is not done or no live tasks at all. Workflow rules and
+-- other automation leave a null actor, so they never reset the clock.
+
+/** The person-made events that quiet reads, newest first per project. */
+create index if not exists general_task_events_person_recent
+  on public.general_task_events (project_id, created_at desc)
+  where actor_id is not null;
+
+/** True for an active admin. The reads below answer nobody else. */
+create or replace function public.office_admin_reads()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles
+                  where id = auth.uid() and role = 'admin' and status = 'active');
+$$;
+
+/** Running work projects, for the reads below only. */
+create or replace function public.office_running_projects()
+returns table (id uuid, name text, space_id uuid, created_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.name, p.space_id, p.created_at
+    from public.general_projects p
+    join public.general_spaces s on s.id = p.space_id
+   where p.class_board_id is null
+     and p.archived_at is null
+     and p.trashed_at is null
+     and s.kind = 'work'
+     and s.archived_at is null
+     and s.trashed_at is null;
+$$;
+
+/** Every member account, with their home office (null for none). */
+create or replace function public.admin_office_people()
+returns table (id uuid, name text, email text, status text, office_id uuid)
+language sql stable security definer set search_path = public as $$
+  select p.id,
+         btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')),
+         p.email,
+         p.status::text,
+         m.office_id
+    from public.profiles p
+    left join public.office_members m on m.user_id = p.id
+   where public.office_admin_reads()
+     and p.role = 'member'
+   order by p.last_name, p.first_name, p.email;
+$$;
+
+/** Every work space not in the trash, with its office and how many projects run in it. */
+create or replace function public.admin_office_spaces()
+returns table (id uuid, name text, office_id uuid, archived boolean, running_projects int)
+language sql stable security definer set search_path = public as $$
+  select s.id,
+         s.name,
+         os.office_id,
+         s.archived_at is not null,
+         coalesce(rp.n, 0)::int
+    from public.general_spaces s
+    left join public.office_spaces os on os.space_id = s.id
+    left join (select r.space_id, count(*) as n
+                 from public.office_running_projects() r
+                group by r.space_id) rp on rp.space_id = s.id
+   where public.office_admin_reads()
+     and s.kind = 'work'
+     and s.trashed_at is null
+   order by lower(s.name), s.id;
+$$;
+
+/**
+ * Running projects that need the admin: no project manager (has_pm as the Work projects
+ * page reads it), or quiet. quiet_since is the last person-made activity when quiet, else
+ * null. No PM first, then the longest quiet.
+ */
+create or replace function public.admin_attention_projects()
+returns table (project_id uuid, project_name text, space_name text, office_id uuid,
+               office_name text, no_pm boolean, quiet_since timestamptz)
+language sql stable security definer set search_path = public as $$
+  with running as (
+    select r.id, r.name, r.space_id, r.created_at
+      from public.office_running_projects() r
+     where public.office_admin_reads()
+  ),
+  pm as (
+    select w.id, bool_or(w.has_pm) as has_pm
+      from public.admin_work_project_rows() w
+     group by w.id
+  ),
+  flagged as (
+    select r.id, r.name, r.space_id,
+           not coalesce(pm.has_pm, false) as no_pm,
+           coalesce((select max(e.created_at) from public.general_task_events e
+                      where e.project_id = r.id and e.actor_id is not null),
+                    r.created_at) as last_at,
+           exists (select 1 from public.general_tasks t
+                    where t.project_id = r.id and t.trashed_at is null
+                      and t.archived_at is null and t.status <> 'done') as open_work,
+           exists (select 1 from public.general_tasks t
+                    where t.project_id = r.id and t.trashed_at is null
+                      and t.archived_at is null) as any_work
+      from running r
+      left join pm on pm.id = r.id
+  ),
+  marked as (
+    select f.*,
+           case when f.last_at < now() - interval '14 days'
+                     and (f.open_work or not f.any_work)
+                then f.last_at end as quiet_at
+      from flagged f
+  )
+  select m.id, m.name, s.name, o.id, coalesce(o.name, ''), m.no_pm, m.quiet_at
+    from marked m
+    join public.general_spaces s on s.id = m.space_id
+    left join public.office_spaces os on os.space_id = m.space_id
+    left join public.offices o on o.id = os.office_id and o.archived_at is null
+   where m.no_pm or m.quiet_at is not null
+   order by m.no_pm desc, m.quiet_at asc nulls last, lower(m.name), m.id;
+$$;
+
+/**
+ * One row per live office, then one Unassigned row (office_id null, office_name ''):
+ * live work spaces, the projects running in them, active members, and how many of those
+ * projects need attention. A space or person filed under an archived office counts as
+ * Unassigned, so nothing drops out of the totals.
+ */
+create or replace function public.admin_org_overview()
+returns table (office_id uuid, office_name text, spaces int, running_projects int,
+               people int, needs_attention int)
+language sql stable security definer set search_path = public as $$
+  with buckets as (
+    select o.id, o.name, 0 as ord from public.offices o where o.archived_at is null
+    union all
+    select null, '', 1
+  ),
+  live_spaces as (
+    select s.id, o.id as office_id
+      from public.general_spaces s
+      left join public.office_spaces os on os.space_id = s.id
+      left join public.offices o on o.id = os.office_id and o.archived_at is null
+     where s.kind = 'work' and s.archived_at is null and s.trashed_at is null
+  ),
+  running as (
+    select ls.office_id, count(*) as n
+      from public.office_running_projects() r
+      join live_spaces ls on ls.id = r.space_id
+     group by ls.office_id
+  ),
+  people as (
+    select o.id as office_id
+      from public.profiles p
+      left join public.office_members m on m.user_id = p.id
+      left join public.offices o on o.id = m.office_id and o.archived_at is null
+     where p.role = 'member' and p.status = 'active'
+  ),
+  attention as (
+    select a.office_id from public.admin_attention_projects() a
+  )
+  select b.id,
+         b.name,
+         (select count(*) from live_spaces ls where ls.office_id is not distinct from b.id)::int,
+         coalesce((select r.n from running r where r.office_id is not distinct from b.id), 0)::int,
+         (select count(*) from people pp where pp.office_id is not distinct from b.id)::int,
+         (select count(*) from attention a where a.office_id is not distinct from b.id)::int
+    from buckets b
+   where public.office_admin_reads()
+   order by b.ord, lower(b.name), b.id;
+$$;
+
+/**
+ * Two counts for the admin's Home: bulk-imported accounts still waiting on first-sign-in
+ * setup, and privacy requests within two days of (or past) their next deadline.
+ */
+create or replace function public.admin_org_summary()
+returns table (accounts_in_setup int, privacy_due int)
+language sql stable security definer set search_path = public as $$
+  select (select count(*) from public.profiles p
+           where p.bulk_setup_required and p.status = 'pending')::int,
+         (select count(*) from public.privacy_requests r
+           where (r.status = 'open' and r.acknowledge_by <= current_date + 2)
+              or (r.status = 'acknowledged' and r.complete_by <= current_date + 2))::int
+   where public.office_admin_reads();
+$$;
+
 -- ---------------------------------------------------------------- grants
 
 -- Internal helpers and trigger functions: nobody calls them directly.
@@ -599,6 +794,8 @@ revoke all on function public.office_members_member_only() from public, anon, au
 revoke all on function public.office_spaces_work_only() from public, anon, authenticated;
 revoke all on function public.general_spaces_office_default() from public, anon, authenticated;
 revoke all on function public.profiles_office_role() from public, anon, authenticated;
+revoke all on function public.office_admin_reads() from public, anon, authenticated;
+revoke all on function public.office_running_projects() from public, anon, authenticated;
 
 revoke all on function public.create_office(text, text) from public, anon;
 revoke all on function public.rename_office(uuid, text, text) from public, anon;
@@ -617,5 +814,18 @@ grant execute on function public.delete_office(uuid) to authenticated;
 grant execute on function public.set_member_office(uuid, uuid) to authenticated;
 grant execute on function public.set_space_office(uuid, uuid) to authenticated;
 grant execute on function public.set_member_office_by_name(text, text) to authenticated;
+
+-- The admin reads. Anyone signed in may call them; only an active admin gets rows.
+revoke all on function public.admin_office_people() from public, anon;
+revoke all on function public.admin_office_spaces() from public, anon;
+revoke all on function public.admin_org_overview() from public, anon;
+revoke all on function public.admin_attention_projects() from public, anon;
+revoke all on function public.admin_org_summary() from public, anon;
+
+grant execute on function public.admin_office_people() to authenticated;
+grant execute on function public.admin_office_spaces() to authenticated;
+grant execute on function public.admin_org_overview() to authenticated;
+grant execute on function public.admin_attention_projects() to authenticated;
+grant execute on function public.admin_org_summary() to authenticated;
 
 commit;
