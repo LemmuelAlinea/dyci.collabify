@@ -14,6 +14,7 @@ export function DirectoryHero({
   accentClass = 'text-banner-accent',
   accentStyle,
   accentWeight,
+  compact = false,
 }: {
   title: string
   accent: string
@@ -29,6 +30,8 @@ export function DirectoryHero({
   accentStyle?: CSSProperties
   /** The accent word's weight, when it should differ from the title's, such as `font-medium`. */
   accentWeight?: string
+  /** A thin banner, for a working page whose content should start high. */
+  compact?: boolean
 }) {
   const accentWord = (
     <span className={[accentStyle ? undefined : accentClass, accentWeight].filter(Boolean).join(' ') || undefined} style={accentStyle}>
@@ -36,7 +39,11 @@ export function DirectoryHero({
     </span>
   )
   return (
-    <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-4 py-5 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-9">
+    <section
+      className={`relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill text-banner-ink ${
+        compact ? 'px-4 py-4 sm:px-6 sm:py-5' : 'px-4 py-5 sm:px-7 sm:py-8 lg:px-9 lg:py-9'
+      }`}
+    >
       <div
         aria-hidden
         className="banner-deco pointer-events-none absolute -top-52 -right-36 h-[430px] w-[430px] rounded-full blur-[110px]"
@@ -54,7 +61,11 @@ export function DirectoryHero({
         }}
       />
 
-      <div className="relative grid gap-5 sm:gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <div
+        className={`relative grid lg:grid-cols-[minmax(0,1fr)_auto] ${
+          compact ? 'gap-3 lg:items-center' : 'gap-5 sm:gap-7 lg:items-end'
+        }`}
+      >
         <div className={`max-w-[720px] ${corner ? 'pr-10' : ''}`}>
           <h1 className={`font-display text-banner-ink ${mark ? 'flex items-center gap-3' : ''}`}>
             {mark ? (
@@ -70,7 +81,11 @@ export function DirectoryHero({
               </>
             )}
           </h1>
-          <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-banner-muted">
+          <p
+            className={`max-w-[62ch] leading-relaxed text-banner-muted ${
+              compact ? 'mt-1 text-[13px]' : 'mt-3 text-[14px]'
+            }`}
+          >
             {description}
           </p>
         </div>

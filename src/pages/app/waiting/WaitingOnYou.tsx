@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { PageHeader } from '../../../components/app/PageHeader'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import Submissions from '../submissions/Submissions'
 import Reassignments from '../reassignments/Reassignments'
 
@@ -36,11 +36,13 @@ export default function WaitingOnYou() {
 
   return (
     <div className="w-full">
-      <PageHeader
-        title="Waiting on you"
+      <DirectoryHero
+        compact
+        title="Waiting"
+        accent="on you."
         description="Hand-ins to answer and requests to move stalled work, across your classes."
       />
-      <div className="space-y-10">
+      <div className="mt-8 space-y-10">
         <section id="hand-ins" aria-labelledby="hand-ins-title" className="scroll-mt-24">
           <h2 id="hand-ins-title" className="mb-4">Hand-ins</h2>
           <Submissions embedded onReady={onHandInsReady} />

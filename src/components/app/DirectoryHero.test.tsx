@@ -42,6 +42,19 @@ it('puts the mark before the title and keeps the title text together', async () 
   expect(h1().children[1].className).toContain('min-w-0')
 })
 
+it('draws a thin banner when compact', async () => {
+  await show({ compact: true })
+  const section = host.querySelector('section')!
+  expect(section.className).toContain('py-4')
+  expect(section.className).not.toContain('lg:py-9')
+  expect(host.querySelector('p')!.className).toContain('mt-1')
+})
+
+it('keeps the full banner by default', async () => {
+  await show()
+  expect(host.querySelector('section')!.className).toContain('lg:py-9')
+})
+
 it('colors the accent word with the class it is given', async () => {
   await show({ accentClass: 'text-swatch-teal-accent' })
   expect(accent().className).toBe('text-swatch-teal-accent')
