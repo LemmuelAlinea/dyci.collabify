@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useToast } from '../ui/Toast'
 import {
   closePeerRound,
+  deletePeerRound,
   listPeerRounds,
   openPeerRound,
   projectPeerResults,
@@ -40,6 +41,7 @@ export function PeerRoundsPanel({ projectId, boardId }: { projectId: string; boa
   const [extendDay, setExtendDay] = useState('')
   const [reopenDay, setReopenDay] = useState('')
   const [closing, setClosing] = useState<PeerRoundStatus | null>(null)
+  const [deleting, setDeleting] = useState<PeerRoundStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
   // Live updates retry the load often; one toast until it works again is enough.
@@ -162,6 +164,12 @@ export function PeerRoundsPanel({ projectId, boardId }: { projectId: string; boa
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setClosing(openRound)}>
               Close now
             </Button>
+            {/* Opened by mistake: nobody has answered, so nothing is lost. */}
+            {openRound.answered === 0 && (
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDeleting(openRound)}>
+                Delete round
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -238,6 +246,19 @@ export function PeerRoundsPanel({ projectId, boardId }: { projectId: string; boa
             <li key={r.id}>
               {KIND[r.kind]} · {dateFmt.format(new Date(r.opens_at))} to {dateFmt.format(new Date(r.closed_at ?? r.closes_at))} ·{' '}
               {r.answered} of {r.expected} answered · {roundState(r)}
+              {r.answered === 0 && (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setDeleting(r)}
+                    className="font-medium text-danger-600 hover:underline disabled:opacity-60 dark:text-danger-400"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -281,6 +302,30 @@ export function PeerRoundsPanel({ projectId, boardId }: { projectId: string; boa
           const r = closing
           setClosing(null)
           if (r) void act(() => closePeerRound(r.id), 'Round closed')
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete this round?"
+        body={
+          <>
+            Nobody has answered this {deleting ? KIND[deleting.kind].toLowerCase() : ''} round yet,
+            so no ratings are lost. The notice it sent to each group is removed too.
+            {deleting?.kind === 'final' && ' You can open a final round again afterwards.'}
+          </>
+        }
+        confirmLabel="Delete round"
+        onClose={() => setDeleting(null)}
+        onConfirm={async () => {
+          if (!deleting) return
+          try {
+            await deletePeerRound(deleting.id)
+          } catch (err) {
+            throw new Error(authErrorMessage(err, 'Could not delete that round. Try again.'))
+          }
+          show('Round deleted')
+          await load()
         }}
       />
     </section>

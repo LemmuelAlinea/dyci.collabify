@@ -32,6 +32,12 @@ export async function closePeerRound(roundId: string) {
   if (error) throw error
 }
 
+/** Only a round nobody has answered: the database refuses one with a saved rating. */
+export async function deletePeerRound(roundId: string) {
+  const { error } = await supabase.rpc('delete_peer_round', { p_round: roundId })
+  if (error) throw error
+}
+
 /** Returns how many students were reminded. Once a day per project. */
 export async function remindPeerRound(roundId: string) {
   const { data, error } = await supabase.rpc('remind_peer_round', { p_round: roundId })

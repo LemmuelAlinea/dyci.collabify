@@ -4727,3 +4727,16 @@ mobile, cloud, brain, math, flask, pen, language, briefcase, presentation, certi
 SQL: `supabase/class-look.sql` (two columns and checks, no view change), suite `supabase/tests/class-look.test.sql`
 (11 checks, passed in a rolled-back run). Until it is applied, the look reads as none (a 400 per load, handled) and
 saving a look fails. Deploy order: apply `class-look.sql`, then `anon-lockdown.sql`, run the suite, then push.
+
+## Waiting on you follow-ups and peer round delete (2026-11-13)
+
+- A class project's Groups tab no longer carries a Waiting on you panel (hand-ins, reassignment link);
+  both are answered on `/waiting`. `HandInQueue.tsx` is gone.
+- On `/waiting` → Reassignment requests, Open the task opens the task dialog over the queue.
+- The class task dialog (`TaskDetailModal`) reads total weight, hand-in and project lock from the task's
+  own board (`getTaskBoardFacts`, `task_board_overview`); hosts no longer pass `boardWeight`. Waiting on you,
+  Calendar and Analytics used to pass 0, so every task read 100%.
+- Peer evaluation: a professor deletes a round nobody has answered, from the open round's controls or the
+  rounds list on the Grades tab. SQL `supabase/peer-round-delete.sql` (`delete_peer_round`), applied live with
+  `anon-lockdown.sql`; suite `supabase/tests/peer-round-delete.test.sql` (10 checks, passed rolled back).
+- Not walked in a signed-in browser (the preview has no session).
