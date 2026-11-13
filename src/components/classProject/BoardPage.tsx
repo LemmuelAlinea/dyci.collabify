@@ -270,9 +270,10 @@ function BoardOverview({
         )}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.6fr)] xl:items-start">
-        <BoardProgress board={board} />
+      {/* Who carried what, then the whole: shares take 65% beside the progress ring. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-stretch">
         <MemberProgress rows={t.progress} title="Share of the group" dense />
+        <BoardProgress board={board} variant="pie" />
       </div>
 
       <div className="space-y-3">
