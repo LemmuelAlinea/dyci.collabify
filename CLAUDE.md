@@ -278,6 +278,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   with its own stamp; the daily reminder is a fallback and retains its 08:00 Manila schedule.
   Suite: `supabase/tests/project-workflow-rules.test.sql`.
 
+- Offices (`supabase/offices.sql`, after `peer-round-delete.sql`, before `anon-lockdown.sql`): tables `offices`,
+  `office_members` (one home office per member; students and admins have none) and `office_spaces` (one office per
+  work space; a class's space never has one). Only an active admin writes, through RPCs (`create_office`,
+  `set_member_office`, `set_space_office` and the rest); there is no write policy, and every write is audited. The
+  admin's overview reads (`admin_office_people`, `admin_office_spaces`, `admin_org_overview`,
+  `admin_attention_projects`, `admin_org_summary`) return names and counts only, never project content. Quiet means
+  no person-made task event (non-null `actor_id`) for 14 days with open work. It redefines nothing another file
+  owns. The admin rail is Organization / Academic program / Compliance, and Admin Home is the organization overview.
+  Suite: `supabase/tests/offices.test.sql`.
+
 ## First-run walkthroughs
 
 - Code: the rules live in `lib/walkthrough/` (`flows.ts`, `progress.ts`, `geometry.ts`, plain functions with

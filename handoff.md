@@ -4740,3 +4740,44 @@ saving a look fails. Deploy order: apply `class-look.sql`, then `anon-lockdown.s
   rounds list on the Grades tab. SQL `supabase/peer-round-delete.sql` (`delete_peer_round`), applied live with
   `anon-lockdown.sql`; suite `supabase/tests/peer-round-delete.test.sql` (10 checks, passed rolled back).
 - Not walked in a signed-in browser (the preview has no session).
+
+## Admin offices and organization overview (2026-11-14)
+
+The admin files people and work spaces under offices, and Admin Home became the organization overview.
+
+- Rail: the admin rail is three groups, Organization (Home, Offices, Accounts, Work projects, Notices), Academic
+  program (collapsible: Sections, Syllabi, Curriculum, Classes, Faculty, Cohort) and Compliance (Audit log, Privacy
+  requests). Home shows once, never beside another Home link.
+- Offices page (`/admin/offices`): create, rename and archive offices; open one to see its people and spaces and move
+  each to another office; an Unassigned panel files members and spaces with no office. Archiving is refused with the
+  count while an office has active people or live spaces.
+- Accounts: each member row shows their office with Change office, plus an office filter. The bulk CSV import takes an
+  optional `office` column (unknown name imports with no office and warns; a student row ignores it; a blank value on
+  an overwrite leaves the office alone).
+- Archive: an Offices section restores or deletes archived offices for good.
+- Admin Home bands: Offices (spaces, running projects, people, needs attention per office, Unassigned last), Needs
+  attention (no project manager, or quiet for 14 days with open work), Accounts in setup and privacy requests due
+  within two days, and an Academic program band (hidden with no classes).
+- SQL: `supabase/offices.sql`, applied live with `anon-lockdown.sql`. Suite `supabase/tests/offices.test.sql`: all
+  checks passed in a rolled-back run (78 PASS lines). Documented in `docs/07-backup.md` and CLAUDE.md.
+- Deploy: redeploy the Edge Function `bulk-register-users` before the CSV office column works (its office field is
+  optional, so the old frontend keeps working). Then push `main`.
+
+Verified: `npm run build` clean, `npm test` 212 files and 2,236 tests passed, the offices suite passed against the live
+project (rolled back).
+Browser walk: pending
+
+**Deferred**
+- Admin Home's academic counts exclude archived classes across all years, while /admin/classes defaults to the
+  current school year; likely scope Home to the current school year.
+- Only the overview failure path is tested; the Offices-band figure assertion is weak (`toContain('4')`).
+- "No office" and "Unassigned" both appear on the Offices page; the Needs attention list is uncapped; a magic
+  `pr-[27px]` on the Home table.
+- The `general_counts` SQL function is still defined with no callers (left, dropping a live function is destructive).
+- Listings return a raw archived `office_id`; the UI maps it through `liveOfficeId`. The two Task 2 test-order,
+  all-done control, duplicated admin predicate and double-scan notes are cosmetic.
+- Offices page: JSX indent in `OfficeDetail` `moveTo`, untested 80-character branch and its copy, the office filter
+  resets without a cue, a restore clash shows as a toast, people count label wording.
+- No Deno test for `fileOffice` in `bulk-register-users`; an archived office reads as unknown there.
+- Later phases of the organization upgrade: 2 oversight and offboarding, 3 office head view, 4 notices by office,
+  5 organization settings.
