@@ -1,5 +1,7 @@
 import { supabase } from '../supabase'
 import type {
+  NoticeAudience,
+  NoticeGroup,
   ProgramNotice,
   ProgramNoticeRecord,
   ProgramSection,
@@ -30,28 +32,52 @@ export async function listNotices() {
 
 /**
  * Every notice ever sent, for the chair's console only — the view refuses
- * everybody else. Ordered so what is still live comes first.
+ * everybody else. Newest first, pinned ahead.
  */
 export async function listAllNotices() {
   const { data, error } = await supabase
     .from('program_notices_all')
     .select('*')
-    .order('expired', { ascending: true })
     .order('pinned', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as ProgramNoticeRecord[]
 }
 
-export async function postNotice(input: { title: string; body: string; pinned: boolean }) {
+export async function postNotice(input: {
+  title: string
+  body: string
+  pinned: boolean
+  audience: NoticeAudience
+  audienceOffices: string[]
+  audienceGroups: NoticeGroup[]
+}) {
   const { data: me } = await supabase.auth.getUser()
   const { error } = await supabase.from('program_announcements').insert({
     author_id: me.user?.id,
     title: input.title.trim(),
     body: input.body.trim(),
     pinned: input.pinned,
+    audience: input.audience,
+    audience_offices: input.audience === 'offices' ? input.audienceOffices : [],
+    audience_groups: input.audience === 'groups' ? input.audienceGroups : [],
   })
   if (error) throw error
+}
+
+/** How many people a notice to this audience would notify, for the composer. */
+export async function noticeReach(
+  audience: NoticeAudience,
+  offices: string[],
+  groups: NoticeGroup[],
+): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_notice_reach', {
+    p_audience: audience,
+    p_offices: audience === 'offices' ? offices : [],
+    p_groups: audience === 'groups' ? groups : [],
+  })
+  if (error) throw error
+  return Number(data ?? 0)
 }
 
 export async function editNotice(

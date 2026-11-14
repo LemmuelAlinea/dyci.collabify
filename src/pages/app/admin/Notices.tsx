@@ -11,9 +11,23 @@ import { DraftFromLine } from '../../../components/ui/DraftFromLine'
 import { Textarea } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
-import { deleteNotice, editNotice, listAllNotices, postNotice } from '../../../lib/api/program'
+import {
+  deleteNotice,
+  editNotice,
+  listAllNotices,
+  noticeReach,
+  postNotice,
+} from '../../../lib/api/program'
+import { listOffices } from '../../../lib/api/offices'
+import type { Office } from '../../../lib/offices'
 import { authErrorMessage } from '../../../lib/authError'
-import type { ProgramNoticeRecord } from '../../../lib/program'
+import {
+  NOTICE_GROUPS,
+  noticeAudienceLabel,
+  type NoticeAudience,
+  type NoticeGroup,
+  type ProgramNoticeRecord,
+} from '../../../lib/program'
 import { momentLabel } from '../../../lib/report'
 import { Linkify } from '../../../components/ui/Linkify'
 import { DriveLinkCards } from '../../../components/ui/DriveLinkCards'
@@ -31,6 +45,14 @@ import { DriveLinkCards } from '../../../components/ui/DriveLinkCards'
  */
 const ABOUT_KEY = 'collabify.notices.about'
 
+/** The database's rate-limit text still says the notice reaches the whole program. */
+export function noticeSendError(err: unknown) {
+  const text = authErrorMessage(err, 'Could not send the notice.')
+  return /six notices in an hour/i.test(text)
+    ? 'That is six notices in an hour. Wait a while before sending another.'
+    : text
+}
+
 export default function Notices() {
   const { show } = useToast()
   const [rows, setRows] = useState<ProgramNoticeRecord[] | null>(null)
@@ -41,6 +63,42 @@ export default function Notices() {
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState<ProgramNoticeRecord | null>(null)
   const [composing, setComposing] = useState(false)
+  const [audience, setAudience] = useState<NoticeAudience>('everyone')
+  const [pickedOffices, setPickedOffices] = useState<string[]>([])
+  const [pickedGroups, setPickedGroups] = useState<NoticeGroup[]>([])
+  const [offices, setOffices] = useState<Office[]>([])
+  const [reach, setReach] = useState<number | null>(null)
+
+  useEffect(() => {
+    listOffices()
+      .then((o) => setOffices(o.filter((x) => !x.archived_at)))
+      .catch(() => setOffices([]))
+  }, [])
+
+  const audienceEmpty =
+    (audience === 'offices' && pickedOffices.length === 0) ||
+    (audience === 'groups' && pickedGroups.length === 0)
+
+  // The count is the notifier's own, asked ahead of sending; debounced so ticking
+  // a few boxes asks once.
+  useEffect(() => {
+    if (!composing || audienceEmpty) {
+      setReach(null)
+      return
+    }
+    let live = true
+    const t = setTimeout(() => {
+      noticeReach(audience, pickedOffices, pickedGroups)
+        .then((n) => live && setReach(n))
+        .catch(() => live && setReach(null))
+    }, 250)
+    return () => {
+      live = false
+      clearTimeout(t)
+    }
+  }, [composing, audience, pickedOffices, pickedGroups, audienceEmpty])
+
+  const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
   /**
    * The paragraphs explaining what this page is stay hidden once the chair has
@@ -83,20 +141,30 @@ export default function Notices() {
 
   useLive(load, ['program_announcements'])
 
-  const ready = title.trim().length > 0 && body.trim().length > 0
+  const ready = title.trim().length > 0 && body.trim().length > 0 && !audienceEmpty
 
   async function send() {
     setSaving(true)
     try {
-      await postNotice({ title, body, pinned })
+      await postNotice({
+        title,
+        body,
+        pinned,
+        audience,
+        audienceOffices: pickedOffices,
+        audienceGroups: pickedGroups,
+      })
       setTitle('')
       setBody('')
       setPinned(false)
+      setAudience('everyone')
+      setPickedOffices([])
+      setPickedGroups([])
       setComposing(false)
-      show('Notice sent to the program')
+      show('Notice sent')
       await load()
     } catch (err) {
-      show(authErrorMessage(err, 'Could not send the notice.'), 'error')
+      show(noticeSendError(err), 'error')
     } finally {
       setSaving(false)
     }
@@ -172,7 +240,7 @@ export default function Notices() {
         open={composing}
         onClose={() => setComposing(false)}
         title="Send a notice"
-        description="It reaches every professor and student in the program."
+        description="Choose who it reaches. People with announcements turned off are not notified."
         size="md"
         focusField
         footer={
@@ -182,7 +250,7 @@ export default function Notices() {
             </Button>
             <Button className="!rounded-xl" loading={saving} disabled={!ready} onClick={send}>
               <Icon name="bell" size={15} />
-              Send to the program
+              Send notice
             </Button>
           </>
         }
@@ -215,6 +283,71 @@ export default function Notices() {
               />
             )}
           </Field>
+          <fieldset className="space-y-2">
+            <legend className="text-[13px] font-medium text-ink">Send to</legend>
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
+              {(
+                [
+                  ['everyone', 'Everyone'],
+                  ['offices', 'Offices'],
+                  ['groups', 'Groups'],
+                ] as const
+              ).map(([v, label]) => (
+                <label key={v} className="flex items-center gap-2 text-[13px] text-muted">
+                  <input
+                    type="radio"
+                    name="notice-audience"
+                    value={v}
+                    checked={audience === v}
+                    onChange={() => setAudience(v)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {audience === 'offices' && (
+              <div className="space-y-1 pl-1">
+                {offices.length === 0 && (
+                  <p className="text-[12px] text-faint">There are no offices yet.</p>
+                )}
+                {offices.map((o) => (
+                  <label key={o.id} className="flex items-center gap-2 text-[13px] text-muted">
+                    <input
+                      type="checkbox"
+                      checked={pickedOffices.includes(o.id)}
+                      onChange={() => setPickedOffices((l) => toggle(l, o.id))}
+                      className="h-4 w-4 rounded border-[var(--control-line)]"
+                    />
+                    {o.name}
+                  </label>
+                ))}
+              </div>
+            )}
+            {audience === 'groups' && (
+              <div className="space-y-1 pl-1">
+                {NOTICE_GROUPS.map((g) => (
+                  <label key={g.value} className="flex items-center gap-2 text-[13px] text-muted">
+                    <input
+                      type="checkbox"
+                      checked={pickedGroups.includes(g.value)}
+                      onChange={() => setPickedGroups((l) => toggle(l, g.value))}
+                      className="h-4 w-4 rounded border-[var(--control-line)]"
+                    />
+                    {g.label}
+                  </label>
+                ))}
+              </div>
+            )}
+            <p data-reach className="text-[12px] text-faint">
+              {audienceEmpty
+                ? audience === 'offices'
+                  ? 'Tick at least one office.'
+                  : 'Tick at least one group.'
+                : reach === null
+                  ? 'Counting who it reaches…'
+                  : `Will notify ${reach} ${reach === 1 ? 'person' : 'people'}.`}
+            </p>
+          </fieldset>
           <label className="flex items-center gap-2 text-[13px] text-muted">
             <input
               type="checkbox"
@@ -239,7 +372,7 @@ export default function Notices() {
           icon="bell"
           art="announcements"
           title="Nothing sent yet"
-          body="A notice you send reaches every professor and student in the program."
+          body="A notice you send reaches the offices or groups you choose, or everyone."
         />
       ) : (
           <ul className="space-y-3">
@@ -309,7 +442,7 @@ function NoticeCard({
             {n.title}
           </h2>
           <p className="mt-0.5 text-[12px] text-faint">
-            {n.author_name} · {momentLabel(n.created_at)}
+            {n.author_name} · {momentLabel(n.created_at)} · <span data-audience>{noticeAudienceLabel(n)}</span>
             {n.edited_at && ' · edited'}
           </p>
         </div>

@@ -178,7 +178,36 @@ export type ProgramNotice = {
 }
 
 /** program_notices_all: the office's own list, the chair's alone to read. */
-export type ProgramNoticeRecord = ProgramNotice
+export type ProgramNoticeRecord = ProgramNotice & {
+  audience: NoticeAudience
+  audience_offices: string[]
+  audience_groups: NoticeGroup[]
+  audience_office_names: string[] | null
+}
+
+export type NoticeAudience = 'everyone' | 'offices' | 'groups'
+export type NoticeGroup = 'students' | 'teaching' | 'staff'
+
+export const NOTICE_GROUPS: { value: NoticeGroup; label: string }[] = [
+  { value: 'students', label: 'Students' },
+  { value: 'teaching', label: 'Teaching faculty' },
+  { value: 'staff', label: 'Office staff' },
+]
+
+/** Who a notice is for, as the list shows it. */
+export function noticeAudienceLabel(n: {
+  audience: NoticeAudience
+  audience_groups: NoticeGroup[]
+  audience_office_names: string[] | null
+}) {
+  if (n.audience === 'offices') return (n.audience_office_names ?? []).join(', ') || 'Offices'
+  if (n.audience === 'groups') {
+    return NOTICE_GROUPS.filter((g) => n.audience_groups.includes(g.value))
+      .map((g) => g.label)
+      .join(', ')
+  }
+  return 'Everyone'
+}
 
 /** program_sections: the cohort names the program actually runs. */
 export type ProgramSection = {
