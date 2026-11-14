@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import WorkProjects from './WorkProjects'
+import { projectOffices } from '../../../lib/api/offboarding'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -101,4 +102,12 @@ it("shows each project's office and filters by it", async () => {
   })
   expect(rows()).toHaveLength(1)
   expect(rows()[0].textContent).toContain('Records cleanup')
+})
+
+it('a failed office read shows no office and hides the filter', async () => {
+  vi.mocked(projectOffices).mockRejectedValueOnce({ message: 'offline' })
+  await renderAt('/admin/projects')
+  expect(document.querySelector('select[aria-label="Office"]')).toBeNull()
+  expect(document.body.textContent).not.toContain('Unassigned')
+  expect(document.querySelectorAll('li')).toHaveLength(2)
 })

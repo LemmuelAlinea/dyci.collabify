@@ -48,7 +48,7 @@ export function AttentionBand({ className = '' }: { className?: string }) {
       ) : lines.length === 0 ? (
         <p className="flex items-center gap-2 text-[13px] text-muted">
           <Icon name="checkCircle" size={16} className="shrink-0 text-success-600" />
-          Every running project has a project manager and recent activity.
+          Every running project and space has a project manager and recent activity.
         </p>
       ) : (
         <>

@@ -203,7 +203,7 @@ it('says so when nothing needs attention', async () => {
   vi.mocked(attentionProjects).mockResolvedValueOnce([])
   await render()
   expect(band('attention')!.textContent).toContain(
-    'Every running project has a project manager and recent activity.',
+    'Every running project and space has a project manager and recent activity.',
   )
 })
 
