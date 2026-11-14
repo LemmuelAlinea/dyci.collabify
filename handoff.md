@@ -4807,8 +4807,15 @@ SQL: `supabase/offboarding.sql` was applied to the live project with `anon-lockd
 `supabase/tests/offboarding.test.sql` passes (75 PASS, rolled back). The review step clears the request claims for one
 UPDATE, so it depends on `guard_general_task` keeping its `auth.uid() is null` early return (see `docs/07-backup.md`).
 
-Verified: `npm run build` clean, `npm test` 2,273 passed (217 files), the suite above.
-Browser walk: pending.
+Verified: `npm run build` clean, `npm test` 2,278 passed (217 files) after the final review's fixes, the
+suite 75 PASS twice (rolled back).
+Browser walk (2026-11-14, admin on the dev server against the live project, read-only): Work projects shows the
+Office column (all "Unassigned" today) and the office filter; Deactivate on Nathan Del Rosario opened the Offboard
+dialog listing "Walk through space" and "Walk through project", the successor list offered only the four people
+with Project manager on, choosing Cloud Alinea filled both lines and enabled "Deactivate and hand over", and Cancel
+left him active; Admin Home's Needs attention lists a real stuck space, "Class project files" (no project
+manager), whose Assign dialog offered the same eligible people and was cancelled. No account was deactivated and
+no PM was assigned; a clean load had no failed requests.
 
 **Deferred**
 - Archived-office rule and trashed exclusions are untested in the reads (a trashed project is always archived, since
