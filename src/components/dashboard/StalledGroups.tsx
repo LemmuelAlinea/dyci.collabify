@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { TileEmpty } from './Bento'
+import { TilePanel } from './Bento'
 import { NudgeButton } from '../projects/NudgeButton'
 import { paths } from '../../lib/paths'
 import type { StalledBoard } from '../../lib/api/dashboard'
@@ -36,7 +36,14 @@ export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
   }, [boards.length])
 
   if (boards.length === 0) {
-    return <TileEmpty>Every group has moved something in the last seven days.</TileEmpty>
+    return (
+      <TilePanel
+        icon="trendUp"
+        tone="success"
+        title="All groups are active"
+        body="Every group made progress in the last 7 days."
+      />
+    )
   }
 
   return (

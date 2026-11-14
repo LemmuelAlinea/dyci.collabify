@@ -112,6 +112,8 @@ const PATHS = {
   briefcase: 'M3 8h18v12H3zM8 8V5a1 1 0 011-1h6a1 1 0 011 1v3M3 13h18',
   presentation: 'M3 4h18M4 4v10h16V4M12 14v4M8 21l4-3 4 3M8 11l3-3 2 2 3-3',
   certificate: 'M5 3h14v12H5zM9 7h6M9 10h4M10 15l-1 6 3-2 3 2-1-6',
+  inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z',
+  trendUp: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
 } as const
 
 export type IconName = keyof typeof PATHS

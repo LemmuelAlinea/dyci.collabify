@@ -109,6 +109,49 @@ export function BentoTile({
   )
 }
 
+const PANEL_TONE = {
+  // The person's own card icon square on a sunken ground.
+  plain: { panel: 'surface-sunken', tile: 'bg-icon-tile text-icon-glyph' },
+  // Good news: everything is moving.
+  success: {
+    panel: 'bg-success-500/10',
+    tile: 'bg-success-500/15 text-success-700 dark:text-success-300',
+  },
+} as const
+
+/**
+ * A tile's designed empty state: an inset panel with an icon square, a short
+ * heading and one line under it. For a home page tile whose empty state is
+ * news in itself ("you're all caught up"), where one quiet line undersells it.
+ */
+export function TilePanel({
+  icon,
+  title,
+  body,
+  tone = 'plain',
+}: {
+  icon: IconName
+  title: string
+  body: string
+  tone?: keyof typeof PANEL_TONE
+}) {
+  const t = PANEL_TONE[tone]
+  return (
+    <div
+      data-tone={tone}
+      className={`flex items-center gap-4 rounded-xl px-4 py-4 sm:px-5 ${t.panel}`}
+    >
+      <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${t.tile}`}>
+        <Icon name={icon} size={22} />
+      </span>
+      <span className="min-w-0">
+        <span className="block font-display text-[16px] font-semibold text-ink">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-muted">{body}</span>
+      </span>
+    </div>
+  )
+}
+
 /** A tile's empty state: one quiet line, centred in whatever room it has. */
 export function TileEmpty({ children }: { children: ReactNode }) {
   return (

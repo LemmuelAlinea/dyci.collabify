@@ -4,6 +4,7 @@ import { paths } from '../../lib/paths'
 import type { ClassSummary } from '../../lib/types'
 import { useClassLooks } from '../../hooks/useClassLooks'
 import { CLASS_TILE, ClassMark } from '../classes/ClassMark'
+import { TilePanel } from './Bento'
 
 /**
  * The professor's classes, compact, with a way into each.
@@ -20,7 +21,15 @@ import { CLASS_TILE, ClassMark } from '../classes/ClassMark'
  */
 export function ClassRail({ classes }: { classes: ClassSummary[] }) {
   const looks = useClassLooks(classes.map((c) => c.id))
-  if (classes.length === 0) return null
+  if (classes.length === 0) {
+    return (
+      <TilePanel
+        icon="school"
+        title="No classes yet"
+        body="Classes you teach show here once you create one."
+      />
+    )
+  }
 
   return (
     <ul className="-mx-2 divide-y divide-[var(--line)]">

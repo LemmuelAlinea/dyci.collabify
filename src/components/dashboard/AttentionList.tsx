@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { TileEmpty } from './Bento'
+import { TilePanel } from './Bento'
 import type { Attention } from '../../lib/api/dashboard'
 
 /** Setup and release gaps — things only the professor can clear. Flat rows, for a bento tile. */
 export function AttentionList({ items }: { items: Attention[] }) {
-  if (items.length === 0) return <TileEmpty>Nothing is waiting on you.</TileEmpty>
+  if (items.length === 0) {
+    return <TilePanel icon="inbox" title="You're all caught up" body="Nothing is waiting on you." />
+  }
 
   return (
     <ul className="-mx-2 divide-y divide-[var(--line)]">
