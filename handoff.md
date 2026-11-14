@@ -4873,7 +4873,12 @@ SQL: `supabase/notice-audience.sql` and `anon-lockdown.sql` were applied to the 
 `notice-audience.test.sql` passes (70 assertions, rolled back).
 
 Verified: `npm run build` clean, `npm test` 2,309 passed (222 files), the suite passes (rolled back).
-Browser walk: pending.
+Browser walk (2026-11-14, admin on the dev server against the live project; nothing sent): the Notices list loads
+again (it failed on the live site before this branch, from the `expired` order), and the existing notice reads
+"Everyone"; the compose dialog shows Send to (Everyone, Offices, Groups) with "Will notify 88 people." for
+Everyone; choosing Groups with nothing ticked says "Tick at least one group.", and ticking Students gives "Will
+notify 37 people."; Cancel closed it. No failed requests. The live admin Notices list stays broken until this
+branch is pushed.
 
 **Deferred**
 - Minor: a role-only `is_admin` lets an inactive admin read all notices and probe `notice_reaches`; office ids are not
