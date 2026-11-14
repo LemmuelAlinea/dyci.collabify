@@ -20,8 +20,8 @@ start Private or Workspace, and which email domain the CSV import accepts.
   CSV import).
 - The privacy request deadlines (5 and 15 days), which are commitments in the privacy policy.
 - Per-office or per-space overrides.
-- Changing the example text on the sign-in and password reset pages (they render before sign-in, and
-  `anon-lockdown.sql` keeps settings away from signed-out visitors).
+- Changing the example text on the sign-in, register and password reset pages (they render before
+  sign-in, and `anon-lockdown.sql` keeps settings away from signed-out visitors).
 
 ## Anti-goals
 
@@ -42,8 +42,16 @@ start Private or Workspace, and which email domain the CSV import accepts.
 - Trash retention applies to items already in the trash (their purge date is computed from the
   current setting), so shortening it can purge older items on the next sweep. The settings page says
   so beside the field.
-- The domain is a bare domain (`dyci.edu.ph`, lower case, at least one dot, letters, digits and
-  hyphens per label); the page shows it as `@dyci.edu.ph`.
+- The domain is a bare domain (`dyci.edu.ph`, lower case, at least one dot, subdomains allowed,
+  letters, digits and hyphens per label, 4–253 characters); the page shows it as `@dyci.edu.ph`.
+  After a change, re-importing an existing account on the old domain is refused: the domain governs
+  imports, by design.
+- A Workspace default applies to every new work project, including one in a one-person space, where
+  it is harmless (only space members read Workspace projects).
+- Every "30 days" in app copy reads the setting (`Trash.tsx`, `Archive.tsx`, `DraftPanel.tsx`,
+  `TaskDialog.tsx`, `DiscussionTab.tsx`, `ResourceLibrary.tsx`), through one small hook.
+- Shortening trash retention shows how many trashed items the next nightly clean-up would delete,
+  before saving (`admin_trash_purge_preview(p_days int) returns int`, admin only, counts only).
 
 ## Approaches
 
@@ -68,17 +76,29 @@ start Private or Workspace, and which email domain the CSV import accepts.
   text, p_school_email_domain text) returns organization_settings`: active admin only; one audit row
   per changed value (`org_setting_changed`, subject the setting's label, before/after values); a
   call that changes nothing writes nothing.
-- **Wiring** (the builder confirms each owner and re-run chain before editing; if a change would
-  require re-running a company-roles chain file, stop and report):
-  - Quiet: `office_attention_rows()` in `offices.sql` (owner, edited in place) reads
-    `org_quiet_days()`.
-  - Trash: the purge date and the purge job read `org_trash_retention_days()` in whichever file is
-    their final owner.
-  - Visibility: work-project creation uses `org_new_project_visibility()` where it sets
-    `visibility` today (a column default or the create function, whichever is the final path).
-  - Domain: `overwrite_bulk_account`'s check reads `org_school_email_domain()`; the Edge Function's
-    shared normalizer takes the domain as a parameter read once per request; the dialog's preview
-    and description use the setting.
+- Audit value `org_setting_changed`, added in its own committed transaction as `offices.sql` does;
+  `subject_id` null, `subject_label` the setting's label.
+- **Wiring** (traced by the builder check; nothing touches a company-roles chain file). This file
+  becomes the final owner of four existing functions, each started from the live
+  `pg_get_functiondef` with only the fixed value replaced:
+  - Quiet: `office_attention_rows()` (from `offices.sql`; it is `language sql`, so it can't read a
+    helper defined later — it is redefined here, not edited in place) reads `org_quiet_days()`.
+  - Trash: `list_my_trash` (final owner `work-task-handoff.sql`, the purge date) and `purge_trash`
+    (final owner `archive-page.sql`, five uses) read `org_trash_retention_days()`. The cron job only
+    calls `purge_trash()` and needs no change.
+  - Visibility: not the column default (class-board Files projects rely on it and the
+    `general_projects_visibility_work` check would refuse them). A new `before insert` trigger on
+    `general_projects` sets `visibility = org_new_project_visibility()` when `class_board_id is
+    null` and the insert didn't name a visibility other than the default. Nothing is redefined.
+  - Domain: `overwrite_bulk_account` (from `company-accounts.sql`, a chain file — redefined here,
+    not edited there) reads `org_school_email_domain()`. The Edge Function's shared
+    `normalizeBulkUser` takes the domain as a parameter, read once per request with the caller's
+    client; the browser preview (`parseBulkCsv`, which calls the same function) and the dialog copy
+    read the setting.
+  - Re-run rules (CLAUDE.md and `docs/07-backup.md`): re-running `offices.sql`, `trash.sql`,
+    `archive-page.sql`, `project-stakeholders.sql`, `work-task-handoff.sql` or `company-accounts.sql`
+    means re-running `organization-settings.sql` afterwards; append it to the existing re-run tails
+    after `notice-audience.sql`.
 - Suite `supabase/tests/organization-settings.test.sql`.
 
 ### App
