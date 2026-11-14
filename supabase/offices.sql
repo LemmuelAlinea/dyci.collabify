@@ -673,27 +673,30 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 /**
- * Running projects that need the admin: no project manager (has_pm as the Work projects
- * page reads it), or quiet. quiet_since is the last person-made activity when quiet, else
- * null. No PM first, then the longest quiet.
+ * Running projects that need attention: no project manager, or quiet. quiet_since is the
+ * last person-made activity when quiet, else null. No PM first, then the longest quiet.
+ * Ungated and internal: admin_attention_projects (the admin) and office-heads.sql (a head,
+ * for their own office) read it, each behind its own gate.
+ *
+ * A working PM is a pm row whose account is active with Project manager on: the has_pm
+ * rule of admin_work_project_rows, which project-roles.sql owns. That function answers
+ * the admin only, so the rule is repeated here, and the office heads suite pins that the
+ * two agree.
  */
-create or replace function public.admin_attention_projects()
+create or replace function public.office_attention_rows()
 returns table (project_id uuid, project_name text, space_name text, office_id uuid,
                office_name text, no_pm boolean, quiet_since timestamptz)
 language sql stable security definer set search_path = public as $$
   with running as (
     select r.id, r.name, r.space_id, r.created_at
       from public.office_running_projects() r
-     where public.office_admin_reads()
-  ),
-  pm as (
-    select w.id, bool_or(w.has_pm) as has_pm
-      from public.admin_work_project_rows() w
-     group by w.id
   ),
   flagged as (
     select r.id, r.name, r.space_id,
-           not coalesce(pm.has_pm, false) as no_pm,
+           not exists (select 1 from public.general_members gm
+                         join public.profiles pr on pr.id = gm.user_id
+                        where gm.project_id = r.id and gm.role = 'pm'
+                          and pr.status = 'active' and pr.can_manage_projects) as no_pm,
            coalesce((select max(e.created_at) from public.general_task_events e
                       where e.project_id = r.id and e.actor_id is not null),
                     r.created_at) as last_at,
@@ -704,7 +707,6 @@ language sql stable security definer set search_path = public as $$
                     where t.project_id = r.id and t.trashed_at is null
                       and t.archived_at is null) as any_work
       from running r
-      left join pm on pm.id = r.id
   ),
   marked as (
     select f.*,
@@ -720,6 +722,21 @@ language sql stable security definer set search_path = public as $$
     left join public.offices o on o.id = os.office_id and o.archived_at is null
    where m.no_pm or m.quiet_at is not null
    order by m.no_pm desc, m.quiet_at asc nulls last, lower(m.name), m.id;
+$$;
+
+/**
+ * Running projects that need the admin: no project manager (has_pm as the Work projects
+ * page reads it), or quiet. The rows of office_attention_rows, for an active admin only.
+ */
+create or replace function public.admin_attention_projects()
+returns table (project_id uuid, project_name text, space_name text, office_id uuid,
+               office_name text, no_pm boolean, quiet_since timestamptz)
+language sql stable security definer set search_path = public as $$
+  select a.project_id, a.project_name, a.space_name, a.office_id, a.office_name, a.no_pm,
+         a.quiet_since
+    from public.office_attention_rows() a
+   where public.office_admin_reads()
+   order by a.no_pm desc, a.quiet_since asc nulls last, lower(a.project_name), a.project_id;
 $$;
 
 /**
@@ -802,6 +819,7 @@ revoke all on function public.general_spaces_office_default() from public, anon,
 revoke all on function public.profiles_office_role() from public, anon, authenticated;
 revoke all on function public.office_admin_reads() from public, anon, authenticated;
 revoke all on function public.office_running_projects() from public, anon, authenticated;
+revoke all on function public.office_attention_rows() from public, anon, authenticated;
 
 revoke all on function public.create_office(text, text) from public, anon;
 revoke all on function public.rename_office(uuid, text, text) from public, anon;
