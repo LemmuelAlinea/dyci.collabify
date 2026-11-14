@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ProjectMark } from '../../components/general/ProjectMark'
+import { ProgramNotices } from '../../components/app/ProgramNotices'
 import { Reveal } from '../../components/motion/Reveal'
 import { Alert } from '../../components/ui/Alert'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -90,6 +91,10 @@ export function StakeholderHomeView({
           </div>
         </section>
       </Reveal>
+
+      <div className="mt-7 md:mt-8">
+        <ProgramNotices />
+      </div>
 
       <div className="mt-8">
         {error && (

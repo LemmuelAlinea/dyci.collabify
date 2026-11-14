@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { Reveal } from '../motion/Reveal'
 import { buttonClass } from '../ui/buttonClass'
+import { ProgramNotices } from './ProgramNotices'
 import { paths } from '../../lib/paths'
 
 /**
@@ -57,6 +58,10 @@ export function WaitingHome() {
           </div>
         </section>
       </Reveal>
+
+      <div className="mt-7 md:mt-8">
+        <ProgramNotices />
+      </div>
     </div>
   )
 }

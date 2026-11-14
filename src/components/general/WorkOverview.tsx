@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BentoGrid, BentoTile } from '../dashboard/Bento'
 import { DashboardSummary } from '../dashboard/DashboardSummary'
 import { Reveal } from '../motion/Reveal'
+import { ProgramNotices } from '../app/ProgramNotices'
 import { ComingUpPanel, MyTasksPanel, RecentPanel, WaitingPanel } from './DashboardPanels'
 import { JoinProjectDialog } from './JoinProjectDialog'
 import { NewSpaceDialog } from './SpaceDialogs'
@@ -219,6 +220,14 @@ export function WorkOverview({
           ]}
         />
       </Reveal>
+
+      {/* Alone on Home this is the whole page, so the notices show here; under a
+          class dashboard that Home shows them once already. */}
+      {standalone && (
+        <div className="mt-7 md:mt-8">
+          <ProgramNotices />
+        </div>
+      )}
 
       {(error || dashError) && (
         <div className="mt-7 md:mt-8">
