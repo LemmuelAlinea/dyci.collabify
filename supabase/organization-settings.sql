@@ -15,8 +15,9 @@
 -- set_organization_settings, which locks the row, refuses a value out of range or a malformed
 -- domain, and writes one org_setting_changed audit row per value that actually changed.
 --
--- admin_trash_purge_preview counts what purge_trash would delete if the trash kept items for
--- p_days, so the admin sees the cost of shortening it before saving.
+-- admin_trash_purge_preview counts the trashed items past the limit if the trash kept items for
+-- p_days, an upper bound on what purge_trash would delete, so the admin sees the cost of
+-- shortening it before saving.
 --
 -- Runs after notice-audience.sql and before anon-lockdown.sql. This task redefines nothing an
 -- earlier file owns.
@@ -226,26 +227,20 @@ $$;
 -- ---------------------------------------------------------------- the purge preview
 
 /**
- * How many items purge_trash would delete tonight if the trash kept items for p_days. Counts
- * only, for an active admin only.
+ * How many trashed items are past the limit if the trash kept items for p_days: an upper bound
+ * on what purge_trash would delete tonight, so the page says "up to N items". Counts only, for
+ * an active admin only, and it never acts as anyone else.
  *
- * It mirrors purge_trash (final owner archive-page.sql): the four plain deletes (draft files,
- * task files, teaching resources, discussions) count every row trashed before the cut-off. The
- * archive rows count only when purge_trash would delete them: it puts back a row nobody trashed,
- * and deletes the rest as whoever trashed it, putting it back when they could not delete it by
- * hand. So each is asked archive_trash_block as its trasher, the check delete_trashed_item makes
- * first, and the admin's own claims are restored straight after.
+ * It uses purge_trash's date predicates only (final owner archive-page.sql), with p_days in place
+ * of 30: the four plain deletes (draft files, task files, teaching resources, discussions) and
+ * archive_trash_rows, each trashed before the cut-off. purge_trash puts back some archive rows
+ * instead of deleting them (nobody trashed it, or whoever did cannot delete it by hand), so the
+ * real count can be lower, never higher.
  */
 create or replace function public.admin_trash_purge_preview(p_days int)
-returns int language plpgsql security definer set search_path = public as $$
+returns int language plpgsql stable security definer set search_path = public as $$
 declare
   v_before timestamptz;
-  v_claims text := current_setting('request.jwt.claims', true);
-  v_sub    text := current_setting('request.jwt.claim.sub', true);
-  n        int;
-  x        int := 0;
-  r        record;
-  blocked  text;
 begin
   if not public.office_admin_reads() then
     raise exception 'Only an admin can preview the trash clean-up.'
@@ -258,29 +253,11 @@ begin
 
   v_before := now() - make_interval(days => p_days);
 
-  n := (select count(*) from public.general_draft_files where trashed_at < v_before)
-     + (select count(*) from public.general_task_files where trashed_at < v_before)
-     + (select count(*) from public.teaching_resources where trashed_at < v_before)
-     + (select count(*) from public.general_discussions where trashed_at < v_before);
-
-  for r in select * from public.archive_trash_rows(null, v_before) loop
-    continue when r.trashed_by is null;
-    begin
-      perform set_config('request.jwt.claims',
-        json_build_object('sub', r.trashed_by, 'role', 'authenticated')::text, true);
-      perform set_config('request.jwt.claim.sub', r.trashed_by::text, true);
-      blocked := public.archive_trash_block(r.kind, r.id, true);
-    exception when others then
-      blocked := sqlerrm;
-    end;
-    perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
-    perform set_config('request.jwt.claim.sub', coalesce(v_sub, ''), true);
-    if blocked is null then
-      x := x + 1;
-    end if;
-  end loop;
-
-  return n + x;
+  return (select count(*) from public.general_draft_files where trashed_at < v_before)
+       + (select count(*) from public.general_task_files where trashed_at < v_before)
+       + (select count(*) from public.teaching_resources where trashed_at < v_before)
+       + (select count(*) from public.general_discussions where trashed_at < v_before)
+       + (select count(*) from public.archive_trash_rows(null, v_before));
 end;
 $$;
 

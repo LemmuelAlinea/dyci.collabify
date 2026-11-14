@@ -59,6 +59,28 @@ language sql as $$
    where action::text = 'org_setting_changed' and actor_id = any (p_actors)) e;
 $$;
 
+/**
+ * Every trashed row whose date is past a p_days limit, counted straight from the tables purge_trash
+ * reads, read as the database. The preview should equal it.
+ */
+create or replace function pg_temp.eligible(p_days int) returns int
+language sql as $$
+  with c as (select now() - make_interval(days => p_days) as before)
+  select ((select count(*) from public.general_draft_files, c where trashed_at < c.before)
+        + (select count(*) from public.general_task_files, c where trashed_at < c.before)
+        + (select count(*) from public.teaching_resources, c where trashed_at < c.before)
+        + (select count(*) from public.general_discussions, c where trashed_at < c.before)
+        + (select count(*) from public.project_tasks, c where trashed_at < c.before)
+        + (select count(*) from public.general_tasks, c where trashed_at < c.before)
+        + (select count(*) from public.groups, c where trashed_at < c.before)
+        + (select count(*) from public.projects, c where trashed_at < c.before)
+        + (select count(*) from public.general_space_teams, c where trashed_at < c.before)
+        + (select count(*) from public.general_projects, c where trashed_at < c.before)
+        + (select count(*) from public.classes, c where trashed_at < c.before)
+        + (select count(*) from public.general_spaces g, c
+            where g.kind = 'work' and g.trashed_at < c.before))::int;
+$$;
+
 do $$
 declare
   v_a    uuid := gen_random_uuid();  -- active admin
@@ -286,11 +308,16 @@ begin
   b365 := public.admin_trash_purge_preview(365);
   perform pg_temp.must_be('the preview leaves the admin signed in as themselves',
     auth.uid() = v_a);
+  perform pg_temp.must_be('the preview never acts as anyone else',
+    (select prosrc not ilike '%request.jwt%' and prosrc not ilike '%set_config%'
+            and prosrc not ilike '%archive_trash_block%'
+       from pg_proc where oid = 'public.admin_trash_purge_preview(integer)'::regprocedure));
 
   -- Fixtures, written as the database: three trashed resources (10, 40 and 100 days ago),
-  -- and four trashed work spaces. The purge deletes a space only as whoever trashed it, and
-  -- only when they could delete it by hand: v_m owns s_del and s_recent, so those go; v_gone
-  -- is rejected, so s_gone comes back instead; s_null has nobody, so it comes back too.
+  -- and four trashed work spaces. The preview counts all of them by date. The purge deletes a
+  -- space only as whoever trashed it, and only when they could delete it by hand: v_m owns
+  -- s_del and s_recent, so those go; v_gone is rejected, so s_gone comes back instead; s_null
+  -- has nobody, so it comes back too. So the preview is an upper bound.
   perform pg_temp.act_as_service();
   r_new := gen_random_uuid(); r_old := gen_random_uuid(); r_ancient := gen_random_uuid();
   insert into public.teaching_resources
@@ -319,28 +346,33 @@ begin
   p30  := public.admin_trash_purge_preview(30);
   p60  := public.admin_trash_purge_preview(60);
   p365 := public.admin_trash_purge_preview(365);
-  perform pg_temp.must_be('7 days counts the three resources and the two spaces their owner trashed',
-    p7 = b7 + 5);
-  perform pg_temp.must_be('30 days counts the 40 and 100 day resources and the 40 day owned space',
-    p30 = b30 + 3);
+  perform pg_temp.must_be('7 days counts the three resources and all four spaces',
+    p7 = b7 + 7);
+  perform pg_temp.must_be('30 days counts the 40 and 100 day resources and the three 40 day spaces',
+    p30 = b30 + 5);
   perform pg_temp.must_be('60 days counts only the 100 day resource',
     p60 = b60 + 1);
   perform pg_temp.must_be('365 days counts none of them',
     p365 = b365);
   perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the preview equals the date-eligible count at 7, 30, 60 and 365 days',
+    p7 = pg_temp.eligible(7) and p30 = pg_temp.eligible(30)
+    and p60 = pg_temp.eligible(60) and p365 = pg_temp.eligible(365));
   perform pg_temp.must_be('the preview changed nothing',
     (select count(*) from public.general_spaces
       where id in (s_del, s_recent, s_gone, s_null) and trashed_at is not null) = 4
     and (select count(*) from public.teaching_resources
           where id in (r_new, r_old, r_ancient)) = 3);
 
-  -- Review Focus 2: at 30 days, the setting purge_trash reads today, the preview equals
-  -- exactly what the nightly clean-up deletes.
+  -- Review Focus 2: at 30 days, the setting purge_trash reads today, the preview is never
+  -- below what the nightly clean-up deletes. Here it is 2 above: s_gone and s_null come back.
   perform pg_temp.act_as_service();
   purged := public.purge_trash();
-  perform pg_temp.must_be('the 30 day preview equals what purge_trash deletes',
-    purged = p30);
-  perform pg_temp.must_be('...and the purge did what the preview said to the fixtures',
+  perform pg_temp.must_be('the 30 day preview is at least what purge_trash deletes',
+    p30 >= purged);
+  perform pg_temp.must_be('...and the gap is the two spaces the purge put back',
+    p30 - purged = 2);
+  perform pg_temp.must_be('...and the purge treated each fixture as expected',
     not exists (select 1 from public.general_spaces where id = s_del)
     and exists (select 1 from public.general_spaces where id = s_recent and trashed_at is not null)
     and exists (select 1 from public.general_spaces where id in (s_gone) and trashed_at is null)
