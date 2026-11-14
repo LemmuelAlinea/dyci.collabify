@@ -47,7 +47,7 @@ function Where({ line, project }: { line: OffboardLine; project?: boolean }) {
  * Every space and project defaults to the one successor chosen at the top; the
  * admin can send any of them to someone else. Teams, reviews and open tasks
  * are not picked here: the database empties the seats, moves the reviews to
- * each project's new project manager and unassigns the tasks.
+ * each project's project manager and unassigns the tasks.
  */
 export function OffboardDialog({
   person,
@@ -148,7 +148,7 @@ export function OffboardDialog({
             Cancel
           </Button>
           <Button variant="danger" className="!rounded-xl" loading={busy} disabled={!ready} onClick={confirm}>
-            Deactivate and hand over
+            {needsSuccessor ? "Deactivate and hand over" : "Deactivate"}
           </Button>
         </>
       }
@@ -206,8 +206,8 @@ export function OffboardDialog({
                     {l.task_count}{' '}
                     {plural(
                       l.task_count,
-                      "review moves to that project's new project manager.",
-                      "reviews move to that project's new project manager.",
+                      "review moves to that project's project manager.",
+                      "reviews move to that project's project manager.",
                     )}
                   </span>
                 </li>

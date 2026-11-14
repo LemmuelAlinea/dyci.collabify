@@ -93,7 +93,7 @@ it('lists every preview line with its project name', async () => {
   expect(text()).toContain('Records cleanup')
   expect(text()).toContain('Records team')
   expect(text()).toContain('Seat emptied. The project manager picks a lead.')
-  expect(text()).toContain("3 reviews move to that project's new project manager.")
+  expect(text()).toContain("3 reviews move to that project's project manager.")
   expect(text()).toContain('7 open tasks are unassigned and go back to their teams.')
   // The team and the reviews each name the project they belong to.
   const team = document.querySelector('[data-offboard-line="team_lead"]')!.textContent
@@ -143,8 +143,8 @@ it('offboards someone who holds only tasks and teams without a successor', async
   // Nothing to hand over, so there is nobody to pick.
   expect(successor()).toBeNull()
   expect(text()).not.toContain('Hand everything to')
-  expect(button('Deactivate and hand over').disabled).toBe(false)
-  await act(async () => button('Deactivate and hand over').click())
+  expect(button('Deactivate').disabled).toBe(false)
+  await act(async () => button('Deactivate').click())
   expect(offboardMember).toHaveBeenCalledWith('t', null, {})
   expect(onDone).toHaveBeenCalled()
 })
