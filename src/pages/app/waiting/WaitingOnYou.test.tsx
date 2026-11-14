@@ -18,9 +18,12 @@ vi.mock('../../../lib/api/waiting', () => ({ teachingWaitingCounts: counts }))
 
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
-let search = ''
+const search = { current: '' }
 function Where() {
-  search = useLocation().search
+  const s = useLocation().search
+  React.useEffect(() => {
+    search.current = s
+  })
   return null
 }
 beforeEach(() => {
@@ -65,9 +68,9 @@ it('switches between the two and keeps the choice in the address', async () => {
   const requests = [...host.querySelectorAll('[role="radio"]')][1] as HTMLButtonElement
   await act(async () => requests.click())
   expect(host.textContent).toContain('requests list')
-  expect(search).toBe('?section=reassignments')
+  expect(search.current).toBe('?section=reassignments')
   const handIns = [...host.querySelectorAll('[role="radio"]')][0] as HTMLButtonElement
   await act(async () => handIns.click())
   expect(host.textContent).toContain('hand-ins list')
-  expect(search).toBe('')
+  expect(search.current).toBe('')
 })

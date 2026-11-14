@@ -28,10 +28,12 @@ vi.mock('../../../components/general/NoPmNotice', () => ({
     open ? <div data-assign-dialog={projectId}>{projectName}</div> : null,
 }))
 
-let where = ''
+const where = { current: '' }
 function Probe() {
   const l = useLocation()
-  where = l.pathname + l.search
+  React.useEffect(() => {
+    where.current = l.pathname + l.search
+  })
   return null
 }
 
@@ -66,7 +68,7 @@ it('opens Assign for the project named in ?assign= and drops the param', async (
   await renderAt('/admin/projects?assign=p1')
   expect(dialog()?.getAttribute('data-assign-dialog')).toBe('p1')
   expect(dialog()?.textContent).toBe('Helpdesk revamp')
-  expect(where).toBe('/admin/projects')
+  expect(where.current).toBe('/admin/projects')
 })
 
 it('shows the list normally when ?assign= names no project', async () => {
@@ -74,7 +76,7 @@ it('shows the list normally when ?assign= names no project', async () => {
   expect(dialog()).toBeNull()
   expect(document.body.textContent).toContain('Helpdesk revamp')
   expect(document.body.textContent).toContain('Records cleanup')
-  expect(where).toBe('/admin/projects')
+  expect(where.current).toBe('/admin/projects')
 })
 
 it('opens nothing without ?assign=', async () => {

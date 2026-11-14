@@ -322,7 +322,7 @@ export function PeerRoundsPanel({ projectId, boardId }: { projectId: string; boa
           try {
             await deletePeerRound(deleting.id)
           } catch (err) {
-            throw new Error(authErrorMessage(err, 'Could not delete that round. Try again.'))
+            throw new Error(authErrorMessage(err, 'Could not delete that round. Try again.'), { cause: err })
           }
           show('Round deleted')
           await load()

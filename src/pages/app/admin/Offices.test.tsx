@@ -51,10 +51,12 @@ vi.mock('../../../lib/api/officeHeads', () => ({
   setOfficeHead: vi.fn(async () => {}),
 }))
 
-let where = ''
+const where = { current: '' }
 function Probe() {
   const l = useLocation()
-  where = l.pathname + l.search
+  React.useEffect(() => {
+    where.current = l.pathname + l.search
+  })
   return null
 }
 
@@ -188,7 +190,7 @@ it('a space filed under an archived office can be moved to No office', async () 
 
 it('an unknown or archived ?office= drops the param so the list shows', async () => {
   await renderAt('/admin/offices?office=o3')
-  expect(where).toBe('/admin/offices')
+  expect(where.current).toBe('/admin/offices')
   expect(document.querySelector('[aria-label="Offices"]')?.className).not.toContain('hidden sm:block')
 })
 
@@ -211,7 +213,7 @@ it('a new office opens by the id createOffice returns', async () => {
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
   await act(async () => button('Add office')!.click())
-  expect(where).toBe('/admin/offices?office=o9')
+  expect(where.current).toBe('/admin/offices?office=o9')
 })
 
 it("the Head select lists the office's active members and calls setOfficeHead", async () => {
