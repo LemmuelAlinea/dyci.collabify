@@ -1710,7 +1710,9 @@ export function auditSentence(e: AuditEvent) {
     case 'space_pm_assigned':
       return `The space ${who} now has ${e.after_value} as project manager`
     case 'office_head_changed':
-      return `The office ${who} now has ${e.after_value || 'no head'} as head`
+      return e.after_value
+        ? `The office ${who} now has ${e.after_value} as head`
+        : `The office ${who} no longer has a head`
   }
 }
 
