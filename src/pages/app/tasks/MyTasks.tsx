@@ -741,7 +741,7 @@ export default function MyTasks() {
                       projectName={projectName}
                       now={now}
                       limit={workFiltered.length}
-                      empty="No open work tasks are assigned to you."
+                      empty="Work tasks assigned to you show here."
                       onOpen={showWorkTask}
                       partOf={partOf}
                     />

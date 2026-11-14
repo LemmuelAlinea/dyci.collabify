@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { TileEmpty } from '../dashboard/Bento'
+import { TilePanel } from '../dashboard/Bento'
 import { PriorityBadge } from './PriorityBadge'
 import { ProjectMark } from './ProjectMark'
 import { Icon } from '../ui/Icon'
@@ -24,15 +24,8 @@ import type {
  */
 const listClass = (flat: boolean) => (flat ? '-mx-2 divide-y divide-[var(--line)]' : 'space-y-2')
 
-/** The one-line note a panel shows when it has nothing to list. */
-function Quiet({ children, flat = false }: { children: string; flat?: boolean }) {
-  if (flat) return <TileEmpty>{children}</TileEmpty>
-  return (
-    <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-      {children}
-    </p>
-  )
-}
+/** What a panel shows when it has nothing to list: an icon, a heading and one line. */
+const Quiet = TilePanel
 
 /** A row that goes somewhere: an icon, two lines, and a figure on the right. */
 function Row({
@@ -122,7 +115,7 @@ export function WaitingPanel({
   flat?: boolean
 }) {
   if (reviews.length + requests.length === 0) {
-    return <Quiet flat={flat}>Nothing is waiting on you.</Quiet>
+    return <Quiet icon="inbox" title="You're all caught up" body="Nothing is waiting on you." />
   }
   return (
     <div className="space-y-2">
@@ -161,7 +154,7 @@ export function MyTasksPanel({
   projectName,
   now,
   limit = 6,
-  empty = 'No open tasks are assigned to you in this space.',
+  empty = 'Tasks assigned to you in this space show here.',
   onOpen,
   partOf,
   flat = false,
@@ -170,7 +163,7 @@ export function MyTasksPanel({
   projectName: (id: string) => string
   now: number
   limit?: number
-  /** The space dashboard says "in this space"; the home page speaks for all of them. */
+  /** The line under "No open tasks". The space dashboard says "in this space"; the home page speaks for all of them. */
   empty?: string
   /** Open a task where the list is rather than on its project page. */
   onOpen?: (task: GeneralTask) => void
@@ -178,7 +171,7 @@ export function MyTasksPanel({
   partOf?: (task: GeneralTask) => string | null
   flat?: boolean
 }) {
-  if (tasks.length === 0) return <Quiet flat={flat}>{empty}</Quiet>
+  if (tasks.length === 0) return <Quiet icon="checkCircle" title="No open tasks" body={empty} />
   return (
     <ul className={listClass(flat)}>
       {tasks.slice(0, limit).map((t) => {
@@ -216,7 +209,9 @@ export function ComingUpPanel({
   now: number
   flat?: boolean
 }) {
-  if (days.length === 0) return <Quiet flat={flat}>Nothing is due in the next two weeks.</Quiet>
+  if (days.length === 0) {
+    return <Quiet icon="calendar" title="Your calendar is clear" body="Nothing is due in the next two weeks." />
+  }
   return (
     <ol className={flat ? 'space-y-3' : 'space-y-4'}>
       {days.map((d) => (
@@ -261,7 +256,9 @@ export function RecentPanel({
   flat?: boolean
 }) {
   const looks = useProjectLooks(projects.map((p) => p.id))
-  if (projects.length === 0) return <Quiet flat={flat}>No projects in this space yet.</Quiet>
+  if (projects.length === 0) {
+    return <Quiet icon="kanban" title="No projects yet" body="Projects you open show here." />
+  }
   return (
     <ul className={listClass(flat)}>
       {projects.map((p) => {

@@ -277,7 +277,7 @@ export function WorkOverview({
                 tasks={mine}
                 projectName={projectName}
                 now={now}
-                empty="No open tasks are assigned to you."
+                empty="Tasks assigned to you show here."
                 flat
               />
             </BentoTile>
