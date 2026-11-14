@@ -16,6 +16,12 @@ vi.mock('../../../lib/api/general', () => ({
     { id: 'p2', name: 'Records cleanup', space_name: 'Records', pm_name: 'Ana Cruz', has_pm: true, archived_at: null },
   ]),
 }))
+vi.mock('../../../lib/api/offboarding', () => ({
+  projectOffices: vi.fn(async () => [
+    { project_id: 'p1', office_id: 'o1', office_name: 'IT services' },
+    { project_id: 'p2', office_id: null, office_name: '' },
+  ]),
+}))
 vi.mock('../../../components/general/NoPmNotice', () => ({
   AssignPmDialog: ({ open, projectId, projectName }: { open: boolean; projectId: string; projectName: string }) =>
     open ? <div data-assign-dialog={projectId}>{projectName}</div> : null,
@@ -74,4 +80,25 @@ it('opens nothing without ?assign=', async () => {
   await renderAt('/admin/projects')
   expect(dialog()).toBeNull()
   expect(document.body.textContent).toContain('2 projects')
+})
+
+it("shows each project's office and filters by it", async () => {
+  await renderAt('/admin/projects')
+  const rows = () => [...document.querySelectorAll('li')]
+  expect(rows()).toHaveLength(2)
+  expect(rows()[0].textContent).toContain('IT services')
+  expect(rows()[1].textContent).toContain('Unassigned')
+  const filter = document.querySelector<HTMLSelectElement>('select[aria-label="Office"]')!
+  await act(async () => {
+    filter.value = 'o1'
+    filter.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  expect(rows()).toHaveLength(1)
+  expect(rows()[0].textContent).toContain('Helpdesk revamp')
+  await act(async () => {
+    filter.value = 'unassigned'
+    filter.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  expect(rows()).toHaveLength(1)
+  expect(rows()[0].textContent).toContain('Records cleanup')
 })

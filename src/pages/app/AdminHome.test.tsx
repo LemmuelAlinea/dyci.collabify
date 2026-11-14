@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import AdminHome from './AdminHome'
 import { attentionProjects, orgOverview, orgSummary } from '../../lib/api/offices'
+import { assignSpacePm, spacesWithoutPm } from '../../lib/api/offboarding'
 import { programClasses } from '../../lib/api/admin'
 import type { ProgramClass } from '../../lib/program'
 
@@ -14,6 +15,18 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ profile: { id: 'me', first_name: 'Rhea' } }),
+}))
+const toast = vi.hoisted(() => vi.fn())
+vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ show: toast }) }))
+vi.mock('../../lib/api/offboarding', () => ({
+  spacesWithoutPm: vi.fn(async () => []),
+  assignSpacePm: vi.fn(async () => {}),
+}))
+vi.mock('../../lib/api/accounts', () => ({
+  listAccounts: vi.fn(async () => [
+    { id: 'a1', first_name: 'Ben', middle_name: null, last_name: 'Reyes', email: 'b@x', role: 'member', status: 'active', can_manage_projects: true },
+    { id: 'a2', first_name: 'Cara', middle_name: null, last_name: 'Lim', email: 'c@x', role: 'member', status: 'active', can_manage_projects: false },
+  ]),
 }))
 vi.mock('../../lib/api/offices', () => ({
   orgOverview: vi.fn(async () => [
@@ -275,4 +288,76 @@ it('shows zero accounts in setup as 0', async () => {
   const privacy = band('setup')!.querySelector('a[href="/admin/privacy"]')!
   expect(privacy.querySelector('[data-count]')?.textContent).toBe('3')
   expect(orgSummary).toHaveBeenCalledTimes(1)
+})
+
+const STUCK = [{ space_id: 's1', space_name: 'Helpdesk space', office_name: 'IT services' }]
+const assignButton = () =>
+  [...band('attention')!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Assign')!
+const saveButton = () =>
+  [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Assign project manager')!
+
+async function pick(value: string) {
+  const select = document.querySelector<HTMLSelectElement>('select[data-space-pm]')!
+  await act(async () => {
+    select.value = value
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  return select
+}
+
+it('lists a space without a project manager with an Assign button', async () => {
+  vi.mocked(spacesWithoutPm).mockResolvedValueOnce(STUCK)
+  await render()
+  const lines = [...band('attention')!.querySelectorAll('li')]
+  expect(lines).toHaveLength(3)
+  expect(lines[0].textContent).toContain('Helpdesk space')
+  expect(lines[0].textContent).toContain('IT services')
+  expect(lines[0].textContent).toContain('Space has no project manager')
+  expect(lines[0].querySelector('button')?.textContent).toBe('Assign')
+  expect(lines[1].textContent).toContain('Helpdesk revamp')
+})
+
+it('counts space lines toward the cap of six', async () => {
+  vi.mocked(spacesWithoutPm).mockResolvedValueOnce(STUCK)
+  vi.mocked(attentionProjects).mockResolvedValueOnce(
+    Array.from({ length: 6 }, (_, i) => ({
+      project_id: `p${i}`,
+      project_name: `Project ${i}`,
+      space_name: 'Helpdesk',
+      office_id: 'o1',
+      office_name: 'IT services',
+      no_pm: false,
+      quiet_since: '2026-10-28T03:00:00Z',
+    })),
+  )
+  await render()
+  const attention = band('attention')!
+  expect(attention.querySelectorAll('li')).toHaveLength(6)
+  expect(attention.querySelector('[data-attention-more]')?.textContent).toBe('1 more')
+})
+
+it('assigning calls assignSpacePm and reloads', async () => {
+  vi.mocked(spacesWithoutPm).mockResolvedValueOnce(STUCK)
+  await render()
+  await act(async () => assignButton().click())
+  const select = document.querySelector<HTMLSelectElement>('select[data-space-pm]')!
+  // Only Ben has Project manager on.
+  expect([...select.options].map((o) => o.textContent)).toEqual(['Choose a person', 'Ben Reyes'])
+  expect(saveButton().disabled).toBe(true)
+  await pick('a1')
+  await act(async () => saveButton().click())
+  expect(assignSpacePm).toHaveBeenCalledWith('s1', 'a1')
+  expect(toast).toHaveBeenCalled()
+  expect(spacesWithoutPm).toHaveBeenCalledTimes(2)
+})
+
+it("shows the database's refusal in the space dialog", async () => {
+  vi.mocked(spacesWithoutPm).mockResolvedValueOnce(STUCK)
+  vi.mocked(assignSpacePm).mockRejectedValueOnce({ message: 'Ben Reyes needs Project manager on.', code: 'P0001' })
+  await render()
+  await act(async () => assignButton().click())
+  await pick('a1')
+  await act(async () => saveButton().click())
+  expect(document.body.textContent).toContain('Ben Reyes needs Project manager on.')
+  expect(toast).not.toHaveBeenCalled()
 })

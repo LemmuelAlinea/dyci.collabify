@@ -1,25 +1,41 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert } from '../../../../components/ui/Alert'
+import { Button } from '../../../../components/ui/Button'
 import { Badge } from '../../../../components/ui/Badge'
 import { Icon } from '../../../../components/ui/Icon'
+import { spacesWithoutPm } from '../../../../lib/api/offboarding'
 import { attentionProjects } from '../../../../lib/api/offices'
 import { attentionReason } from '../../../../lib/offices'
 import type { AttentionProject } from '../../../../lib/offices'
 import { paths } from '../../../../lib/paths'
 import { Band, BandLoading } from './Band'
+import { SpacePmDialog } from './SpacePmDialog'
 import { useRead } from './useRead'
 
 const SHOWN = 6
 
 /**
- * Running projects with no project manager, or quiet for two weeks. Names only:
+ * Work spaces with no project manager first, with an Assign; then running projects with no project manager, or quiet for two weeks. Names only:
  * a missing PM opens Work projects at that project's Assign; a quiet project is
  * only named, since nothing here opens a project. The first six show, then how
  * many more, which opens Work projects.
  */
 export function AttentionBand({ className = '' }: { className?: string }) {
-  const { data, failed, load } = useRead(attentionProjects)
-  const rest = (data?.length ?? 0) - SHOWN
+  const projects = useRead(attentionProjects)
+  const spaces = useRead(spacesWithoutPm)
+  const [assigning, setAssigning] = useState<{ space_id: string; space_name: string } | null>(null)
+  const failed = projects.failed || spaces.failed
+  const ready = projects.data !== null && spaces.data !== null
+  const lines = [
+    ...(spaces.data ?? []).map((s) => ({ kind: 'space' as const, s })),
+    ...(projects.data ?? []).map((p) => ({ kind: 'project' as const, p })),
+  ]
+  const rest = lines.length - SHOWN
+  const load = () => {
+    projects.load()
+    spaces.load()
+  }
 
   return (
     <Band name="attention" eyebrow="Work projects" title="Needs attention" className={className}>
@@ -27,9 +43,9 @@ export function AttentionBand({ className = '' }: { className?: string }) {
         <Alert tone="error" onRetry={load}>
           The projects that need attention did not load. Try again in a moment.
         </Alert>
-      ) : data === null ? (
+      ) : !ready ? (
         <BandLoading>Reading the running projects…</BandLoading>
-      ) : data.length === 0 ? (
+      ) : lines.length === 0 ? (
         <p className="flex items-center gap-2 text-[13px] text-muted">
           <Icon name="checkCircle" size={16} className="shrink-0 text-success-600" />
           Every running project has a project manager and recent activity.
@@ -37,9 +53,13 @@ export function AttentionBand({ className = '' }: { className?: string }) {
       ) : (
         <>
           <ul className="-my-1 divide-y divide-line">
-            {data.slice(0, SHOWN).map((p) => (
-              <AttentionLine key={p.project_id} project={p} />
-            ))}
+            {lines.slice(0, SHOWN).map((l) =>
+              l.kind === 'space' ? (
+                <SpaceLine key={`space-${l.s.space_id}`} space={l.s} onAssign={() => setAssigning(l.s)} />
+              ) : (
+                <AttentionLine key={l.p.project_id} project={l.p} />
+              ),
+            )}
           </ul>
           {rest > 0 && (
             <Link
@@ -52,7 +72,29 @@ export function AttentionBand({ className = '' }: { className?: string }) {
           )}
         </>
       )}
+      <SpacePmDialog space={assigning} onClose={() => setAssigning(null)} onDone={spaces.load} />
     </Band>
+  )
+}
+
+function SpaceLine({
+  space: s,
+  onAssign,
+}: {
+  space: { space_id: string; space_name: string; office_name: string }
+  onAssign: () => void
+}) {
+  return (
+    <li className="flex items-center gap-3 py-2.5">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-ink">{s.space_name}</span>
+        <span className="block truncate text-[12px] text-muted">{s.office_name || 'Unassigned'}</span>
+      </span>
+      <Badge tone="warning">Space has no project manager</Badge>
+      <Button size="sm" variant="outline" onClick={onAssign}>
+        Assign
+      </Button>
+    </li>
   )
 }
 

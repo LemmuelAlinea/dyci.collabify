@@ -8,8 +8,10 @@ import { Button } from '../../../components/ui/Button'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { FilterSearch } from '../../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../../components/ui/Icon'
+import { Select } from '../../../components/ui/Select'
 import { useLive } from '../../../hooks/useLive'
 import { listAdminWorkProjects } from '../../../lib/api/general'
+import { projectOffices } from '../../../lib/api/offboarding'
 import { authErrorMessage } from '../../../lib/authError'
 import type { AdminWorkProject } from '../../../lib/general/types'
 
@@ -25,11 +27,18 @@ export default function WorkProjects() {
   const [rows, setRows] = useState<AdminWorkProject[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [offices, setOffices] = useState<Map<string, { id: string | null; name: string }>>(new Map())
+  const [officeFilter, setOfficeFilter] = useState('')
   const [assigning, setAssigning] = useState<AdminWorkProject | null>(null)
 
   const refresh = useCallback(async () => {
     try {
       setRows(await listAdminWorkProjects())
+      // The office is context only; a failed read leaves the list showing Unassigned.
+      projectOffices().then(
+        (o) => setOffices(new Map(o.map((x) => [x.project_id, { id: x.office_id, name: x.office_name }]))),
+        () => {},
+      )
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the work projects. Try again.'))
@@ -66,6 +75,11 @@ export default function WorkProjects() {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return (rows ?? [])
+      .filter((r) => {
+        if (!officeFilter) return true
+        const id = offices.get(r.id)?.id ?? null
+        return officeFilter === 'unassigned' ? id === null : id === officeFilter
+      })
       .filter(
         (r) =>
           !q ||
@@ -79,7 +93,16 @@ export default function WorkProjects() {
           Number(Boolean(a.archived_at)) - Number(Boolean(b.archived_at)) ||
           a.name.localeCompare(b.name),
       )
-  }, [rows, query])
+  }, [rows, query, offices, officeFilter])
+
+  const officeOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const o of offices.values()) if (o.id) seen.set(o.id, o.name)
+    return [
+      ...[...seen].sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label })),
+      { value: 'unassigned', label: 'Unassigned' },
+    ]
+  }, [offices])
 
   if (rows === null) {
     return (
@@ -117,6 +140,16 @@ export default function WorkProjects() {
             <h2 className="mt-1">Projects and managers</h2>
           </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <div className="w-full sm:w-44">
+              <Select
+                aria-label="Office"
+                value={officeFilter}
+                placeholder="All offices"
+                onChange={(e) => setOfficeFilter(e.target.value)}
+                options={officeOptions}
+                className="!h-10 !text-[13px]"
+              />
+            </div>
             <div className="min-w-0 flex-1 sm:w-64 sm:flex-none">
               <FilterSearch value={query} onChange={setQuery} placeholder="Project, space or manager" />
             </div>
@@ -133,9 +166,10 @@ export default function WorkProjects() {
             <EmptyState icon="kanban" title="Nothing matches" body="Try a different project, space or name." />
           ) : (
             <>
-              <div className="mb-2 hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_6rem] gap-4 px-3.5 text-[12px] font-medium text-faint md:grid">
+              <div className="mb-2 hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6rem] gap-4 px-3.5 text-[12px] font-medium text-faint md:grid">
                 <span>Project</span>
                 <span>Space</span>
+                <span>Office</span>
                 <span>Project manager</span>
                 <span className="sr-only">Action</span>
               </div>
@@ -143,7 +177,7 @@ export default function WorkProjects() {
                 {shown.map((r) => (
                   <li
                     key={r.id}
-                    className="surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 rounded-xl border border-line px-3.5 py-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_6rem]"
+                    className="surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 rounded-xl border border-line px-3.5 py-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_6rem]"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <Icon name="kanban" size={15} className="shrink-0 text-muted" />
@@ -154,6 +188,10 @@ export default function WorkProjects() {
                       <span className="md:hidden">Space: </span>
                       {r.space_name ?? 'No space'}
                     </span>
+                    <span className="col-start-1 truncate text-[13px] text-muted md:col-start-auto">
+                      <span className="md:hidden">Office: </span>
+                      {offices.get(r.id)?.name || 'Unassigned'}
+                    </span>
                     <span className="col-start-1 min-w-0 md:col-start-auto">
                       {r.has_pm ? (
                         <span className="block truncate text-[13px] text-ink">{r.pm_name}</span>
@@ -161,7 +199,7 @@ export default function WorkProjects() {
                         <Badge tone="warning">No project manager</Badge>
                       )}
                     </span>
-                    <span className="col-start-2 row-span-3 row-start-1 justify-self-end md:col-start-auto md:row-span-1 md:row-start-auto">
+                    <span className="col-start-2 row-span-4 row-start-1 justify-self-end md:col-start-auto md:row-span-1 md:row-start-auto">
                       {!r.has_pm && (
                         <Button size="sm" variant="outline" onClick={() => setAssigning(r)}>
                           Assign
