@@ -72,6 +72,20 @@ it('loads the saved values and keeps Save off until something changes', async ()
   expect(save().disabled).toBe(true)
 })
 
+it('enables Discard while an input differs, even when invalid, and restores the saved values', async () => {
+  await render()
+  const discard = () =>
+    [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Discard changes')) as HTMLButtonElement
+  expect(discard().disabled).toBe(true)
+  await type(input('Quiet after'), '2')
+  expect(save().disabled).toBe(true)
+  expect(discard().disabled).toBe(false)
+  await act(async () => discard().click())
+  expect(input('Quiet after').value).toBe('14')
+  expect(discard().disabled).toBe(true)
+  expect(document.title).toBe('Organization settings · Collabify')
+})
+
 it('refuses out-of-range input before saving', async () => {
   await render()
   await type(input('Quiet after'), '2')

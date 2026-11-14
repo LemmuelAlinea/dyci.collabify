@@ -4903,8 +4903,14 @@ back: `organization-settings` 80, `offices` 78, `office-heads` 57, `trash` 36, `
 and `bulk-accounts` 6 assertions pass. The file takes over `office_attention_rows`, `list_my_trash`, `purge_trash` and
 `overwrite_bulk_account`; `docs/07-backup.md` and `CLAUDE.md` list the re-run rules.
 
-Ship needs the `bulk-register-users` Edge Function redeployed with the frontend (deno was not available here, so the
-deploy is its first compile).
+Deploy: redeploy the `bulk-register-users` Edge Function BEFORE pushing the frontend (deno was not available here, so
+the deploy is its first compile). Then run the no-write smoke test: POST one row with `overwrite: true` and an email
+like `x@example.invalid`; a "skipped" result naming the domain proves the function read the setting.
+
+Final review wave: unit tests no longer call the live project (`src/test/setup.ts` mocks `lib/api/orgSettings`); the
+bulk dialog shows a failed group's reason only when it came from the function's JSON body (`ServerMessageError`),
+otherwise the retry line; Discard enables whenever an input differs from the saved values; the trash note says the
+setting applies to items already in Trash; the page title is "Organization settings".
 
 Verified: `npm run build` clean, `npm test` 2,328 passed (225 files), the suites pass.
 Browser walk: pending.
@@ -4916,6 +4922,6 @@ Browser walk: pending.
 - Minor: a header line in `organization-settings.sql` ("rules that used fixed values") is history wording.
 - Minor: pasted domains in uppercase (cosmetic).
 - Minor: the 63-character label limit is not mirrored client-side (the database judges).
-- Minor: `aria-describedby` on the notes; Discard is untested.
-- Minor: import order of the hook; cache race on save; stale "30 days" in api comments.
-- Minor: `deno check` not run; the raw network string can show after a failed chunk; quiet re-read on remount.
+- Minor: `aria-describedby` on the notes.
+- Minor: import order of the hook; cache race on save.
+- Minor: `deno check` not run; quiet re-read on remount.

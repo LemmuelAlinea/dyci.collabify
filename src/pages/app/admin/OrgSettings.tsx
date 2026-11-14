@@ -71,7 +71,7 @@ export default function OrgSettings() {
   }, [fill])
 
   useEffect(() => {
-    document.title = 'Settings · Collabify'
+    document.title = 'Organization settings · Collabify'
     void load()
   }, [load])
 
@@ -117,6 +117,8 @@ export default function OrgSettings() {
   if (visibility !== saved.new_project_visibility) changes.new_project_visibility = visibility
   if (d.value !== null && d.value !== saved.school_email_domain) changes.school_email_domain = d.value
   const invalid = Boolean(q.error || t.error || d.error)
+  const dirty = quiet !== String(saved.quiet_days) || trash !== String(saved.trash_retention_days)
+    || visibility !== saved.new_project_visibility || domain !== saved.school_email_domain
   const canSave = !invalid && Object.keys(changes).length > 0
 
   async function save() {
@@ -160,7 +162,7 @@ export default function OrgSettings() {
               <>
                 <Input id={id} type="number" inputMode="numeric" min={TRASH[0]} max={TRASH[1]} value={trash} onChange={(e) => setTrash(e.target.value)} />
                 <p className="text-[12px] text-muted">
-                  How long trashed items wait before the nightly clean-up deletes them. 7 to 365.
+                  How long trashed items wait before the nightly clean-up deletes them. 7 to 365. This also applies to items already in Trash: a lower number can delete older items at the next clean-up, and a higher one keeps them longer.
                 </p>
                 {purge !== null && purge.days === lowered && (
                   purge.count === null ? (
@@ -223,7 +225,7 @@ export default function OrgSettings() {
           <Button className="!rounded-xl" loading={saving} disabled={!canSave} onClick={save}>
             Save settings
           </Button>
-          <Button variant="ghost" disabled={saving || !canSave} onClick={() => fill(saved)}>
+          <Button variant="ghost" disabled={saving || !dirty} onClick={() => fill(saved)}>
             Discard changes
           </Button>
         </div>
