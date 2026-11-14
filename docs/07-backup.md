@@ -1030,7 +1030,7 @@ after it, then `anon-lockdown.sql`. Suite: `supabase/tests/office-heads.test.sql
 
 `notice-audience.sql` runs after `office-heads.sql` and before `anon-lockdown.sql`. It owns the columns `audience`
 (`everyone`, `offices` or `groups`), `audience_offices` and `audience_groups` on `program_announcements` with their
-checks, `notice_reaches` (gated to the admin, executable by `authenticated`), the internal helpers
+checks, `notice_reaches` (answers for the caller about themselves, or for an admin about anyone, and stays executable by `authenticated` because the policy, the view and Realtime call it as the reader), the internal helpers
 `notice_audience_includes` and `notice_recipients` (revoked from every client role), `admin_notice_reach` (the count
 before sending) and a trigger that locks the audience once a notice is sent. It also takes over four objects from
 `program-notices.sql`: the read policy `program_announcements_read`, the views `program_notices` and

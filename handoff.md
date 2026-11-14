@@ -4879,7 +4879,6 @@ Browser walk: pending.
 - Minor: a role-only `is_admin` lets an inactive admin read all notices and probe `notice_reaches`; office ids are not
   checked to exist; the reach count excludes the caller while the notifier excludes the author (equal in the app); Realtime
   DELETE leaks ids (pre-existing).
-- Minor: the expired-order test asserts nothing about order; the "On every dashboard now" eyebrow is outdated; the
-  meta line runs long; uneven ternary indent; `officesError` persists across audience switches (harmless).
+- Minor: the meta line runs long; uneven ternary indent; `officesError` persists across audience switches (harmless).
 - Minor: notices show while WorkOverview loads; no Home.tsx routing test.
 - Later phases of the organization upgrade: 5 organization settings.

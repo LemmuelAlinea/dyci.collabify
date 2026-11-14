@@ -318,7 +318,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   go through one shared rule (`notice_audience_includes`, `notice_recipients`). The card reads membership at read
   time, the Inbox notification is sent at send time, so someone filed into an office later sees live notices without
   a late notification. The audience is fixed once sent; take the notice down and send a new one. The reach count
-  (`admin_notice_reach`, `notice_reaches`) equals the set the notifier writes. `ProgramNotices` shows on
+  is `admin_notice_reach`, which reads `notice_recipients` (the same set the notifier writes); `notice_reaches` is
+  the per-reader read check used by the policy and the view. `ProgramNotices` shows on
   `WaitingHome`, a standalone `WorkOverview` and `StakeholderHome` as well as the Professor and Student Home. It takes ownership
   of `program_announcements_read`, `program_notices`, `program_notices_all` and `notify_program_announcement` from
   `program-notices.sql`, so re-running `program-notices.sql` means re-running it afterwards. Suite:
