@@ -4,6 +4,7 @@ import { Alert } from '../../../components/ui/Alert'
 import { Button } from '../../../components/ui/Button'
 import { Field, PasswordInput } from '../../../components/ui/Field'
 import { Modal } from '../../../components/ui/Modal'
+import { useOrgSettings } from '../../../hooks/useOrgSettings'
 import { listAccounts, registerBulkUsers } from '../../../lib/api/accounts'
 import { BULK_HEADERS, parseBulkCsv } from '../../../lib/bulkAccounts'
 import type { BulkPreviewRow } from '../../../lib/bulkAccounts'
@@ -21,6 +22,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
   onClose: () => void
   onImported: () => Promise<void>
 }) {
+  const { school_email_domain: domain } = useOrgSettings()
   const [rows, setRows] = useState<BulkPreviewRow[]>([])
   const [existing, setExisting] = useState<Map<string, Account>>(new Map())
   const [overwrite, setOverwrite] = useState<Set<string>>(new Set())
@@ -66,7 +68,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
       return
     }
     try {
-      const parsed = parseBulkCsv(await file.text())
+      const parsed = parseBulkCsv(await file.text(), domain)
       if (!parsed.length) throw new Error('The CSV has no users.')
       const accounts = await listAccounts()
       setExisting(new Map(accounts.map((account) => [account.email.toLowerCase(), account])))
@@ -119,7 +121,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
       open={open}
       onClose={close}
       title="Bulk register users"
-      description="Upload a CSV for student and member accounts. Only @dyci.edu.ph addresses are accepted."
+      description={`Upload a CSV for student and member accounts. Only @${domain} addresses are accepted.`}
       size="lg"
       footer={
         <>

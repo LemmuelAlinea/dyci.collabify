@@ -1,3 +1,4 @@
+import { dayCount, useOrgSettings } from '../../hooks/useOrgSettings'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
@@ -66,8 +67,8 @@ const SORT_OPTIONS: { value: ArchiveSort; label: string }[] = [
 const keyOf = (item: ArchiveItem) => `${item.kind}:${item.id}`
 
 /** What else goes to Trash with it, said before it goes. */
-function trashBody(item: ArchiveItem) {
-  const tail = 'It waits in your Trash for 30 days, then it is deleted for good. Nobody else sees it there.'
+function trashBody(item: ArchiveItem, retention: number) {
+  const tail = `It waits in your Trash for ${dayCount(retention)}, then it is deleted for good. Nobody else sees it there.`
   switch (item.kind) {
     case 'class':
       return `${item.name} goes with its roster, announcements, groups and every project, board, task and file in it. ${tail}`
@@ -112,13 +113,14 @@ function restoredTo(item: ArchiveItem) {
  * that kind is archived from, so the page doubles as the list of what can be.
  *
  * Restore puts an item back where it was, through that item's own archive
- * call. Move to trash is the step before deleting: the item waits 30 days in
+ * call. Move to trash is the step before deleting: the item waits out the retention period in
  * the reader's Trash, and the database refuses it to anyone who could not
  * delete it for good.
  */
 export default function Archive() {
   const { profile } = useAuth()
   const { show } = useToast()
+  const { trash_retention_days: retention } = useOrgSettings()
   const navigation = useGeneralNavigation()
   const [params, setParams] = useSearchParams()
   const [items, setItems] = useState<ArchiveItem[] | null>(null)
@@ -374,7 +376,7 @@ export default function Archive() {
           await Promise.all([load(), navigation.reload()])
         }}
         title={`Move ${trashing?.name ?? 'this'} to Trash?`}
-        body={trashing ? trashBody(trashing) : ''}
+        body={trashing ? trashBody(trashing, retention) : ''}
         confirmLabel="Move to trash"
         tone="danger"
       />

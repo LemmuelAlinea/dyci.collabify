@@ -8,11 +8,12 @@ import {
 } from '../../supabase/functions/_shared/bulkAccounts'
 import { parseBulkCsv } from './bulkAccounts'
 
+const D = 'dyci.edu.ph'
 const header = 'first_name,middle_name,last_name,email,role\n'
 
 describe('bulk registration CSV', () => {
   it('reads BOM, quoted commas and line breaks, and normalizes values', () => {
-    const rows = parseBulkCsv(`\uFEFF${header}" Ana, Marie ","De\nLeon",Cruz,ANA@DYCI.EDU.PH,Student`)
+    const rows = parseBulkCsv(`\uFEFF${header}" Ana, Marie ","De\nLeon",Cruz,ANA@DYCI.EDU.PH,Student`, D)
     expect(rows).toHaveLength(1)
     expect(rows[0].user).toEqual({
       first_name: 'Ana, Marie', middle_name: 'De\nLeon', last_name: 'Cruz',
@@ -21,37 +22,37 @@ describe('bulk registration CSV', () => {
   })
 
   it('reports invalid and repeated rows without hiding valid ones', () => {
-    const rows = parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph,student\nBo,,Lee,BO@evil.dyci.edu.ph,member\nAna,,Cruz,ANA@DYCI.EDU.PH,student`)
+    const rows = parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph,student\nBo,,Lee,BO@evil.dyci.edu.ph,member\nAna,,Cruz,ANA@DYCI.EDU.PH,student`, D)
     expect(rows.map((row) => row.error)).toEqual([
       undefined, 'Use a valid @dyci.edu.ph email.', 'Duplicate email in this CSV.',
     ])
   })
 
   it('rejects malformed files and missing columns', () => {
-    expect(() => parseBulkCsv(`${header}"Ana,,Cruz,ana@dyci.edu.ph,student`)).toThrow('Unclosed quote')
-    expect(() => parseBulkCsv('first_name,email,role\nAna,ana@dyci.edu.ph,student')).toThrow('Missing last_name')
-    expect(() => parseBulkCsv(`${header.replace('role', 'password,role')}Ana,,Cruz,secret,ana@dyci.edu.ph,student`)).toThrow('Unexpected password column')
-    expect(() => parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph`)).not.toThrow()
+    expect(() => parseBulkCsv(`${header}"Ana,,Cruz,ana@dyci.edu.ph,student`, D)).toThrow('Unclosed quote')
+    expect(() => parseBulkCsv('first_name,email,role\nAna,ana@dyci.edu.ph,student', D)).toThrow('Missing last_name')
+    expect(() => parseBulkCsv(`${header.replace('role', 'password,role')}Ana,,Cruz,secret,ana@dyci.edu.ph,student`, D)).toThrow('Unexpected password column')
+    expect(() => parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph`, D)).not.toThrow()
     const tooMany = Array.from({ length: 101 }, (_, i) => `A,,B,user${i}@dyci.edu.ph,student`).join('\n')
-    expect(() => parseBulkCsv(`${header}${tooMany}`)).toThrow('at most 100')
+    expect(() => parseBulkCsv(`${header}${tooMany}`, D)).toThrow('at most 100')
   })
 
   it('reads an optional office column and trims it', () => {
-    const rows = parseBulkCsv('first_name,last_name,email,role,office\nAna,Cruz,ana@dyci.edu.ph,member,"  IT Services  "')
+    const rows = parseBulkCsv('first_name,last_name,email,role,office\nAna,Cruz,ana@dyci.edu.ph,member,"  IT Services  "', D)
     expect(rows[0].office).toBe('IT Services')
     expect(rows[0].user?.office).toBe('IT Services')
     expect(rows[0].warning).toBeUndefined()
   })
 
   it('a file without an office column still parses', () => {
-    const rows = parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph,member`)
+    const rows = parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph,member`, D)
     expect(rows[0].error).toBeUndefined()
     expect(rows[0].office).toBe('')
     expect(rows[0].user?.office).toBeUndefined()
   })
 
   it('an office on a student row is kept for the preview with a warning', () => {
-    const rows = parseBulkCsv('first_name,last_name,email,role,office\nAna,Cruz,ana@dyci.edu.ph,student,Registrar')
+    const rows = parseBulkCsv('first_name,last_name,email,role,office\nAna,Cruz,ana@dyci.edu.ph,student,Registrar', D)
     expect(rows[0].user).toBeDefined()
     expect(rows[0].office).toBe('Registrar')
     expect(rows[0].warning).toBe('Students have no office. It will be ignored.')
@@ -60,11 +61,11 @@ describe('bulk registration CSV', () => {
 
 describe('server-side bulk validation', () => {
   it('allows only students and members at the exact school domain', () => {
-    expect(normalizeBulkUser({ first_name: ' A ', last_name: ' B ', email: 'A@DYCI.EDU.PH', role: 'Member' }).user)
+    expect(normalizeBulkUser({ first_name: ' A ', last_name: ' B ', email: 'A@DYCI.EDU.PH', role: 'Member' }, D).user)
       .toMatchObject({ first_name: 'A', last_name: 'B', email: 'a@dyci.edu.ph', role: 'member' })
-    expect(normalizeBulkUser({ first_name: 'A', last_name: 'B', email: 'a@dyci.edu.ph.evil', role: 'student' }).error)
+    expect(normalizeBulkUser({ first_name: 'A', last_name: 'B', email: 'a@dyci.edu.ph.evil', role: 'student' }, D).error)
       .toContain('@dyci.edu.ph')
-    expect(normalizeBulkUser({ first_name: 'A', last_name: 'B', email: 'a@dyci.edu.ph', role: 'admin' }).error)
+    expect(normalizeBulkUser({ first_name: 'A', last_name: 'B', email: 'a@dyci.edu.ph', role: 'admin' }, D).error)
       .toBe('Role must be student or member.')
   })
 
@@ -98,5 +99,25 @@ describe('server-side bulk validation', () => {
     expect(created).toBe(`No office named ${'x'.repeat(80)}… Imported with no office.`)
     expect(created).not.toContain('….')
     expect(unknownOfficeWarning(long, 'updated')).toBe(`No office named ${'x'.repeat(80)}… Office left as it was.`)
+  })
+})
+
+describe('configured school domain', () => {
+  const row = (email: string) => ({ first_name: 'A', last_name: 'B', email, role: 'student' })
+
+  it('refuses the old domain and accepts the configured one', () => {
+    expect(normalizeBulkUser(row('a@dyci.edu.ph'), 'school.test').error).toBe('Use a valid @school.test email.')
+    expect(normalizeBulkUser(row('a@school.test'), 'school.test').user?.email).toBe('a@school.test')
+    expect(normalizeBulkUser(row('a@school.test'), 'School.Test').user).toBeDefined()
+  })
+
+  it('takes the dots in the domain literally', () => {
+    expect(normalizeBulkUser(row('a@schoolxtest'), 'school.test').error).toBeTruthy()
+    expect(normalizeBulkUser(row('a@evil-school.test'), 'school.test').error).toBeTruthy()
+  })
+
+  it('previews each CSV row against the configured domain', () => {
+    const rows = parseBulkCsv(`${header}Ana,,Cruz,ana@dyci.edu.ph,student\nBo,,Lee,bo@school.test,member`, 'school.test')
+    expect(rows.map((r) => r.error)).toEqual(['Use a valid @school.test email.', undefined])
   })
 })

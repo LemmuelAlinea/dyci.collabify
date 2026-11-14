@@ -55,7 +55,12 @@ export function bulkSetupChoice(body: Record<string, unknown>): { password?: str
   return error ? { error } : { password: body.newPassword as string }
 }
 
-export function normalizeBulkUser(value: unknown): { user?: BulkUser; error?: string } {
+/** The school domain as a regex fragment, every dot and other symbol taken literally. */
+function domainPattern(domain: string): string {
+  return domain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+export function normalizeBulkUser(value: unknown, domain: string): { user?: BulkUser; error?: string } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { error: 'This row is not a user.' }
   }
@@ -71,8 +76,9 @@ export function normalizeBulkUser(value: unknown): { user?: BulkUser; error?: st
   if ([first_name, middle_name, last_name].some((name) => name.length > 80)) {
     return { error: 'Each name must be 80 characters or fewer.' }
   }
-  if (email.length > 254 || !/^[a-z0-9._%+-]+@dyci\.edu\.ph$/.test(email)) {
-    return { error: 'Use a valid @dyci.edu.ph email.' }
+  const school = domain.trim().toLowerCase()
+  if (email.length > 254 || !new RegExp(`^[a-z0-9._%+-]+@${domainPattern(school)}$`).test(email)) {
+    return { error: `Use a valid @${school} email.` }
   }
   if (role !== 'student' && role !== 'member') {
     return { error: 'Role must be student or member.' }

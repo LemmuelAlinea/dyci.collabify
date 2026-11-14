@@ -1,3 +1,4 @@
+import { dayCount, useOrgSettings } from '../../hooks/useOrgSettings'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ActionMenu } from '../ui/ActionMenu'
@@ -96,6 +97,7 @@ async function download(d: GeneralDiscussion, html: string, as: 'docx' | 'pdf') 
 export function DiscussionTab({ state }: { state: GeneralProjectState }) {
   const projectId = state.project?.id
   const { show } = useToast()
+  const { trash_retention_days: retention } = useOrgSettings()
   const [folders, setFolders] = useState<GeneralDiscussionFolder[]>([])
   const [discussions, setDiscussions] = useState<GeneralDiscussion[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -269,7 +271,7 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
               onSelect: () =>
                 void run(
                   () => trashDiscussion(d.id),
-                  'Discussion moved to Trash. It stays there for 30 days.',
+                  `Discussion moved to Trash. It stays there for ${dayCount(retention)}.`,
                   'Could not move it to Trash.',
                 ),
             },

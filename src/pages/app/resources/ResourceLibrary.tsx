@@ -1,3 +1,4 @@
+import { dayCount, useOrgSettings } from '../../../hooks/useOrgSettings'
 import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import type { FormEvent, ReactNode } from 'react'
@@ -57,6 +58,7 @@ export function ResourceLibrary({
 }) {
   const { profile } = useAuth()
   const { show } = useToast()
+  const { trash_retention_days: retention } = useOrgSettings()
 
   const [items, setItems] = useState<TeachingResource[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -155,7 +157,7 @@ export function ResourceLibrary({
     void act(
       r,
       () => trashResource(r.id),
-      `${r.title} moved to Trash. It stays there for 30 days.`,
+      `${r.title} moved to Trash. It stays there for ${dayCount(retention)}.`,
       'Could not move it to Trash.',
     )
 

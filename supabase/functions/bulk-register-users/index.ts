@@ -88,13 +88,20 @@ Deno.serve(async (req) => {
   }
   const password = body.defaultPassword as string
 
+  // Read once per request with the caller's rights. A failed read refuses the batch, so no row
+  // is imported against a stale domain.
+  const { data: domain, error: domainError } = await caller.rpc('org_school_email_domain')
+  if (domainError || typeof domain !== 'string' || !domain) {
+    return json(headers, { message: 'Could not read the school email domain. Try again in a moment.' }, 503)
+  }
+
   const results: BulkResult[] = []
   const seen = new Set<string>()
   for (let index = 0; index < body.users.length; index++) {
     const raw = body.users[index]
     const item = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
     const row = Number.isInteger(item.row) ? item.row as number : index + 1
-    const normalized = normalizeBulkUser(item)
+    const normalized = normalizeBulkUser(item, domain)
     const email = normalized.user?.email ?? (typeof item.email === 'string' ? item.email.trim().toLowerCase() : '')
     if (!normalized.user) {
       results.push({ row, email, status: 'skipped', reason: normalized.error })

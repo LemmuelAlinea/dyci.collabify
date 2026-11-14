@@ -1,3 +1,4 @@
+import { dayCount, useOrgSettings } from '../../hooks/useOrgSettings'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
@@ -67,15 +68,16 @@ function daysLeft(item: TrashItem) {
 }
 
 /**
- * Everything the reader threw away, across every project, for 30 days.
+ * Everything the reader threw away, across every project, for the retention period.
  *
  * Archive and Trash look alike and mean different things. Archive keeps a file
  * inside its project, out of the way, for anybody who can read that archive.
  * Trash is on its way out: it belongs to whoever trashed it, sits here, and is
- * deleted for good once its 30 days are up.
+ * deleted for good once its time is up.
  */
 export default function Trash() {
   const { show } = useToast()
+  const { trash_retention_days: retention } = useOrgSettings()
   const [items, setItems] = useState<TrashItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -137,7 +139,7 @@ export default function Trash() {
       <DirectoryHero
         title="Your"
         accent="trash."
-        description="What you moved to Trash waits here for 30 days, then goes for good. To keep something out of the way without losing it, archive it instead."
+        description={`What you moved to Trash waits here for ${dayCount(retention)}, then goes for good. To keep something out of the way without losing it, archive it instead.`}
         action={
           actionable.length > 0 ? (
             <Button variant="danger" onClick={() => setEmptying(true)}>
@@ -160,7 +162,7 @@ export default function Trash() {
           icon="trash"
           art="trash"
           title="Trash is empty"
-          body="When you move a file, folder, discussion, syllabus or curriculum to Trash, or anything from your Archive, it waits here for 30 days before it is deleted."
+          body={`When you move a file, folder, discussion, syllabus or curriculum to Trash, or anything from your Archive, it waits here for ${dayCount(retention)} before it is deleted.`}
         />
       ) : (
         <div className="space-y-4">
@@ -245,7 +247,7 @@ export default function Trash() {
         body={
           actionable.length === (items ?? []).length
             ? `Everything in it, ${actionable.length === 1 ? '1 item' : `${actionable.length} items`}, is deleted for good.`
-            : `${actionable.length === 1 ? '1 item is' : `${actionable.length} items are`} deleted for good. Items from archived or handed-in projects stay until their 30 days are up.`
+            : `${actionable.length === 1 ? '1 item is' : `${actionable.length} items are`} deleted for good. Items from archived or handed-in projects stay until their ${dayCount(retention)} are up.`
         }
         confirmLabel="Empty trash"
         tone="danger"

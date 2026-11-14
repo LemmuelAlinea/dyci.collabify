@@ -1,3 +1,4 @@
+import { dayCount, useOrgSettings } from '../../hooks/useOrgSettings'
 import { useId, useState } from 'react'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Alert } from '../ui/Alert'
@@ -79,6 +80,7 @@ export function DraftPanel({
   onDone: () => Promise<void>
 }) {
   const { show } = useToast()
+  const { trash_retention_days: retention } = useOrgSettings()
   const [submitting, setSubmitting] = useState<SubmitTarget | null>(null)
   const [archiving, setArchiving] = useState<SubmitTarget | null>(null)
   const [committing, setCommitting] = useState<SubmitTarget | null>(null)
@@ -112,7 +114,7 @@ export function DraftPanel({
         await trashDraftPath(repo.id, target.path)
         if (target.path === path) onNavigate(path.split('/').slice(0, -1).join('/'))
       },
-      `${target.type === 'folder' ? 'Folder' : 'File'} moved to Trash. It stays there for 30 days.`,
+      `${target.type === 'folder' ? 'Folder' : 'File'} moved to Trash. It stays there for ${dayCount(retention)}.`,
       'Could not move it to Trash.',
     )
   }

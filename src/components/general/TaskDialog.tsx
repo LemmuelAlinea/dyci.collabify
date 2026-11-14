@@ -1,4 +1,5 @@
 // src/components/general/TaskDialog.tsx
+import { dayCount, useOrgSettings } from '../../hooks/useOrgSettings'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Alert } from '../ui/Alert'
@@ -206,6 +207,7 @@ function TaskBody({
   onOpenTask: (id: string) => void
 }) {
   const { show } = useToast()
+  const { trash_retention_days: retention } = useOrgSettings()
   const task = state.tasks.find((t) => t.id === taskId)
   // A task's project is the one on screen, so its Files are the project's.
   const projectId = state.project?.id
@@ -390,7 +392,7 @@ function TaskBody({
                 key={file.id}
                 file={file}
                 canTrash={!readOnly && (file.uploaded_by === me || state.can('edit_files')) && !busy}
-                onTrash={() => void act(() => trashTaskFile(file.id), 'File moved to Trash. It stays there for 30 days.', 'Could not move it to Trash.')}
+                onTrash={() => void act(() => trashTaskFile(file.id), `File moved to Trash. It stays there for ${dayCount(retention)}.`, 'Could not move it to Trash.')}
                 onError={(message) => show(message, 'error')}
               />)}
               {loaded && files.length === 0 && <p className="text-[13px] text-faint">No attachments.</p>}

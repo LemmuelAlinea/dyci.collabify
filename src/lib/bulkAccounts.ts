@@ -20,7 +20,7 @@ export const BULK_HEADERS = ['first_name', 'middle_name', 'last_name', 'email', 
 export const STUDENT_OFFICE_PREVIEW = 'Students have no office. It will be ignored.'
 
 /** CSV with quoted commas, quotes and line breaks; rejects broken quoting. */
-export function parseBulkCsv(source: string): BulkPreviewRow[] {
+export function parseBulkCsv(source: string, domain: string): BulkPreviewRow[] {
   const text = source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
   const records: { row: number; cells: string[] }[] = []
   let cells: string[] = []
@@ -87,7 +87,7 @@ export function parseBulkCsv(source: string): BulkPreviewRow[] {
       return { row: rowNumber, email: '', office: '', error: 'Column count does not match the header.' }
     }
     const raw = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
-    const normalized = normalizeBulkUser(raw)
+    const normalized = normalizeBulkUser(raw, domain)
     const email = String(raw.email ?? '').trim().toLowerCase()
     const office = String(raw.office ?? '').trim()
     if (!normalized.user) return { row: rowNumber, email, office, error: normalized.error }

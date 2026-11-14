@@ -12,6 +12,7 @@ import {
   trashPurgePreview,
   type OrgSettings,
 } from '../../../lib/api/orgSettings'
+import { setOrgSettingsCache } from '../../../hooks/useOrgSettings'
 import { authErrorMessage } from '../../../lib/authError'
 
 /** The same bounds the database enforces; it stays the final judge. */
@@ -19,10 +20,10 @@ const QUIET = [3, 90] as const
 const TRASH = [7, 365] as const
 const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/
 
-function wholeNumber(text: string, [min, max]: readonly [number, number], what: string) {
+function wholeNumber(text: string, [min, max]: readonly [number, number]) {
   const n = Number(text)
   if (text.trim() === '' || !Number.isInteger(n) || n < min || n > max) {
-    return { value: null, error: `${what} takes ${min} to ${max} days. Enter a number in that range.` }
+    return { value: null, error: `Enter a whole number of days from ${min} to ${max}.` }
   }
   return { value: n, error: null }
 }
@@ -74,8 +75,8 @@ export default function OrgSettings() {
     void load()
   }, [load])
 
-  const q = wholeNumber(quiet, QUIET, 'Quiet after')
-  const t = wholeNumber(trash, TRASH, 'Trash keeps items for')
+  const q = wholeNumber(quiet, QUIET)
+  const t = wholeNumber(trash, TRASH)
   const d = domainCheck(domain)
 
   const lowered = saved && t.value !== null && t.value < saved.trash_retention_days ? t.value : null
@@ -122,7 +123,9 @@ export default function OrgSettings() {
     setSaving(true)
     setSaveError(null)
     try {
-      fill(await setOrganizationSettings(changes))
+      const next = await setOrganizationSettings(changes)
+      setOrgSettingsCache(next)
+      fill(next)
       show('Settings saved')
     } catch (err) {
       setSaveError(authErrorMessage(err, 'Could not save the settings.'))
