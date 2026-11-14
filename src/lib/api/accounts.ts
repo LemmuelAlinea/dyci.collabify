@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { invokeFunction } from './functions'
+import { invokeFunction, ServerMessageError } from './functions'
 import type { Account } from '../types'
 import type { BulkResult, BulkUser } from '../../../supabase/functions/_shared/bulkAccounts'
 
@@ -53,7 +53,9 @@ export async function registerBulkUsers(
   const answer = await invokeFunction<{ results?: BulkResult[]; message?: string }>(
     'bulk-register-users', { users, defaultPassword },
   )
-  if (!Array.isArray(answer.results)) throw new Error(answer.message ?? 'Could not import these users.')
+  if (!Array.isArray(answer.results)) {
+    throw answer.message ? new ServerMessageError(answer.message) : new Error('Could not import these users.')
+  }
   if (answer.results.length !== users.length) throw new Error('Import response was incomplete. Upload the CSV again to check these rows.')
   return answer.results
 }

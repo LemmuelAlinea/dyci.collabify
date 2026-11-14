@@ -1,5 +1,8 @@
 import { supabase } from '../supabase'
 
+/** An error whose message came from the function's own JSON body, so it is safe to show as written. */
+export class ServerMessageError extends Error {}
+
 /**
  * Call an edge function and get its answer back, refusals included.
  *

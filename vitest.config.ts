@@ -7,6 +7,7 @@ export default defineConfig({
     // would only slow the run and invite tests that lean on it.
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test/setup.ts'],
     coverage: { include: ['src/lib/**/*.ts'], exclude: ['src/lib/**/*.test.ts'] },
   },
 })

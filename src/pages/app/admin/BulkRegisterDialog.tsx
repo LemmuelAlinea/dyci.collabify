@@ -6,6 +6,7 @@ import { Field, PasswordInput } from '../../../components/ui/Field'
 import { Modal } from '../../../components/ui/Modal'
 import { useOrgSettingsState } from '../../../hooks/useOrgSettings'
 import { listAccounts, registerBulkUsers } from '../../../lib/api/accounts'
+import { ServerMessageError } from '../../../lib/api/functions'
 import { BULK_HEADERS, parseBulkCsv } from '../../../lib/bulkAccounts'
 import type { BulkPreviewRow } from '../../../lib/bulkAccounts'
 import { downloadCsv, toCsv } from '../../../lib/report'
@@ -96,7 +97,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
           chunk.map((row) => ({ ...row.user!, row: row.row, overwrite: overwrite.has(row.email) })), password,
         ))
       } catch (err) {
-        const reason = err instanceof Error && err.message ? err.message : 'Could not send this group. Upload the CSV again to retry.'
+        const reason = err instanceof ServerMessageError ? err.message : 'Could not send this group. Upload the CSV again to retry.'
         outcome.push(...chunk.map((row) => ({
           row: row.row, email: row.email, status: 'failed' as const,
           reason,

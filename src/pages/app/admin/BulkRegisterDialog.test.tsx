@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { BulkRegisterDialog } from './BulkRegisterDialog'
 import { resetOrgSettingsCache } from '../../../hooks/useOrgSettings'
+import { ServerMessageError } from '../../../lib/api/functions'
 import { getOrganizationSettings } from '../../../lib/api/orgSettings'
 
 vi.stubGlobal('React', React)
@@ -85,10 +86,10 @@ it('offers Try again when the domain cannot be read, and recovers', async () => 
   expect(document.body.textContent).toContain('Only @school.test addresses are accepted.')
 })
 
-it('shows the server message when a group cannot be sent', async () => {
+async function failImport(error: Error) {
   vi.mocked(getOrganizationSettings).mockResolvedValue(row)
   const { registerBulkUsers } = await import('../../../lib/api/accounts')
-  vi.mocked(registerBulkUsers).mockRejectedValue(new Error('Could not read the school email domain. Try again in a moment.'))
+  vi.mocked(registerBulkUsers).mockRejectedValue(error)
   await mount()
   const file = new File(['first_name,last_name,email,role\nBo,Lee,bo@school.test,member'], 'users.csv', { type: 'text/csv' })
   Object.defineProperty(picker(), 'files', { value: [file] })
@@ -104,5 +105,15 @@ it('shows the server message when a group cannot be sent', async () => {
   const run = [...document.body.querySelectorAll('button')].find((b) => /^Import/.test(b.textContent ?? '')) as HTMLButtonElement
   await act(async () => run.click())
   await act(async () => {})
+}
+
+it('shows the server message when a group cannot be sent', async () => {
+  await failImport(new ServerMessageError('Could not read the school email domain. Try again in a moment.'))
   expect(document.body.textContent).toContain('Could not read the school email domain. Try again in a moment.')
+})
+
+it('hides a transport error behind the retry line', async () => {
+  await failImport(new Error('Edge Function returned a non-2xx status code'))
+  expect(document.body.textContent).not.toContain('non-2xx')
+  expect(document.body.textContent).toContain('Could not send this group. Upload the CSV again to retry.')
 })
