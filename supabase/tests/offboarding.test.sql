@@ -80,6 +80,7 @@ declare
   v_s3   uuid := gen_random_uuid();  -- a deactivated member, Project manager on
   v_m    uuid := gen_random_uuid();  -- member without the Project manager switch
   v_x    uuid := gen_random_uuid();  -- an admin with Project manager on
+  v_q    uuid := gen_random_uuid();  -- member who runs spaces, Project manager later off
   ws1    uuid;  -- live work space T runs
   ws2    uuid;  -- archived work space T runs
   p1     uuid;  -- T's project in WS1, S1 already Coordinator
@@ -95,6 +96,13 @@ declare
   k4     uuid;  -- open, in archived P2
   k5     uuid;  -- open, P3
   k6     uuid;  -- planning, P1
+  wsa    uuid;  -- S2's space: a working PM
+  wsb    uuid;  -- Q's space: Q's switch goes off; filed in office O
+  wsc    uuid;  -- a space with no pm row
+  wsd    uuid;  -- a space whose PM (S3) is deactivated
+  wse    uuid;  -- an archived space Q runs
+  pb     uuid;  -- Q's project in WSB
+  o      uuid;  -- an office
   r      record;
   n      int;
   v_err  text;
@@ -111,7 +119,8 @@ begin
       (v_s2, 'zz-ob-s2@example.test'),
       (v_s3, 'zz-ob-s3@example.test'),
       (v_m,  'zz-ob-m@example.test'),
-      (v_x,  'zz-ob-x@example.test')
+      (v_x,  'zz-ob-x@example.test'),
+      (v_q,  'zz-ob-q@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -124,7 +133,8 @@ begin
     (v_s2, 'zz-ob-s2@example.test', 'Zz', 'Obs2', 'member', 'active',   false, true),
     (v_s3, 'zz-ob-s3@example.test', 'Zz', 'Obs3', 'member', 'rejected', false, true),
     (v_m,  'zz-ob-m@example.test',  'Zz', 'Obm',  'member', 'active',   false, false),
-    (v_x,  'zz-ob-x@example.test',  'Zz', 'Obx',  'admin',  'active',   false, true)
+    (v_x,  'zz-ob-x@example.test',  'Zz', 'Obx',  'admin',  'active',   false, true),
+    (v_q,  'zz-ob-q@example.test',  'Zz', 'Obq',  'member', 'active',   false, true)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status,
         can_manage_projects = excluded.can_manage_projects, can_teach = excluded.can_teach;
@@ -450,6 +460,120 @@ begin
   perform pg_temp.must_be('the audit enum has offboarded and space_pm_assigned',
     'offboarded' = any (enum_range(null::public.audit_action)::text[])
     and 'space_pm_assigned' = any (enum_range(null::public.audit_action)::text[]));
+
+  -- ------------------------------------------------------------ a stuck space and the oversight reads
+
+  perform pg_temp.act_as(v_s2);
+  wsa := (public.create_general_space('Zz Ob healthy', '')).id;
+  perform pg_temp.act_as(v_q);
+  wsb := (public.create_general_space('Zz Ob switched off', '')).id;
+  wsc := (public.create_general_space('Zz Ob no pm', '')).id;
+  wsd := (public.create_general_space('Zz Ob deactivated pm', '')).id;
+  wse := (public.create_general_space('Zz Ob archived', '')).id;
+  pb := (public.create_general_project('Zz Ob PB', '', null, null, null, null, wsb)).id;
+  perform pg_temp.act_as_service();
+  delete from public.general_space_members where space_id = wsc and user_id = v_q;
+  insert into public.general_space_members (space_id, user_id, role) values (wsd, v_s3, 'member');
+  update public.general_space_members set role = 'coordinator' where space_id = wsd and user_id = v_q;
+  update public.general_space_members set role = 'pm' where space_id = wsd and user_id = v_s3;
+  update public.general_spaces set archived_at = now() where id = wse;
+  update public.profiles set can_manage_projects = false where id = v_q;
+  perform pg_temp.act_as(v_a);
+  o := (public.create_office('Zz Ob office', '')).id;
+  perform public.set_space_office(wsb, o);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('fixtures: S2 runs WSA, Q runs WSB with the switch off, WSC has no pm row',
+    pg_temp.srole(wsa, v_s2) = 'pm' and pg_temp.srole(wsb, v_q) = 'pm'
+    and not (select can_manage_projects from public.profiles where id = v_q)
+    and not exists (select 1 from public.general_space_members where space_id = wsc and role = 'pm'));
+
+  perform pg_temp.act_as(v_s1);
+  perform pg_temp.must_be('spaces_without_pm is zero rows for a non-admin',
+    (select count(*) from public.admin_spaces_without_pm()) = 0);
+  perform pg_temp.must_be('project_offices is zero rows for a non-admin',
+    (select count(*) from public.admin_project_offices()) = 0);
+  perform pg_temp.must_refuse_exact('assign refuses a non-admin',
+    format('select public.admin_assign_space_pm(%L, %L)', wsb, v_s1),
+    'Only an admin can give a space a project manager.');
+  perform pg_temp.act_as(v_pa);
+  perform pg_temp.must_be('the reads are zero rows for an inactive admin',
+    (select count(*) from public.admin_spaces_without_pm()) = 0
+    and (select count(*) from public.admin_project_offices()) = 0);
+  perform pg_temp.must_refuse_exact('assign refuses an inactive admin',
+    format('select public.admin_assign_space_pm(%L, %L)', wsb, v_s1),
+    'Only an admin can give a space a project manager.');
+
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('spaces_without_pm lists the switched-off space and not a healthy one',
+    exists (select 1 from public.admin_spaces_without_pm() x
+             where x.space_id = wsb and x.space_name = 'Zz Ob switched off'
+               and x.office_name = 'Zz Ob office')
+    and exists (select 1 from public.admin_spaces_without_pm() x
+                 where x.space_id = wsc and x.office_name = '')
+    and not exists (select 1 from public.admin_spaces_without_pm() x
+                     where x.space_id in (wsa, ws1, ws2)));
+  perform pg_temp.must_be('spaces_without_pm lists a deactivated PM''s space and not an archived one',
+    exists (select 1 from public.admin_spaces_without_pm() x where x.space_id = wsd)
+    and not exists (select 1 from public.admin_spaces_without_pm() x where x.space_id = wse));
+  perform pg_temp.must_be('spaces_without_pm returns exactly its columns',
+    pg_get_function_result('public.admin_spaces_without_pm()'::regprocedure)
+      = 'TABLE(space_id uuid, space_name text, office_name text)');
+  perform pg_temp.must_be('project_offices names the office of a filed space and '''' for an unfiled one',
+    exists (select 1 from public.admin_project_offices() x
+             where x.project_id = pb and x.office_id = o and x.office_name = 'Zz Ob office')
+    and exists (select 1 from public.admin_project_offices() x
+                 where x.project_id = p1 and x.office_id is null and x.office_name = '')
+    and exists (select 1 from public.admin_project_offices() x where x.project_id = p2)
+    and (select count(*) from public.admin_project_offices() x where x.project_id = pb) = 1);
+  perform pg_temp.must_be('project_offices returns exactly its columns',
+    pg_get_function_result('public.admin_project_offices()'::regprocedure)
+      = 'TABLE(project_id uuid, office_id uuid, office_name text)');
+
+  perform pg_temp.must_refuse_exact('assign refuses while the PM is active with the switch on',
+    format('select public.admin_assign_space_pm(%L, %L)', wsa, v_s1),
+    'This space already has a project manager.');
+  perform pg_temp.must_refuse_exact('assign refuses a space that is not there',
+    format('select public.admin_assign_space_pm(%L, %L)', gen_random_uuid(), v_s1),
+    'That space no longer exists. Refresh the page.');
+  perform pg_temp.must_refuse_exact('assign refuses a successor without Project manager',
+    format('select public.admin_assign_space_pm(%L, %L)', wsb, v_m),
+    'Zz Obm needs Project manager turned on first. Turn it on in Accounts.');
+  perform pg_temp.must_refuse_exact('assign refuses an admin successor',
+    format('select public.admin_assign_space_pm(%L, %L)', wsb, v_x),
+    'Only an active member can take over.');
+  perform pg_temp.must_refuse_exact('assign refuses an inactive successor',
+    format('select public.admin_assign_space_pm(%L, %L)', wsb, v_s3),
+    'Only an active member can take over.');
+
+  perform public.admin_assign_space_pm(wsb, v_s1);
+  perform public.admin_assign_space_pm(wsc, v_s2);
+  perform public.admin_assign_space_pm(wsd, v_s2);
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('assign works when the PM''s switch is off',
+    pg_temp.srole(wsb, v_s1) = 'pm' and pg_temp.srole(wsb, v_q) = 'coordinator'
+    and (select count(*) from public.general_space_members where space_id = wsb and role = 'pm') = 1
+    and (select count(*) from public.general_space_members where space_id = wsb and user_id = v_s1) = 1
+    and pg_temp.prole(pb, v_q) = 'pm');
+  perform pg_temp.must_be('assign works on a space with no pm row',
+    pg_temp.srole(wsc, v_s2) = 'pm'
+    and (select count(*) from public.general_space_members where space_id = wsc and role = 'pm') = 1);
+  perform pg_temp.must_be('assign works when the PM is deactivated',
+    pg_temp.srole(wsd, v_s2) = 'pm' and pg_temp.srole(wsd, v_s3) = 'coordinator'
+    and (select count(*) from public.general_space_members where space_id = wsd and role = 'pm') = 1);
+  perform pg_temp.must_be('assign writes one space_pm_assigned row',
+    (select count(*) from public.audit_events
+      where action::text = 'space_pm_assigned' and subject_id = wsb) = 1
+    and exists (select 1 from public.audit_events
+                 where action::text = 'space_pm_assigned' and subject_id = wsb and actor_id = v_a
+                   and subject_label = 'Zz Ob switched off' and after_value = 'Zz Obs1'));
+
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('spaces_without_pm no longer lists them',
+    not exists (select 1 from public.admin_spaces_without_pm() x where x.space_id in (wsb, wsc)));
+  perform pg_temp.must_refuse_exact('a second assign is refused: the space has a working PM now',
+    format('select public.admin_assign_space_pm(%L, %L)', wsb, v_s2),
+    'This space already has a project manager.');
 
   perform pg_temp.act_as_service();
   raise notice 'offboarding suite: all passed';

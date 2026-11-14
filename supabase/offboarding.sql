@@ -3,10 +3,13 @@
 --
 --   node scripts/db.mjs supabase/offboarding.sql supabase/anon-lockdown.sql
 --
--- Owns admin_offboarding_preview (what the person holds, for the dialog) and
--- admin_offboard_member (the handover and the deactivation, in one transaction), plus the
--- audit values 'offboarded' and 'space_pm_assigned'. Runs after offices.sql (it uses
--- office_admin_reads()) and before anon-lockdown.sql.
+-- Owns admin_offboarding_preview (what the person holds, for the dialog),
+-- admin_offboard_member (the handover and the deactivation, in one transaction),
+-- admin_assign_space_pm (a PM for a space whose PM no longer works), the oversight reads
+-- admin_spaces_without_pm and admin_project_offices, the internal helpers
+-- offboarding_require_successor and offboarding_space_to, and the audit values 'offboarded'
+-- and 'space_pm_assigned'. Runs after offices.sql (it uses office_admin_reads()) and before
+-- anon-lockdown.sql.
 --
 -- Work spaces and work projects only, live (not trashed); archived ones are handed over too,
 -- because they still need an owner if restored. Open tasks are those not done, not trashed,
@@ -48,6 +51,48 @@ end $$;
 commit;
 
 begin;
+
+-- ---------------------------------------------------------------- internal helpers
+
+/**
+ * Refuses anyone who cannot take over a space or project: an active member account with
+ * Project manager on. Locks their profile so they stay eligible until the caller commits.
+ */
+create or replace function public.offboarding_require_successor(p_user uuid)
+returns void language plpgsql set search_path = public as $$
+declare
+  v_succ public.profiles%rowtype;
+begin
+  select * into v_succ from public.profiles where id = p_user for share;
+  if v_succ.id is null or v_succ.role is distinct from 'member' or v_succ.status is distinct from 'active' then
+    raise exception 'Only an active member can take over.' using errcode = 'check_violation';
+  end if;
+  if not v_succ.can_manage_projects then
+    raise exception '% needs Project manager turned on first. Turn it on in Accounts.',
+      public.audit_label(p_user) using errcode = 'check_violation';
+  end if;
+end;
+$$;
+
+/**
+ * Makes p_to the space's PM as hand_over_general_space leaves it: they join as a member if
+ * absent, whoever holds the pm row steps aside to Coordinator first (one pm row per space),
+ * then p_to becomes PM. The caller has already locked the space.
+ */
+create or replace function public.offboarding_space_to(p_space uuid, p_to uuid)
+returns void language plpgsql set search_path = public as $$
+begin
+  insert into public.general_space_members (space_id, user_id, role)
+  values (p_space, p_to, 'member')
+  on conflict do nothing;
+  perform 1 from public.general_space_members
+   where space_id = p_space and user_id = p_to for update;
+  update public.general_space_members set role = 'coordinator'
+   where space_id = p_space and role = 'pm' and user_id <> p_to;
+  update public.general_space_members set role = 'pm'
+   where space_id = p_space and user_id = p_to;
+end;
+$$;
 
 -- ---------------------------------------------------------------- preview
 
@@ -144,7 +189,6 @@ returns void language plpgsql security definer set search_path = public as $$
 declare
   v_admin   uuid := auth.uid();
   v_target  public.profiles%rowtype;
-  v_succ    public.profiles%rowtype;
   v_ids     uuid[];
   v_id      uuid;
   v_to      uuid;
@@ -182,18 +226,11 @@ begin
     end if;
   end loop;
   foreach v_id in array v_ids loop
-    select * into v_succ from public.profiles where id = v_id for share;
-    if v_succ.id is null or v_succ.role is distinct from 'member' or v_succ.status is distinct from 'active' then
-      raise exception 'Only an active member can take over.' using errcode = 'check_violation';
-    end if;
-    if not v_succ.can_manage_projects then
-      raise exception '% needs Project manager turned on first. Turn it on in Accounts.',
-        public.audit_label(v_id) using errcode = 'check_violation';
-    end if;
+    perform public.offboarding_require_successor(v_id);
   end loop;
 
   -- Spaces they run: the successor joins if absent, the target steps aside to Coordinator
-  -- first (one pm row per space), then the successor becomes PM.
+  -- first (one pm row per space), then the successor becomes PM (offboarding_space_to).
   for rec in
     select s.id from public.general_spaces s
       join public.general_space_members m on m.space_id = s.id
@@ -202,15 +239,7 @@ begin
        for update of s, m
   loop
     v_to := coalesce((p_overrides ->> rec.id::text)::uuid, p_successor);
-    insert into public.general_space_members (space_id, user_id, role)
-    values (rec.id, v_to, 'member')
-    on conflict do nothing;
-    perform 1 from public.general_space_members
-     where space_id = rec.id and user_id = v_to for update;
-    update public.general_space_members set role = 'coordinator'
-     where space_id = rec.id and user_id = p_user;
-    update public.general_space_members set role = 'pm'
-     where space_id = rec.id and user_id = v_to;
+    perform public.offboarding_space_to(rec.id, v_to);
     v_spaces := v_spaces + 1;
   end loop;
 
@@ -325,12 +354,110 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- a stuck space
+
+/**
+ * Gives a work space a PM when its own no longer works: no pm row, or the PM's account is
+ * not active, or their Project manager switch is off. Same successor rules and end state as
+ * the offboard's space step; the old PM, if any, stays on as Coordinator. Writes one
+ * 'space_pm_assigned' audit row (before: the old PM's name, or ''). Archived spaces too;
+ * trashed ones are gone.
+ */
+create or replace function public.admin_assign_space_pm(p_space uuid, p_user uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_name text;
+  v_pm   uuid;
+begin
+  if not public.office_admin_reads() then
+    raise exception 'Only an admin can give a space a project manager.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select s.name into v_name from public.general_spaces s
+   where s.id = p_space and s.kind = 'work' and s.trashed_at is null
+     for update;
+  if not found then
+    raise exception 'That space no longer exists. Refresh the page.' using errcode = 'no_data_found';
+  end if;
+
+  select m.user_id into v_pm from public.general_space_members m
+   where m.space_id = p_space and m.role = 'pm'
+     for update;
+  if v_pm is not null and exists (
+       select 1 from public.profiles p
+        where p.id = v_pm and p.status = 'active' and p.can_manage_projects
+          for share) then
+    raise exception 'This space already has a project manager.' using errcode = 'check_violation';
+  end if;
+
+  perform public.offboarding_require_successor(p_user);
+  perform public.offboarding_space_to(p_space, p_user);
+
+  insert into public.audit_events
+    (action, actor_id, subject_id, subject_label, before_value, after_value)
+  values ('space_pm_assigned', auth.uid(), p_space, v_name,
+          case when v_pm is null then '' else public.audit_label(v_pm) end,
+          public.audit_label(p_user));
+end;
+$$;
+
+-- ---------------------------------------------------------------- oversight reads
+
+/**
+ * Live (not archived, not trashed) work spaces with no working PM, by the rule above, with
+ * their office's name: '' when unfiled or the office is archived. Filed spaces first, by
+ * office, then unfiled. Zero rows for anyone but an active admin.
+ */
+create or replace function public.admin_spaces_without_pm()
+returns table (space_id uuid, space_name text, office_name text)
+language sql stable security definer set search_path = public as $$
+  select s.id, s.name, coalesce(o.name, '')
+    from public.general_spaces s
+    left join public.office_spaces os on os.space_id = s.id
+    left join public.offices o on o.id = os.office_id and o.archived_at is null
+   where public.office_admin_reads()
+     and s.kind = 'work' and s.archived_at is null and s.trashed_at is null
+     and not exists (select 1
+                       from public.general_space_members m
+                       join public.profiles p on p.id = m.user_id
+                      where m.space_id = s.id and m.role = 'pm'
+                        and p.status = 'active' and p.can_manage_projects)
+   order by o.name is null, lower(o.name), lower(s.name), s.id;
+$$;
+
+/**
+ * Every work project not in the trash, with its space's live office: office_id null and
+ * office_name '' when the space is unfiled or its office is archived. Zero rows for anyone
+ * but an active admin.
+ */
+create or replace function public.admin_project_offices()
+returns table (project_id uuid, office_id uuid, office_name text)
+language sql stable security definer set search_path = public as $$
+  select p.id, o.id, coalesce(o.name, '')
+    from public.general_projects p
+    left join public.office_spaces os on os.space_id = p.space_id
+    left join public.offices o on o.id = os.office_id and o.archived_at is null
+   where public.office_admin_reads()
+     and p.class_board_id is null and p.trashed_at is null;
+$$;
+
 -- ---------------------------------------------------------------- grants
+
+-- Internal helpers: nobody calls them directly.
+revoke all on function public.offboarding_require_successor(uuid) from public, anon, authenticated;
+revoke all on function public.offboarding_space_to(uuid, uuid) from public, anon, authenticated;
 
 -- Anyone signed in may call them; only an active admin gets past the first line.
 revoke all on function public.admin_offboarding_preview(uuid) from public, anon;
 revoke all on function public.admin_offboard_member(uuid, uuid, jsonb) from public, anon;
+revoke all on function public.admin_assign_space_pm(uuid, uuid) from public, anon;
+revoke all on function public.admin_spaces_without_pm() from public, anon;
+revoke all on function public.admin_project_offices() from public, anon;
 grant execute on function public.admin_offboarding_preview(uuid) to authenticated;
 grant execute on function public.admin_offboard_member(uuid, uuid, jsonb) to authenticated;
+grant execute on function public.admin_assign_space_pm(uuid, uuid) to authenticated;
+grant execute on function public.admin_spaces_without_pm() to authenticated;
+grant execute on function public.admin_project_offices() to authenticated;
 
 commit;
