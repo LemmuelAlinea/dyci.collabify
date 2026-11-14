@@ -54,6 +54,16 @@ language sql as $$
    where action::text = 'office_head_changed' and subject_id = p_office;
 $$;
 
+/** How many rows the five head reads return to the caller, all together. */
+create or replace function pg_temp.head_rows() returns int
+language sql as $$
+  select (select count(*) from public.my_headed_office())::int
+       + (select count(*) from public.my_office_overview())::int
+       + (select count(*) from public.my_office_attention())::int
+       + (select count(*) from public.my_office_spaces())::int
+       + (select count(*) from public.my_office_people())::int;
+$$;
+
 /** The clears among them: this head out, nobody in, by this actor. */
 create or replace function pg_temp.head_clears(p_office uuid, p_label text, p_actor uuid) returns int
 language sql as $$
@@ -82,6 +92,12 @@ declare
   o1     uuid;
   o2     uuid;
   o3     uuid;  -- archived
+  pq     uuid;  -- v_p1's quiet project, in office one
+  px     uuid;  -- v_p1's project in an archived space, in office one
+  s1     uuid;  -- pa's and pq's space, office one
+  s2     uuid;  -- pb's space, office one
+  s3     uuid;  -- pc's space, office two
+  sx     uuid;  -- an archived space, office one
   n      int;
   c      int;
   v_nopm uuid[];
@@ -89,6 +105,8 @@ declare
   v_help uuid[];
   j_adm  jsonb;
   j_help jsonb;
+  j_me   jsonb;
+  j_org  jsonb;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           created_at, updated_at)
@@ -359,6 +377,20 @@ begin
     if sqlerrm <> 'zz undo' then raise; end if;
   end;
 
+  -- An admin is made from the command line (scripts/set-role.mjs), so there is no actor.
+  begin
+    perform pg_temp.act_as_service();
+    update public.profiles set role = 'admin' where id = v_h1;
+    perform pg_temp.must_be('making the head an admin clears it, one audit row',
+      not exists (select 1 from public.office_heads where office_id = o1)
+      and not exists (select 1 from public.office_members where user_id = v_h1)
+      and pg_temp.head_audits(o1) = n + 1
+      and pg_temp.head_clears(o1, 'Zz Ohh1', null) = 1);
+    raise exception 'zz undo';
+  exception when others then
+    if sqlerrm <> 'zz undo' then raise; end if;
+  end;
+
   begin
     perform pg_temp.act_as(v_a);
     perform public.set_account_active(v_m, false);
@@ -408,6 +440,151 @@ begin
     exists (select 1 from public.office_heads where office_id = o1 and user_id = v_h1)
     and exists (select 1 from public.office_heads where office_id = o2 and user_id = v_h2)
     and pg_temp.head_audits(o1) = n);
+
+  -- ------------------------------------------------------------ head reads
+  --
+  -- Office one: space p1 (pa, working PM; pq, quiet), space p2 (pb, no PM) and an archived
+  -- space (px). Office two: space p3 (pc, no PM). v_h1 is a stakeholder on pb and nothing else.
+
+  perform pg_temp.act_as_service();
+  select space_id into s1 from public.general_projects where id = pa;
+  select space_id into s2 from public.general_projects where id = pb;
+  select space_id into s3 from public.general_projects where id = pc;
+
+  perform pg_temp.act_as(v_p1);
+  pq := (public.create_general_project('Zz Oh quiet', '', null, null, null, null, s1)).id;
+  sx := (public.create_general_space('Zz Oh space archived', '')).id;
+  px := (public.create_general_project('Zz Oh in an archived space', '', null, null, null, null, sx)).id;
+
+  perform pg_temp.act_as(v_a);
+  perform public.set_space_office(s1, o1);
+  perform public.set_space_office(s2, o1);
+  perform public.set_space_office(sx, o1);
+  perform public.set_space_office(s3, o2);
+
+  perform pg_temp.act_as_service();
+  update public.general_projects set created_at = now() - interval '30 days' where id = pq;
+  update public.general_spaces set archived_at = now() where id = sx;
+  insert into public.general_members (project_id, user_id, role) values (pb, v_h1, 'stakeholder');
+
+  perform pg_temp.must_be('the head reads columns are pinned',
+    pg_get_function_result('public.my_headed_office()'::regprocedure)
+      = 'TABLE(office_id uuid, office_name text)'
+    and pg_get_function_result('public.my_office_overview()'::regprocedure)
+      = 'TABLE(spaces integer, running_projects integer, people integer, needs_attention integer)'
+    and pg_get_function_result('public.my_office_attention()'::regprocedure)
+      = 'TABLE(project_id uuid, project_name text, space_name text, no_pm boolean, quiet_since timestamp with time zone, i_am_on boolean)'
+    and pg_get_function_result('public.my_office_spaces()'::regprocedure)
+      = 'TABLE(space_id uuid, space_name text, running_projects integer)'
+    and pg_get_function_result('public.my_office_people()'::regprocedure)
+      = 'TABLE(id uuid, name text)');
+
+  -- Nobody but a head gets a row.
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_be('the head reads refuse a member: zero rows', pg_temp.head_rows() = 0);
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('the head reads refuse the admin: zero rows', pg_temp.head_rows() = 0);
+  perform pg_temp.act_as(v_stu);
+  perform pg_temp.must_be('the head reads refuse a student: zero rows', pg_temp.head_rows() = 0);
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_refuse_exact('a member cannot call the gate helper',
+    'select public.office_head_of_caller()', 'permission denied');
+
+  -- The admin's numbers for each office.
+  perform pg_temp.act_as(v_a);
+  select coalesce(jsonb_agg(jsonb_build_object('spaces', x.spaces,
+           'running_projects', x.running_projects, 'people', x.people,
+           'needs_attention', x.needs_attention)), '[]')
+    into j_org from public.admin_org_overview() x where x.office_id = o1;
+
+  perform pg_temp.act_as(v_h1);
+  select coalesce(jsonb_agg(to_jsonb(x)), '[]') into j_me from public.my_office_overview() x;
+  perform pg_temp.must_be('my_headed_office names the head''s office',
+    (select count(*) from public.my_headed_office()) = 1
+    and exists (select 1 from public.my_headed_office() x
+                 where x.office_id = o1 and x.office_name = 'Zz Oh office one'));
+  perform pg_temp.must_be('my_office_overview equals that office''s admin_org_overview row',
+    j_me = j_org
+    and j_me = '[{"spaces": 2, "running_projects": 3, "people": 2, "needs_attention": 2}]'::jsonb);
+  perform pg_temp.must_be('my_office_attention lists the office''s quiet and no-PM projects only',
+    (select array_agg(x.project_id) from public.my_office_attention() x) = array[pb, pq]
+    and exists (select 1 from public.my_office_attention() x
+                 where x.project_id = pb and x.no_pm and x.quiet_since is null
+                   and x.project_name = 'Zz Oh switched off' and x.space_name = 'Zz Oh space p2')
+    and exists (select 1 from public.my_office_attention() x
+                 where x.project_id = pq and not x.no_pm and x.quiet_since is not null
+                   and x.space_name = 'Zz Oh space p1'));
+  perform pg_temp.must_be('i_am_on is true only where the head is a general_members row',
+    (select bool_and(x.i_am_on = (x.project_id = pb)) from public.my_office_attention() x));
+  perform pg_temp.must_be('spaces and people match the office: spaces',
+    (select jsonb_agg(to_jsonb(x)) from public.my_office_spaces() x)
+      = jsonb_build_array(
+          jsonb_build_object('space_id', s1, 'space_name', 'Zz Oh space p1', 'running_projects', 2),
+          jsonb_build_object('space_id', s2, 'space_name', 'Zz Oh space p2', 'running_projects', 1)));
+  perform pg_temp.must_be('spaces and people match the office: people',
+    (select jsonb_agg(to_jsonb(x)) from public.my_office_people() x)
+      = jsonb_build_array(
+          jsonb_build_object('id', v_h1, 'name', 'Zz Ohh1'),
+          jsonb_build_object('id', v_m, 'name', 'Zz Ohm')));
+
+  -- The head of another office reads only their own.
+  perform pg_temp.act_as(v_a);
+  select coalesce(jsonb_agg(jsonb_build_object('spaces', x.spaces,
+           'running_projects', x.running_projects, 'people', x.people,
+           'needs_attention', x.needs_attention)), '[]')
+    into j_org from public.admin_org_overview() x where x.office_id = o2;
+
+  perform pg_temp.act_as(v_h2);
+  select coalesce(jsonb_agg(to_jsonb(x)), '[]') into j_me from public.my_office_overview() x;
+  perform pg_temp.must_be('the head of another office reads only their own office',
+    (select array_agg(x.office_id) from public.my_headed_office() x) = array[o2]
+    and j_me = j_org
+    and j_me = '[{"spaces": 1, "running_projects": 1, "people": 1, "needs_attention": 1}]'::jsonb
+    and (select array_agg(x.project_id) from public.my_office_attention() x) = array[pc]
+    and not (select bool_or(x.i_am_on) from public.my_office_attention() x)
+    and (select array_agg(x.space_id) from public.my_office_spaces() x) = array[s3]
+    and (select array_agg(x.id) from public.my_office_people() x) = array[v_h2]);
+
+  -- A seat on an archived office reads nothing. archive_office refuses while the head is
+  -- active, so the archive is forced here to reach the gate.
+  begin
+    perform pg_temp.act_as_service();
+    update public.offices set archived_at = now() where id = o1;
+    perform pg_temp.act_as(v_h1);
+    perform pg_temp.must_be('the head of an archived office reads nothing',
+      pg_temp.head_rows() = 0);
+    raise exception 'zz undo';
+  exception when others then
+    if sqlerrm <> 'zz undo' then raise; end if;
+  end;
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the gate and the reads are definer functions',
+    (select bool_and(p.prosecdef) from pg_proc p
+      where p.pronamespace = 'public'::regnamespace
+        and p.proname in ('office_head_of_caller', 'my_headed_office', 'my_office_overview',
+                          'my_office_attention', 'my_office_spaces', 'my_office_people')
+     having count(*) = 6));
+  perform pg_temp.must_be('anon runs none of the head reads',
+    not has_function_privilege('anon', 'public.my_headed_office()', 'execute')
+    and not has_function_privilege('anon', 'public.my_office_overview()', 'execute')
+    and not has_function_privilege('anon', 'public.my_office_attention()', 'execute')
+    and not has_function_privilege('anon', 'public.my_office_spaces()', 'execute')
+    and not has_function_privilege('anon', 'public.my_office_people()', 'execute'));
+
+  perform pg_temp.must_be('the seat triggers fire only when relevant',
+    not exists (select 1 from pg_trigger
+                 where tgname = 'office_members_head_seat'
+                   and tgrelid = 'public.office_members'::regclass)
+    and exists (select 1 from pg_trigger
+                 where tgname = 'office_members_head_seat_delete'
+                   and tgrelid = 'public.office_members'::regclass and tgqual is null)
+    and exists (select 1 from pg_trigger
+                 where tgname = 'office_members_head_seat_move'
+                   and tgrelid = 'public.office_members'::regclass and tgqual is not null)
+    and exists (select 1 from pg_trigger
+                 where tgname = 'profiles_office_head_status'
+                   and tgrelid = 'public.profiles'::regclass and tgqual is not null));
 
   perform pg_temp.must_be('the audit enum has office_head_changed',
     'office_head_changed' = any (enum_range(null::public.audit_action)::text[]));

@@ -3,9 +3,10 @@
 --   node scripts/db.mjs supabase/office-heads.sql supabase/anon-lockdown.sql
 --
 -- Owns the office_heads table, set_office_head (the admin's setter), the triggers that clear a
--- seat once its head no longer belongs in it, admin_office_heads (the admin's read) and the
--- audit value 'office_head_changed'. Runs after offices.sql and offboarding.sql and before
--- anon-lockdown.sql.
+-- seat once its head no longer belongs in it, admin_office_heads (the admin's read), the head's
+-- own reads (my_headed_office, my_office_overview, my_office_attention, my_office_spaces,
+-- my_office_people) and the audit value 'office_head_changed'. Runs after offices.sql and
+-- offboarding.sql and before anon-lockdown.sql.
 --
 -- A head is an active member filed in the office (office_members). The seat lives in its own
 -- table rather than a column on offices because every account reads offices; a row here is
@@ -19,7 +20,14 @@
 --   - stops being active, deactivated or offboarded (the profiles trigger).
 -- Reactivating does not restore it; the admin names the head again. Archiving an office needs
 -- no step of its own: archive_office refuses while active people remain and deletes the
--- inactive ones' rows, which fires the office_members trigger.
+-- inactive ones' rows, which fires the office_members trigger. Deleting a profile cascades
+-- office_heads and office_members; depending on cascade order the clear may write no
+-- office_head_changed row, which is accepted (profiles are never deleted through the app).
+--
+-- The head's reads answer only the active head of a live office, and only about that office:
+-- names, counts, the quiet date and the no-PM reason, the same figures Admin Home shows the
+-- admin, never project content. They count exactly as admin_org_overview does, and the suite
+-- pins that. Everyone else, the admin and other heads included, gets zero rows.
 --
 -- Additive: nothing an earlier file owns is redefined; the two triggers are separate triggers.
 --
@@ -150,9 +158,15 @@ begin
 end;
 $$;
 
+-- Two triggers, because a delete trigger's WHEN cannot read new.
 drop trigger if exists office_members_head_seat on public.office_members;
-create trigger office_members_head_seat after delete or update of office_id on public.office_members
+drop trigger if exists office_members_head_seat_delete on public.office_members;
+drop trigger if exists office_members_head_seat_move on public.office_members;
+create trigger office_members_head_seat_delete after delete on public.office_members
   for each row execute function public.office_members_head_seat();
+create trigger office_members_head_seat_move after update of office_id on public.office_members
+  for each row when (old.office_id is distinct from new.office_id)
+  execute function public.office_members_head_seat();
 
 /** A head who stops being active (deactivated or offboarded) leaves the seat. */
 create or replace function public.profiles_office_head_status()
@@ -167,7 +181,8 @@ $$;
 
 drop trigger if exists profiles_office_head_status on public.profiles;
 create trigger profiles_office_head_status after update of status on public.profiles
-  for each row execute function public.profiles_office_head_status();
+  for each row when (old.status = 'active' and new.status is distinct from 'active')
+  execute function public.profiles_office_head_status();
 
 -- ---------------------------------------------------------------- admin read
 
@@ -184,9 +199,117 @@ language sql stable security definer set search_path = public as $$
    order by h.office_id;
 $$;
 
+-- ---------------------------------------------------------------- the head's reads
+--
+-- Each counts as admin_org_overview counts for one office: live work spaces filed in it, the
+-- projects running in them (office_running_projects), active members filed in it, and the
+-- rows of office_attention_rows for it.
+
+/**
+ * The office the caller heads, or null: an office_heads row for auth.uid() on a live office,
+ * whose head is an active member still filed in it. The gate for every read below. Internal.
+ */
+create or replace function public.office_head_of_caller()
+returns uuid language sql stable security definer set search_path = public as $$
+  select h.office_id
+    from public.office_heads h
+    join public.offices o on o.id = h.office_id and o.archived_at is null
+    join public.profiles p on p.id = h.user_id and p.role = 'member' and p.status = 'active'
+    join public.office_members m on m.user_id = h.user_id and m.office_id = h.office_id
+   where h.user_id = auth.uid();
+$$;
+
+/** The office the caller heads, for the rail and the My office banner. */
+create or replace function public.my_headed_office()
+returns table (office_id uuid, office_name text)
+language sql stable security definer set search_path = public as $$
+  with me as (select public.office_head_of_caller() as id)
+  select o.id, o.name
+    from me
+    join public.offices o on o.id = me.id;
+$$;
+
+/** The office's figures: that office's admin_org_overview row, without the office. */
+create or replace function public.my_office_overview()
+returns table (spaces int, running_projects int, people int, needs_attention int)
+language sql stable security definer set search_path = public as $$
+  select (select count(*)
+            from public.general_spaces s
+            join public.office_spaces os on os.space_id = s.id
+           where os.office_id = me.id
+             and s.kind = 'work' and s.archived_at is null and s.trashed_at is null)::int,
+         (select count(*)
+            from public.office_running_projects() r
+            join public.office_spaces os on os.space_id = r.space_id
+           where os.office_id = me.id)::int,
+         (select count(*)
+            from public.profiles p
+            join public.office_members m on m.user_id = p.id
+           where m.office_id = me.id and p.role = 'member' and p.status = 'active')::int,
+         (select count(*)
+            from public.office_attention_rows() a
+           where a.office_id = me.id)::int
+    from (select public.office_head_of_caller() as id) me
+   where me.id is not null;
+$$;
+
+/**
+ * The office's running projects that need attention: no PM first, then the longest quiet.
+ * i_am_on: the caller has a general_members row on it (any role), so the page links only those.
+ */
+create or replace function public.my_office_attention()
+returns table (project_id uuid, project_name text, space_name text, no_pm boolean,
+               quiet_since timestamptz, i_am_on boolean)
+language sql stable security definer set search_path = public as $$
+  with me as (select public.office_head_of_caller() as id)
+  select a.project_id,
+         a.project_name,
+         a.space_name,
+         a.no_pm,
+         a.quiet_since,
+         exists (select 1 from public.general_members gm
+                  where gm.project_id = a.project_id and gm.user_id = auth.uid())
+    from me
+    join public.office_attention_rows() a on a.office_id = me.id
+   order by a.no_pm desc, a.quiet_since asc nulls last, lower(a.project_name), a.project_id;
+$$;
+
+/** The office's live work spaces, with how many projects run in each. */
+create or replace function public.my_office_spaces()
+returns table (space_id uuid, space_name text, running_projects int)
+language sql stable security definer set search_path = public as $$
+  with me as (select public.office_head_of_caller() as id)
+  select s.id,
+         s.name,
+         coalesce(rp.n, 0)::int
+    from me
+    join public.office_spaces os on os.office_id = me.id
+    join public.general_spaces s on s.id = os.space_id
+    left join (select r.space_id, count(*) as n
+                 from public.office_running_projects() r
+                group by r.space_id) rp on rp.space_id = s.id
+   where s.kind = 'work' and s.archived_at is null and s.trashed_at is null
+   order by lower(s.name), s.id;
+$$;
+
+/** The office's active members, by name. */
+create or replace function public.my_office_people()
+returns table (id uuid, name text)
+language sql stable security definer set search_path = public as $$
+  with me as (select public.office_head_of_caller() as id)
+  select p.id,
+         btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, ''))
+    from me
+    join public.office_members m on m.office_id = me.id
+    join public.profiles p on p.id = m.user_id
+   where p.role = 'member' and p.status = 'active'
+   order by p.last_name, p.first_name, p.id;
+$$;
+
 -- ---------------------------------------------------------------- grants
 
 -- Internal helpers and trigger functions: nobody calls them directly.
+revoke all on function public.office_head_of_caller() from public, anon, authenticated;
 revoke all on function public.office_head_clear(uuid) from public, anon, authenticated;
 revoke all on function public.office_members_head_seat() from public, anon, authenticated;
 revoke all on function public.profiles_office_head_status() from public, anon, authenticated;
@@ -195,5 +318,17 @@ revoke all on function public.set_office_head(uuid, uuid) from public, anon;
 revoke all on function public.admin_office_heads() from public, anon;
 grant execute on function public.set_office_head(uuid, uuid) to authenticated;
 grant execute on function public.admin_office_heads() to authenticated;
+
+-- The head's reads. Anyone signed in may call them; only an active head gets rows.
+revoke all on function public.my_headed_office() from public, anon;
+revoke all on function public.my_office_overview() from public, anon;
+revoke all on function public.my_office_attention() from public, anon;
+revoke all on function public.my_office_spaces() from public, anon;
+revoke all on function public.my_office_people() from public, anon;
+grant execute on function public.my_headed_office() to authenticated;
+grant execute on function public.my_office_overview() to authenticated;
+grant execute on function public.my_office_attention() to authenticated;
+grant execute on function public.my_office_spaces() to authenticated;
+grant execute on function public.my_office_people() to authenticated;
 
 commit;
