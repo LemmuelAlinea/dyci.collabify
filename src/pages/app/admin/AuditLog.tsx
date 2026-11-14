@@ -163,7 +163,7 @@ export default function AuditLog() {
         <div className="p-4 sm:p-5">
           <p className="mb-5 flex items-start gap-2 rounded-xl surface-sunken px-4 py-3 text-[13px] leading-relaxed text-muted">
             <Icon name="info" size={15} className="mt-0.5 shrink-0" />
-            This log covers accounts and classes only. Class work, files, marks, and messages stay private.
+            This log covers accounts, classes and offices only. Project and class work, files, marks, and messages stay private.
           </p>
 
           {days.length === 0 ? (

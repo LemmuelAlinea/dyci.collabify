@@ -150,7 +150,13 @@ export default function Offices() {
         onClose={() => setArchiving(null)}
         onConfirm={async () => {
           if (!archiving) return
-          await archiveOffice(archiving.id)
+          try {
+            await archiveOffice(archiving.id)
+          } catch (err) {
+            // A Supabase error is a plain object, not an Error: wrap it so the
+            // dialog shows the database's own refusal ("Move its 1 space first.").
+            throw new Error(authErrorMessage(err, `Could not archive ${archiving.name}.`), { cause: err })
+          }
           show(`${archiving.name} archived`)
           setParams({})
           await load()

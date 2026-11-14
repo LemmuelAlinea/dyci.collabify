@@ -140,7 +140,13 @@ it('Move to calls setMemberOffice with the chosen office', async () => {
 })
 
 it('an archive refusal shows the database message', async () => {
-  vi.mocked(archiveOffice).mockRejectedValueOnce(new Error('Move its 1 person and 1 space first.'))
+  // Supabase rejects with a plain object, not an Error instance.
+  vi.mocked(archiveOffice).mockRejectedValueOnce({
+    message: 'Move its 1 person and 1 space first.',
+    code: 'P0001',
+    details: null,
+    hint: null,
+  })
   await renderAt('/admin/offices?office=o1')
   await act(async () => button('Archive')!.click())
   await act(async () => button('Archive office')!.click())

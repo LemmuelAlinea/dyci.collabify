@@ -4765,13 +4765,26 @@ The admin files people and work spaces under offices, and Admin Home became the 
 
 Verified: `npm run build` clean, `npm test` 212 files and 2,236 tests passed, the offices suite passed against the live
 project (rolled back).
-Browser walk: pending
+After the final review: Admin Home's academic band keeps only the current school year and live terms, a
+"No project manager" line opens Assign on Work projects (`?assign=`), the Notices card says professors and
+students, and the attention list stops at 6 with "N more". Then 2,246 tests passed.
+
+Browser walk (2026-11-14, signed in as the admin on the dev server against the live project): the three rail
+groups; every Home band loads; a throwaway "Walk test office" was created, a duplicate name with other case and
+spacing was refused naming the stored office, "Walk through space" was filed in and back out (Home counted it),
+archive was refused while it held the space, then it was archived, restored from Archive, archived and deleted
+for good; the Audit log recorded all seven steps; Accounts shows office chips and Change office on members only;
+dark mode, 768 px and 375 px show no horizontal scroll; a clean reload has no failed requests. The walk found and
+fixed three things: an archive or delete refusal showed "That did not work. Try again." (a Supabase error is a
+plain object, not an `Error`; both dialogs now wrap it with `authErrorMessage`), audit lines read "Walk test office
+office was deleted" (now "The office … was deleted", "The space … moved"), and the Audit log intro now names
+offices. Left as is: the walk's audit rows stay (the log is immutable); "Delete for good" text on the Archive page
+is near-invisible on the admin's custom palette (the shared `destroy` style, same on `main`); on a phone, long
+project names in Needs attention truncate beside the quiet chip.
 
 **Deferred**
-- Admin Home's academic counts exclude archived classes across all years, while /admin/classes defaults to the
-  current school year; likely scope Home to the current school year.
 - Only the overview failure path is tested; the Offices-band figure assertion is weak (`toContain('4')`).
-- "No office" and "Unassigned" both appear on the Offices page; the Needs attention list is uncapped; a magic
+- "No office" still appears in the Offices page's Move-to select; a magic
   `pr-[27px]` on the Home table.
 - The `general_counts` SQL function is still defined with no callers (left, dropping a live function is destructive).
 - Listings return a raw archived `office_id`; the UI maps it through `liveOfficeId`. The two Task 2 test-order,

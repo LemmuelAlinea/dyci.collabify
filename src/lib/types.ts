@@ -1683,20 +1683,21 @@ export function auditSentence(e: AuditEvent) {
       return `${e.class_label} moved from ${e.before_value || 'nobody'} to ${e.after_value}`
     case 'class_deleted':
       return `${e.class_label} was deleted`
+    // "The office …" first, so a name that already ends in "office" never reads "… office office".
     case 'office_created':
-      return `${who} office was created`
+      return `The office ${who} was created`
     case 'office_renamed':
-      return `${e.before_value} office was renamed ${e.after_value}`
+      return `The office ${e.before_value} was renamed ${e.after_value}`
     case 'office_archived':
-      return `${who} office was archived`
+      return `The office ${who} was archived`
     case 'office_restored':
-      return `${who} office was put back`
+      return `The office ${who} was put back`
     case 'office_deleted':
-      return `${who} office was deleted`
+      return `The office ${who} was deleted`
     case 'office_changed':
       return `${who} moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
     case 'space_office_changed':
-      return `${who} space moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
+      return `The space ${who} moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
   }
 }
 

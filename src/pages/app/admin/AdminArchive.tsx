@@ -259,9 +259,14 @@ export default function AdminArchive() {
         confirmLabel="Delete for good"
         onConfirm={async () => {
           if (!deleting) return
-          if (deleting.kind === 'section') await deleteSection(deleting.id)
-          else if (deleting.kind === 'office') await deleteOffice(deleting.id)
-          else await deleteResourceForGood(deleting.id)
+          try {
+            if (deleting.kind === 'section') await deleteSection(deleting.id)
+            else if (deleting.kind === 'office') await deleteOffice(deleting.id)
+            else await deleteResourceForGood(deleting.id)
+          } catch (err) {
+            // Supabase errors are plain objects; wrap so the dialog shows the database's refusal.
+            throw new Error(authErrorMessage(err, `Could not delete ${deleting.name}.`), { cause: err })
+          }
           show(`${deleting.name} deleted`)
           await load()
         }}
