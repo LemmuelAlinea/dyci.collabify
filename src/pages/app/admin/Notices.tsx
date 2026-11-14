@@ -28,7 +28,7 @@ import {
   type NoticeGroup,
   type ProgramNoticeRecord,
 } from '../../../lib/program'
-import { dayLabel, momentLabel } from '../../../lib/report'
+import { momentLabel } from '../../../lib/report'
 import { Linkify } from '../../../components/ui/Linkify'
 import { DriveLinkCards } from '../../../components/ui/DriveLinkCards'
 
@@ -466,7 +466,13 @@ function NoticeCard({
             {n.edited_at && ' · edited'}
           </p>
           <p className="mt-0.5 text-[12px] text-faint">
-            {n.live ? 'Leaves dashboards' : 'Left dashboards'} {dayLabel(n.leaves_at, true)}
+            {n.live ? 'Leaves dashboards' : 'Left dashboards'}{' '}
+            {/* A real moment, so it reads in local time (dayLabel slices the UTC date). */}
+            {new Date(n.leaves_at).toLocaleDateString(undefined, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">

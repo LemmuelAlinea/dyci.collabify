@@ -19,7 +19,7 @@ import type { YearLevel } from '../types'
 
 /* -------------------------------------------------------------- notices */
 
-/** What is on a dashboard now. The 24-hour window is applied by the view. */
+/** What is on a dashboard now. The 7-day window is applied by the view. */
 export async function listNotices() {
   const { data, error } = await supabase
     .from('program_notices')

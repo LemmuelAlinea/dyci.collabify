@@ -24,9 +24,9 @@
  * It carries no attachment. A class announcement takes files because coursework
  * needs them; a program notice that needs a file needs a class.
  *
- * **A notice stays on the dashboards until the chair takes it down.** It used
- * to leave after 24 hours. It no longer does: the office's word stays where
- * everybody can read it, and the dashboards keep it short instead — a long
+ * **A notice stays on the dashboards for 7 days** (since 2026-11-15; before
+ * that it stayed until taken down, and earlier still it left after 24 hours).
+ * notice-audience.sql now owns `program_notices` and applies the week; a long
  * notice is shown shortened with a "See more" that opens the whole of it.
  *
  * Nothing is deleted by time. `program_notices_all` is the chair's own list and
@@ -56,9 +56,9 @@ create index if not exists program_announcements_recent_idx
 -- One pinned notice at a time. Two things at the top of everybody's dashboard
 -- is neither of them being the important one.
 --
--- Pinning orders the notices inside the 24-hour window; it does not exempt one
--- from it. A pin that outlived the window would be the one stale notice on
--- every dashboard, which is the thing the window exists to prevent.
+-- Pinning orders the notices inside the 7-day window; it does not exempt one
+-- from it. A pin past its week no longer holds this slot (notice-audience.sql's
+-- program_announcements_free_pin frees it when a new notice is pinned).
 create unique index if not exists program_announcements_one_pin
   on public.program_announcements ((true)) where pinned;
 

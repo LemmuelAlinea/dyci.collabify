@@ -11,7 +11,8 @@ const SHOWN = 2
 /**
  * What the program office has said.
  *
- * A notice stays here until the chair takes it down. A pinned notice sits at
+ * A notice stays here for 7 days after it is sent (the view applies the week),
+ * or until the chair takes it down sooner. A pinned notice sits at
  * the top; the rest fold away behind a line, and each one is shown shortened
  * with a "See more" that opens the whole of it. Nothing here is dismissible per
  * person — what is on this list is current for everyone.

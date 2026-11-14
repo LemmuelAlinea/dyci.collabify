@@ -558,6 +558,21 @@ begin
     and not (select pinned from public.program_announcements where id = n_fresh));
 
   begin
+    insert into public.program_announcements (author_id, title, body, audience, pinned)
+    values (v_a, 'Zz Na second live pin', 'b', 'everyone', true);
+    raise exception 'FAIL  a second live pin is refused';
+  exception when unique_violation then
+    perform pg_temp.must_be('a live pinned notice still holds the slot: a second live pin is refused',
+      (select pinned from public.program_announcements where id = n_pin));
+  end;
+
+  update public.program_announcements set pinned = false where id = n_pin;
+  perform pg_temp.must_be('unpinning still works',
+    not (select pinned from public.program_announcements where id = n_pin));
+  perform pg_temp.must_be('the Home view leaves out an old notice for the admin too',
+    not exists (select 1 from public.program_notices where id = n_week));
+
+  begin
     update public.program_announcements set pinned = true where id = n_week;
     raise exception 'FAIL  pinning a notice older than 7 days is refused';
   exception when check_violation then
