@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import Notices, { noticeSendError } from './Notices'
+import { listOffices } from '../../../lib/api/offices'
 import { listAllNotices, noticeReach, postNotice } from '../../../lib/api/program'
 
 vi.stubGlobal('React', React)
@@ -139,6 +140,35 @@ it('labels each notice with its audience', async () => {
   await render()
   const labels = [...document.querySelectorAll('[data-audience]')].map((e) => e.textContent)
   expect(labels).toEqual(['Everyone', 'IT services, Registrar', 'Students, Teaching faculty'])
+})
+
+it('shows a failed count as failed, and clears the old count while a new one loads', async () => {
+  await openAndFill()
+  await click(labelled('Groups'))
+  await click(labelled('Students'))
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(400)
+  })
+  expect(document.querySelector('[data-reach]')!.textContent).toBe('Will notify 12 people.')
+  vi.mocked(noticeReach).mockRejectedValueOnce(new Error('x'))
+  await click(labelled('Teaching faculty'))
+  expect(document.querySelector('[data-reach]')!.textContent).toContain('Counting')
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(400)
+  })
+  expect(document.querySelector('[data-reach]')!.textContent).toBe(
+    'Could not count who it reaches. Send still works.',
+  )
+})
+
+it('says when the offices could not load', async () => {
+  vi.mocked(listOffices).mockRejectedValueOnce(new Error('x'))
+  await openAndFill()
+  await click(labelled('Offices'))
+  expect(document.body.textContent).toContain('Could not load the offices.')
+  expect(document.body.textContent).not.toContain('There are no offices yet.')
+  await click(button('Try again'))
+  expect(document.body.textContent).toContain('Registrar')
 })
 
 it('rewrites the rate-limit refusal to say what it means now', () => {

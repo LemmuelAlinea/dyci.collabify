@@ -69,11 +69,16 @@ export default function Notices() {
   const [offices, setOffices] = useState<Office[]>([])
   const [reach, setReach] = useState<number | null>(null)
 
-  useEffect(() => {
+  const [officesError, setOfficesError] = useState(false)
+  const [reachFailed, setReachFailed] = useState(false)
+
+  const loadOffices = useCallback(() => {
+    setOfficesError(false)
     listOffices()
       .then((o) => setOffices(o.filter((x) => !x.archived_at)))
-      .catch(() => setOffices([]))
+      .catch(() => setOfficesError(true))
   }, [])
+  useEffect(loadOffices, [loadOffices])
 
   const audienceEmpty =
     (audience === 'offices' && pickedOffices.length === 0) ||
@@ -82,15 +87,14 @@ export default function Notices() {
   // The count is the notifier's own, asked ahead of sending; debounced so ticking
   // a few boxes asks once.
   useEffect(() => {
-    if (!composing || audienceEmpty) {
-      setReach(null)
-      return
-    }
+    setReach(null)
+    setReachFailed(false)
+    if (!composing || audienceEmpty) return
     let live = true
     const t = setTimeout(() => {
       noticeReach(audience, pickedOffices, pickedGroups)
         .then((n) => live && setReach(n))
-        .catch(() => live && setReach(null))
+        .catch(() => live && setReachFailed(true))
     }, 250)
     return () => {
       live = false
@@ -218,9 +222,9 @@ export default function Notices() {
         {about && (
             <div className="mt-3 max-w-[76ch] text-[13px] leading-relaxed text-muted">
               <p>
-              One notice to everybody in the program — a moved deadline, a defense schedule, a
-              suspension of classes. It appears on every dashboard and notifies anybody who has
-              not turned announcements off.
+              One notice to everybody in the program, or to chosen offices or groups — a moved
+              deadline, a defense schedule, a suspension of classes. It appears on the dashboards
+              of the people it is for and notifies anybody who has not turned announcements off.
             </p>
               <p className="mt-1.5">
               A notice stays on those dashboards until you take it down. Long notices are
@@ -307,7 +311,15 @@ export default function Notices() {
             </div>
             {audience === 'offices' && (
               <div className="space-y-1 pl-1">
-                {offices.length === 0 && (
+                {officesError && (
+                  <p className="text-[12px] text-danger-700 dark:text-danger-300">
+                    Could not load the offices.{' '}
+                    <button type="button" className="underline" onClick={loadOffices}>
+                      Try again
+                    </button>
+                  </p>
+                )}
+                {!officesError && offices.length === 0 && (
                   <p className="text-[12px] text-faint">There are no offices yet.</p>
                 )}
                 {offices.map((o) => (
@@ -343,7 +355,9 @@ export default function Notices() {
                 ? audience === 'offices'
                   ? 'Tick at least one office.'
                   : 'Tick at least one group.'
-                : reach === null
+                : reachFailed
+                  ? 'Could not count who it reaches. Send still works.'
+                  : reach === null
                   ? 'Counting who it reaches…'
                   : `Will notify ${reach} ${reach === 1 ? 'person' : 'people'}.`}
             </p>
@@ -380,7 +394,7 @@ export default function Notices() {
             <Fragment key={n.id}>
               {i === 0 && (
                 <li>
-                  <p className="eyebrow text-faint">On every dashboard now</p>
+                  <p className="eyebrow text-faint">Live now</p>
                 </li>
               )}
               <NoticeCard
