@@ -575,6 +575,19 @@ begin
     format('select public.admin_assign_space_pm(%L, %L)', wsb, v_s2),
     'This space already has a project manager.');
 
+  -- The space step demotes only the PM its caller saw. A stale or missing p_from (a PM who
+  -- arrived after the caller looked) refuses instead of silently demoting the working PM.
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_refuse_exact('the space step refuses a p_from who no longer holds pm',
+    format('select public.offboarding_space_to(%L, %L, %L)', wsa, v_s1, v_q),
+    'This space already has a project manager.');
+  perform pg_temp.must_refuse_exact('the space step with no p_from refuses a space that has a pm',
+    format('select public.offboarding_space_to(%L, %L, null)', wsa, v_s1),
+    'general_space_members_one_pm');
+  perform pg_temp.must_be('...and WSA keeps S2 as its only PM, S1 not added',
+    pg_temp.srole(wsa, v_s2) = 'pm' and pg_temp.srole(wsa, v_s1) is null
+    and (select count(*) from public.general_space_members where space_id = wsa and role = 'pm') = 1);
+
   perform pg_temp.act_as_service();
   raise notice 'offboarding suite: all passed';
 end $$;

@@ -76,19 +76,31 @@ $$;
 
 /**
  * Makes p_to the space's PM as hand_over_general_space leaves it: they join as a member if
- * absent, whoever holds the pm row steps aside to Coordinator first (one pm row per space),
- * then p_to becomes PM. The caller has already locked the space.
+ * absent, p_from (the PM the caller found and locked; null for none) steps aside to
+ * Coordinator first (one pm row per space), then p_to becomes PM. Only p_from is ever
+ * demoted: if p_from no longer holds pm it refuses, and if someone else took the pm row in
+ * the meantime general_space_members_one_pm refuses the promotion, so a PM the caller did
+ * not see is never demoted. The caller has already locked the space.
  */
-create or replace function public.offboarding_space_to(p_space uuid, p_to uuid)
+drop function if exists public.offboarding_space_to(uuid, uuid);
+create or replace function public.offboarding_space_to(p_space uuid, p_to uuid, p_from uuid)
 returns void language plpgsql set search_path = public as $$
+declare
+  n int;
 begin
   insert into public.general_space_members (space_id, user_id, role)
   values (p_space, p_to, 'member')
   on conflict do nothing;
   perform 1 from public.general_space_members
    where space_id = p_space and user_id = p_to for update;
-  update public.general_space_members set role = 'coordinator'
-   where space_id = p_space and role = 'pm' and user_id <> p_to;
+  if p_from is not null then
+    update public.general_space_members set role = 'coordinator'
+     where space_id = p_space and user_id = p_from and role = 'pm';
+    get diagnostics n = row_count;
+    if n = 0 then
+      raise exception 'This space already has a project manager.' using errcode = 'check_violation';
+    end if;
+  end if;
   update public.general_space_members set role = 'pm'
    where space_id = p_space and user_id = p_to;
 end;
@@ -239,7 +251,7 @@ begin
        for update of s, m
   loop
     v_to := coalesce((p_overrides ->> rec.id::text)::uuid, p_successor);
-    perform public.offboarding_space_to(rec.id, v_to);
+    perform public.offboarding_space_to(rec.id, v_to, p_user);
     v_spaces := v_spaces + 1;
   end loop;
 
@@ -362,16 +374,34 @@ $$;
  * the offboard's space step; the old PM, if any, stays on as Coordinator. Writes one
  * 'space_pm_assigned' audit row (before: the old PM's name, or ''). Archived spaces too;
  * trashed ones are gone.
+ *
+ * Lock order: profiles first (the successor's, then the PM's as first read), then the space
+ * row and its pm row, as admin_offboard_member locks its target's profile before any space,
+ * so the two cannot deadlock on each other. The PM is read again in its own statement after
+ * the pm row lock (a fresh snapshot after any wait, so a hand-over that commits meanwhile is
+ * seen) and their profile is locked whatever it says, so a switch turned on concurrently
+ * waits for this call or is seen by it.
  */
 create or replace function public.admin_assign_space_pm(p_space uuid, p_user uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
-  v_name text;
-  v_pm   uuid;
+  v_name   text;
+  v_pm     uuid;
+  v_first  uuid;
+  v_status public.account_status;
+  v_switch boolean;
 begin
   if not public.office_admin_reads() then
     raise exception 'Only an admin can give a space a project manager.'
       using errcode = 'insufficient_privilege';
+  end if;
+
+  perform public.offboarding_require_successor(p_user);
+
+  select m.user_id into v_first from public.general_space_members m
+   where m.space_id = p_space and m.role = 'pm';
+  if v_first is not null then
+    perform 1 from public.profiles where id = v_first for share;
   end if;
 
   select s.name into v_name from public.general_spaces s
@@ -381,18 +411,19 @@ begin
     raise exception 'That space no longer exists. Refresh the page.' using errcode = 'no_data_found';
   end if;
 
+  perform 1 from public.general_space_members
+   where space_id = p_space and role = 'pm' for update;
   select m.user_id into v_pm from public.general_space_members m
-   where m.space_id = p_space and m.role = 'pm'
-     for update;
-  if v_pm is not null and exists (
-       select 1 from public.profiles p
-        where p.id = v_pm and p.status = 'active' and p.can_manage_projects
-          for share) then
-    raise exception 'This space already has a project manager.' using errcode = 'check_violation';
+   where m.space_id = p_space and m.role = 'pm';
+  if v_pm is not null then
+    select p.status, p.can_manage_projects into v_status, v_switch
+      from public.profiles p where p.id = v_pm for share;
+    if v_status = 'active' and v_switch then
+      raise exception 'This space already has a project manager.' using errcode = 'check_violation';
+    end if;
   end if;
 
-  perform public.offboarding_require_successor(p_user);
-  perform public.offboarding_space_to(p_space, p_user);
+  perform public.offboarding_space_to(p_space, p_user, v_pm);
 
   insert into public.audit_events
     (action, actor_id, subject_id, subject_label, before_value, after_value)
@@ -446,7 +477,7 @@ $$;
 
 -- Internal helpers: nobody calls them directly.
 revoke all on function public.offboarding_require_successor(uuid) from public, anon, authenticated;
-revoke all on function public.offboarding_space_to(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.offboarding_space_to(uuid, uuid, uuid) from public, anon, authenticated;
 
 -- Anyone signed in may call them; only an active admin gets past the first line.
 revoke all on function public.admin_offboarding_preview(uuid) from public, anon;
