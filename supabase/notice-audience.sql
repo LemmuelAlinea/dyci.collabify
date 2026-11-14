@@ -139,10 +139,13 @@ create policy program_announcements_read on public.program_announcements
 drop view if exists public.program_notices;
 
 /**
- * What is on a Home right now: every notice not taken down that reaches the caller, newest
- * first, pinned before the rest. Not security_invoker, for the reason program-notices.sql
- * gives (the author's name comes from profiles, which the reader often cannot read), so the
- * audience filter has to be here: the table's policy does not apply to the view's owner.
+ * What is on a Home right now: every notice sent in the last 7 days, not taken down, that
+ * reaches the caller, newest first, pinned before the rest. After 7 days a notice leaves every
+ * Home and stays only in the admin's history (program_notices_all). Not security_invoker, for
+ * the reason program-notices.sql gives (the author's name comes from profiles, which the
+ * reader often cannot read), so the audience filter has to be here: the table's policy does
+ * not apply to the view's owner. The 7 days also appear in program_notices_all and in
+ * program_announcements_free_pin; change all three together.
  */
 create view public.program_notices
 with (security_barrier = true) as
@@ -158,7 +161,8 @@ select a.id,
        a.audience
   from public.program_announcements a
   join public.profiles p on p.id = a.author_id
- where public.notice_reaches(a, auth.uid());
+ where a.created_at > now() - interval '7 days'
+   and public.notice_reaches(a, auth.uid());
 
 revoke all on public.program_notices from anon;
 grant select on public.program_notices to authenticated;
@@ -185,7 +189,9 @@ select a.id,
        a.audience_groups,
        array(select o.name from public.offices o
               where o.id = any (a.audience_offices)
-              order by lower(o.name), o.id) as audience_office_names
+              order by lower(o.name), o.id) as audience_office_names,
+       a.created_at > now() - interval '7 days' as live,
+       a.created_at + interval '7 days' as leaves_at
   from public.program_announcements a
   join public.profiles p on p.id = a.author_id
  where public.is_admin();
@@ -233,6 +239,35 @@ create trigger program_announcements_keep_audience
   for each row execute function public.program_announcements_keep_audience();
 
 /**
+ * One pinned notice at a time (program-notices.sql's index), but a notice that left the
+ * dashboards after 7 days no longer holds the slot: pinning a live notice first unpins any
+ * pinned notice older than that. A notice older than 7 days can't be pinned, since nobody
+ * would see it.
+ */
+create or replace function public.program_announcements_free_pin()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.pinned and (tg_op = 'INSERT' or not old.pinned) then
+    if new.created_at <= now() - interval '7 days' then
+      raise exception 'This notice has left the dashboards. Send a new one to pin it.'
+        using errcode = 'check_violation';
+    end if;
+    update public.program_announcements
+       set pinned = false
+     where pinned
+       and id <> new.id
+       and created_at <= now() - interval '7 days';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists program_announcements_free_pin on public.program_announcements;
+create trigger program_announcements_free_pin
+  before insert or update of pinned on public.program_announcements
+  for each row execute function public.program_announcements_free_pin();
+
+/**
  * How many people a notice would notify if the caller sent it now: exactly the rows the
  * notifier writes (other admins count when the audience is everyone). For the "This will
  * notify N people" line. An active admin only.
@@ -255,6 +290,8 @@ revoke all on function public.notice_audience_includes(text, uuid[], text[], uui
 revoke all on function public.notice_recipients(text, uuid[], text[], uuid)
   from public, anon, authenticated;
 revoke all on function public.program_announcements_keep_audience()
+  from public, anon, authenticated;
+revoke all on function public.program_announcements_free_pin()
   from public, anon, authenticated;
 
 revoke all on function public.notice_reaches(public.program_announcements, uuid) from public, anon;

@@ -28,7 +28,7 @@ import {
   type NoticeGroup,
   type ProgramNoticeRecord,
 } from '../../../lib/program'
-import { momentLabel } from '../../../lib/report'
+import { dayLabel, momentLabel } from '../../../lib/report'
 import { Linkify } from '../../../components/ui/Linkify'
 import { DriveLinkCards } from '../../../components/ui/DriveLinkCards'
 
@@ -227,7 +227,8 @@ export default function Notices() {
               of the people it is for and notifies anybody who has not turned announcements off.
             </p>
               <p className="mt-1.5">
-              A notice stays on those dashboards until you take it down. Long notices are
+              A notice stays on those dashboards for a week, then moves to Past here; take it
+                down to remove it sooner. Long notices are
                 shown shortened, with a See more that opens the whole of it.
             </p>
             </div>
@@ -390,11 +391,16 @@ export default function Notices() {
         />
       ) : (
           <ul className="space-y-3">
-          {rows.map((n, i) => (
+          {[...rows.filter((r) => r.live), ...rows.filter((r) => !r.live)].map((n, i, all) => (
             <Fragment key={n.id}>
-              {i === 0 && (
+              {i === 0 && n.live && (
                 <li>
                   <p className="eyebrow text-faint">Live now</p>
+                </li>
+              )}
+              {!n.live && (i === 0 || all[i - 1].live) && (
+                <li className={i === 0 ? '' : 'pt-3'}>
+                  <p className="eyebrow text-faint">Past</p>
                 </li>
               )}
               <NoticeCard
@@ -459,11 +465,17 @@ function NoticeCard({
             {n.author_name} · {momentLabel(n.created_at)} · <span data-audience>{noticeAudienceLabel(n)}</span>
             {n.edited_at && ' · edited'}
           </p>
+          <p className="mt-0.5 text-[12px] text-faint">
+            {n.live ? 'Leaves dashboards' : 'Left dashboards'} {dayLabel(n.leaves_at, true)}
+          </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button size="sm" variant="ghost" className="!rounded-xl" onClick={onTogglePin}>
-            {n.pinned ? 'Unpin' : 'Pin'}
-          </Button>
+          {/* A past notice can't be pinned again (nobody would see it), only unpinned. */}
+          {(n.live || n.pinned) && (
+            <Button size="sm" variant="ghost" className="!rounded-xl" onClick={onTogglePin}>
+              {n.pinned ? 'Unpin' : 'Pin'}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"

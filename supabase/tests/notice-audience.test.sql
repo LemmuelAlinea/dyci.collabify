@@ -141,6 +141,9 @@ declare
   o1     uuid;
   o2     uuid;
   n_old  uuid;
+  n_week uuid;
+  n_fresh uuid;
+  n_pin  uuid;
   n_ev   uuid;
   n_o1   uuid;
   n_o12  uuid;
@@ -223,7 +226,7 @@ begin
       where table_schema = 'public' and table_name = 'program_notices_all')
       = array['id', 'title', 'body', 'pinned', 'created_at', 'edited_at', 'author_id',
               'author_name', 'author_avatar', 'audience', 'audience_offices', 'audience_groups',
-              'audience_office_names']);
+              'audience_office_names', 'live', 'leaves_at']);
   perform pg_temp.must_be('both views stay security_barrier and are not security_invoker',
     (select bool_and(c.reloptions @> array['security_barrier=true']
                      and not exists (select 1 from unnest(c.reloptions) o
@@ -517,6 +520,54 @@ begin
       'public.program_announcements_keep_audience()', 'execute')
     and not has_function_privilege('anon',
       'public.notice_audience_includes(text, uuid[], text[], uuid)', 'execute'));
+
+  -- ------------------------------------------------------------ a week on dashboards
+
+  perform pg_temp.act_as_service();
+  insert into public.program_announcements (author_id, title, body, audience)
+  values (v_a, 'Zz Na week old', 'b', 'everyone') returning id into n_week;
+  update public.program_announcements set created_at = now() - interval '8 days' where id = n_week;
+  insert into public.program_announcements (author_id, title, body, audience)
+  values (v_a, 'Zz Na week fresh', 'b', 'everyone') returning id into n_fresh;
+
+  perform pg_temp.act_as(v_stu);
+  perform pg_temp.must_be('a notice older than 7 days leaves the Home view',
+    not exists (select 1 from public.program_notices where id = n_week));
+  perform pg_temp.must_be('a notice from today is still on the Home view',
+    exists (select 1 from public.program_notices where id = n_fresh));
+
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('the admin still reads the old notice, marked past, with its leave date',
+    exists (select 1 from public.program_notices_all
+             where id = n_week and not live
+               and leaves_at = (select created_at + interval '7 days'
+                                  from public.program_announcements where id = n_week)));
+  perform pg_temp.must_be('a fresh notice is live for the admin',
+    exists (select 1 from public.program_notices_all where id = n_fresh and live));
+
+  -- An old pinned notice does not hold the one pin slot.
+  perform pg_temp.act_as_service();
+  update public.program_announcements set pinned = false where pinned;
+  update public.program_announcements set pinned = true where id = n_fresh;
+  update public.program_announcements set created_at = now() - interval '8 days' where id = n_fresh;
+  perform pg_temp.act_as(v_a);
+  insert into public.program_announcements (author_id, title, body, audience, pinned)
+  values (v_a, 'Zz Na week pin', 'b', 'everyone', true) returning id into n_pin;
+  perform pg_temp.must_be('pinning a new notice frees the slot an old pinned notice held',
+    (select pinned from public.program_announcements where id = n_pin)
+    and not (select pinned from public.program_announcements where id = n_fresh));
+
+  begin
+    update public.program_announcements set pinned = true where id = n_week;
+    raise exception 'FAIL  pinning a notice older than 7 days is refused';
+  exception when check_violation then
+    perform pg_temp.must_be('pinning a notice older than 7 days is refused, with the reason',
+      sqlerrm = 'This notice has left the dashboards. Send a new one to pin it.');
+  end;
+
+  perform pg_temp.must_be('nobody signed in calls the pin trigger function',
+    not has_function_privilege('authenticated',
+      'public.program_announcements_free_pin()', 'execute'));
 
   perform pg_temp.act_as_service();
   raise notice 'notice audience suite: all passed';

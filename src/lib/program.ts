@@ -183,6 +183,10 @@ export type ProgramNoticeRecord = ProgramNotice & {
   audience_offices: string[]
   audience_groups: NoticeGroup[]
   audience_office_names: string[] | null
+  /** Still on dashboards: sent in the last 7 days. */
+  live: boolean
+  /** When it leaves (or left) the dashboards: 7 days after it was sent. */
+  leaves_at: string
 }
 
 export type NoticeAudience = 'everyone' | 'offices' | 'groups'

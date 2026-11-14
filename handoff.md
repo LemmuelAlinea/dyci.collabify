@@ -4929,3 +4929,20 @@ accepted." from the setting; no failed requests.
 - Minor: `aria-describedby` on the notes.
 - Minor: import order of the hook; cache race on save.
 - Minor: `deno check` not run; quiet re-read on remount.
+
+## Program notices leave dashboards after a week (2026-11-15)
+
+- A program notice now shows on Homes for 7 days after it was sent, then leaves every dashboard. It is
+  not deleted: the admin's Notices page lists it under **Past** ("Left dashboards <date>"); live ones sit
+  under **Live now** with "Leaves dashboards <date>". Taking a notice down still removes it at once.
+  Inbox notifications already delivered stay. (On 2026-10-04 notices had moved from a 24-hour window to
+  staying until deleted; this sets a week.)
+- SQL, in `supabase/notice-audience.sql` (its owner): `program_notices` filters `created_at > now() - 7
+  days`; `program_notices_all` adds `live` and `leaves_at`; a new `program_announcements_free_pin`
+  trigger lets a new pin free the one pin slot held by a notice older than 7 days, and refuses pinning a
+  notice that has left ("This notice has left the dashboards. Send a new one to pin it."). The 7 days
+  appear in those three places; change them together. Applied live with `anon-lockdown.sql`; suite
+  `supabase/tests/notice-audience.test.sql` all passed (new week and pin checks).
+- App: `Notices.tsx` splits Live now / Past, shows the leave date, and offers Pin only on live notices
+  (Unpin stays on a past pinned one). The about copy says a week. Build clean; 2,332 tests passed.
+- Walked: the existing "Suspension" notice (Aug 23) now sits under Past, "Left dashboards August 30, 2026".

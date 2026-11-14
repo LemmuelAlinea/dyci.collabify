@@ -33,6 +33,8 @@ const base = {
   audience_offices: [],
   audience_groups: [],
   audience_office_names: null,
+  live: true,
+  leaves_at: '2026-11-17T00:00:00Z',
 }
 vi.mock('../../../lib/api/program', () => ({
   listAllNotices: vi.fn(async () => [
@@ -140,6 +142,44 @@ it('labels each notice with its audience', async () => {
   await render()
   const labels = [...document.querySelectorAll('[data-audience]')].map((e) => e.textContent)
   expect(labels).toEqual(['Everyone', 'IT services, Registrar', 'Students, Teaching faculty'])
+})
+
+it('splits notices into Live now and Past, with when each leaves or left', async () => {
+  vi.mocked(listAllNotices).mockResolvedValueOnce([
+    { ...base, id: 'n1', title: 'This week', audience: 'everyone' },
+    {
+      ...base,
+      id: 'n9',
+      title: 'Last month',
+      audience: 'everyone',
+      pinned: true,
+      created_at: '2026-10-01T00:00:00Z',
+      live: false,
+      leaves_at: '2026-10-08T00:00:00Z',
+    },
+  ] as never)
+  await render()
+  const text = document.querySelector('ul')?.textContent ?? ''
+  expect(text.indexOf('Live now')).toBeGreaterThanOrEqual(0)
+  expect(text.indexOf('Live now')).toBeLessThan(text.indexOf('This week'))
+  expect(text.indexOf('This week')).toBeLessThan(text.indexOf('Past'))
+  expect(text.indexOf('Past')).toBeLessThan(text.indexOf('Last month'))
+  expect(text).toContain('Leaves dashboards')
+  expect(text).toContain('Left dashboards')
+  // A past notice can be unpinned but not pinned again; a live one keeps its Pin.
+  const past = [...document.querySelectorAll('li')].find((li) => li.textContent?.includes('Last month'))!
+  expect([...past.querySelectorAll('button')].map((b) => b.textContent?.trim())).toContain('Unpin')
+  const live = [...document.querySelectorAll('li')].find((li) => li.textContent?.includes('This week'))!
+  expect([...live.querySelectorAll('button')].map((b) => b.textContent?.trim())).toContain('Pin')
+})
+
+it('a past notice that is not pinned offers no Pin', async () => {
+  vi.mocked(listAllNotices).mockResolvedValueOnce([
+    { ...base, id: 'n9', title: 'Last month', audience: 'everyone', live: false },
+  ] as never)
+  await render()
+  const past = [...document.querySelectorAll('li')].find((li) => li.textContent?.includes('Last month'))!
+  expect([...past.querySelectorAll('button')].map((b) => b.textContent?.trim())).not.toContain('Pin')
 })
 
 it('shows a failed count as failed, and clears the old count while a new one loads', async () => {
