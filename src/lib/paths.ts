@@ -72,6 +72,8 @@ export const paths = {
     accounts: '/admin/accounts',
     projects: '/admin/projects',
     archive: '/admin/archive',
+    /** Not /admin/settings: that path is the legacy redirect to /settings. */
+    orgSettings: '/admin/organization',
   },
 } as const
 

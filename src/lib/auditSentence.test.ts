@@ -84,3 +84,14 @@ describe('auditSentence for offboarding', () => {
     )
   })
 })
+
+describe('auditSentence for organization settings', () => {
+  it('names the setting and both values', () => {
+    expect(
+      auditSentence(
+        event({ action: 'org_setting_changed', subject_label: 'Quiet after', before_value: '14 days', after_value: '30 days' }),
+      ),
+    ).toBe('Quiet after changed from 14 days to 30 days')
+    expect(AUDIT_ACTIONS.find((a) => a.value === 'org_setting_changed')?.label).toBe('Organization setting changed')
+  })
+})

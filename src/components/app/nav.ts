@@ -244,6 +244,7 @@ function adminGroups(withHome: boolean): NavGroup[] {
         { label: 'Accounts', icon: 'users', to: paths.admin.accounts },
         { label: 'Work projects', icon: 'kanban', to: paths.admin.projects },
         { label: 'Notices', icon: 'bell', to: paths.admin.notices },
+        { label: 'Settings', icon: 'settings', to: paths.admin.orgSettings },
       ],
     },
     {

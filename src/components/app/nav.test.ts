@@ -149,6 +149,12 @@ describe('navFor', () => {
     expect(org.items[1].icon).toBe('briefcase')
   })
 
+  it('puts Settings last in Organization and opens /admin/organization', () => {
+    const org = navFor(admin, true).find((g) => g.title === 'Organization')!
+    const last = org.items[org.items.length - 1]
+    expect(last).toMatchObject({ label: 'Settings', icon: 'settings', to: '/admin/organization' })
+  })
+
   it('makes Academic program collapsible', () => {
     const prog = navFor(admin, true).find((g) => g.title === 'Academic program')!
     expect(prog.collapsible).toBe(true)

@@ -61,6 +61,7 @@ const Home = lazy(() => import('./pages/Home'))
 const Messages = lazy(() => import('./pages/app/messages/Messages'))
 const MyTasks = lazy(() => import('./pages/app/tasks/MyTasks'))
 const Notices = lazy(() => import('./pages/app/admin/Notices'))
+const OrgSettings = lazy(() => import('./pages/app/admin/OrgSettings'))
 const Offices = lazy(() => import('./pages/app/admin/Offices'))
 const MyOffice = lazy(() => import('./pages/app/MyOffice'))
 const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
@@ -305,6 +306,7 @@ export default function App() {
               <Route path="/admin/accounts" element={<Accounts />} />
               <Route path="/admin/projects" element={<WorkProjects />} />
               <Route path="/admin/archive" element={<AdminArchive />} />
+              <Route path="/admin/organization" element={<OrgSettings />} />
             </Route>
           </Route>
           </Route>

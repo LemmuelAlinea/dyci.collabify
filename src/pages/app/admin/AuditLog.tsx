@@ -11,7 +11,7 @@ import { authErrorMessage } from '../../../lib/authError'
 import { AUDIT_ACTIONS, auditSentence, calendarDaysUntil } from '../../../lib/types'
 import type { AuditAction, AuditEvent } from '../../../lib/types'
 
-const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refresh' | 'archive' | 'briefcase' | 'swap'> = {
+const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refresh' | 'archive' | 'briefcase' | 'swap' | 'settings'> = {
   account_created: 'user',
   role_changed: 'shield',
   status_changed: 'shield',
@@ -31,6 +31,7 @@ const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refres
   offboarded: 'swap',
   space_pm_assigned: 'swap',
   office_head_changed: 'briefcase',
+  org_setting_changed: 'settings',
 }
 
 const TONE: Record<AuditAction, string> = {
@@ -53,6 +54,7 @@ const TONE: Record<AuditAction, string> = {
   offboarded: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
   space_pm_assigned: 'surface-sunken text-muted',
   office_head_changed: 'surface-sunken text-muted',
+  org_setting_changed: 'surface-sunken text-muted',
 }
 
 function when(iso: string) {
