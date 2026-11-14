@@ -17,6 +17,8 @@ export const paths = {
   settings: '/settings',
   trash: '/trash',
   archive: '/archive',
+  /** An office head's read-only view of their office. */
+  office: '/office',
 
   spaces: '/spaces',
   spacesArchive: '/spaces/archive',

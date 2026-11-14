@@ -16,6 +16,9 @@ const who = vi.hoisted(() => ({
   >,
 }))
 const waiting = vi.hoisted(() => vi.fn(async () => 4))
+const headed = vi.hoisted(() =>
+  vi.fn<() => Promise<{ office_id: string; office_name: string } | null>>(async () => null),
+)
 
 vi.mock('../../hooks/useProjectLooks', () => ({ useProjectLooks: () => ({}) }))
 vi.mock('../../hooks/useAdmission', () => ({ useAdmission: () => true }))
@@ -23,6 +26,7 @@ vi.mock('../../hooks/useConversations', () => ({ useUnreadTotal: () => 0 }))
 vi.mock('../../hooks/usePendingInvitations', () => ({ usePendingInvitations: () => ({ invitations: [] }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: () => undefined }))
 vi.mock('../../lib/api/waiting', () => ({ teachingWaitingCount: waiting }))
+vi.mock('../../lib/api/officeHeads', () => ({ myHeadedOffice: headed }))
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ profile: who.profile }) }))
 
 const space = (id: string, name: string, class_id: string) => ({
@@ -122,4 +126,35 @@ it('never asks what is waiting for a student, and gives them no class list', asy
   expect(waiting).not.toHaveBeenCalled()
   expect(host.querySelector('[data-badge="waiting"]')).toBeNull()
   expect(links()).not.toContain('New class')
+})
+
+it('adds My office to the rail once the head read answers, without changing the rail', async () => {
+  let answer: (office: { office_id: string; office_name: string } | null) => void = () => {}
+  headed.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
+  await show('/home')
+  // Still asking: the teaching rail, and no My office yet.
+  expect(links()).not.toContain('My office')
+  expect(hrefs()).toContain('/waiting')
+  const before = links()
+  await act(async () => answer({ office_id: 'o1', office_name: 'IT services' }))
+  expect(headed).toHaveBeenCalledTimes(1)
+  const entry = [...host.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'My office')
+  expect(entry?.getAttribute('href')).toBe('/office')
+  expect(links().filter((l) => l !== 'My office')).toEqual(before)
+})
+
+it('leaves My office out for a member who heads nothing, or when the read fails', async () => {
+  await show('/home')
+  expect(links()).not.toContain('My office')
+  headed.mockRejectedValueOnce(new Error('offline'))
+  await show('/waiting')
+  expect(links()).not.toContain('My office')
+  expect(hrefs()).toContain('/waiting')
+})
+
+it('never asks a student whether they head an office', async () => {
+  who.profile = { id: 'me', role: 'student', status: 'active' }
+  await show('/home')
+  expect(headed).not.toHaveBeenCalled()
+  expect(links()).not.toContain('My office')
 })

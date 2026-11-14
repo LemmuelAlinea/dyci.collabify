@@ -300,6 +300,12 @@ const MAIN_WAITING: NavGroup = {
   items: [HOME],
 }
 
+/** An office head's read-only page of their office. */
+const MY_OFFICE: NavItem = { label: 'My office', icon: 'briefcase', to: paths.office }
+
+/** The first main group of each member rail: teaching, stakeholder-only, in nothing, regular. */
+const MEMBER_MAIN = [TEACHING_MAIN, STAKEHOLDER_MAIN, ADMIN_INVITED, OVERVIEW]
+
 /**
  * The rail for one account, top to bottom.
  *
@@ -332,12 +338,25 @@ const MAIN_WAITING: NavGroup = {
  * A member with neither switch, once loaded as in nothing, gets only Home and
  * Inbox above Account: Home explains the wait, Inbox is where an invitation
  * arrives. A member with Project manager always keeps Spaces.
+ *
+ * A member who heads an office (`headsOffice`) gets My office at the end of
+ * their rail's first main group. It never changes which rail they get, and
+ * it stays out until the head read answers yes, so nothing flashes. Admins
+ * and students never head an office.
  */
 export function navFor(
   profile: AccessProfile,
   admitted: boolean,
   membership?: Membership,
+  headsOffice?: boolean,
 ): NavGroup[] {
+  const groups = railFor(profile, admitted, membership)
+  if (!headsOffice || profile?.role !== 'member') return groups
+  // A copy of the group: the shared constants serve every other rail too.
+  return groups.map((g) => (MEMBER_MAIN.includes(g) ? { ...g, items: [...g.items, MY_OFFICE] } : g))
+}
+
+function railFor(profile: AccessProfile, admitted: boolean, membership?: Membership): NavGroup[] {
   if (!profile || profile.status !== 'active' || !profile.role) return [ACCOUNT]
 
   const { role } = profile

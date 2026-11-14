@@ -20,13 +20,13 @@ export async function adminOfficeHeads() {
 }
 
 /** The office the caller heads, or null when they head none. */
-export async function myHeadedOffice() {
+export async function myHeadedOffice(): Promise<HeadedOffice | null> {
   const { data, error } = await supabase.rpc('my_headed_office')
   if (error) throw error
   return ((data ?? []) as HeadedOffice[])[0] ?? null
 }
 
-export async function myOfficeOverview() {
+export async function myOfficeOverview(): Promise<OfficeOverview | null> {
   const { data, error } = await supabase.rpc('my_office_overview')
   if (error) throw error
   return ((data ?? []) as OfficeOverview[])[0] ?? null

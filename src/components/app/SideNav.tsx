@@ -11,6 +11,7 @@ import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { useProjectLooks } from '../../hooks/useProjectLooks'
 import { useClassLooks } from '../../hooks/useClassLooks'
 import { canTeach, membershipOf } from '../../lib/access'
+import { myHeadedOffice } from '../../lib/api/officeHeads'
 import { teachingWaitingCount } from '../../lib/api/waiting'
 import { paths } from '../../lib/paths'
 import { pageRect } from '../../lib/zoom'
@@ -115,6 +116,28 @@ export function SideNav({
   }, [loadWaiting])
   useLive(loadWaiting, ['project_boards', 'board_results', 'task_reassignments'], { enabled: teaching })
 
+  // Whether this member heads an office, asked once. Kept apart from
+  // `membershipOf`: it only adds My office, and stays false while the read is
+  // out or after it fails, so the rail never flashes.
+  const memberId = profile?.role === 'member' && profile.status === 'active' ? profile.id : undefined
+  const [head, setHead] = useState<{ id: string; heads: boolean } | null>(null)
+  useEffect(() => {
+    if (!memberId) return
+    let live = true
+    myHeadedOffice().then(
+      (office) => {
+        if (live) setHead({ id: memberId, heads: office !== null })
+      },
+      () => {
+        // No My office: the page itself would only fail the same way.
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [memberId])
+  const headsOffice = head !== null && head.id === memberId && head.heads
+
   useEffect(() => setHint(null), [collapsed, location.pathname, location.search])
 
   if (!profile) return null
@@ -126,6 +149,7 @@ export function SideNav({
     profile,
     admitted !== false,
     membership && { ...membership, invited: pending > 0 },
+    headsOffice,
   )
 
   function revealHint(

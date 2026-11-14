@@ -56,7 +56,7 @@ export function sortOverview(rows: OfficeOverviewRow[]) {
 }
 
 /** Why a project needs a look. A missing project manager wins over quiet. */
-export function attentionReason(p: AttentionProject) {
+export function attentionReason(p: Pick<AttentionProject, 'no_pm' | 'quiet_since'>) {
   if (p.no_pm) return 'No project manager'
   return `Quiet since ${dayLabel(p.quiet_since)}`
 }

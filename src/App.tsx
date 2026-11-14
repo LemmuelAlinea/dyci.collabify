@@ -62,6 +62,7 @@ const Messages = lazy(() => import('./pages/app/messages/Messages'))
 const MyTasks = lazy(() => import('./pages/app/tasks/MyTasks'))
 const Notices = lazy(() => import('./pages/app/admin/Notices'))
 const Offices = lazy(() => import('./pages/app/admin/Offices'))
+const MyOffice = lazy(() => import('./pages/app/MyOffice'))
 const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
 const ProgramClasses = lazy(() => import('./pages/app/admin/ProgramClasses'))
 const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
@@ -250,6 +251,12 @@ export default function App() {
 
             <Route element={<RequireAdmitted allow={['student']} />}>
               <Route path="/record" element={<StudentReports />} />
+            </Route>
+
+            {/* An office head's read of their office. The page sends anyone
+                who heads none Home; admins and students never head one. */}
+            <Route element={<RequireAdmitted allow={['member']} />}>
+              <Route path="/office" element={<MyOffice />} />
             </Route>
 
             <Route element={<RequireAdmitted allow={['member', 'admin']} />}>

@@ -300,4 +300,55 @@ describe('navFor', () => {
       expect(labels(navFor(nonTeacher, true, { inClass: false, hasWork: true }))).toContain('My tasks')
     })
   })
+
+  describe('My office', () => {
+    // Every member rail, with the title of its first main group.
+    const rails = [
+      { name: 'teaching', who: teacher, membership: undefined, main: 'Main' },
+      { name: 'stakeholder-only', who: nonTeacher, membership: { inClass: false, hasWork: true, allStakeholder: true }, main: 'Main' },
+      { name: 'in nothing', who: nonTeacher, membership: { inClass: false, hasWork: false }, main: 'Main' },
+      { name: 'regular', who: nonTeacher, membership: { inClass: false, hasWork: true }, main: 'Overview' },
+      { name: 'regular, still loading', who: nonTeacher, membership: undefined, main: 'Overview' },
+    ]
+    const office = (groups: NavGroup[]) =>
+      groups.flatMap((g) => g.items.map((i) => ({ group: g.title, ...i }))).filter((i) => i.label === 'My office')
+
+    it('adds My office to each member rail only when headsOffice', () => {
+      for (const { who, membership, main } of rails) {
+        const entries = office(navFor(who, true, membership, true))
+        expect(entries).toHaveLength(1)
+        expect(entries[0]).toMatchObject({ group: main, icon: 'briefcase', to: '/office' })
+        expect(office(navFor(who, true, membership, false))).toHaveLength(0)
+      }
+      // Admins and students never get it, whatever the flag says.
+      for (const membership of [undefined, { inClass: false, hasWork: false }, { inClass: true, hasWork: true }]) {
+        expect(office(navFor(admin, true, membership, true))).toHaveLength(0)
+        expect(office(navFor(student, true, membership, true))).toHaveLength(0)
+      }
+      expect(office(navFor(account('member', 'pending'), true, undefined, true))).toHaveLength(0)
+    })
+
+    it('headsOffice never changes which rail a member gets', () => {
+      for (const { who, membership } of rails) {
+        const without = navFor(who, true, membership, false)
+        const withIt = navFor(who, true, membership, true)
+        expect(titles(withIt)).toEqual(titles(without))
+        expect(labels(withIt).filter((l) => l !== 'My office')).toEqual(labels(without))
+      }
+      // The shared groups are copied, never changed in place.
+      navFor(nonTeacher, true, { inClass: false, hasWork: true }, true)
+      expect(section(navFor(nonTeacher, true, { inClass: false, hasWork: true }), 'Overview')).toEqual([
+        'Home',
+        'Inbox',
+        'Calendar',
+      ])
+    })
+
+    it('no My office while the flag is undefined', () => {
+      for (const { who, membership } of rails) {
+        expect(office(navFor(who, true, membership))).toHaveLength(0)
+        expect(office(navFor(who, true, membership, undefined))).toHaveLength(0)
+      }
+    })
+  })
 })
