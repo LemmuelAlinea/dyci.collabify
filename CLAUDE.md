@@ -312,6 +312,17 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   attention lines link. Space lines never link. `navFor` takes the rail's `headsOffice` flag as a separate argument; it never changes which rail
   shows, it only adds My office (`/office`). Re-running `offices.sql` means re-running `offboarding.sql` and
   `office-heads.sql` after it. Suite: `supabase/tests/office-heads.test.sql`.
+- Notice audiences (`supabase/notice-audience.sql`, after `office-heads.sql`, before `anon-lockdown.sql`): a program notice
+  has one audience, `everyone`, `offices` or `groups` (students, teaching = members with `can_teach`, staff = members
+  without; an admin is in no group and no office). The read policy, the `program_notices` view and the notifier all
+  go through one shared rule (`notice_audience_includes`, `notice_recipients`). The card reads membership at read
+  time, the Inbox notification is sent at send time, so someone filed into an office later sees live notices without
+  a late notification. The audience is fixed once sent; take the notice down and send a new one. The reach count
+  (`admin_notice_reach`, `notice_reaches`) equals the set the notifier writes. `ProgramNotices` shows on
+  `WaitingHome`, a standalone `WorkOverview` and `StakeholderHome` as well as the Professor and Student Home. It takes ownership
+  of `program_announcements_read`, `program_notices`, `program_notices_all` and `notify_program_announcement` from
+  `program-notices.sql`, so re-running `program-notices.sql` means re-running it afterwards. Suite:
+  `supabase/tests/notice-audience.test.sql`.
 
 ## First-run walkthroughs
 

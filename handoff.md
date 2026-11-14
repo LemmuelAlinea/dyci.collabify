@@ -4859,3 +4859,27 @@ so it is covered by the render tests (bands, links only where `i_am_on`, failure
 - Parked: the read policy on `office_heads` checks the admin role only (matches `office_members_select`; reads go
   through `admin_office_heads`, which checks active); a double ORDER BY in one read.
 - Later phases of the organization upgrade: 4 notices by office, 5 organization settings.
+
+## Notices by office or group (2026-11-14)
+
+Phase 4 of the organization upgrade. The admin chooses who a program notice is for: everyone, chosen offices or
+chosen groups (students, teaching faculty, office staff), sees the audience on each notice and a reach count before
+sending. The database enforces it: the read policy, the Home view and the notifier share one rule, and a sent
+notice's audience is locked. Existing notices stay for everyone. The notice card now shows on every member Home
+(waiting, standalone work overview, stakeholder) besides the professor and student Homes. The admin Notices list,
+which failed to load, loads again, and a failed or stale reach count never shows as real.
+
+SQL: `supabase/notice-audience.sql` and `anon-lockdown.sql` were applied to the live project; the suite
+`notice-audience.test.sql` passes (70 assertions, rolled back).
+
+Verified: `npm run build` clean, `npm test` 2,309 passed (222 files), the suite passes (rolled back).
+Browser walk: pending.
+
+**Deferred**
+- Minor: a role-only `is_admin` lets an inactive admin read all notices and probe `notice_reaches`; office ids are not
+  checked to exist; the reach count excludes the caller while the notifier excludes the author (equal in the app); Realtime
+  DELETE leaks ids (pre-existing).
+- Minor: the expired-order test asserts nothing about order; the "On every dashboard now" eyebrow is outdated; the
+  meta line runs long; uneven ternary indent; `officesError` persists across audience switches (harmless).
+- Minor: notices show while WorkOverview loads; no Home.tsx routing test.
+- Later phases of the organization upgrade: 5 organization settings.
