@@ -4913,7 +4913,11 @@ otherwise the retry line; Discard enables whenever an input differs from the sav
 setting applies to items already in Trash; the page title is "Organization settings".
 
 Verified: `npm run build` clean, `npm test` 2,328 passed (225 files), the suites pass.
-Browser walk: pending.
+Browser walk (2026-11-15, admin on the dev server against the live project; nothing saved): the rail's
+Organization group ends with Settings, which opens `/admin/organization` ("Organization settings · Collabify") with
+today's values (14, 30, Private, `dyci.edu.ph`) and each field's note, including that retention applies to items
+already in Trash; a reload keeps the page; the bulk import dialog reads "Only @dyci.edu.ph addresses are
+accepted." from the setting; no failed requests.
 
 **Deferred**
 - Minor: the lock test is source-text only.
