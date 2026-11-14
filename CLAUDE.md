@@ -288,6 +288,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   events don't reset quiet; only person-made task events do. It redefines nothing another file
   owns. The admin rail is Organization / Academic program / Compliance, and Admin Home is the organization overview.
   Suite: `supabase/tests/offices.test.sql`.
+- Offboarding (`supabase/offboarding.sql`, after `offices.sql`, before `anon-lockdown.sql`): Deactivate on a member opens
+  the Offboard dialog, and `admin_offboard_member` does it all in one transaction: the person's spaces and projects go to
+  a successor (per-line overrides allowed), the person becomes a Coordinator where they stay, team-lead seats are
+  emptied, review seats go to the project's PM, their open tasks are unassigned (not done, archived or trashed, and not
+  in archived projects), and the account is deactivated. The successor is null only when the person runs no space or
+  project; otherwise it is an active member with Project manager on. `admin_assign_space_pm` gives a space with no
+  working PM one (Admin Home's stuck spaces, Assign). It sets `collabify.space_role_cascade` and
+  `collabify.team_leader_clear` around single statements, and clears `request.jwt.claims` for the one review-seat UPDATE,
+  so it depends on `guard_general_task` keeping its `auth.uid() is null` early return. Suite:
+  `supabase/tests/offboarding.test.sql`.
 
 ## First-run walkthroughs
 
