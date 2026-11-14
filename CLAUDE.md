@@ -302,6 +302,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `collabify.team_leader_clear` around single statements, and clears `request.jwt.claims` for the one review-seat UPDATE,
   so it depends on `guard_general_task` keeping its `auth.uid() is null` early return. Suite:
   `supabase/tests/offboarding.test.sql`.
+- Office heads (`supabase/office-heads.sql`, after `offboarding.sql`, before `anon-lockdown.sql`): one head per office in
+  `office_heads`, read only by the admin and the head. Only the admin names one, through `set_office_head`, from that
+  office's active members. The seat clears itself, with an `office_head_changed` audit row, when its head moves
+  office, loses it (removal or a role change that drops the office row) or stops being active; there is no inactive
+  head, and reactivating does not restore it. The head reads (`my_headed_office`, `my_office_overview`,
+  `my_office_attention`, `my_office_spaces`, `my_office_people`) answer only for the caller's live office, with names
+  and counts, never project content, and `i_am_on` marks the projects and spaces the head belongs to, so the page links
+  only those. `navFor` takes the rail's `headsOffice` flag as a separate argument; it never changes which rail
+  shows, it only adds My office (`/office`). Re-running `offices.sql` means re-running `offboarding.sql` and
+  `office-heads.sql` after it. Suite: `supabase/tests/office-heads.test.sql`.
 
 ## First-run walkthroughs
 

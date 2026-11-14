@@ -4829,3 +4829,30 @@ no PM was assigned; a clean load had no failed requests.
 - Admin Home: one attention-band failure blanks both reads' lines.
 - DB casts and an untested empty-string successor in the api wrappers.
 - Later phases of the organization upgrade: 3 office head view, 4 notices by office, 5 organization settings.
+
+## Office heads (2026-11-14)
+
+Phase 3 of the organization upgrade. The admin names one head per office from its active members, on Offices
+and in the office's detail, and Admin Home shows each office's head. A head gets a My office page at `/office`
+(names and counts only: figures, projects that need attention, spaces, people; links only to projects and spaces
+they belong to) and a My office rail entry. The seat clears itself when the head moves office, loses it or
+stops being active, and the audit log says so ("The office X no longer has a head").
+
+SQL: `supabase/offices.sql` (helper extraction: `office_attention_rows`), `offboarding.sql`, `office-heads.sql` and
+`anon-lockdown.sql` were applied to the live project; the suites `offices.test.sql`, `offboarding.test.sql` and
+`office-heads.test.sql` pass (208 PASS across the three suites, rolled back).
+
+Verified: `npm run build` clean, `npm test` 2,296 passed (219 files), the three suites 208 PASS (rolled back).
+Browser walk: pending.
+
+**Deferred**
+- Header of `office-heads.sql` said "two triggers" while there are three seat triggers (fixed in Task 5).
+- Minor: brittle absolute count in the admin-promotion test; the profiles trigger repeats its WHEN clause in the
+  function body (harmless); people are sorted by last name (accepted).
+- Minor: the head line pops in after the rows on Home; the Head control is hidden silently when the heads read
+  fails; the variable `name` holds a person in `OfficeDetail`.
+- Minor: the mobile drawer asks `my_headed_office` again on each open; an empty overview shows zeros; the
+  `MEMBER_MAIN` identity check needs a comment; the attention list is uncapped on My office.
+- Parked: the read policy on `office_heads` checks the admin role only (matches `office_members_select`; reads go
+  through `admin_office_heads`, which checks active); a double ORDER BY in one read.
+- Later phases of the organization upgrade: 4 notices by office, 5 organization settings.

@@ -29,7 +29,7 @@
 -- admin, never project content. They count exactly as admin_org_overview does, and the suite
 -- pins that. Everyone else, the admin and other heads included, gets zero rows.
 --
--- Additive: nothing an earlier file owns is redefined; the two triggers are separate triggers.
+-- Additive: nothing an earlier file owns is redefined; the three seat triggers are separate triggers.
 --
 -- Idempotent. Safe to re-run.
 
