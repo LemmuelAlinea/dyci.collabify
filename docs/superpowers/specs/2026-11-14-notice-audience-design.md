@@ -68,9 +68,13 @@ views and the notifier — so re-running `program-notices.sql` means re-running 
   default '{}'`; `audience_groups text[] not null default '{}'` with elements in (`students`,
   `teaching`, `staff`). A check: `offices` needs a non-empty office list and an empty group list,
   `groups` the reverse, `everyone` both empty. Existing rows default to everyone.
-- `notice_reaches(p_notice program_announcements, p_user uuid) returns boolean` (stable, internal,
-  revoked from authenticated): true for everyone; for offices, the person's `office_members` row is
-  in the list; for groups, the person's group (above) is in the list. Inactive accounts: false.
+- `notice_reaches(p_notice program_announcements, p_user uuid) returns boolean` (stable, security
+  definer): true for everyone; for offices, the person's `office_members` row is in the list; for
+  groups, the person's group (above) is in the list. Inactive accounts: false (pending accounts can't
+  open a Home today anyway). It must stay executable by `authenticated`, because the read policy,
+  the `program_notices` view and Realtime's RLS check call it as the caller. So that nobody can probe
+  another person's office or group with a hand-built row, it answers false unless `p_user =
+  auth.uid()` or the caller is an admin (the notifier runs with the authoring admin's identity).
 - Read policy `program_announcements_read` becomes `is_admin() or notice_reaches(row, auth.uid())`.
 - `program_notices` (the Home view) keeps its columns and adds `audience`, filtering by
   `notice_reaches(a, auth.uid())` (it is `security_barrier` and not invoker, so the filter must be in
@@ -81,8 +85,12 @@ views and the notifier — so re-running `program-notices.sql` means re-running 
 - Writes stay admin-only (existing policy). A trigger refuses an update that changes the audience
   columns: "A sent notice keeps its audience. Take it down and send a new one."
 - `admin_notice_reach(p_audience text, p_offices uuid[], p_groups text[]) returns int`: active
-  admin only; how many active accounts the audience reaches (for the "This will notify N people"
-  line), excluding the admin.
+  admin only; *my call:* exactly the number the notifier would notify — active accounts in the
+  audience with announcements on, excluding the sending admin (other admins count when the audience
+  is Everyone) — for the existing "This will notify N people" line.
+- `rate-limit.sql`'s refusal copy says a notice "reaches every professor and student"; this file
+  doesn't own that function, so the copy fix is noted in Deferred unless it is a string the app
+  shows (the builder checks; if the app shows it, the app maps it).
 - Suite `supabase/tests/notice-audience.test.sql`.
 
 ### App
@@ -93,9 +101,15 @@ views and the notifier — so re-running `program-notices.sql` means re-running 
   Offices with a multi-select of live offices / Groups with three checkboxes) and the live reach
   count; confirm is disabled for an empty choice; each sent notice shows its audience ("Everyone",
   office names, or group names); editing shows the audience read-only.
-- **ProgramNotices** (`components/app/ProgramNotices.tsx`) is added to the regular member Home and
-  `StakeholderHome` in the same place it sits on the professor and student Homes; it already reads
-  `program_notices`, which now filters by audience.
+- **ProgramNotices** (`components/app/ProgramNotices.tsx`) already reads `program_notices`, which
+  now filters by audience. *My call* on placement (`Home.tsx` has no single member Home): add it to
+  `WaitingHome` (a member with no work yet — new office staff land here), to `WorkOverview` only
+  when `standalone` (the non-teaching member Home; the stacked work view under the professor and
+  student Homes must not show it twice), and to `StakeholderHome`. Professor and student Homes keep
+  it as today.
+- **Existing bug, fixed here:** `listAllNotices` in `lib/api/program.ts` orders by an `expired`
+  column that `program_notices_all` hasn't had since commit d64601c (the live view confirms it), so
+  the admin Notices list fails to load today. Drop that order.
 
 ### Tests
 
