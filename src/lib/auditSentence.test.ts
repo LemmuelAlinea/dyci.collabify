@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { auditSentence } from './types'
+import { AUDIT_ACTIONS, auditSentence } from './types'
 import type { AuditEvent } from './types'
 
 const event = (over: Partial<AuditEvent>): AuditEvent =>
@@ -36,15 +36,23 @@ describe('auditSentence for offices', () => {
 })
 
 describe('auditSentence for offboarding', () => {
-  it('an offboarded line names the successor and the counts', () => {
+  it('an offboarded line names who took over and the counts', () => {
     expect(
       auditSentence(
         event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: 'Ben Reyes', before_value: '2 spaces, 3 projects' }),
       ),
-    ).toBe('Ana Cruz was offboarded and handed over to Ben Reyes (2 spaces, 3 projects)')
+    ).toBe('Ana Cruz was offboarded. Their spaces and projects went to Ben Reyes (2 spaces, 3 projects)')
     expect(auditSentence(event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: 'Ben Reyes' }))).toBe(
-      'Ana Cruz was offboarded and handed over to Ben Reyes',
+      'Ana Cruz was offboarded. Their spaces and projects went to Ben Reyes',
     )
+  })
+
+  it('an offboarded line names every person who took over', () => {
+    expect(
+      auditSentence(
+        event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: 'Ben Reyes, Carla Diaz', before_value: '2 projects' }),
+      ),
+    ).toBe('Ana Cruz was offboarded. Their spaces and projects went to Ben Reyes, Carla Diaz (2 projects)')
   })
 
   it('an offboarded line with no successor says only what was cleared', () => {
@@ -54,6 +62,10 @@ describe('auditSentence for offboarding', () => {
     expect(auditSentence(event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: '', before_value: '' }))).toBe(
       'Ana Cruz was offboarded',
     )
+  })
+
+  it('labels a space PM assignment in full', () => {
+    expect(AUDIT_ACTIONS.find((a) => a.value === 'space_pm_assigned')?.label).toBe('Space project manager assigned')
   })
 
   it('a space PM assignment names the space and the manager', () => {

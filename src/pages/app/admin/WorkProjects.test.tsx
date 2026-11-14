@@ -104,6 +104,15 @@ it("shows each project's office and filters by it", async () => {
   expect(rows()[0].textContent).toContain('Records cleanup')
 })
 
+it('shows no office and hides the filter while the office read is loading', async () => {
+  vi.mocked(projectOffices).mockReturnValueOnce(new Promise(() => {}))
+  await renderAt('/admin/projects')
+  expect(document.querySelector('select[aria-label="Office"]')).toBeNull()
+  expect(document.body.textContent).not.toContain('Unassigned')
+  expect(document.querySelectorAll('li')).toHaveLength(2)
+  expect(document.querySelectorAll('li')[0].textContent).toContain('—')
+})
+
 it('a failed office read shows no office and hides the filter', async () => {
   vi.mocked(projectOffices).mockRejectedValueOnce({ message: 'offline' })
   await renderAt('/admin/projects')

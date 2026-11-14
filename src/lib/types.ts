@@ -1662,7 +1662,7 @@ export const AUDIT_ACTIONS: { value: AuditAction; label: string }[] = [
   { value: 'office_changed', label: 'Office changed' },
   { value: 'space_office_changed', label: 'Space moved' },
   { value: 'offboarded', label: 'Offboarded' },
-  { value: 'space_pm_assigned', label: 'Space PM assigned' },
+  { value: 'space_pm_assigned', label: 'Space project manager assigned' },
 ]
 
 /** One line saying what happened, without naming anything academic. */
@@ -1703,8 +1703,8 @@ export function auditSentence(e: AuditEvent) {
     case 'space_office_changed':
       return `The space ${who} moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
     case 'offboarded':
-      // No successor (after_value '') when they ran no space or project.
-      return `${who} was offboarded${e.after_value ? ` and handed over to ${e.after_value}` : ''}${e.before_value ? ` (${e.before_value})` : ''}`
+      // after_value names everyone who took over, or '' when nothing was handed over.
+      return `${who} was offboarded${e.after_value ? `. Their spaces and projects went to ${e.after_value}` : ''}${e.before_value ? ` (${e.before_value})` : ''}`
     case 'space_pm_assigned':
       return `The space ${who} now has ${e.after_value} as project manager`
   }

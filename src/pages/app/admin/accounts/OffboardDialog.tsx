@@ -27,8 +27,8 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** Where a line lives, in the faint second line. */
-function Where({ line, project }: { line: OffboardLine; project?: boolean }) {
-  const parts = [project ? line.project_name : null, line.space_name, line.office_name].filter(Boolean)
+function Where({ line }: { line: OffboardLine }) {
+  const parts = [line.space_name, line.office_name].filter(Boolean)
   return (
     <span className="block truncate text-[12px] text-faint">
       {parts.join(' · ')}
@@ -138,8 +138,8 @@ export function OffboardDialog({
       title={`Offboard ${person.name}`}
       description={
         needsSuccessor
-          ? `${person.name} stops signing in, and everything they run moves to someone else in one step. If any part is refused, nothing changes.`
-          : `${person.name} stops signing in, and their seats, reviews and tasks go back to each project in one step. If any part is refused, nothing changes.`
+          ? `${person.name} can no longer sign in, and everything they run moves to someone else in one step. If any part is refused, nothing changes.`
+          : `${person.name} can no longer sign in, and their seats, reviews and tasks go back to each project in one step. If any part is refused, nothing changes.`
       }
       size="lg"
       footer={
@@ -148,7 +148,7 @@ export function OffboardDialog({
             Cancel
           </Button>
           <Button variant="danger" className="!rounded-xl" loading={busy} disabled={!ready} onClick={confirm}>
-            {needsSuccessor ? "Deactivate and hand over" : "Deactivate"}
+            {needsSuccessor ? 'Deactivate and hand over' : 'Deactivate'}
           </Button>
         </>
       }
@@ -220,8 +220,8 @@ export function OffboardDialog({
                 {tasks.task_count}{' '}
                 {plural(
                   tasks.task_count,
-                  'open task is unassigned and goes back to its team.',
-                  'open tasks are unassigned and go back to their teams.',
+                  'open task is unassigned and goes back to whoever plans it.',
+                  'open tasks are unassigned and go back to whoever plans them.',
                 )}
               </li>
             </Group>

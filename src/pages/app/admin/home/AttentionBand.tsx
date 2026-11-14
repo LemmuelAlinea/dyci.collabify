@@ -16,10 +16,12 @@ import { useRead } from './useRead'
 const SHOWN = 6
 
 /**
- * Work spaces with no project manager first, with an Assign; then running projects with no project manager, or quiet for two weeks. Names only:
- * a missing PM opens Work projects at that project's Assign; a quiet project is
- * only named, since nothing here opens a project. The first six show, then how
- * many more, which opens Work projects.
+ * Work spaces with no project manager first, each with an Assign; then running
+ * projects with no project manager, or quiet for two weeks. Names only: a missing
+ * PM opens Work projects at that project's Assign; a quiet project is only named,
+ * since nothing here opens a project. Every space shows, since Work projects lists
+ * no spaces; the first six projects show, then how many more, which opens Work
+ * projects.
  */
 export function AttentionBand({ className = '' }: { className?: string }) {
   const projects = useRead(attentionProjects)
@@ -27,11 +29,9 @@ export function AttentionBand({ className = '' }: { className?: string }) {
   const [assigning, setAssigning] = useState<{ space_id: string; space_name: string } | null>(null)
   const failed = projects.failed || spaces.failed
   const ready = projects.data !== null && spaces.data !== null
-  const lines = [
-    ...(spaces.data ?? []).map((s) => ({ kind: 'space' as const, s })),
-    ...(projects.data ?? []).map((p) => ({ kind: 'project' as const, p })),
-  ]
-  const rest = lines.length - SHOWN
+  const stuck = spaces.data ?? []
+  const quiet = projects.data ?? []
+  const rest = quiet.length - SHOWN
   const load = () => {
     projects.load()
     spaces.load()
@@ -41,11 +41,11 @@ export function AttentionBand({ className = '' }: { className?: string }) {
     <Band name="attention" eyebrow="Work projects" title="Needs attention" className={className}>
       {failed ? (
         <Alert tone="error" onRetry={load}>
-          The projects that need attention did not load. Try again in a moment.
+          The projects and spaces that need attention did not load. Try again in a moment.
         </Alert>
       ) : !ready ? (
         <BandLoading>Reading the running projects…</BandLoading>
-      ) : lines.length === 0 ? (
+      ) : stuck.length + quiet.length === 0 ? (
         <p className="flex items-center gap-2 text-[13px] text-muted">
           <Icon name="checkCircle" size={16} className="shrink-0 text-success-600" />
           Every running project and space has a project manager and recent activity.
@@ -53,13 +53,12 @@ export function AttentionBand({ className = '' }: { className?: string }) {
       ) : (
         <>
           <ul className="-my-1 divide-y divide-line">
-            {lines.slice(0, SHOWN).map((l) =>
-              l.kind === 'space' ? (
-                <SpaceLine key={`space-${l.s.space_id}`} space={l.s} onAssign={() => setAssigning(l.s)} />
-              ) : (
-                <AttentionLine key={l.p.project_id} project={l.p} />
-              ),
-            )}
+            {stuck.map((s) => (
+              <SpaceLine key={`space-${s.space_id}`} space={s} onAssign={() => setAssigning(s)} />
+            ))}
+            {quiet.slice(0, SHOWN).map((p) => (
+              <AttentionLine key={p.project_id} project={p} />
+            ))}
           </ul>
           {rest > 0 && (
             <Link

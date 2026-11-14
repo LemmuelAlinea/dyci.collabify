@@ -4804,24 +4804,21 @@ manager with an Assign action, Work projects has an Office column and filter, an
 and `space_pm_assigned`.
 
 SQL: `supabase/offboarding.sql` was applied to the live project with `anon-lockdown.sql`; the suite
-`supabase/tests/offboarding.test.sql` passes (72 PASS, rolled back). The review step clears the request claims for one
+`supabase/tests/offboarding.test.sql` passes (75 PASS, rolled back). The review step clears the request claims for one
 UPDATE, so it depends on `guard_general_task` keeping its `auth.uid() is null` early return (see `docs/07-backup.md`).
 
 Verified: `npm run build` clean, `npm test` 2,273 passed (217 files), the suite above.
 Browser walk: pending.
 
 **Deferred**
-- Archived-office rule and trashed exclusions are untested in the reads; the fold-in rollback test does not prove the
-  writes ran before the forced failure; assign accepts archived spaces (the list never offers them).
-- Offboard and assign can deadlock on lock order (raw "deadlock detected"); the suite's trigger test holds a lock on
-  `profiles` until rollback and should run last.
+- Archived-office rule and trashed exclusions are untested in the reads (a trashed project is always archived, since
+  `guard_trash_columns` clears `trashed_at` without `archived_at`); assign accepts archived spaces (the list never
+  offers them).
+- Offboard and assign can deadlock on lock order (raw "deadlock detected").
 - Reviews in a project with no PM row stay (cannot happen through the app); the lock on assign matches
   `assign_general_project_pm`.
 - Offboard dialog: the retry button has no in-flight state, row selects are enabled before the main successor is chosen,
   a shared busy slot can clear another row's flag, and the working-PM review check does not lock that PM's profile.
-- Admin Home and Work projects: one attention-band failure blanks both reads' lines, the empty-state copy does not
-  mention spaces, no ordering guard on `projectOffices`, quote style in the `OffboardDialog` label, a roundabout
-  try/catch in `SpacePmDialog`, and prettier reformatted `WorkProjects.tsx` to semicolons and double quotes (restore
-  the repo style, formatting only).
+- Admin Home: one attention-band failure blanks both reads' lines.
 - DB casts and an untested empty-string successor in the api wrappers.
 - Later phases of the organization upgrade: 3 office head view, 4 notices by office, 5 organization settings.

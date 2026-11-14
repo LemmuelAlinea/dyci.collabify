@@ -7,6 +7,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import AdminHome from './AdminHome'
 import { attentionProjects, orgOverview, orgSummary } from '../../lib/api/offices'
 import { assignSpacePm, spacesWithoutPm } from '../../lib/api/offboarding'
+import { listAccounts } from '../../lib/api/accounts'
 import { programClasses } from '../../lib/api/admin'
 import type { ProgramClass } from '../../lib/program'
 
@@ -317,10 +318,12 @@ it('lists a space without a project manager with an Assign button', async () => 
   expect(lines[1].textContent).toContain('Helpdesk revamp')
 })
 
-it('counts space lines toward the cap of six', async () => {
-  vi.mocked(spacesWithoutPm).mockResolvedValueOnce(STUCK)
+it('shows every space line and caps only the projects at six', async () => {
+  vi.mocked(spacesWithoutPm).mockResolvedValueOnce(
+    Array.from({ length: 7 }, (_, i) => ({ space_id: `s${i}`, space_name: `Space ${i}`, office_name: '' })),
+  )
   vi.mocked(attentionProjects).mockResolvedValueOnce(
-    Array.from({ length: 6 }, (_, i) => ({
+    Array.from({ length: 8 }, (_, i) => ({
       project_id: `p${i}`,
       project_name: `Project ${i}`,
       space_name: 'Helpdesk',
@@ -332,8 +335,19 @@ it('counts space lines toward the cap of six', async () => {
   )
   await render()
   const attention = band('attention')!
-  expect(attention.querySelectorAll('li')).toHaveLength(6)
-  expect(attention.querySelector('[data-attention-more]')?.textContent).toBe('1 more')
+  const text = [...attention.querySelectorAll('li')].map((l) => l.textContent)
+  expect(text).toHaveLength(13)
+  expect(text.filter((t) => t?.includes('Space has no project manager'))).toHaveLength(7)
+  expect(attention.textContent).toContain('Project 5')
+  expect(attention.textContent).not.toContain('Project 6')
+  expect(attention.querySelector('[data-attention-more]')?.textContent).toBe('2 more')
+})
+
+it('names both projects and spaces when the attention read fails', async () => {
+  vi.mocked(spacesWithoutPm).mockRejectedValueOnce(new Error('offline'))
+  await render()
+  const alert = band('attention')!.querySelector('[role="alert"]')
+  expect(alert?.textContent).toContain('The projects and spaces that need attention did not load.')
 })
 
 it('assigning calls assignSpacePm and reloads', async () => {
@@ -349,6 +363,21 @@ it('assigning calls assignSpacePm and reloads', async () => {
   expect(assignSpacePm).toHaveBeenCalledWith('s1', 'a1')
   expect(toast).toHaveBeenCalled()
   expect(spacesWithoutPm).toHaveBeenCalledTimes(2)
+})
+
+it('offers a retry when the people in the space dialog do not load', async () => {
+  vi.mocked(spacesWithoutPm).mockResolvedValueOnce(STUCK)
+  vi.mocked(listAccounts).mockRejectedValueOnce({ message: 'offline' })
+  await render()
+  await act(async () => assignButton().click())
+  const dialog = document.querySelector<HTMLSelectElement>('select[data-space-pm]')!
+  expect(dialog.disabled).toBe(true)
+  const retry = [...document.querySelectorAll('[role="alert"] button')].find((b) => b.textContent === 'Try again')!
+  await act(async () => (retry as HTMLButtonElement).click())
+  expect(listAccounts).toHaveBeenCalledTimes(2)
+  const select = document.querySelector<HTMLSelectElement>('select[data-space-pm]')!
+  expect([...select.options].map((o) => o.textContent)).toEqual(['Choose a person', 'Ben Reyes'])
+  expect(document.querySelector('[role="alert"]')).toBeNull()
 })
 
 it("shows the database's refusal in the space dialog", async () => {

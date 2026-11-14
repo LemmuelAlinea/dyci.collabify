@@ -102,6 +102,9 @@ declare
   k4     uuid;  -- open, in archived P2
   k5     uuid;  -- open, P3
   k6     uuid;  -- planning, P1
+  tq     uuid;  -- team on PB that Q leads
+  rq     uuid;  -- review on PB waiting on Q
+  kq     uuid;  -- open, PB, Q holds it
   wsa    uuid;  -- S2's space: a working PM
   wsb    uuid;  -- Q's space: Q's switch goes off; filed in office O
   wsc    uuid;  -- a space with no pm row
@@ -276,7 +279,7 @@ begin
     'Zz Obm needs Project manager turned on first. Turn it on in Accounts.');
   perform pg_temp.must_refuse_exact('offboard refuses an admin successor',
     format('select public.admin_offboard_member(%L, %L)', v_t, v_x),
-    'Only an active member can take over.');
+    'Only an active member with Project manager on can take over. Choose someone else.');
   perform pg_temp.must_refuse_exact('offboard refuses the target as successor',
     format('select public.admin_offboard_member(%L, %L)', v_t, v_t),
     'Choose someone else to take over.');
@@ -285,7 +288,7 @@ begin
     'Choose someone else to take over.');
   perform pg_temp.must_refuse_exact('offboard refuses an inactive successor',
     format('select public.admin_offboard_member(%L, %L)', v_t, v_s3),
-    'Only an active member can take over.');
+    'Only an active member with Project manager on can take over. Choose someone else.');
 
   -- ------------------------------------------------------------ a forced failure
 
@@ -368,39 +371,29 @@ begin
   perform pg_temp.must_be('...and S1 is P1''s Coordinator again',
     pg_temp.prole(p1, v_s1) = 'coordinator' and pg_temp.prole(p1, v_t) = 'pm');
 
-  -- ------------------------------------------------------------ a failure after the writes begin
+  -- ------------------------------------------------------------ every line overridden
 
-  -- A trigger refuses T's status change, the last write, so the call fails after every
-  -- handover write. Nothing it wrote survives.
-  perform pg_temp.act_as_service();
-  execute format($f$
-    create function public.zz_ob_fail_status() returns trigger language plpgsql as $b$
-    begin
-      if new.id = %L::uuid then raise exception 'zz forced failure'; end if;
-      return new;
-    end $b$ $f$, v_t);
-  create trigger zz_ob_fail_status before update on public.profiles
-    for each row execute function public.zz_ob_fail_status();
-  v_err := null;
+  -- Every space and project goes to S2, so S1, the main successor, takes nothing and the
+  -- audit row names only S2. Undone afterwards by a savepoint.
   begin
     perform pg_temp.act_as(v_a);
-    perform public.admin_offboard_member(v_t, v_s1);
+    perform public.admin_offboard_member(v_t, v_s1,
+      jsonb_build_object(ws1, v_s2, ws2, v_s2, p1, v_s2, p2, v_s2));
+    perform pg_temp.act_as_service();
+    perform pg_temp.must_be('every line overridden to S2: the audit row names only S2',
+      pg_temp.srole(ws1, v_s2) = 'pm' and pg_temp.srole(ws2, v_s2) = 'pm'
+      and pg_temp.prole(p1, v_s2) = 'pm' and pg_temp.prole(p2, v_s2) = 'pm'
+      and pg_temp.srole(ws2, v_s1) is null and pg_temp.prole(p1, v_s1) = 'coordinator'
+      and exists (select 1 from public.audit_events where action::text = 'offboarded'
+                   and subject_id = v_t and after_value = 'Zz Obs2'));
+    raise exception 'zz undo';
   exception when others then
-    v_err := sqlerrm;
+    if sqlerrm <> 'zz undo' then raise; end if;
   end;
   perform pg_temp.act_as_service();
-  drop trigger zz_ob_fail_status on public.profiles;
-  drop function public.zz_ob_fail_status();
-  perform pg_temp.must_be('a failure at the status step rolls back every handover write',
-    v_err = 'zz forced failure'
-    and (select status = 'active' from public.profiles where id = v_t)
-    and pg_temp.srole(ws1, v_t) = 'pm' and pg_temp.srole(ws1, v_s1) = 'member'
-    and pg_temp.prole(p1, v_t) = 'pm' and pg_temp.prole(p1, v_s1) = 'coordinator'
-    and (select leader_id = v_t from public.general_teams where id = t1)
-    and (select count(*) from public.general_tasks where id in (r1, r2) and reviewer_id = v_t) = 2
-    and pg_temp.holds(k1, v_t)
-    and not exists (select 1 from public.audit_events where action::text = 'offboarded'
-                     and subject_id = v_t));
+  perform pg_temp.must_be('...and the savepoint put everything back',
+    pg_temp.prole(p1, v_t) = 'pm' and pg_temp.srole(ws1, v_t) = 'pm'
+    and (select status = 'active' from public.profiles where id = v_t));
 
   -- ------------------------------------------------------------ the offboard
 
@@ -453,11 +446,11 @@ begin
     and exists (select 1 from public.audit_events
                  where action = 'status_changed' and subject_id = v_t and actor_id = v_a
                    and after_value = 'rejected'));
-  perform pg_temp.must_be('one offboarded audit row: after_value = S1''s name, before_value = ''2 spaces, 2 projects, 2 teams, 3 tasks''',
+  perform pg_temp.must_be('one offboarded audit row: after_value names S1 then S2 (P2''s override), before_value = ''2 spaces, 2 projects, 2 teams, 3 tasks''',
     (select count(*) from public.audit_events where action::text = 'offboarded' and subject_id = v_t) = 1
     and exists (select 1 from public.audit_events
                  where action::text = 'offboarded' and subject_id = v_t and actor_id = v_a
-                   and subject_label = 'Zz Obt' and after_value = 'Zz Obs1'
+                   and subject_label = 'Zz Obt' and after_value = 'Zz Obs1, Zz Obs2'
                    and before_value = '2 spaces, 2 projects, 2 teams, 3 tasks'));
 
   perform pg_temp.act_as(v_a);
@@ -602,7 +595,7 @@ begin
 
   perform pg_temp.must_refuse_exact('assign refuses while the PM is active with the switch on',
     format('select public.admin_assign_space_pm(%L, %L)', wsa, v_s1),
-    'This space already has a project manager.');
+    'This space already has a project manager. Refresh the page.');
   perform pg_temp.must_refuse_exact('assign refuses a space that is not there',
     format('select public.admin_assign_space_pm(%L, %L)', gen_random_uuid(), v_s1),
     'That space no longer exists. Refresh the page.');
@@ -611,10 +604,10 @@ begin
     'Zz Obm needs Project manager turned on first. Turn it on in Accounts.');
   perform pg_temp.must_refuse_exact('assign refuses an admin successor',
     format('select public.admin_assign_space_pm(%L, %L)', wsb, v_x),
-    'Only an active member can take over.');
+    'Only an active member with Project manager on can take over. Choose someone else.');
   perform pg_temp.must_refuse_exact('assign refuses an inactive successor',
     format('select public.admin_assign_space_pm(%L, %L)', wsb, v_s3),
-    'Only an active member can take over.');
+    'Only an active member with Project manager on can take over. Choose someone else.');
 
   perform public.admin_assign_space_pm(wsb, v_s1);
   perform public.admin_assign_space_pm(wsc, v_s2);
@@ -644,20 +637,75 @@ begin
     not exists (select 1 from public.admin_spaces_without_pm() x where x.space_id in (wsb, wsc)));
   perform pg_temp.must_refuse_exact('a second assign is refused: the space has a working PM now',
     format('select public.admin_assign_space_pm(%L, %L)', wsb, v_s2),
-    'This space already has a project manager.');
+    'This space already has a project manager. Refresh the page.');
 
   -- The space step demotes only the PM its caller saw. A stale or missing p_from (a PM who
   -- arrived after the caller looked) refuses instead of silently demoting the working PM.
   perform pg_temp.act_as_service();
   perform pg_temp.must_refuse_exact('the space step refuses a p_from who no longer holds pm',
     format('select public.offboarding_space_to(%L, %L, %L)', wsa, v_s1, v_q),
-    'This space already has a project manager.');
+    'This space already has a project manager. Refresh the page.');
   perform pg_temp.must_refuse_exact('the space step with no p_from refuses a space that has a pm',
     format('select public.offboarding_space_to(%L, %L, null)', wsa, v_s1),
     'general_space_members_one_pm');
   perform pg_temp.must_be('...and WSA keeps S2 as its only PM, S1 not added',
     pg_temp.srole(wsa, v_s2) = 'pm' and pg_temp.srole(wsa, v_s1) is null
     and (select count(*) from public.general_space_members where space_id = wsa and role = 'pm') = 1);
+
+  -- ------------------------------------------------------------ a failure after the writes begin
+
+  -- Q runs archived WSE and PB, leads a team on PB, has a review waiting there and holds an
+  -- open task. A trigger refuses Q's offboarded audit row, the call's last statement, so the
+  -- call fails after every other write. Nothing it wrote survives. The trigger sits on
+  -- audit_events, not profiles, and this block runs last, so the lock its drop holds until
+  -- the rollback never stands in front of a sign-in.
+  perform pg_temp.act_as_service();
+  insert into public.general_teams (project_id, name) values (pb, 'Zz Ob team q') returning id into tq;
+  insert into public.general_team_members (project_id, team_id, user_id) values (pb, tq, v_q);
+  update public.general_teams set leader_id = v_q where id = tq;
+  insert into public.general_tasks (project_id, title, routing_state, reviewer_id, status, stage, created_by)
+  values (pb, 'Zz Ob review q', 'coordinator_review', v_q, 'in_progress', 1, v_q) returning id into rq;
+  insert into public.general_tasks (project_id, title, routing_state, created_by)
+  values (pb, 'Zz Ob KQ', 'released', v_q) returning id into kq;
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (pb, kq, v_q);
+  perform pg_temp.must_be('fixtures: Q runs WSE and PB, leads TQ, reviews RQ, holds KQ',
+    pg_temp.srole(wse, v_q) = 'pm' and pg_temp.prole(pb, v_q) = 'pm'
+    and (select leader_id = v_q from public.general_teams where id = tq)
+    and (select reviewer_id = v_q from public.general_tasks where id = rq)
+    and pg_temp.holds(kq, v_q));
+
+  execute format($f$
+    create function public.zz_ob_fail_audit() returns trigger language plpgsql as $b$
+    begin
+      if new.action::text = 'offboarded' and new.subject_id = %L::uuid then
+        raise exception 'zz forced failure';
+      end if;
+      return new;
+    end $b$ $f$, v_q);
+  create trigger zz_ob_fail_audit before insert on public.audit_events
+    for each row execute function public.zz_ob_fail_audit();
+  v_err := null;
+  begin
+    perform pg_temp.act_as(v_a);
+    perform public.admin_offboard_member(v_q, v_s1);
+  exception when others then
+    v_err := sqlerrm;
+  end;
+  perform pg_temp.act_as_service();
+  drop trigger zz_ob_fail_audit on public.audit_events;
+  drop function public.zz_ob_fail_audit();
+  perform pg_temp.must_be('a failure at the audit row rolls back every write before it',
+    v_err = 'zz forced failure'
+    and (select status = 'active' from public.profiles where id = v_q)
+    and not exists (select 1 from public.audit_events where action = 'status_changed'
+                     and subject_id = v_q)
+    and pg_temp.srole(wse, v_q) = 'pm' and pg_temp.srole(wse, v_s1) is null
+    and pg_temp.prole(pb, v_q) = 'pm' and pg_temp.prole(pb, v_s1) is null
+    and (select leader_id = v_q from public.general_teams where id = tq)
+    and (select reviewer_id = v_q from public.general_tasks where id = rq)
+    and pg_temp.holds(kq, v_q) and pg_temp.unassigned(kq, v_q) = 0
+    and not exists (select 1 from public.audit_events where action::text = 'offboarded'
+                     and subject_id = v_q));
 
   perform pg_temp.act_as_service();
   raise notice 'offboarding suite: all passed';

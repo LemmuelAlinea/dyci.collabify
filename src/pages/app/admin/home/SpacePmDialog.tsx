@@ -32,11 +32,14 @@ export function SpacePmDialog({
   const [pick, setPick] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!space) return
     setPick('')
     setError(null)
+    setLoadError(null)
     setPeople(null)
     let live = true
     listAccounts().then(
@@ -47,16 +50,13 @@ export function SpacePmDialog({
           )
       },
       (err) => {
-        if (live) {
-          setPeople([])
-          setError(authErrorMessage(err, 'Could not load the people. Try again.'))
-        }
+        if (live) setLoadError(authErrorMessage(err, 'Could not load the people. Try again.'))
       },
     )
     return () => {
       live = false
     }
-  }, [space])
+  }, [space, attempt])
 
   function close() {
     if (!busy) onClose()
@@ -67,17 +67,13 @@ export function SpacePmDialog({
     setBusy(true)
     setError(null)
     try {
-      try {
-        await assignSpacePm(space.space_id, pick)
-      } catch (err) {
-        // A Supabase error is a plain object; keep its message as the database wrote it.
-        throw new Error(authErrorMessage(err, 'Could not assign that project manager. Try again.'), { cause: err })
-      }
+      await assignSpacePm(space.space_id, pick)
       show(`Project manager assigned to ${space.space_name}`)
       onDone()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not assign that project manager. Try again.')
+      // A Supabase error is a plain object; its message is the database's own refusal.
+      setError(authErrorMessage(err, 'Could not assign that project manager. Try again.'))
     } finally {
       setBusy(false)
     }
@@ -102,8 +98,13 @@ export function SpacePmDialog({
       }
     >
       <div className="space-y-4">
+        {loadError && (
+          <Alert tone="error" onRetry={() => setAttempt((n) => n + 1)}>
+            {loadError}
+          </Alert>
+        )}
         {error && <Alert tone="error">{error}</Alert>}
-        {people !== null && people.length === 0 && !error && (
+        {people !== null && people.length === 0 && (
           <Alert tone="info">
             Nobody can take over yet. Only an active member with Project manager on can. Turn on the
             Project manager switch for someone in Accounts first.

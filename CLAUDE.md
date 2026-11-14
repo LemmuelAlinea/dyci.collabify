@@ -289,11 +289,15 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   owns. The admin rail is Organization / Academic program / Compliance, and Admin Home is the organization overview.
   Suite: `supabase/tests/offices.test.sql`.
 - Offboarding (`supabase/offboarding.sql`, after `offices.sql`, before `anon-lockdown.sql`): Deactivate on a member opens
-  the Offboard dialog, and `admin_offboard_member` does it all in one transaction: the person's spaces and projects go to
+  the Offboard dialog only when the preview (`admin_offboarding_preview`) shows they hold something (a space, project,
+  team-lead seat, review or open task); otherwise the plain confirmation stays, and a student always gets it. In the
+  dialog, `admin_offboard_member` does it all in one transaction: the person's spaces and projects go to
   a successor (per-line overrides allowed), the person becomes a Coordinator where they stay, team-lead seats are
   emptied, review seats go to the project's PM, their open tasks are unassigned (not done, archived or trashed, and not
-  in archived projects), and the account is deactivated. The successor is null only when the person runs no space or
-  project; otherwise it is an active member with Project manager on. `admin_assign_space_pm` gives a space with no
+  in archived or trashed projects), and the account is deactivated. The `offboarded` audit row's after value names
+  everyone who took a space or project, in order of first use, or is empty when nothing was handed over. The
+  successor is null only when the person runs no space or project; otherwise it is an active member with Project
+  manager on. `admin_assign_space_pm` gives a space with no
   working PM one (Admin Home's stuck spaces, Assign). It sets `collabify.space_role_cascade` and
   `collabify.team_leader_clear` around single statements, and clears `request.jwt.claims` for the one review-seat UPDATE,
   so it depends on `guard_general_task` keeping its `auth.uid() is null` early return. Suite:

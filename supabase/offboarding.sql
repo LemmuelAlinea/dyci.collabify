@@ -65,7 +65,7 @@ declare
 begin
   select * into v_succ from public.profiles where id = p_user for share;
   if v_succ.id is null or v_succ.role is distinct from 'member' or v_succ.status is distinct from 'active' then
-    raise exception 'Only an active member can take over.' using errcode = 'check_violation';
+    raise exception 'Only an active member with Project manager on can take over. Choose someone else.' using errcode = 'check_violation';
   end if;
   if not v_succ.can_manage_projects then
     raise exception '% needs Project manager turned on first. Turn it on in Accounts.',
@@ -98,7 +98,7 @@ begin
      where space_id = p_space and user_id = p_from and role = 'pm';
     get diagnostics n = row_count;
     if n = 0 then
-      raise exception 'This space already has a project manager.' using errcode = 'check_violation';
+      raise exception 'This space already has a project manager. Refresh the page.' using errcode = 'check_violation';
     end if;
   end if;
   update public.general_space_members set role = 'pm'
@@ -176,7 +176,7 @@ begin
               join public.general_projects p on p.id = t.project_id
              where a.user_id = p_user
                and t.status <> 'done' and t.trashed_at is null and t.archived_at is null
-               and p.class_board_id is null and p.archived_at is null) x
+               and p.class_board_id is null and p.archived_at is null and p.trashed_at is null) x
      where x.n > 0
   )
   select l.k, l.iid, l.iname, l.pname, l.sname, l.oname, l.arch, l.n
@@ -195,7 +195,8 @@ $$;
  * nothing. It works from the database as it is at the call, so a line the preview showed
  * that no longer applies is skipped, not refused. p_successor may be null only when they run
  * no space and no project (no overrides then), and each project they review in already has
- * a working PM; the audit row's after_value is then ''.
+ * a working PM. The audit row's after_value names everyone who took a space or project, in
+ * order of first use, or is '' when nothing was handed over.
  */
 create or replace function public.admin_offboard_member(p_user uuid, p_successor uuid,
                                                         p_overrides jsonb default '{}')
@@ -206,6 +207,7 @@ declare
   v_ids     uuid[];
   v_id      uuid;
   v_to      uuid;
+  v_recips  uuid[] := '{}';
   v_spaces  int := 0;
   v_proj    int := 0;
   v_teams   int := 0;
@@ -279,6 +281,7 @@ begin
       raise exception 'Choose someone to take over their spaces and projects.' using errcode = 'check_violation';
     end if;
     perform public.offboarding_space_to(rec.id, v_to, p_user);
+    if not v_to = any(v_recips) then v_recips := v_recips || v_to; end if;
     v_spaces := v_spaces + 1;
   end loop;
 
@@ -309,6 +312,7 @@ begin
     update public.general_access_requests
        set status = 'withdrawn', answered_at = now()
      where project_id = rec.id and user_id = v_to and status = 'open';
+    if not v_to = any(v_recips) then v_recips := v_recips || v_to; end if;
     v_proj := v_proj + 1;
   end loop;
 
@@ -377,14 +381,14 @@ begin
     join public.general_projects p on p.id = t.project_id
     join public.general_task_assignees a on a.task_id = t.id and a.user_id = p_user
    where t.status <> 'done' and t.trashed_at is null and t.archived_at is null
-     and p.class_board_id is null and p.archived_at is null
+     and p.class_board_id is null and p.archived_at is null and p.trashed_at is null
      for update of t;
   perform set_config('collabify.space_role_cascade', 'on', true);
   delete from public.general_task_assignees a
    using public.general_tasks t, public.general_projects p
    where a.task_id = t.id and t.project_id = p.id and a.user_id = p_user
      and t.status <> 'done' and t.trashed_at is null and t.archived_at is null
-     and p.class_board_id is null and p.archived_at is null;
+     and p.class_board_id is null and p.archived_at is null and p.trashed_at is null;
   get diagnostics v_tasks = row_count;
   perform set_config('collabify.space_role_cascade', 'off', true);
 
@@ -410,7 +414,9 @@ begin
     (action, actor_id, subject_id, subject_label, before_value, after_value)
   values ('offboarded', v_admin, p_user, public.audit_label(p_user),
           array_to_string(v_parts, ', '),
-          case when p_successor is null then '' else public.audit_label(p_successor) end);
+          array_to_string(array(select public.audit_label(u.id)
+                                  from unnest(v_recips) with ordinality u(id, i)
+                                 order by u.i), ', '));
 end;
 $$;
 
@@ -467,7 +473,7 @@ begin
     select p.status, p.can_manage_projects into v_status, v_switch
       from public.profiles p where p.id = v_pm for share;
     if v_status = 'active' and v_switch then
-      raise exception 'This space already has a project manager.' using errcode = 'check_violation';
+      raise exception 'This space already has a project manager. Refresh the page.' using errcode = 'check_violation';
     end if;
   end if;
 

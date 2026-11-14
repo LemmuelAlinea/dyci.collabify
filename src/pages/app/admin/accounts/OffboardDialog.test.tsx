@@ -94,7 +94,8 @@ it('lists every preview line with its project name', async () => {
   expect(text()).toContain('Records team')
   expect(text()).toContain('Seat emptied. The project manager picks a lead.')
   expect(text()).toContain("3 reviews move to that project's project manager.")
-  expect(text()).toContain('7 open tasks are unassigned and go back to their teams.')
+  expect(text()).toContain('7 open tasks are unassigned and go back to whoever plans them.')
+  expect(text()).toContain('Ana Cruz can no longer sign in, and everything they run moves to someone else')
   // The team and the reviews each name the project they belong to.
   const team = document.querySelector('[data-offboard-line="team_lead"]')!.textContent
   expect(team).toContain('Records team')
@@ -139,10 +140,15 @@ it("says nobody can take over when there are no candidates, and points to Accoun
 })
 
 it('offboards someone who holds only tasks and teams without a successor', async () => {
-  await render(LINES.filter((l) => l.kind === 'team_lead' || l.kind === 'open_tasks'))
+  await render([
+    ...LINES.filter((l) => l.kind === 'team_lead'),
+    line({ kind: 'open_tasks', item_id: null, item_name: '', space_name: '', office_name: '', task_count: 1 }),
+  ])
   // Nothing to hand over, so there is nobody to pick.
   expect(successor()).toBeNull()
   expect(text()).not.toContain('Hand everything to')
+  expect(text()).toContain('Ana Cruz can no longer sign in, and their seats, reviews and tasks go back')
+  expect(text()).toContain('1 open task is unassigned and goes back to whoever plans it.')
   expect(button('Deactivate').disabled).toBe(false)
   await act(async () => button('Deactivate').click())
   expect(offboardMember).toHaveBeenCalledWith('t', null, {})
