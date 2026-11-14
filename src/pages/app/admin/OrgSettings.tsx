@@ -50,7 +50,7 @@ export default function OrgSettings() {
   const [domain, setDomain] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [purge, setPurge] = useState<number | null>(null)
+  const [purge, setPurge] = useState<{ days: number; count: number | null } | null>(null)
 
   const fill = useCallback((s: OrgSettings) => {
     setSaved(s)
@@ -85,8 +85,8 @@ export default function OrgSettings() {
     let live = true
     const timer = setTimeout(() => {
       trashPurgePreview(lowered)
-        .then((n) => live && setPurge(n))
-        .catch(() => {})
+        .then((n) => live && setPurge({ days: lowered, count: n }))
+        .catch(() => live && setPurge({ days: lowered, count: null }))
     }, 250)
     return () => {
       live = false
@@ -159,10 +159,16 @@ export default function OrgSettings() {
                 <p className="text-[12px] text-muted">
                   How long trashed items wait before the nightly clean-up deletes them. 7 to 365.
                 </p>
-                {purge !== null && (
-                  <p className="text-[12px] text-warning-700 dark:text-warning-300">
-                    {`Up to ${purge} trashed ${purge === 1 ? 'item' : 'items'} could be deleted at the next nightly clean-up.`}
-                  </p>
+                {purge !== null && purge.days === lowered && (
+                  purge.count === null ? (
+                    <p className="text-[12px] text-muted">
+                      Could not count the trash that would be deleted. Saving still works.
+                    </p>
+                  ) : (
+                    <p className="text-[12px] text-warning-700 dark:text-warning-300">
+                      {`Up to ${purge.count} trashed ${purge.count === 1 ? 'item' : 'items'} could be deleted at the next nightly clean-up.`}
+                    </p>
+                  )
                 )}
               </>
             )}

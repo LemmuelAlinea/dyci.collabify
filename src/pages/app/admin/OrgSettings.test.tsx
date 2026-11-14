@@ -95,6 +95,32 @@ it('shows how many trashed items could go when retention is lowered', async () =
   )
 })
 
+it('says so when the trash count could not load', async () => {
+  vi.mocked(trashPurgePreview).mockRejectedValueOnce({ message: 'down' })
+  await render()
+  vi.useFakeTimers()
+  await type(input('Trash keeps'), '10')
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(300)
+  })
+  expect(document.body.textContent).toContain(
+    'Could not count the trash that would be deleted. Saving still works.',
+  )
+  expect(document.body.textContent).not.toContain('could be deleted at the next')
+})
+
+it('clears the count while a new one loads', async () => {
+  await render()
+  vi.useFakeTimers()
+  await type(input('Trash keeps'), '10')
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(300)
+  })
+  expect(document.body.textContent).toContain('Up to 5 trashed items')
+  await type(input('Trash keeps'), '12')
+  expect(document.body.textContent).not.toContain('Up to 5 trashed items')
+})
+
 it('saves only the changed values and toasts', async () => {
   await render()
   await type(input('Quiet after'), '30')
