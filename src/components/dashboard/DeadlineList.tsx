@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { TileEmpty } from './Bento'
+import { TilePanel } from './Bento'
 import { dueSoonLabel } from '../../lib/types'
 import type { Deadline } from '../../lib/api/dashboard'
 
@@ -12,7 +12,9 @@ export function DeadlineList({
   deadlines: Deadline[]
   limit?: number
 }) {
-  if (deadlines.length === 0) return <TileEmpty>Nothing due in the next seven days.</TileEmpty>
+  if (deadlines.length === 0) {
+    return <TilePanel icon="calendar" title="Your week is clear" body="Nothing is due in the next 7 days." />
+  }
 
   return (
     <ul className="-mx-2 divide-y divide-[var(--line)]">

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { TileEmpty } from './Bento'
+import { TilePanel } from './Bento'
 import { dueSoonLabel, taskStatusLabel } from '../../lib/types'
 import { paths } from '../../lib/paths'
 import type { MyTask } from '../../lib/api/tasks'
@@ -7,7 +7,13 @@ import type { MyTask } from '../../lib/api/tasks'
 /** What the student has taken on and not finished, soonest first. Flat rows, for a bento tile. */
 export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: number }) {
   if (tasks.length === 0) {
-    return <TileEmpty>Nothing on your plate. Open a project and claim something your group needs.</TileEmpty>
+    return (
+      <TilePanel
+        icon="checkCircle"
+        title="Nothing on your plate"
+        body="Open a project and claim something your group needs."
+      />
+    )
   }
 
   const shown = [...tasks]

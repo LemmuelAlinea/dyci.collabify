@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { TileEmpty } from './Bento'
+import { TilePanel } from './Bento'
 import { dueLabelShort } from '../projects/dueLabel'
 import { PROJECT_TYPES, projectTypeLabel, weekSpanLabel } from '../../lib/types'
 import type { BoardSummary, ProjectSummary } from '../../lib/types'
@@ -26,7 +26,15 @@ export function ProjectStrip({
     .sort((a, b) => (a.due_at ?? '9999').localeCompare(b.due_at ?? '9999'))
     .slice(0, limit)
 
-  if (live.length === 0) return <TileEmpty>No projects are open right now.</TileEmpty>
+  if (live.length === 0) {
+    return (
+      <TilePanel
+        icon="kanban"
+        title="No open projects"
+        body="Projects your teacher opens for your class show here."
+      />
+    )
+  }
 
   return (
     <ul className="-mx-2 grid gap-1 @lg:grid-cols-2">

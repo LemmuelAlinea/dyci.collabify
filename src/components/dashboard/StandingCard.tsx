@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { TileEmpty } from './Bento'
+import { TilePanel } from './Bento'
 import { paths } from '../../lib/paths'
 import type { MemberProgress } from '../../lib/types'
 
@@ -11,7 +11,15 @@ type Row = MemberProgress & { project_title: string }
  * straight in a bento tile, so no card of its own.
  */
 export function StandingCard({ rows }: { rows: Row[] }) {
-  if (rows.length === 0) return <TileEmpty>Claim a task and your own progress starts counting here.</TileEmpty>
+  if (rows.length === 0) {
+    return (
+      <TilePanel
+        icon="chart"
+        title="No progress yet"
+        body="Claim a task and your own progress starts counting here."
+      />
+    )
+  }
 
   const average =
     Math.round(

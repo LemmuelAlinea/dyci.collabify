@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
-import { TileEmpty } from './Bento'
+import { TilePanel } from './Bento'
 import { paths } from '../../lib/paths'
 
 type Item = { icon: IconName; label: string; to: string; count: number }
 
 /**
  * Things that sit still until somebody acts. Always a tile, so the bento stays
- * square; with nothing waiting it says so in one line.
+ * square; with nothing waiting it says so in a panel.
  */
 export function WaitingOnYou({
   unclaimed,
@@ -40,7 +40,9 @@ export function WaitingOnYou({
     },
   ] as Item[]).filter((i) => i.count > 0)
 
-  if (items.length === 0) return <TileEmpty>Nothing is waiting on you.</TileEmpty>
+  if (items.length === 0) {
+    return <TilePanel icon="inbox" title="You're all caught up" body="Nothing is waiting on you." />
+  }
 
   return (
     <ul className="-mx-2 divide-y divide-[var(--line)]">
