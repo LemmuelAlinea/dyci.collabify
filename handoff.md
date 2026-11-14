@@ -4843,7 +4843,11 @@ SQL: `supabase/offices.sql` (helper extraction: `office_attention_rows`), `offbo
 `office-heads.test.sql` pass (208 PASS across the three suites, rolled back).
 
 Verified: `npm run build` clean, `npm test` 2,296 passed (219 files), the three suites 208 PASS (rolled back).
-Browser walk: pending.
+Browser walk (2026-11-14, admin on the dev server against the live project, view only): Offices shows the Head
+picker with its hint, offering only "No head" for College of Computer Studies because nobody is filed there yet;
+Admin Home's Offices band shows "No head" under it; `/office` sends the admin to Home; the admin rail has no My
+office entry; a clean load had no failed requests. No head was set. The head's own page needs a head's sign-in,
+so it is covered by the render tests (bands, links only where `i_am_on`, failure per band, non-head redirect).
 
 **Deferred**
 - Minor: brittle absolute count in the admin-promotion test; the profiles trigger repeats its WHEN clause in the
