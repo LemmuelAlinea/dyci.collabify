@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { Alert } from '../../components/ui/Alert'
@@ -31,6 +32,10 @@ const readOverview = async () => (await myOfficeOverview()) ?? NO_FIGURES
  */
 export default function MyOffice() {
   const { data, failed, load } = useRead(readOffice)
+
+  useEffect(() => {
+    document.title = 'My office · Collabify'
+  }, [])
 
   if (failed) {
     return (

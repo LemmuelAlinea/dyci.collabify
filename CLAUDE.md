@@ -308,8 +308,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   office, loses it (removal or a role change that drops the office row) or stops being active; there is no inactive
   head, and reactivating does not restore it. The head reads (`my_headed_office`, `my_office_overview`,
   `my_office_attention`, `my_office_spaces`, `my_office_people`) answer only for the caller's live office, with names
-  and counts, never project content, and `i_am_on` marks the projects and spaces the head belongs to, so the page links
-  only those. `navFor` takes the rail's `headsOffice` flag as a separate argument; it never changes which rail
+  and counts, never project content, and `i_am_on` (on `my_office_attention`) marks the projects the head is on; only those
+  attention lines link. Space lines never link. `navFor` takes the rail's `headsOffice` flag as a separate argument; it never changes which rail
   shows, it only adds My office (`/office`). Re-running `offices.sql` means re-running `offboarding.sql` and
   `office-heads.sql` after it. Suite: `supabase/tests/office-heads.test.sql`.
 

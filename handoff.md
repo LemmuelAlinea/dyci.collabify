@@ -4834,8 +4834,8 @@ no PM was assigned; a clean load had no failed requests.
 
 Phase 3 of the organization upgrade. The admin names one head per office from its active members, on Offices
 and in the office's detail, and Admin Home shows each office's head. A head gets a My office page at `/office`
-(names and counts only: figures, projects that need attention, spaces, people; links only to projects and spaces
-they belong to) and a My office rail entry. The seat clears itself when the head moves office, loses it or
+(names and counts only: figures, projects that need attention, spaces, people; links only to the attention projects
+they are on; space lines never link) and a My office rail entry. The seat clears itself when the head moves office, loses it or
 stops being active, and the audit log says so ("The office X no longer has a head").
 
 SQL: `supabase/offices.sql` (helper extraction: `office_attention_rows`), `offboarding.sql`, `office-heads.sql` and
@@ -4846,7 +4846,6 @@ Verified: `npm run build` clean, `npm test` 2,296 passed (219 files), the three 
 Browser walk: pending.
 
 **Deferred**
-- Header of `office-heads.sql` said "two triggers" while there are three seat triggers (fixed in Task 5).
 - Minor: brittle absolute count in the admin-promotion test; the profiles trigger repeats its WHEN clause in the
   function body (harmless); people are sorted by last name (accepted).
 - Minor: the head line pops in after the rows on Home; the Head control is hidden silently when the heads read

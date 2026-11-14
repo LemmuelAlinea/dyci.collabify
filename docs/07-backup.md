@@ -1000,7 +1000,9 @@ spaces only), the admin-only write functions (`create_office`, `rename_office`, 
 `office_*` and `space_office_changed`, an index on `general_task_events (project_id, created_at)`, and two new
 triggers: `general_spaces_office_default` (a new space starts in its creator's office) and `profiles_office_role`
 (a person who stops being a member loses their office). It redefines nothing another file owns, so no earlier file
-needs re-running after it. Suite: `supabase/tests/offices.test.sql`.
+needs re-running after it. It also holds the internal `office_attention_rows()` helper, shared by
+`admin_attention_projects` and the head reads, which repeats `project-roles.sql`'s has-PM rule; a change to that rule
+must be mirrored there. Suite: `supabase/tests/offices.test.sql`.
 
 ## Offboarding
 

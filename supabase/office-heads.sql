@@ -14,10 +14,11 @@
 -- through set_office_head: there is no insert, update or delete policy.
 --
 -- There is no inactive head. The seat clears itself, with one office_head_changed row whose
--- actor is auth.uid(), when its head:
---   - moves to another office or loses theirs (the office_members trigger). Stopping being a
---     member lands here too, because profiles_office_role (offices.sql) deletes the row.
---   - stops being active, deactivated or offboarded (the profiles trigger).
+-- actor is auth.uid(), through three triggers:
+--   - office_members_head_seat_delete: the head's office_members row is deleted. Removal and a
+--     role change land here, because profiles_office_role (offices.sql) deletes the row.
+--   - office_members_head_seat_move: the head's row moves to another office.
+--   - profiles_office_head_status: the head stops being active, deactivated or offboarded.
 -- Reactivating does not restore it; the admin names the head again. Archiving an office needs
 -- no step of its own: archive_office refuses while active people remain and deletes the
 -- inactive ones' rows, which fires the office_members trigger. Deleting a profile cascades
@@ -29,7 +30,7 @@
 -- admin, never project content. They count exactly as admin_org_overview does, and the suite
 -- pins that. Everyone else, the admin and other heads included, gets zero rows.
 --
--- Additive: nothing an earlier file owns is redefined; the three seat triggers are separate triggers.
+-- Additive: nothing an earlier file owns is redefined; the seat triggers are separate triggers.
 --
 -- Idempotent. Safe to re-run.
 
@@ -192,7 +193,7 @@ returns table (office_id uuid, head_id uuid, head_name text)
 language sql stable security definer set search_path = public as $$
   select h.office_id,
          h.user_id,
-         btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, ''))
+         coalesce(nullif(btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')), ''), p.email)
     from public.office_heads h
     join public.profiles p on p.id = h.user_id
    where public.office_admin_reads()
@@ -298,7 +299,7 @@ returns table (id uuid, name text)
 language sql stable security definer set search_path = public as $$
   with me as (select public.office_head_of_caller() as id)
   select p.id,
-         btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, ''))
+         coalesce(nullif(btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')), ''), p.email)
     from me
     join public.office_members m on m.office_id = me.id
     join public.profiles p on p.id = m.user_id

@@ -589,6 +589,29 @@ begin
   perform pg_temp.must_be('the audit enum has office_head_changed',
     'office_head_changed' = any (enum_range(null::public.audit_action)::text[]));
 
+  -- A head with no name shows as their email, not blank.
+  perform pg_temp.act_as_service();
+  declare
+    v_nn uuid := gen_random_uuid();
+    o4   uuid := gen_random_uuid();
+  begin
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+    values (v_nn, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            'zz-oh-nn@example.test', '', now(), now());
+    insert into public.profiles (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+    values (v_nn, 'zz-oh-nn@example.test', '', '', 'member', 'active', false, false);
+    insert into public.offices (id, name) values (o4, 'Zz Oh nameless');
+    insert into public.office_members (office_id, user_id) values (o4, v_nn);
+    insert into public.office_heads (office_id, user_id) values (o4, v_nn);
+    perform pg_temp.act_as(v_a);
+    perform pg_temp.must_be('admin_office_heads falls back to the email for a nameless head',
+      exists (select 1 from public.admin_office_heads() x
+               where x.office_id = o4 and x.head_name = 'zz-oh-nn@example.test'));
+    perform pg_temp.act_as(v_nn);
+    perform pg_temp.must_be('my_office_people falls back to the email for a nameless person',
+      (select array_agg(x.name) from public.my_office_people() x) = array['zz-oh-nn@example.test']);
+  end;
+
   perform pg_temp.act_as_service();
   raise notice 'office heads suite: all passed';
 end $$;
