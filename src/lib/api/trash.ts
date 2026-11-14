@@ -1,5 +1,5 @@
 /**
- * Trash: files and folders someone threw away, kept 30 days before they go
+ * Trash: files and folders someone threw away, kept for the trash retention setting before they go
  * for good. Separate from Archive, which hides what a project may want again.
  * See supabase/trash.sql.
  *

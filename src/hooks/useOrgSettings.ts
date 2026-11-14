@@ -10,12 +10,15 @@ export const ORG_DEFAULTS: OrgSettings = {
   school_email_domain: 'dyci.edu.ph',
 }
 
-let current: OrgSettings = ORG_DEFAULTS
+export type OrgSettingsState = { settings: OrgSettings; status: 'loading' | 'ready' | 'failed' }
+
+const LOADING: OrgSettingsState = { settings: ORG_DEFAULTS, status: 'loading' }
+let current: OrgSettingsState = LOADING
 let loaded = false
 let inflight: Promise<void> | null = null
 const listeners = new Set<() => void>()
 
-function publish(next: OrgSettings) {
+function publish(next: OrgSettingsState) {
   current = next
   listeners.forEach((listener) => listener())
 }
@@ -25,9 +28,11 @@ function load() {
   inflight = getOrganizationSettings()
     .then((row) => {
       loaded = true
-      publish(row)
+      publish({ settings: row, status: 'ready' })
     })
-    .catch(() => {})
+    .catch(() => {
+      publish({ settings: ORG_DEFAULTS, status: 'failed' })
+    })
     .finally(() => {
       inflight = null
     })
@@ -36,23 +41,30 @@ function load() {
 /** Keeps the shared copy current after the admin saves, so open pages update at once. */
 export function setOrgSettingsCache(next: OrgSettings) {
   loaded = true
-  publish(next)
+  publish({ settings: next, status: 'ready' })
 }
 
 /** Clears the shared copy. Tests use it between cases. */
 export function resetOrgSettingsCache() {
-  current = ORG_DEFAULTS
+  current = LOADING
   loaded = false
   inflight = null
 }
 
+/** Reads again after a failed read. */
+function retry() {
+  if (current.status !== 'failed') return
+  publish(LOADING)
+  load()
+}
+
 /**
- * The organization settings, read once and shared by every component. A failed read leaves the
- * defaults in place and the next mount tries again.
+ * The settings with whether they have arrived. Use it where a wrong default would do harm; a
+ * failed read stays `failed` until `retry` succeeds.
  */
-export function useOrgSettings(): OrgSettings {
+export function useOrgSettingsState(): OrgSettingsState & { retry: () => void } {
   useEffect(load, [])
-  return useSyncExternalStore(
+  const state = useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
       return () => {
@@ -60,8 +72,17 @@ export function useOrgSettings(): OrgSettings {
       }
     },
     () => current,
-    () => ORG_DEFAULTS,
+    () => LOADING,
   )
+  return { ...state, retry }
+}
+
+/**
+ * The organization settings, read once and shared by every component. While loading or after a
+ * failed read it holds today's defaults, which is right for display-only copy.
+ */
+export function useOrgSettings(): OrgSettings {
+  return useOrgSettingsState().settings
 }
 
 /** "1 day" or "30 days". */

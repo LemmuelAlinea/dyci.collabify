@@ -105,7 +105,7 @@ export async function resourceUrl(path: string) {
 }
 
 /**
- * Deletes an archived syllabus or curriculum for good, skipping the 30 days in
+ * Deletes an archived syllabus or curriculum for good, skipping the trash retention setting in
  * Trash: it goes to Trash and is deleted from there in the same breath, so the
  * same checks and the same storage sweep apply. Classes using it lose it.
  */

@@ -4,7 +4,7 @@ import { Alert } from '../../../components/ui/Alert'
 import { Button } from '../../../components/ui/Button'
 import { Field, PasswordInput } from '../../../components/ui/Field'
 import { Modal } from '../../../components/ui/Modal'
-import { useOrgSettings } from '../../../hooks/useOrgSettings'
+import { useOrgSettingsState } from '../../../hooks/useOrgSettings'
 import { listAccounts, registerBulkUsers } from '../../../lib/api/accounts'
 import { BULK_HEADERS, parseBulkCsv } from '../../../lib/bulkAccounts'
 import type { BulkPreviewRow } from '../../../lib/bulkAccounts'
@@ -22,7 +22,8 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
   onClose: () => void
   onImported: () => Promise<void>
 }) {
-  const { school_email_domain: domain } = useOrgSettings()
+  const { settings, status, retry } = useOrgSettingsState()
+  const domain = settings.school_email_domain
   const [rows, setRows] = useState<BulkPreviewRow[]>([])
   const [existing, setExisting] = useState<Map<string, Account>>(new Map())
   const [overwrite, setOverwrite] = useState<Set<string>>(new Set())
@@ -94,10 +95,11 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
         outcome.push(...await registerBulkUsers(
           chunk.map((row) => ({ ...row.user!, row: row.row, overwrite: overwrite.has(row.email) })), password,
         ))
-      } catch {
+      } catch (err) {
+        const reason = err instanceof Error && err.message ? err.message : 'Could not send this group. Upload the CSV again to retry.'
         outcome.push(...chunk.map((row) => ({
           row: row.row, email: row.email, status: 'failed' as const,
-          reason: 'Could not send this group. Upload the CSV again to retry.',
+          reason,
         })))
       }
       setProcessed(Math.min(i + BULK_CHUNK_SIZE, selected.length))
@@ -121,7 +123,7 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
       open={open}
       onClose={close}
       title="Bulk register users"
-      description={`Upload a CSV for student and member accounts. Only @${domain} addresses are accepted.`}
+      description={status === 'ready' ? `Upload a CSV for student and member accounts. Only @${domain} addresses are accepted.` : 'Upload a CSV for student and member accounts.'}
       size="lg"
       footer={
         <>
@@ -150,13 +152,15 @@ export function BulkRegisterDialog({ open, onClose, onImported }: {
         {error && <Alert tone="error">{error}</Alert>}
         {step === 'preview' && (
           <>
+            {status === 'loading' && <p>Loading the school email domain…</p>}
+            {status === 'failed' && <Alert tone="error" onRetry={retry}>Could not read the school email domain. Try again.</Alert>}
             <div className="flex flex-wrap items-center gap-3">
               <Button variant="outline" size="sm" onClick={() => downloadCsv('collabify-bulk-users.csv', toCsv([...BULK_HEADERS], []))}>
                 Download CSV template
               </Button>
               <label className="cursor-pointer rounded-xl border border-line px-4 py-2 font-medium text-ink hover:border-line-strong focus-within:ring-2 focus-within:ring-[var(--ring)]">
                 Choose CSV
-                <input type="file" accept=".csv,text/csv" className="sr-only" onChange={(event) => void pickFile(event)} />
+                <input type="file" accept=".csv,text/csv" className="sr-only" disabled={status !== 'ready'} onChange={(event) => void pickFile(event)} />
               </label>
             </div>
             <p>Columns: first_name, middle_name (optional), last_name, email, role, office (optional). Use student or member for role. An office is matched by name and applies to members only. At most 100 users.</p>

@@ -210,7 +210,7 @@ export default function Archive() {
       <DirectoryHero
         title="Your"
         accent="archive."
-        description="What you put away stays here, readable, until you bring it back. Restore puts it where it was. Move to trash starts a 30-day countdown to deleting it."
+        description={`What you put away stays here, readable, until you bring it back. Restore puts it where it was. Move to trash starts a ${retention}-day countdown to deleting it.`}
         action={
           <ButtonLink variant="onNavy" to={paths.trash}>
             <Icon name="trash" size={14} />

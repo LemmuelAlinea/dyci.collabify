@@ -81,7 +81,7 @@ export const renameDiscussion = (discussionId: string, topic: string) =>
 export const moveDiscussion = (discussionId: string, folderId: string | null) =>
   rpc('move_general_discussion', { p_discussion: discussionId, p_folder: folderId })
 
-/** Moves a stopped discussion to the caller's Trash, where it waits 30 days. */
+/** Moves a stopped discussion to the caller's Trash, where it waits for the trash retention setting. */
 export const trashDiscussion = (discussionId: string) =>
   rpc('trash_general_discussion', { p_discussion: discussionId })
 
