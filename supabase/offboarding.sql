@@ -25,6 +25,11 @@
 -- anyone not on the project before it reads any switch. That one statement runs with the
 -- request's claims cleared (auth.uid() null, the system path), the way
 -- project-workflow-rules.sql runs its rules, and the admin's claims come straight back.
+-- That path also moves reviews on archived tasks and in archived projects, which the
+-- guard's archived refusals would stop for a person: by design, because archived projects
+-- are handed over too. This file depends on guard_general_task keeping its
+-- `auth.uid() is null` early return; a future change to that guard must keep the system
+-- path, or the review step here breaks.
 --
 -- The function writes no task history: record_general_assignee_event writes 'unassigned' for
 -- each assignee row removed, and log_profile_change writes the status row.

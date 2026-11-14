@@ -312,6 +312,76 @@ begin
     pg_temp.prole(p1, v_t) = 'pm'
     and (select status = 'active' from public.profiles where id = v_t));
 
+  -- ------------------------------------------------------------ a successor already QA or a stakeholder
+
+  -- S1 is on P1 as QA, then as a stakeholder. Either way S1 ends as its PM with one row.
+  -- Undone afterwards by a savepoint each time.
+  begin
+    perform pg_temp.act_as_service();
+    update public.general_members set role = 'qa' where project_id = p1 and user_id = v_s1;
+    perform pg_temp.act_as(v_a);
+    perform public.admin_offboard_member(v_t, v_s1);
+    perform pg_temp.act_as_service();
+    perform pg_temp.must_be('a successor who is QA on the project becomes its PM with one row',
+      pg_temp.prole(p1, v_s1) = 'pm' and pg_temp.prole(p1, v_t) = 'coordinator'
+      and (select count(*) from public.general_members where project_id = p1 and user_id = v_s1) = 1
+      and (select count(*) from public.general_members where project_id = p1 and role = 'pm') = 1);
+    raise exception 'zz undo';
+  exception when others then
+    if sqlerrm <> 'zz undo' then raise; end if;
+  end;
+  begin
+    perform pg_temp.act_as_service();
+    update public.general_members set role = 'stakeholder' where project_id = p1 and user_id = v_s1;
+    perform pg_temp.act_as(v_a);
+    perform public.admin_offboard_member(v_t, v_s1);
+    perform pg_temp.act_as_service();
+    perform pg_temp.must_be('a successor who is a stakeholder on the project becomes its PM with one row',
+      pg_temp.prole(p1, v_s1) = 'pm' and pg_temp.prole(p1, v_t) = 'coordinator'
+      and (select count(*) from public.general_members where project_id = p1 and user_id = v_s1) = 1
+      and (select count(*) from public.general_members where project_id = p1 and role = 'pm') = 1);
+    raise exception 'zz undo';
+  exception when others then
+    if sqlerrm <> 'zz undo' then raise; end if;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and S1 is P1''s Coordinator again',
+    pg_temp.prole(p1, v_s1) = 'coordinator' and pg_temp.prole(p1, v_t) = 'pm');
+
+  -- ------------------------------------------------------------ a failure after the writes begin
+
+  -- A trigger refuses T's status change, the last write, so the call fails after every
+  -- handover write. Nothing it wrote survives.
+  perform pg_temp.act_as_service();
+  execute format($f$
+    create function public.zz_ob_fail_status() returns trigger language plpgsql as $b$
+    begin
+      if new.id = %L::uuid then raise exception 'zz forced failure'; end if;
+      return new;
+    end $b$ $f$, v_t);
+  create trigger zz_ob_fail_status before update on public.profiles
+    for each row execute function public.zz_ob_fail_status();
+  v_err := null;
+  begin
+    perform pg_temp.act_as(v_a);
+    perform public.admin_offboard_member(v_t, v_s1);
+  exception when others then
+    v_err := sqlerrm;
+  end;
+  perform pg_temp.act_as_service();
+  drop trigger zz_ob_fail_status on public.profiles;
+  drop function public.zz_ob_fail_status();
+  perform pg_temp.must_be('a failure at the status step rolls back every handover write',
+    v_err = 'zz forced failure'
+    and (select status = 'active' from public.profiles where id = v_t)
+    and pg_temp.srole(ws1, v_t) = 'pm' and pg_temp.srole(ws1, v_s1) = 'member'
+    and pg_temp.prole(p1, v_t) = 'pm' and pg_temp.prole(p1, v_s1) = 'coordinator'
+    and (select leader_id = v_t from public.general_teams where id = t1)
+    and (select count(*) from public.general_tasks where id in (r1, r2) and reviewer_id = v_t) = 2
+    and pg_temp.holds(k1, v_t)
+    and not exists (select 1 from public.audit_events where action::text = 'offboarded'
+                     and subject_id = v_t));
+
   -- ------------------------------------------------------------ the offboard
 
   perform pg_temp.act_as(v_a);
