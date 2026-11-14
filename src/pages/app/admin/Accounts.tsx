@@ -24,6 +24,9 @@ import {
   setProjectManager,
 } from '../../../lib/api/accounts'
 import { setCanTeach } from '../../../lib/api/admin'
+import { offboardingPreview } from '../../../lib/api/offboarding'
+import { isEligibleSuccessor } from '../../../lib/offboarding'
+import type { OffboardLine } from '../../../lib/offboarding'
 import { listOffices, listOfficePeople, setMemberOffice } from '../../../lib/api/offices'
 import { liveOfficeId, officeName } from '../../../lib/offices'
 import type { Office } from '../../../lib/offices'
@@ -31,6 +34,7 @@ import { authErrorMessage } from '../../../lib/authError'
 import { ACCOUNT_STATUS_LABEL, fullName, ROLE_LABEL } from '../../../lib/types'
 import type { Account, AccountStatus } from '../../../lib/types'
 import { BulkRegisterDialog } from './BulkRegisterDialog'
+import { OffboardDialog } from './accounts/OffboardDialog'
 
 const STATUS_TONE: Record<AccountStatus, string> = {
   active: 'bg-success-500/15 text-success-700 dark:text-success-300',
@@ -117,6 +121,17 @@ function ChangeOfficeDialog({
   )
 }
 
+/** The classes a teacher runs stay theirs when they are deactivated; say so before it happens. */
+function ClassWarning({ account, className = 'mt-2' }: { account: Account; className?: string }) {
+  if (account.class_count === 0) return null
+  return (
+    <p className={`font-medium text-ink ${className}`}>
+      They run {account.class_count} {account.class_count === 1 ? 'class' : 'classes'} — those
+      become unreachable to everyone in them until this is undone or the classes are handed over.
+    </p>
+  )
+}
+
 /** A switch with its label beside it, so the state reads without hovering. */
 function SwitchRow({
   label,
@@ -147,6 +162,9 @@ export default function Accounts() {
   const [busy, setBusy] = useState<string | null>(null)
   const [changing, setChanging] = useState<{ account: Account; to: 'student' | 'member' } | null>(null)
   const [deactivating, setDeactivating] = useState<Account | null>(null)
+  // A member who still runs things gets the Offboard dialog instead of the plain confirmation.
+  const [offboarding, setOffboarding] = useState<{ account: Account; lines: OffboardLine[] } | null>(null)
+  const [previewFailed, setPreviewFailed] = useState<{ account: Account; error: string } | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   // Offices load on their own, so the directory still works when they fail.
   const [offices, setOffices] = useState<Office[] | null>(null)
@@ -238,6 +256,35 @@ export default function Accounts() {
       setBusy(null)
     }
   }
+
+  /** Deactivate: a member is checked for what they run first; a student goes straight to the confirmation. */
+  async function startDeactivate(a: Account) {
+    if (a.role !== 'member') {
+      setDeactivating(a)
+      return
+    }
+    setBusy(a.id)
+    try {
+      const lines = await offboardingPreview(a.id)
+      setPreviewFailed(null)
+      if (lines.length === 0) setDeactivating(a)
+      else setOffboarding({ account: a, lines })
+    } catch (err) {
+      setPreviewFailed({
+        account: a,
+        error: authErrorMessage(err, `Could not check what ${fullName(a)} runs. Try again.`),
+      })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /** Who can take over from the person leaving, by name. */
+  const successors = (targetId: string) =>
+    (rows ?? [])
+      .filter((r) => isEligibleSuccessor(r, targetId))
+      .map((r) => ({ id: r.id, name: fullName(r) }))
+      .sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: 'base' }))
 
   if (rows === null) {
     return (
@@ -423,7 +470,7 @@ export default function Accounts() {
                         disabled={working}
                         onClick={() =>
                           a.status === 'active'
-                            ? setDeactivating(a)
+                            ? void startDeactivate(a)
                             : void run(
                                 a.id,
                                 () => setAccountActive(a.id, true),
@@ -490,17 +537,42 @@ export default function Accounts() {
               {deactivating && fullName(deactivating)} will not be able to sign in. Nothing
               they made is removed, and you can turn this back on at any time.
             </p>
-            {deactivating && deactivating.class_count > 0 && (
-              <p className="mt-2 font-medium text-ink">
-                They run {deactivating.class_count}{' '}
-                {deactivating.class_count === 1 ? 'class' : 'classes'} — those become
-                unreachable to everyone in them until this is undone or the classes are
-                handed over.
-              </p>
-            )}
+            {deactivating && <ClassWarning account={deactivating} />}
           </>
         }
       />
+      {offboarding && (
+        <OffboardDialog
+          person={{ id: offboarding.account.id, name: fullName(offboarding.account) }}
+          candidates={successors(offboarding.account.id)}
+          lines={offboarding.lines}
+          note={
+            <ClassWarning account={offboarding.account} className="text-[13px] leading-relaxed" />
+          }
+          onClose={() => setOffboarding(null)}
+          onDone={() => {
+            setOffboarding(null)
+            void load()
+          }}
+        />
+      )}
+      <Modal
+        open={Boolean(previewFailed)}
+        onClose={() => setPreviewFailed(null)}
+        title={previewFailed ? `Offboard ${fullName(previewFailed.account)}` : 'Offboard'}
+        size="sm"
+        footer={
+          <Button variant="ghost" onClick={() => setPreviewFailed(null)}>
+            Cancel
+          </Button>
+        }
+      >
+        {previewFailed && (
+          <Alert tone="error" onRetry={() => startDeactivate(previewFailed.account)}>
+            {previewFailed.error}
+          </Alert>
+        )}
+      </Modal>
       <ChangeOfficeDialog
         account={moving}
         current={moving ? officeIdOf(moving) : null}
