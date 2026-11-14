@@ -284,7 +284,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `set_member_office`, `set_space_office` and the rest); there is no write policy, and every write is audited. The
   admin's overview reads (`admin_office_people`, `admin_office_spaces`, `admin_org_overview`,
   `admin_attention_projects`, `admin_org_summary`) return names and counts only, never project content. Quiet means
-  no person-made task event (non-null `actor_id`) for 14 days with open work; comments, time logs and project
+  no person-made task event (non-null `actor_id`) for the quiet threshold (14 days by default) with open work; comments, time logs and project
   events don't reset quiet; only person-made task events do. It redefines nothing another file
   owns. The admin rail is Organization / Academic program / Compliance, and Admin Home is the organization overview.
   Suite: `supabase/tests/offices.test.sql`.
@@ -324,6 +324,21 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   of `program_announcements_read`, `program_notices`, `program_notices_all` and `notify_program_announcement` from
   `program-notices.sql`, so re-running `program-notices.sql` means re-running it afterwards. Suite:
   `supabase/tests/notice-audience.test.sql`.
+- Organization settings (`supabase/organization-settings.sql`, after `notice-audience.sql`, before `anon-lockdown.sql`):
+  one row, `organization_settings`, holds four school-wide values: quiet days (3-90, default 14), trash retention
+  days (7-365, default 30), new-project visibility (`private` default, or `workspace`) and the school email domain
+  (default `dyci.edu.ph`). The defaults equal the old fixed values, so nothing changes until an admin saves. Only an
+  active admin writes, through `set_organization_settings` (null means unchanged; one `org_setting_changed` audit row
+  per changed value); no write policy exists. `admin_trash_purge_preview` is an upper bound on what a shorter
+  retention would purge, so the page says "up to N". The `general_projects_org_visibility` trigger applies the
+  visibility to new work projects only. The import domain is read in three places: the CSV preview waits for it, the
+  `bulk-register-users` Edge Function refuses the batch when it cannot read it (redeploy it with the frontend), and
+  `overwrite_bulk_account`. Copy that names a value reads `useOrgSettings`, never a literal. It takes final ownership
+  of `office_attention_rows` (from `offices.sql`), `list_my_trash` (from `work-task-handoff.sql`), `purge_trash`
+  (from `archive-page.sql`) and `overwrite_bulk_account` (from `company-accounts.sql`), so re-running any of
+  `offices.sql`, `trash.sql`, `archive-page.sql`, `project-stakeholders.sql`, `work-task-handoff.sql` or
+  `company-accounts.sql` means re-running it afterwards, then `anon-lockdown.sql`. The page is `/admin/organization`.
+  Suite: `supabase/tests/organization-settings.test.sql`.
 
 ## First-run walkthroughs
 

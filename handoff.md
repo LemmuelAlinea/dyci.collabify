@@ -4887,3 +4887,35 @@ branch is pushed.
 - Minor: the meta line runs long; uneven ternary indent; `officesError` persists across audience switches (harmless).
 - Minor: notices show while WorkOverview loads; no Home.tsx routing test.
 - Later phases of the organization upgrade: 5 organization settings.
+
+## Organization settings (2026-11-15)
+
+Phase 5 of the organization upgrade, and the last: the admin upgrade plan (phases 1-5) is complete. The admin changes
+four school-wide values from one page, Organization settings (`/admin/organization`): the quiet threshold (3-90 days),
+how long the trash keeps items (7-365 days), whether a new work project starts Private or Workspace, and the email
+domain the CSV import accepts. Each is range-checked by the database and every change writes an audit row with the
+old and new value. The defaults equal the old fixed values, so nothing changes until an admin saves. The trash count
+before shortening retention is an upper bound ("up to N items"). The CSV preview waits for the domain before it
+checks a file, and the `bulk-register-users` Edge Function refuses the batch when it cannot read the domain.
+
+SQL: `supabase/organization-settings.sql` and `anon-lockdown.sql` were applied to the live project. Suites, all rolled
+back: `organization-settings` 80, `offices` 78, `office-heads` 57, `trash` 36, `archive-page` 43, `company-accounts` 61
+and `bulk-accounts` 6 assertions pass. The file takes over `office_attention_rows`, `list_my_trash`, `purge_trash` and
+`overwrite_bulk_account`; `docs/07-backup.md` and `CLAUDE.md` list the re-run rules.
+
+Ship needs the `bulk-register-users` Edge Function redeployed with the frontend (deno was not available here, so the
+deploy is its first compile).
+
+Verified: `npm run build` clean, `npm test` 2,328 passed (225 files), the suites pass.
+Browser walk: pending.
+
+**Deferred**
+- Minor: the lock test is source-text only.
+- Minor: numeric labels are allowed.
+- Minor: the test that explicit Workspace is kept cannot fail; replace it with an explicit `private` case.
+- Minor: a header line in `organization-settings.sql` ("rules that used fixed values") is history wording.
+- Minor: pasted domains in uppercase (cosmetic).
+- Minor: the 63-character label limit is not mirrored client-side (the database judges).
+- Minor: `aria-describedby` on the notes; Discard is untested.
+- Minor: import order of the hook; cache race on save; stale "30 days" in api comments.
+- Minor: `deno check` not run; the raw network string can show after a failed chunk; quiet re-read on remount.
