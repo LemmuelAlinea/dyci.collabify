@@ -51,18 +51,28 @@ figures. Phase 1 decided the head is read-only.
 - **`supabase/offices.sql` (owner, edited):** extract the attention logic of
   `admin_attention_projects` into an internal, ungated helper `office_attention_rows()` (revoked
   from `authenticated`) returning the same columns; `admin_attention_projects` keeps its signature
-  and gate and selects from it. No behaviour change; the phase 1 suite must still pass.
+  and gate and selects from it. The current `pm` step reads `admin_work_project_rows()`, which is
+  itself gated by `is_admin()`, so the helper computes "has a working PM" directly (a `pm` row whose
+  account is active with `can_manage_projects` on) — the same rule `admin_work_project_rows` uses;
+  a comment names project-roles.sql as the rule's owner, and a test pins that the helper and
+  `admin_work_project_rows` agree. `admin_org_overview` needs no change. No behaviour change; the
+  phase 1 suite must still pass.
 - **`supabase/office-heads.sql` (new; after `offboarding.sql`, before `anon-lockdown.sql`):**
-  - `alter table offices add column if not exists head_id uuid references profiles(id) on delete
-    set null`.
+  - *My call:* a table `office_heads(office_id uuid primary key references offices on delete
+    cascade, user_id uuid not null references profiles on delete cascade, assigned_by, assigned_at)`
+    — one head per office by the key — instead of a column on `offices`, because every account reads
+    `offices` (and its realtime payloads); RLS lets only the admin and the head themself read a row.
   - `set_office_head(p_office uuid, p_user uuid)` (null clears): active admin only; the office is
     live; the person is an active `member` filed in that office (`office_members`). Writes a new
     `office_head_changed` audit row (subject the office, before/after the head names, `''` for none).
-  - **Seat clears itself** (*my call*), by a trigger on `office_members` (delete, or update to
-    another office) and the existing role trigger path: when the head leaves the office or stops
-    being a member, `head_id` is set null and `office_head_changed` is written with a null actor.
-    A deactivated head keeps the seat, but every read treats an inactive head as no head.
-    Archiving an office clears its head.
+  - **Seat clears itself** (*my call*): one trigger on `office_members` (delete, or update to another
+    office) covers moves, removals and role changes, because `profiles_office_role` already deletes
+    the row when someone stops being a member; and a trigger on `profiles` clears the seat when the
+    head stops being active (deactivated or offboarded). Reactivating does not restore it; the admin
+    names the head again. Each automatic clear writes `office_head_changed` with `auth.uid()` as the
+    actor, as `profiles_office_role` does. Archiving needs no step of its own: `archive_office`
+    refuses while active people remain and deletes the inactive ones' rows, which fires the trigger.
+    So there is no "inactive head" state.
   - `my_headed_office()` returns `(office_id uuid, office_name text)` for the caller when they are
     the active head of a live office; zero rows otherwise.
   - Head reads, each answering for the caller's headed office only (zero rows otherwise):
@@ -71,8 +81,8 @@ figures. Phase 1 decided the head is read-only.
     space_name, no_pm, quiet_since, plus `i_am_on boolean` so the page can link only those),
     `my_office_spaces()` (space_id, space_name, running_projects; live spaces), `my_office_people()`
     (id, name; active members filed in the office).
-  - `admin_office_heads()` returns `(office_id, head_id, head_name)` for the admin (active heads
-    only), for the Offices page and Admin Home.
+  - `admin_office_heads()` returns `(office_id, head_id, head_name)` for the admin, for the Offices
+    page and Admin Home.
 - Suite `supabase/tests/office-heads.test.sql`.
 
 ### App
@@ -80,9 +90,13 @@ figures. Phase 1 decided the head is read-only.
 - **Offices page** (`OfficeDetail`): a **Head** select listing the office's active members plus
   "No head", calling `set_office_head`; refusals shown as-is.
 - **Admin Home** Offices band: the head's name under each office (or "No head").
-- **Rail:** a member who heads an office gets a **My office** entry (icon `briefcase`) in their
-  main group, linking to `/office` (new path `paths.office`). The rail reads `my_headed_office()`
-  once, alongside the membership it already loads.
+- **Rail:** a member who heads an office gets a **My office** entry (icon `briefcase`), linking to
+  `/office` (new path `paths.office`). *My call:* being a head never changes which rail a member
+  gets (teaching, stakeholder-only, in-nothing or regular); the entry is added to that rail's first
+  main group (`TEACHING_MAIN`, `STAKEHOLDER_MAIN`, the in-nothing group, or `OVERVIEW`), and a
+  stakeholder-only head keeps `StakeholderHome`. The head flag is a separate optional argument to
+  `navFor` (`headsOffice?: boolean`), read from `my_headed_office()` once, false while loading or
+  on error — it stays out of `membershipOf`, so the rail's no-flash loading rules are unchanged.
 - **My office page** (`pages/app/MyOffice.tsx`, inside `ProtectedRoute` + `AppShell`, members
   only): the banner names the office; four bands (figures, needs attention, spaces, people), each
   with its own loading, empty and failed-with-retry state, in Admin Home's band style. A project
@@ -93,8 +107,10 @@ figures. Phase 1 decided the head is read-only.
 
 - SQL: only an admin sets a head; the head must be an active member of that office; a student,
   an admin, a member of another office and an inactive member are refused; moving the head to
-  another office, removing their office or making them a student clears the seat and audits it;
-  archiving clears it; an inactive head reads as none and their reads return nothing; every head
+  another office, removing their office, making them a student, or deactivating them clears the seat
+  and writes one audit row with the acting admin; reactivating does not restore it; nobody but the
+  admin and the head reads an `office_heads` row; the helper's has-PM rule agrees with
+  `admin_work_project_rows`; every head
   read returns only the head's office and nothing to anyone else (another office's head, a member,
   the admin); the counts match `admin_org_overview` for that office; `i_am_on` is true only for
   projects the head is a member of; the phase 1 suite still passes after the helper extraction.
