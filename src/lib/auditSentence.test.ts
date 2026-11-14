@@ -47,6 +47,15 @@ describe('auditSentence for offboarding', () => {
     )
   })
 
+  it('an offboarded line with no successor says only what was cleared', () => {
+    expect(
+      auditSentence(event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: '', before_value: '1 team, 7 tasks' })),
+    ).toBe('Ana Cruz was offboarded (1 team, 7 tasks)')
+    expect(auditSentence(event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: '', before_value: '' }))).toBe(
+      'Ana Cruz was offboarded',
+    )
+  })
+
   it('a space PM assignment names the space and the manager', () => {
     expect(auditSentence(event({ action: 'space_pm_assigned', subject_label: 'Lab', after_value: 'Ben Reyes' }))).toBe(
       'The space Lab now has Ben Reyes as project manager',

@@ -9,7 +9,7 @@ import { Select } from '../../../../components/ui/Select'
 import { useToast } from '../../../../components/ui/Toast'
 import { offboardMember } from '../../../../lib/api/offboarding'
 import { authErrorMessage } from '../../../../lib/authError'
-import { buildOverrides, readyToOffboard } from '../../../../lib/offboarding'
+import { buildOverrides, handoverLines, readyToOffboard } from '../../../../lib/offboarding'
 import type { OffboardLine } from '../../../../lib/offboarding'
 
 type Person = { id: string; name: string }
@@ -77,9 +77,10 @@ export function OffboardDialog({
   const reviews = lines.filter((l) => l.kind === 'reviewer')
   const tasks = lines.find((l) => l.kind === 'open_tasks')
   const options = candidates.map((c) => ({ value: c.id, label: c.name }))
-  // The database needs a successor even when only teams, reviews or tasks are listed:
-  // it names them in the audit log.
-  const ready = !!successor && readyToOffboard(lines, successor)
+  // Only spaces and projects need a successor. Without them there is nobody to pick: seats
+  // are emptied, reviews go to each project's own project manager, tasks are unassigned.
+  const needsSuccessor = handoverLines(lines).length > 0
+  const ready = readyToOffboard(lines, successor || null)
 
   function close() {
     if (!busy) onClose()
@@ -90,7 +91,7 @@ export function OffboardDialog({
     setBusy(true)
     setError(null)
     try {
-      await offboardMember(person.id, successor, buildOverrides(lines, successor, picks))
+      await offboardMember(person.id, successor || null, buildOverrides(lines, successor, picks))
       show(`${person.name} offboarded`)
       onDone()
     } catch (err) {
@@ -135,7 +136,11 @@ export function OffboardDialog({
       open
       onClose={close}
       title={`Offboard ${person.name}`}
-      description={`${person.name} stops signing in, and everything they run moves to someone else in one step. If any part is refused, nothing changes.`}
+      description={
+        needsSuccessor
+          ? `${person.name} stops signing in, and everything they run moves to someone else in one step. If any part is refused, nothing changes.`
+          : `${person.name} stops signing in, and their seats, reviews and tasks go back to each project in one step. If any part is refused, nothing changes.`
+      }
       size="lg"
       footer={
         <>
@@ -151,29 +156,31 @@ export function OffboardDialog({
       <div className="space-y-5">
         {error && <Alert tone="error">{error}</Alert>}
         {note}
-        {candidates.length === 0 && (
+        {needsSuccessor && candidates.length === 0 && (
           <Alert tone="info">
             Nobody can take over yet. Only an active member with Project manager on can. Turn on
             the Project manager switch for someone in Accounts, then deactivate {person.name} again.
           </Alert>
         )}
 
-        <Field
-          label="Hand everything to"
-          hint={<span className="text-[12px] text-faint">People with Project manager on</span>}
-        >
-          {(id) => (
-            <Select
-              id={id}
-              data-offboard-successor
-              value={successor}
-              disabled={busy || candidates.length === 0}
-              placeholder="Choose a person"
-              onChange={(e) => setSuccessor(e.target.value)}
-              options={options}
-            />
-          )}
-        </Field>
+        {needsSuccessor && (
+          <Field
+            label="Hand everything to"
+            hint={<span className="text-[12px] text-faint">People with Project manager on</span>}
+          >
+            {(id) => (
+              <Select
+                id={id}
+                data-offboard-successor
+                value={successor}
+                disabled={busy || candidates.length === 0}
+                placeholder="Choose a person"
+                onChange={(e) => setSuccessor(e.target.value)}
+                options={options}
+              />
+            )}
+          </Field>
+        )}
 
         <div className="rounded-xl border border-line px-4 py-4">
           {spaces.length > 0 && <Group label="Spaces they run">{spaces.map(handover)}</Group>}

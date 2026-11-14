@@ -81,6 +81,12 @@ declare
   v_m    uuid := gen_random_uuid();  -- member without the Project manager switch
   v_x    uuid := gen_random_uuid();  -- an admin with Project manager on
   v_q    uuid := gen_random_uuid();  -- member who runs spaces, Project manager later off
+  v_n    uuid := gen_random_uuid();  -- member who holds only a task, a team seat and a review
+  v_np   uuid := gen_random_uuid();  -- member who runs one project and nothing else
+  t3     uuid;  -- team on P3 that N leads
+  r3     uuid;  -- review on P3 waiting on N
+  k7     uuid;  -- open, P3, N holds it
+  pn     uuid;  -- NP's project
   ws1    uuid;  -- live work space T runs
   ws2    uuid;  -- archived work space T runs
   p1     uuid;  -- T's project in WS1, S1 already Coordinator
@@ -120,7 +126,9 @@ begin
       (v_s3, 'zz-ob-s3@example.test'),
       (v_m,  'zz-ob-m@example.test'),
       (v_x,  'zz-ob-x@example.test'),
-      (v_q,  'zz-ob-q@example.test')
+      (v_q,  'zz-ob-q@example.test'),
+      (v_n,  'zz-ob-n@example.test'),
+      (v_np, 'zz-ob-np@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -134,7 +142,9 @@ begin
     (v_s3, 'zz-ob-s3@example.test', 'Zz', 'Obs3', 'member', 'rejected', false, true),
     (v_m,  'zz-ob-m@example.test',  'Zz', 'Obm',  'member', 'active',   false, false),
     (v_x,  'zz-ob-x@example.test',  'Zz', 'Obx',  'admin',  'active',   false, true),
-    (v_q,  'zz-ob-q@example.test',  'Zz', 'Obq',  'member', 'active',   false, true)
+    (v_q,  'zz-ob-q@example.test',  'Zz', 'Obq',  'member', 'active',   false, true),
+    (v_n,  'zz-ob-n@example.test',  'Zz', 'Obn',  'member', 'active',   false, false),
+    (v_np, 'zz-ob-np@example.test', 'Zz', 'Obnp', 'member', 'active',   false, true)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status,
         can_manage_projects = excluded.can_manage_projects, can_teach = excluded.can_teach;
@@ -460,6 +470,67 @@ begin
   perform pg_temp.must_be('the audit enum has offboarded and space_pm_assigned',
     'offboarded' = any (enum_range(null::public.audit_action)::text[])
     and 'space_pm_assigned' = any (enum_range(null::public.audit_action)::text[]));
+
+  -- ------------------------------------------------------------ no successor
+
+  -- N runs nothing: one open task, one team seat and one review, all on P3 (S1 its PM).
+  -- NP runs one project and nothing else.
+  perform pg_temp.act_as(v_np);
+  pn := (public.create_general_project('Zz Ob PN', '')).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role) values (p3, v_n, 'member');
+  insert into public.general_teams (project_id, name) values (p3, 'Zz Ob team three') returning id into t3;
+  insert into public.general_team_members (project_id, team_id, user_id) values (p3, t3, v_n);
+  update public.general_teams set leader_id = v_n where id = t3;
+  insert into public.general_tasks (project_id, title, routing_state, created_by)
+  values (p3, 'Zz Ob K7', 'released', v_s1) returning id into k7;
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p3, k7, v_n);
+  insert into public.general_tasks (project_id, title, routing_state, reviewer_id, status, stage, created_by)
+  values (p3, 'Zz Ob review three', 'coordinator_review', v_n, 'in_progress', 1, v_s1) returning id into r3;
+
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_refuse_exact('no successor is refused while they run a project',
+    format('select public.admin_offboard_member(%L, null)', v_np),
+    'Choose someone to take over their spaces and projects.');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and changes nothing',
+    (select status = 'active' from public.profiles where id = v_np)
+    and pg_temp.prole(pn, v_np) = 'pm'
+    and not exists (select 1 from public.audit_events where action::text = 'offboarded'
+                     and subject_id = v_np));
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_refuse_exact('no successor with an override is refused',
+    format('select public.admin_offboard_member(%L, null, %L)', v_n, jsonb_build_object(p3, v_s2)),
+    'Choose someone to take over their spaces and projects.');
+
+  -- P3's PM stops working: the review would have nowhere to go, so it is refused.
+  perform pg_temp.act_as_service();
+  update public.profiles set can_manage_projects = false where id = v_s1;
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_refuse_exact('no successor is refused when a reviewed project has no working PM',
+    format('select public.admin_offboard_member(%L, null)', v_n),
+    'A project they review in has no working project manager. Assign one first.');
+  perform pg_temp.act_as_service();
+  update public.profiles set can_manage_projects = true where id = v_s1;
+  perform pg_temp.must_be('...and changes nothing',
+    (select status = 'active' from public.profiles where id = v_n)
+    and pg_temp.holds(k7, v_n)
+    and (select leader_id = v_n from public.general_teams where id = t3)
+    and (select reviewer_id = v_n from public.general_tasks where id = r3));
+
+  perform pg_temp.act_as(v_a);
+  perform public.admin_offboard_member(v_n, null);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('no successor: the task is unassigned, the seat cleared, the review moves to P3''s PM',
+    not pg_temp.holds(k7, v_n) and pg_temp.unassigned(k7, v_n) = 1
+    and (select leader_id is null from public.general_teams where id = t3)
+    and (select reviewer_id = v_s1 from public.general_tasks where id = r3));
+  perform pg_temp.must_be('no successor: N is deactivated with one offboarded row, after_value empty',
+    (select status = 'rejected' from public.profiles where id = v_n)
+    and exists (select 1 from public.audit_events
+                 where action::text = 'offboarded' and subject_id = v_n and actor_id = v_a
+                   and after_value = '' and before_value = '1 team, 1 task')
+    and (select count(*) from public.audit_events where action::text = 'offboarded' and subject_id = v_n) = 1);
 
   -- ------------------------------------------------------------ a stuck space and the oversight reads
 

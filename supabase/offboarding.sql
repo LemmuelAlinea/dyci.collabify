@@ -193,7 +193,9 @@ $$;
  * waiting on them to each project's new PM, takes them off their open tasks, deactivates
  * them and writes one 'offboarded' audit row. One transaction: a refusal anywhere changes
  * nothing. It works from the database as it is at the call, so a line the preview showed
- * that no longer applies is skipped, not refused.
+ * that no longer applies is skipped, not refused. p_successor may be null only when they run
+ * no space and no project (no overrides then), and each project they review in already has
+ * a working PM; the audit row's after_value is then ''.
  */
 create or replace function public.admin_offboard_member(p_user uuid, p_successor uuid,
                                                         p_overrides jsonb default '{}')
@@ -227,19 +229,41 @@ begin
   if jsonb_typeof(coalesce(p_overrides, '{}'::jsonb)) is distinct from 'object' then
     raise exception 'Choose someone else to take over.' using errcode = 'invalid_parameter_value';
   end if;
-  v_ids := array(select distinct x from (
-             select p_successor as x
-             union all
-             select (e.value #>> '{}')::uuid from jsonb_each(coalesce(p_overrides, '{}'::jsonb)) e
-           ) s order by x);
-  foreach v_id in array v_ids loop
-    if v_id is null or v_id = p_user then
-      raise exception 'Choose someone else to take over.' using errcode = 'check_violation';
+  if p_successor is null then
+    -- No successor: allowed only when they run no space and no project now. Their teams,
+    -- tasks and reviews need nobody new (reviews go to each project's PM, checked below).
+    if coalesce(p_overrides, '{}'::jsonb) <> '{}'::jsonb then
+      raise exception 'Choose someone to take over their spaces and projects.' using errcode = 'check_violation';
     end if;
-  end loop;
-  foreach v_id in array v_ids loop
-    perform public.offboarding_require_successor(v_id);
-  end loop;
+    perform 1 from public.general_space_members m
+      join public.general_spaces s on s.id = m.space_id
+     where m.user_id = p_user and m.role = 'pm' and s.kind = 'work' and s.trashed_at is null
+       for update of m;
+    if found then
+      raise exception 'Choose someone to take over their spaces and projects.' using errcode = 'check_violation';
+    end if;
+    perform 1 from public.general_members m
+      join public.general_projects p on p.id = m.project_id
+     where m.user_id = p_user and m.role = 'pm' and p.class_board_id is null and p.trashed_at is null
+       for update of m;
+    if found then
+      raise exception 'Choose someone to take over their spaces and projects.' using errcode = 'check_violation';
+    end if;
+  else
+    v_ids := array(select distinct x from (
+               select p_successor as x
+               union all
+               select (e.value #>> '{}')::uuid from jsonb_each(coalesce(p_overrides, '{}'::jsonb)) e
+             ) s order by x);
+    foreach v_id in array v_ids loop
+      if v_id is null or v_id = p_user then
+        raise exception 'Choose someone else to take over.' using errcode = 'check_violation';
+      end if;
+    end loop;
+    foreach v_id in array v_ids loop
+      perform public.offboarding_require_successor(v_id);
+    end loop;
+  end if;
 
   -- Spaces they run: the successor joins if absent, the target steps aside to Coordinator
   -- first (one pm row per space), then the successor becomes PM (offboarding_space_to).
@@ -251,6 +275,9 @@ begin
        for update of s, m
   loop
     v_to := coalesce((p_overrides ->> rec.id::text)::uuid, p_successor);
+    if v_to is null then  -- a seat that arrived after the no-successor check
+      raise exception 'Choose someone to take over their spaces and projects.' using errcode = 'check_violation';
+    end if;
     perform public.offboarding_space_to(rec.id, v_to, p_user);
     v_spaces := v_spaces + 1;
   end loop;
@@ -266,6 +293,9 @@ begin
        for update of p, m
   loop
     v_to := coalesce((p_overrides ->> rec.id::text)::uuid, p_successor);
+    if v_to is null then  -- a seat that arrived after the no-successor check
+      raise exception 'Choose someone to take over their spaces and projects.' using errcode = 'check_violation';
+    end if;
     insert into public.general_members (project_id, user_id, role)
     values (rec.id, v_to, 'member')
     on conflict do nothing;
@@ -302,6 +332,23 @@ begin
    where t.reviewer_id = p_user and t.routing_state = 'coordinator_review'
      and t.trashed_at is null and p.class_board_id is null and p.trashed_at is null
      for update of t;
+  -- With no successor, no PM changes here, so each project they review in must already have
+  -- a working PM (active, Project manager on) to take the reviews, or nothing happens.
+  if p_successor is null then
+    perform 1 from public.general_tasks t
+      join public.general_projects p on p.id = t.project_id
+     where t.reviewer_id = p_user and t.routing_state = 'coordinator_review'
+       and t.trashed_at is null and p.class_board_id is null and p.trashed_at is null
+       and not exists (
+             select 1 from public.general_members m
+               join public.profiles pr on pr.id = m.user_id
+              where m.project_id = p.id and m.role = 'pm'
+                and pr.status = 'active' and pr.can_manage_projects);
+    if found then
+      raise exception 'A project they review in has no working project manager. Assign one first.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
   -- guard_general_task checks project membership for auth.uid() before it reads any switch,
   -- and the admin is never a member, so this one statement runs on the system path
   -- (auth.uid() null), as project-workflow-rules.sql runs its rules. The admin's claims come
@@ -362,7 +409,8 @@ begin
   insert into public.audit_events
     (action, actor_id, subject_id, subject_label, before_value, after_value)
   values ('offboarded', v_admin, p_user, public.audit_label(p_user),
-          array_to_string(v_parts, ', '), public.audit_label(p_successor));
+          array_to_string(v_parts, ', '),
+          case when p_successor is null then '' else public.audit_label(p_successor) end);
 end;
 $$;
 

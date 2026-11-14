@@ -1703,7 +1703,8 @@ export function auditSentence(e: AuditEvent) {
     case 'space_office_changed':
       return `The space ${who} moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
     case 'offboarded':
-      return `${who} was offboarded and handed over to ${e.after_value}${e.before_value ? ` (${e.before_value})` : ''}`
+      // No successor (after_value '') when they ran no space or project.
+      return `${who} was offboarded${e.after_value ? ` and handed over to ${e.after_value}` : ''}${e.before_value ? ` (${e.before_value})` : ''}`
     case 'space_pm_assigned':
       return `The space ${who} now has ${e.after_value} as project manager`
   }

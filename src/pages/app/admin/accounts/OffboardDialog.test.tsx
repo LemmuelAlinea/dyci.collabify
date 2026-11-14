@@ -138,6 +138,17 @@ it("says nobody can take over when there are no candidates, and points to Accoun
   expect(button('Deactivate and hand over').disabled).toBe(true)
 })
 
+it('offboards someone who holds only tasks and teams without a successor', async () => {
+  await render(LINES.filter((l) => l.kind === 'team_lead' || l.kind === 'open_tasks'))
+  // Nothing to hand over, so there is nobody to pick.
+  expect(successor()).toBeNull()
+  expect(text()).not.toContain('Hand everything to')
+  expect(button('Deactivate and hand over').disabled).toBe(false)
+  await act(async () => button('Deactivate and hand over').click())
+  expect(offboardMember).toHaveBeenCalledWith('t', null, {})
+  expect(onDone).toHaveBeenCalled()
+})
+
 it('shows the database refusal as-is', async () => {
   // Supabase rejects with a plain object, not an Error instance.
   vi.mocked(offboardMember).mockRejectedValueOnce({

@@ -7,7 +7,7 @@ export async function offboardingPreview(userId: string) {
   return (data ?? []) as OffboardLine[]
 }
 
-export async function offboardMember(userId: string, successorId: string, overrides: Record<string, string>) {
+export async function offboardMember(userId: string, successorId: string | null, overrides: Record<string, string>) {
   const { error } = await supabase.rpc('admin_offboard_member', {
     p_user: userId,
     p_successor: successorId,
