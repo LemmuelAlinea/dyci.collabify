@@ -34,3 +34,22 @@ describe('auditSentence for offices', () => {
     ).toBe('The space Walk through space moved from No office to Registrar')
   })
 })
+
+describe('auditSentence for offboarding', () => {
+  it('an offboarded line names the successor and the counts', () => {
+    expect(
+      auditSentence(
+        event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: 'Ben Reyes', before_value: '2 spaces, 3 projects' }),
+      ),
+    ).toBe('Ana Cruz was offboarded and handed over to Ben Reyes (2 spaces, 3 projects)')
+    expect(auditSentence(event({ action: 'offboarded', subject_label: 'Ana Cruz', after_value: 'Ben Reyes' }))).toBe(
+      'Ana Cruz was offboarded and handed over to Ben Reyes',
+    )
+  })
+
+  it('a space PM assignment names the space and the manager', () => {
+    expect(auditSentence(event({ action: 'space_pm_assigned', subject_label: 'Lab', after_value: 'Ben Reyes' }))).toBe(
+      'The space Lab now has Ben Reyes as project manager',
+    )
+  })
+})

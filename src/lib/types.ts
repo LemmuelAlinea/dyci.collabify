@@ -1625,6 +1625,8 @@ export type AuditAction =
   | 'office_deleted'
   | 'office_changed'
   | 'space_office_changed'
+  | 'offboarded'
+  | 'space_pm_assigned'
 
 export type AuditEvent = {
   id: string
@@ -1659,6 +1661,8 @@ export const AUDIT_ACTIONS: { value: AuditAction; label: string }[] = [
   { value: 'office_deleted', label: 'Office deleted' },
   { value: 'office_changed', label: 'Office changed' },
   { value: 'space_office_changed', label: 'Space moved' },
+  { value: 'offboarded', label: 'Offboarded' },
+  { value: 'space_pm_assigned', label: 'Space PM assigned' },
 ]
 
 /** One line saying what happened, without naming anything academic. */
@@ -1698,6 +1702,10 @@ export function auditSentence(e: AuditEvent) {
       return `${who} moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
     case 'space_office_changed':
       return `The space ${who} moved from ${e.before_value || 'No office'} to ${e.after_value || 'No office'}`
+    case 'offboarded':
+      return `${who} was offboarded and handed over to ${e.after_value}${e.before_value ? ` (${e.before_value})` : ''}`
+    case 'space_pm_assigned':
+      return `The space ${who} now has ${e.after_value} as project manager`
   }
 }
 
