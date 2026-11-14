@@ -228,6 +228,8 @@
   --color-banner-edge: var(--banner-edge);
   --color-banner-end: var(--banner-end);
   --color-banner-end-ink: var(--banner-end-ink);
+  --color-banner-tile: var(--banner-tile);
+  --color-banner-tile-glyph: var(--banner-tile-glyph);
   --color-presence: var(--presence);
   --color-pending-soft: var(--pending-soft, var(--surface-sunken));
   --color-pending-ink: var(--pending-ink, var(--ink-muted));
@@ -345,6 +347,10 @@
     /* Text on a fill of that colour (the selected Work section, the timeline
        scale). Both default ends are amber, so the dark ink reads on either. */
     --banner-end-ink: #10162e;
+    /* A small copy of the banner for icon squares (empty dashboard panels): the
+       banner's left colour as the tile, its right colour as the icon. */
+    --banner-tile: var(--banner);
+    --banner-tile-glyph: var(--banner-glow);
     /* "You are here, and it is live": the dot on the rail's active space or
        class. Fixed green on purpose, not `success-*`, which a person can
        recolour to mean "done". */

@@ -266,3 +266,37 @@ describe('pop-up message colours', () => {
     expect(kept).toEqual({ light: { toastSuccess: '#123abc' }, dark: { toastError: '#ff0000' } })
   })
 })
+
+describe('banner icon squares', () => {
+  it('paints a gradient banner small: left colour as the tile, right colour as the icon', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const vars = toCssVars({ bannerStyle: 'gradient', banner: '#4a0d2e', banner2: '#f06595' }, mode)
+      expect(vars['--banner-tile']).toBe('#4a0d2e')
+      expect(vars['--banner-tile-glyph']).toBe('#f06595')
+    }
+  })
+
+  it('uses the glow as the icon on a glow banner', () => {
+    const vars = toCssVars({ banner: '#26327a', bannerAccent: '#ffd43b' }, 'light')
+    expect(vars['--banner-tile']).toBe('#26327a')
+    expect(vars['--banner-tile-glyph']).toBe('#ffd43b')
+  })
+
+  it('keeps the icon readable when the two banner colours are close', () => {
+    const vars = toCssVars({ bannerStyle: 'gradient', banner: '#26327a', banner2: '#2b3a8c' }, 'dark')
+    expect(contrast(vars['--banner-tile-glyph'], vars['--banner-tile'])).toBeGreaterThanOrEqual(3)
+  })
+
+  it('draws a black icon on a light solid banner and a white one on a dark solid banner', () => {
+    const light = toCssVars({ bannerStyle: 'solid', banner: '#ffe066' }, 'light')
+    expect(light['--banner-tile']).toBe('#ffe066')
+    expect(light['--banner-tile-glyph']).toBe('#000000')
+    const dark = toCssVars({ bannerStyle: 'solid', banner: '#4a0d2e' }, 'dark')
+    expect(dark['--banner-tile']).toBe('#4a0d2e')
+    expect(dark['--banner-tile-glyph']).toBe('#ffffff')
+  })
+
+  it('clears both when the palette changes', () => {
+    expect(PALETTE_VARS).toEqual(expect.arrayContaining(['--banner-tile', '--banner-tile-glyph']))
+  })
+})

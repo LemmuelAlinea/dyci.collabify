@@ -281,6 +281,11 @@ export function inkFor(bg: string): string {
   return contrast('#ffffff', bg) >= contrast('#000000', bg) ? '#ffffff' : '#000000'
 }
 
+/** Plain black on a light colour, plain white on a dark one. */
+export function blackOrWhite(bg: string): string {
+  return contrast('#000000', bg) >= contrast('#ffffff', bg) ? '#000000' : '#ffffff'
+}
+
 /**
  * Moves `fg` lighter or darker, keeping its hue, until it reaches `ratio`
  * against `bg`. Picks the direction with room to get there.
@@ -373,6 +378,8 @@ export const PALETTE_VARS: readonly string[] = [
   '--banner-edge',
   '--banner-end',
   '--banner-end-ink',
+  '--banner-tile',
+  '--banner-tile-glyph',
   '--pending-soft',
   '--pending-ink',
   '--nav-icon',
@@ -494,6 +501,11 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     const end = style === 'gradient' ? grounds[1] : style === 'glow' ? accent : first
     vars['--banner-end'] = withContrast(end, g.sunken, 3)
     vars['--banner-end-ink'] = inkFor(vars['--banner-end'])
+    // A small copy of the banner for icon squares: its left colour as the
+    // tile, its right colour as the icon, 3:1 against the tile. A solid banner
+    // has no second colour, so its icon is black on a light one, white on a dark one.
+    vars['--banner-tile'] = first
+    vars['--banner-tile-glyph'] = style === 'solid' ? blackOrWhite(first) : withContrast(end, first, 3)
   }
   if (style !== 'glow') vars['--banner-deco'] = 'hidden'
   if (style === 'gradient') {

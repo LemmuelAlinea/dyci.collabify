@@ -48,6 +48,15 @@ it('shows the all-active panel in the success tone when no group has stalled', a
   expect(panel()?.textContent).toContain('Every group made progress in the last 7 days.')
 })
 
+it('draws every panel icon square in the banner colours, success tone included', async () => {
+  for (const node of [<AttentionList items={[]} />, <StalledGroups boards={[]} />, <ClassRail classes={[]} />]) {
+    await show(node)
+    const tile = panel()?.querySelector('svg')?.parentElement
+    expect(tile?.className).toContain('bg-banner-tile')
+    expect(tile?.className).toContain('text-banner-tile-glyph')
+  }
+})
+
 it('shows the no-classes panel when there are no classes', async () => {
   await show(<ClassRail classes={[]} />)
   expect(panel()?.getAttribute('data-tone')).toBe('plain')

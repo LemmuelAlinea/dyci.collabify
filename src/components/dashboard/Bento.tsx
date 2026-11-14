@@ -110,13 +110,9 @@ export function BentoTile({
 }
 
 const PANEL_TONE = {
-  // The person's own card icon square on a sunken ground.
-  plain: { panel: 'surface-sunken', tile: 'bg-icon-tile text-icon-glyph' },
+  plain: 'surface-sunken',
   // Good news: everything is moving.
-  success: {
-    panel: 'bg-success-500/10',
-    tile: 'bg-success-500/15 text-success-700 dark:text-success-300',
-  },
+  success: 'bg-success-500/10',
 } as const
 
 /**
@@ -135,13 +131,13 @@ export function TilePanel({
   body: string
   tone?: keyof typeof PANEL_TONE
 }) {
-  const t = PANEL_TONE[tone]
   return (
     <div
       data-tone={tone}
-      className={`flex items-center gap-4 rounded-xl px-4 py-4 sm:px-5 ${t.panel}`}
+      className={`flex items-center gap-4 rounded-xl px-4 py-4 sm:px-5 ${PANEL_TONE[tone]}`}
     >
-      <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${t.tile}`}>
+      {/* The person's banner in small: its left colour, its right colour as the icon. */}
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-banner-tile text-banner-tile-glyph">
         <Icon name={icon} size={22} />
       </span>
       <span className="min-w-0">
