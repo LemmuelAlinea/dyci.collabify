@@ -15,6 +15,8 @@ import {
   setSpaceOffice,
 } from '../../../lib/api/offices'
 
+import { adminOfficeHeads, setOfficeHead } from '../../../lib/api/officeHeads'
+
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
@@ -42,6 +44,11 @@ vi.mock('../../../lib/api/offices', () => ({
   archiveOffice: vi.fn(async () => {}),
   setMemberOffice: vi.fn(async () => {}),
   setSpaceOffice: vi.fn(async () => {}),
+}))
+
+vi.mock('../../../lib/api/officeHeads', () => ({
+  adminOfficeHeads: vi.fn(async () => []),
+  setOfficeHead: vi.fn(async () => {}),
 }))
 
 let where = ''
@@ -205,4 +212,25 @@ it('a new office opens by the id createOffice returns', async () => {
   })
   await act(async () => button('Add office')!.click())
   expect(where).toBe('/admin/offices?office=o9')
+})
+
+it("the Head select lists the office's active members and calls setOfficeHead", async () => {
+  vi.mocked(listOfficePeople).mockResolvedValueOnce([
+    { id: 'p1', name: 'Ana Cruz', email: 'ana@example.com', status: 'active', office_id: 'o1' },
+    { id: 'p4', name: 'Dan Uy', email: 'dan@example.com', status: 'pending', office_id: 'o1' },
+    { id: 'p5', name: 'Eli Tan', email: 'eli@example.com', status: 'active', office_id: 'o2' },
+  ])
+  await renderAt('/admin/offices?office=o1')
+  const select = document.querySelector<HTMLSelectElement>('select[aria-label="Head"]')!
+  expect([...select.options].map((o) => o.textContent)).toEqual(['No head', 'Ana Cruz'])
+  await choose(select, 'p1')
+  expect(setOfficeHead).toHaveBeenCalledWith('o1', 'p1')
+  expect(toast).toHaveBeenCalledWith('Ana Cruz is the head of IT services')
+})
+
+it('hides the Head select when the heads read fails', async () => {
+  vi.mocked(adminOfficeHeads).mockRejectedValueOnce(new Error('offline'))
+  await renderAt('/admin/offices?office=o1')
+  expect(document.querySelector('select[aria-label="Head"]')).toBeNull()
+  expect(detail()).toContain('Ana Cruz')
 })

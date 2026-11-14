@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { Alert } from '../../../../components/ui/Alert'
 import { Badge } from '../../../../components/ui/Badge'
 import { orgOverview } from '../../../../lib/api/offices'
+import { adminOfficeHeads } from '../../../../lib/api/officeHeads'
+import { headNameByOffice } from '../../../../lib/officeHeads'
 import { sortOverview } from '../../../../lib/offices'
 import type { OfficeOverviewRow } from '../../../../lib/offices'
 import { paths } from '../../../../lib/paths'
@@ -16,6 +18,9 @@ const FIGURES = ['Spaces', 'Running projects', 'People', 'Needs attention'] as c
 /** One row per office, Unassigned last. Counts only; each row opens the office. */
 export function OfficesBand() {
   const { data, failed, load } = useRead(orgOverview)
+  // A failed heads read shows no head line at all; it must not look like "No head".
+  const heads = useRead(adminOfficeHeads)
+  const headNames = heads.data ? headNameByOffice(heads.data) : null
   const rows = data ? sortOverview(data) : []
   const noOffices = data !== null && rows.every((r) => r.office_id === null)
 
@@ -50,7 +55,7 @@ export function OfficesBand() {
           </div>
           <ul aria-label="Offices" className="divide-y divide-line">
             {rows.map((r) => (
-              <OfficeRow key={r.office_id ?? 'unassigned'} row={r} />
+              <OfficeRow key={r.office_id ?? 'unassigned'} row={r} headNames={headNames} />
             ))}
           </ul>
           {noOffices && (
@@ -68,7 +73,7 @@ export function OfficesBand() {
   )
 }
 
-function OfficeRow({ row }: { row: OfficeOverviewRow }) {
+function OfficeRow({ row, headNames }: { row: OfficeOverviewRow; headNames: Map<string, string> | null }) {
   const unassigned = row.office_id === null
   const values = [row.spaces, row.running_projects, row.people, row.needs_attention]
 
@@ -79,11 +84,18 @@ function OfficeRow({ row }: { row: OfficeOverviewRow }) {
         to={`${paths.admin.offices}?office=${row.office_id ?? 'unassigned'}`}
         className={`${GRID} px-4 py-3 transition-colors hover:bg-[var(--surface-sunken)] sm:px-5`}
       >
-        <span
-          data-office-name
-          className={`col-span-4 truncate font-medium sm:col-span-1 ${unassigned ? 'text-muted' : 'text-ink'}`}
-        >
-          {unassigned ? 'Unassigned' : row.office_name}
+        <span className="col-span-4 min-w-0 sm:col-span-1">
+          <span
+            data-office-name
+            className={`block truncate font-medium ${unassigned ? 'text-muted' : 'text-ink'}`}
+          >
+            {unassigned ? 'Unassigned' : row.office_name}
+          </span>
+          {!unassigned && headNames && (
+            <span data-office-head className="block truncate text-[12px] text-muted">
+              {headNames.get(row.office_id!) ?? 'No head'}
+            </span>
+          )}
         </span>
         {values.map((v, i) => (
           <span key={FIGURES[i]} className="min-w-0">

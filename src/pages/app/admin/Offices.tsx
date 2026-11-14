@@ -14,13 +14,21 @@ import {
   listOfficePeople,
   listOfficeSpaces,
 } from '../../../lib/api/offices'
+import { adminOfficeHeads } from '../../../lib/api/officeHeads'
+import type { OfficeHead } from '../../../lib/officeHeads'
 import { authErrorMessage } from '../../../lib/authError'
 import { liveOfficeId } from '../../../lib/offices'
 import type { Office, OfficePerson, OfficeSpace } from '../../../lib/offices'
 import { OfficeDetail } from './offices/OfficeDetail'
 import { OfficeDialog } from './offices/OfficeDialog'
 
-type Data = { offices: Office[]; people: OfficePerson[]; spaces: OfficeSpace[] }
+type Data = {
+  offices: Office[]
+  people: OfficePerson[]
+  spaces: OfficeSpace[]
+  /** Null when the heads read failed; the Head select then stays hidden. */
+  heads: OfficeHead[] | null
+}
 
 /** `?office=unassigned` opens the Unassigned entry; Admin Home links to both. */
 const UNASSIGNED = 'unassigned'
@@ -46,12 +54,13 @@ export default function Offices() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [offices, people, spaces] = await Promise.all([
+      const [offices, people, spaces, heads] = await Promise.all([
         listOffices(),
         listOfficePeople(),
         listOfficeSpaces(),
+        adminOfficeHeads().catch(() => null),
       ])
-      setData({ offices, people, spaces })
+      setData({ offices, people, spaces, heads })
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the offices. Try again.'))
@@ -67,7 +76,7 @@ export default function Offices() {
     void load()
   }, [load])
 
-  useLive(load, ['offices', 'office_members', 'office_spaces', 'profiles', 'general_spaces'])
+  useLive(load, ['offices', 'office_members', 'office_spaces', 'office_heads', 'profiles', 'general_spaces'])
 
   const live = useMemo(
     () =>
@@ -308,6 +317,7 @@ export default function Offices() {
             spaces={filed.spaces.get(selectedKey) ?? []}
             offices={live}
             allOffices={data.offices}
+            heads={data.heads}
             onMoved={load}
           />
         </div>

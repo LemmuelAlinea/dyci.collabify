@@ -4,7 +4,9 @@ import { Icon } from '../../../../components/ui/Icon'
 import { Select } from '../../../../components/ui/Select'
 import { useToast } from '../../../../components/ui/Toast'
 import { setMemberOffice, setSpaceOffice } from '../../../../lib/api/offices'
+import { setOfficeHead } from '../../../../lib/api/officeHeads'
 import { authErrorMessage } from '../../../../lib/authError'
+import type { OfficeHead } from '../../../../lib/officeHeads'
 import { officeName } from '../../../../lib/offices'
 import type { Office, OfficePerson, OfficeSpace } from '../../../../lib/offices'
 import { ACCOUNT_STATUS_LABEL } from '../../../../lib/types'
@@ -33,6 +35,7 @@ export function OfficeDetail({
   spaces,
   offices,
   allOffices,
+  heads,
   onMoved,
 }: {
   eyebrow: string
@@ -49,6 +52,8 @@ export function OfficeDetail({
   offices: Office[]
   /** Every office, so a row still linked to an archived one can name it. */
   allOffices: Office[]
+  /** Every office's head, or null when the read failed (the select is then hidden). */
+  heads: OfficeHead[] | null
   onMoved: () => Promise<void>
 }) {
   const { show } = useToast()
@@ -66,6 +71,24 @@ export function OfficeDetail({
       await onMoved()
     } catch (err) {
       show(authErrorMessage(err, `Could not move ${label}. Try again.`), 'error')
+    } finally {
+      setMoving(null)
+    }
+  }
+
+  const headId = heads?.find((h) => h.office_id === officeId)?.head_id ?? ''
+  const members = people.filter((p) => p.status === 'active')
+
+  async function changeHead(userId: string) {
+    if (!officeId) return
+    setMoving('head')
+    try {
+      await setOfficeHead(officeId, userId || null)
+      const name = members.find((m) => m.id === userId)
+      show(name ? `${who(name)} is the head of ${title}` : `${title} has no head now`)
+      await onMoved()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not change the head. Try again.'), 'error')
     } finally {
       setMoving(null)
     }
@@ -113,6 +136,30 @@ export function OfficeDetail({
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>
       </header>
+
+      {officeId && heads && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-3 sm:px-5">
+          <div className="min-w-0 flex-1 basis-[200px]">
+            <p className="text-[14px] text-ink">Head</p>
+            <p className="text-[12px] text-muted">
+              Sees this office's counts and names. Pick from its active members.
+            </p>
+          </div>
+          <div className="w-full shrink-0 sm:w-[260px]">
+            <Select
+              aria-label="Head"
+              value={headId}
+              disabled={moving !== null}
+              onChange={(e) => void changeHead(e.target.value)}
+              options={[
+                { value: '', label: 'No head' },
+                ...members.map((m) => ({ value: m.id, label: who(m) })),
+              ]}
+              className="!h-10 text-[13px]"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 p-4 sm:p-5 xl:grid-cols-2">
         <Group

@@ -35,6 +35,16 @@ describe('auditSentence for offices', () => {
   })
 })
 
+describe('auditSentence for office heads', () => {
+  it('names the new head and says no head when cleared', () => {
+    const e = event({ action: 'office_head_changed', subject_label: 'Registrar', after_value: 'Ana Cruz' })
+    expect(auditSentence(e)).toBe('The office Registrar now has Ana Cruz as head')
+    expect(auditSentence({ ...e, after_value: '', before_value: 'Ana Cruz' })).toBe(
+      'The office Registrar now has no head as head',
+    )
+  })
+})
+
 describe('auditSentence for offboarding', () => {
   it('an offboarded line names who took over and the counts', () => {
     expect(

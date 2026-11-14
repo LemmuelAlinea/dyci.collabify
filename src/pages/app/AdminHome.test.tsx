@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import AdminHome from './AdminHome'
+import { adminOfficeHeads } from '../../lib/api/officeHeads'
 import { attentionProjects, orgOverview, orgSummary } from '../../lib/api/offices'
 import { assignSpacePm, spacesWithoutPm } from '../../lib/api/offboarding'
 import { listAccounts } from '../../lib/api/accounts'
@@ -28,6 +29,9 @@ vi.mock('../../lib/api/accounts', () => ({
     { id: 'a1', first_name: 'Ben', middle_name: null, last_name: 'Reyes', email: 'b@x', role: 'member', status: 'active', can_manage_projects: true },
     { id: 'a2', first_name: 'Cara', middle_name: null, last_name: 'Lim', email: 'c@x', role: 'member', status: 'active', can_manage_projects: false },
   ]),
+}))
+vi.mock('../../lib/api/officeHeads', () => ({
+  adminOfficeHeads: vi.fn(async () => [{ office_id: 'o1', head_id: 'p1', head_name: 'Ana Cruz' }]),
 }))
 vi.mock('../../lib/api/offices', () => ({
   orgOverview: vi.fn(async () => [
@@ -206,6 +210,22 @@ it('says so when nothing needs attention', async () => {
   expect(band('attention')!.textContent).toContain(
     'Every running project and space has a project manager and recent activity.',
   )
+})
+
+it('each office row names its head or says No head', async () => {
+  await render()
+  const heads = [...band('offices')!.querySelectorAll('[data-office-row]')].map(
+    (r) => r.querySelector('[data-office-head]')?.textContent ?? null,
+  )
+  // Unassigned, Registrar, IT services sorted: IT services, Registrar, Unassigned.
+  expect(heads).toEqual(['Ana Cruz', 'No head', null])
+})
+
+it('shows no head line when the heads read fails', async () => {
+  vi.mocked(adminOfficeHeads).mockRejectedValueOnce(new Error('offline'))
+  await render()
+  expect(band('offices')!.querySelectorAll('[data-office-head]')).toHaveLength(0)
+  expect(officeRows()).toHaveLength(3)
 })
 
 it('shows a retry for a failed overview while the other bands still render', async () => {

@@ -30,6 +30,7 @@ const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refres
   space_office_changed: 'briefcase',
   offboarded: 'swap',
   space_pm_assigned: 'swap',
+  office_head_changed: 'briefcase',
 }
 
 const TONE: Record<AuditAction, string> = {
@@ -51,6 +52,7 @@ const TONE: Record<AuditAction, string> = {
   space_office_changed: 'surface-sunken text-muted',
   offboarded: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
   space_pm_assigned: 'surface-sunken text-muted',
+  office_head_changed: 'surface-sunken text-muted',
 }
 
 function when(iso: string) {
