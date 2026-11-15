@@ -29,6 +29,15 @@ describe('renderDocx', () => {
     expect(section).not.toBeNull()
     expect(section?.textContent).toContain('Chapter One')
   })
+
+  it("keeps docx-preview's own styles, scoped under the preview box", async () => {
+    const styles = document.createElement('div')
+    await renderDocx(await docx('Chapter One'), document.createElement('div'), styles)
+    const text = [...styles.querySelectorAll('style')].map((s) => s.textContent).join('\n')
+    expect(text).toContain(':where(.docx-preview) .docx-wrapper')
+    expect(text).toContain(':where(.docx-preview) .docx p')
+    expect(text).not.toMatch(/(^|\})\s*\.docx/)
+  })
 })
 
 describe('DocxPreview', () => {
@@ -136,6 +145,47 @@ describe('sanitizeStyles', () => {
     box.innerHTML = '<style>.a{}</style><script>alert(1)</script><p>x</p><style>.b{}</style>'
     sanitizeStyles(box)
     expect([...box.childNodes].map((n) => n.nodeName)).toEqual(['STYLE', 'STYLE'])
+  })
+
+  it('rebuilds each style: a break-out selector and a remote url() are gone, a .docx rule stays scoped', () => {
+    const box = document.createElement('div')
+    const style = document.createElement('style')
+    style.textContent =
+      'p.docx_x{}*{background:url(https://evil.test/p)} .docx p { color: black; background: url(https://evil.test/q) }'
+    box.append(style)
+    sanitizeStyles(box)
+    const text = box.querySelector('style')!.textContent ?? ''
+    expect(text).not.toContain('evil.test')
+    expect(text).toContain(':where(.docx-preview) .docx p')
+    expect(text).toContain('color: black')
+  })
+})
+
+describe('sanitizePreview inline CSS', () => {
+  it('removes a remote url() and position fixed from a style attribute', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<svg style="position:fixed;inset:0;background:url(https://evil.test/p);width:10pt"></svg>'
+    sanitizePreview(root)
+    const style = root.querySelector('svg')!.getAttribute('style') ?? ''
+    expect(style).toContain('width: 10pt')
+    expect(style).not.toContain('evil.test')
+    expect(style).not.toContain('fixed')
+  })
+
+  it('keeps an in-file SVG reference and drops a remote one', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<svg><rect fill="url(#g)"></rect><rect filter="url(https://evil.test/f.svg#x)"></rect></svg>'
+    sanitizePreview(root)
+    const [a, b] = [...root.querySelectorAll('rect')]
+    expect(a.getAttribute('fill')).toBe('url(#g)')
+    expect(b.hasAttribute('filter')).toBe(false)
+  })
+
+  it('removes a style element from the pages', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<p>x</p><style>*{display:none}</style>'
+    sanitizePreview(root)
+    expect(root.querySelector('style')).toBeNull()
   })
 })
 

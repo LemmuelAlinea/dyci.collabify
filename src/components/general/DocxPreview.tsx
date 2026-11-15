@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { Icon, Spinner } from '../ui/Icon'
 import { projectFileBlob, projectFileUrl } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { safeSheetText, sanitizeInlineStyle } from '../../lib/general/docx/previewCss'
 import './docxPreview.css'
 
 // Metric twins: Tinos, Arimo, Carlito and Caladea take the same space as Word's
@@ -100,14 +101,15 @@ export const DOCX_OPTIONS = {
 } as const
 
 // A Word file is someone else's input: nothing in it may run here.
-const ACTIVE = 'iframe, frame, frameset, script, object, embed, form, base, meta, link, noscript, template'
+const ACTIVE = 'iframe, frame, frameset, script, object, embed, form, base, meta, link, noscript, template, style'
 const SAFE_LINK = /^(https?:|mailto:|#)/i
 const SAFE_IMAGE = /^(data:image\/|blob:)/i
 
 /**
  * Makes a drawn Word file inert before it reaches the page: no active
  * elements, no event handlers, links only to the web, mail or within the
- * file, and pictures only from the file itself.
+ * file, pictures only from the file itself, and no inline CSS that fetches
+ * from elsewhere or pins itself over the page.
  */
 export function sanitizePreview(root: HTMLElement) {
   for (const el of [...root.querySelectorAll(ACTIVE)]) el.remove()
@@ -115,6 +117,11 @@ export function sanitizePreview(root: HTMLElement) {
     for (const name of el.getAttributeNames()) {
       const lower = name.toLowerCase()
       if (lower.startsWith('on') || lower === 'srcdoc' || lower === 'formaction') el.removeAttribute(name)
+      else if (lower === 'style') sanitizeInlineStyle(el)
+      // SVG paint, filter, mask and marker references may point only within the file.
+      else if (/url\s*\(/i.test(el.getAttribute(name) ?? '') && !/^\s*url\(\s*["']?#/i.test(el.getAttribute(name) ?? '')) {
+        el.removeAttribute(name)
+      }
     }
     const tag = el.tagName.toLowerCase()
     if (tag === 'a') {
@@ -142,10 +149,14 @@ export function sanitizePreview(root: HTMLElement) {
   }
 }
 
-/** The style container takes only <style> elements. */
+/**
+ * The style container takes only <style> elements, each rebuilt from its
+ * parsed rules: scoped under the preview box, nothing fetched from outside the file.
+ */
 export function sanitizeStyles(box: HTMLElement) {
   for (const node of [...box.childNodes]) {
     if (node.nodeName !== 'STYLE') node.remove()
+    else node.textContent = safeSheetText(node.textContent ?? '')
   }
 }
 
