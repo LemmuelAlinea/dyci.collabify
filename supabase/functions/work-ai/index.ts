@@ -98,7 +98,7 @@ function fileText(f: FileRow) {
   return ''
 }
 
-const isWord = (path: string) => /\.(docx|doc|odt|rtf)$/i.test(path)
+const isDocx = (path: string) => path.toLowerCase().endsWith('.docx')
 
 const cap = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}\n[…cut at ${n} characters]` : s)
 
@@ -520,7 +520,14 @@ async function describeAction(ctx: Ctx) {
   // sends that text itself. It is the caller's own writing, so nothing is
   // exposed by trusting it.
   if (Array.isArray(ctx.body.files) && ctx.body.files.length > 0) {
-    const given = await Promise.all((ctx.body.files as Json[]).slice(0, 20).map(async (f) => {
+    const list = (ctx.body.files as Json[]).slice(0, 20)
+    // An upload is read only from this project's own files.
+    for (const f of list) {
+      if (typeof f.storage_path === 'string' && f.storage_path && !f.storage_path.startsWith(`${ctx.projectId}/`)) {
+        throw new Refused('That file is not in this project.', 403)
+      }
+    }
+    const given = await Promise.all(list.map(async (f) => {
       const path = String(f.path ?? '')
       const row: FileRow = {
         path,
@@ -670,18 +677,20 @@ ${VOICE}`,
 async function askAction(ctx: Ctx) {
   const question = String(ctx.body.question ?? '').trim().slice(0, 500)
   if (question.length < 4) throw new Refused('Ask a question about the files.')
-  const files = (await mainFiles(ctx)).filter((f) => f.kind !== 'binary' || isWord(f.path))
-  if (files.length === 0) throw new Refused('There are no documents, sheets or text files in Main to read yet.')
+  // Only .docx among uploads has text to read here.
+  const files = (await mainFiles(ctx)).filter((f) => f.kind !== 'binary' || isDocx(f.path))
+  if (files.length === 0) throw new Refused('There are no documents, sheets, text or Word files in Main to read yet.')
   let budget = 250000
   const parts: string[] = []
   let left = 0
   for (const f of files) {
-    const text = await readTextSoft(ctx.caller, f)
-    if (!text.trim()) continue
+    // Out of room: count what is left without downloading another Word file.
     if (budget <= 0) {
-      left++
+      if (f.kind === 'binary' || fileText(f).trim()) left++
       continue
     }
+    const text = await readTextSoft(ctx.caller, f)
+    if (!text.trim()) continue
     const piece = cap(text, Math.min(budget, 60000))
     budget -= piece.length
     parts.push(`=== ${f.path} ===\n${piece}`)

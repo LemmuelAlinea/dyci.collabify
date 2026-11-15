@@ -179,7 +179,7 @@ function Body({
   // Summaries read Main's version, so a shared copy or a draft has none.
   // The AI helpers answer project members only, so a class's teacher gets none.
   const summarizable =
-    !file.fromDraft && file.sharedBy === undefined && (isEditable(file.kind) || isPdf) && Boolean(state.project) && !state.classTeacher
+    !file.fromDraft && file.sharedBy === undefined && (isEditable(file.kind) || isPdf || isDocx) && Boolean(state.project) && !state.classTeacher
 
   const [text, setText] = useState(file.kind === 'sheet' ? '' : file.content)
   const [book, setBook] = useState<Workbook>(() =>

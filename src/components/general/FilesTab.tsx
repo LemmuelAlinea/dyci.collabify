@@ -305,7 +305,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       />
 
       {/* The AI helpers answer project members only. */}
-      {view === 'main' && state.project && !state.classTeacher && tree.some((f) => f.kind !== 'binary' && !isKeep(f.path)) && (
+      {view === 'main' && state.project && !state.classTeacher && tree.some((f) => (f.kind !== 'binary' || isPreviewableWord(f.path)) && !isKeep(f.path)) && (
         <AskFiles projectId={state.project.id} tree={tree} onOpen={openFile} />
       )}
 
@@ -393,8 +393,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
 
 /**
  * A question about the project, answered only from what Main's documents,
- * sheets and text files say, with the files it came from one click away.
- * PDFs and other uploads are not read here.
+ * sheets, text files and Word files (.docx) say, with the files it came from
+ * one click away. PDFs and other uploads are not read here.
  */
 function AskFiles({
   projectId,
@@ -484,7 +484,7 @@ function AskFiles({
             </div>
           )}
           <p className="text-[11px] text-faint">
-            Answered from Main's documents, sheets and text files. PDFs and other uploads are not read.
+            Answered from Main's documents, sheets, text files and Word files. PDFs and other uploads are not read.
             {answer.skipped > 0 && ` ${answer.skipped} files were too much to read in one go.`}
           </p>
         </div>

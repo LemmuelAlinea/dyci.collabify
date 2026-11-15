@@ -106,3 +106,19 @@ it('shows who else is editing a Main file, never the viewer', async () => {
   vi.mocked(listTree).mockResolvedValue([])
   vi.mocked(listPulls).mockResolvedValue([])
 })
+
+it('offers Ask when Main has a Word file, and not for PDFs alone', async () => {
+  const member = { ...viewer, myRole: 'member', readOnly: false } as unknown as GeneralProjectState
+  const file = (path: string) => ({ id: path, repo_id: 'repo', project_id: 'p', commit_id: 'c', seq: 1, path, kind: 'binary', content: '', storage_path: 's', size: 1, created_at: '2026-11-14T00:00:00Z' })
+  vi.mocked(getRepo).mockResolvedValue({ ...repo, file_count: 1 } as never)
+  vi.mocked(listTree).mockResolvedValue([file('Chap1.docx')] as never)
+  await show(member)
+  expect(host!.querySelector('section[aria-label="Ask about these files"]')).not.toBeNull()
+  await act(async () => root!.unmount())
+  host!.remove()
+  vi.mocked(getRepo).mockResolvedValue({ ...repo, file_count: 1 } as never)
+  vi.mocked(listTree).mockResolvedValue([file('Scan.pdf')] as never)
+  await show(member)
+  expect(host!.querySelector('section[aria-label="Ask about these files"]')).toBeNull()
+  vi.mocked(listTree).mockResolvedValue([])
+})
