@@ -26,7 +26,8 @@ import { baseOf, endPull, pullFile, recordBase } from '../../lib/api/filePulls'
 import { trashDraftPath } from '../../lib/api/trash'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { buildTree, describeDraft, fileName, fileText, flatFiles, isComparableExcel, isExcelPath, isOfficePath, isPreviewableWord, isWordPath, nodesAt, officeAppName } from '../../lib/general/files'
+import { legacySheet } from '../../lib/general/sheet'
+import { buildTree, describeDraft, fileName, fileText, flatFiles, isComparableExcel, isExcelPath, isOfficePath, isPreviewableWord, isWordPath, mergeStep, nodesAt } from '../../lib/general/files'
 import { stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { isOthersCopyError, pushVerdict } from '../../lib/general/pushCheck'
@@ -200,7 +201,7 @@ export function DraftPanel({
       .then((link) => {
         // The hold stays with the draft's copy until the combined copy replaces it.
         if (link) setLinks((current) => ({ ...current, [f.path]: link }))
-        else show(`Downloaded the newer version. Combine the two in ${officeAppName(f.path)}, then upload your combined copy as a new version.`)
+        else show(`Downloaded the newer version. ${mergeStep(f.path, true)}, then upload your combined copy as a new version.`)
       })
       .catch((err: unknown) => show(authErrorMessage(err, 'Could not download it. Try again in a moment.'), 'error'))
   }
@@ -767,7 +768,7 @@ function DraftNode({
           ) : f.kind === 'binary' && isComparableExcel(f.path) ? (
             <ExcelDiff
               key={`${f.path}:${f.storage_path}`}
-              before={f.action === 'added' ? null : mainStorageOf(f.path)}
+              before={f.action === 'added' ? null : mainStorageOf(f.path) ?? legacySheet(mainOf(f.path))}
               after={f.action === 'removed' ? null : f.storage_path}
               caption={`What your draft would do to ${f.path}, by its cells`}
             />

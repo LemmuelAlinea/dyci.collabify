@@ -11,6 +11,7 @@ import {
   answerRepoChange,
   contentAt,
   storagePathAt,
+  excelSourceAt,
   deleteRepoComment,
   listRepoComments,
   projectFileUrl,
@@ -257,7 +258,7 @@ export function RepoChangeRow({
                 ) : f.kind === 'binary' && isComparableExcel(f.path) ? (
                   <ExcelDiff
                     key={`${f.path}:${f.storage_path}`}
-                    before={() => storagePathAt(repo.id, f.path, change.base_seq)}
+                    before={() => excelSourceAt(repo.id, f.path, change.base_seq)}
                     after={f.action === 'removed' ? null : f.storage_path}
                     caption={`What this change would do to ${f.path}, by its cells`}
                   />

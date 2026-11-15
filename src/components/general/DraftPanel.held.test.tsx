@@ -178,12 +178,12 @@ it("holds a Word copy by its own recorded base, with the same message as the upl
   expect(button("Download Ben's version")).toBeTruthy()
 })
 
-it('holds an Excel copy the same way and says to combine the two in Excel', async () => {
+it('holds an Excel copy the same way and says to copy changes into the newer version in Excel', async () => {
   m.baseOf.mockResolvedValue(HELD)
   await show([row({ path: 'Budget.xlsx', storage_path: 'p/files/mine.xlsx' })])
   expect(m.baseOf).toHaveBeenCalledWith('p/files/mine.xlsx')
   expect(host!.textContent).toContain('Ben updated this since you pulled')
-  expect(host!.textContent).toContain('combine the two in Excel, then upload the result here.')
+  expect(host!.textContent).toContain('copy your changes into the newer version in Excel, then upload the result here.')
   await act(async () => button("Download Ben's version").click())
   expect(m.pullFile).toHaveBeenCalledWith('repo', 'Budget.xlsx', true)
 })

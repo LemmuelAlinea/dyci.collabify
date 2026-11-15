@@ -10,6 +10,8 @@
  */
 import { supabase } from '../supabase'
 import { isMissingColumn, isMissingRelation } from './missingRelation'
+import { legacySheet } from '../general/sheet'
+import type { Workbook } from '../general/sheet'
 import { pathsNotRemoved, rowDeleteError } from '../general/storage'
 import { ProjectDeletedError } from '../general/projectDeleted'
 import { GENERAL_FILE_LIMIT } from '../general/files'
@@ -1616,6 +1618,26 @@ export async function contentAt(repoId: string, path: string, seq: number) {
   if (error) throw error
   const row = (data ?? [])[0] as { action: FileAction; content: string } | undefined
   return !row || row.action === 'removed' ? null : row.content
+}
+
+/**
+ * What an Excel path held as of a commit, for comparing: its Storage object, or
+ * the workbook itself when it was a converted sheet, so an old sheet replaced by
+ * an exact upload still compares cell by cell. Null when absent or removed.
+ */
+export async function excelSourceAt(repoId: string, path: string, seq: number): Promise<string | Workbook | null> {
+  const { data, error } = await supabase
+    .from('general_blobs')
+    .select('action, storage_path, content')
+    .eq('repo_id', repoId)
+    .eq('path', path)
+    .lte('seq', seq)
+    .order('seq', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = (data ?? [])[0] as { action: FileAction; storage_path: string | null; content: string } | undefined
+  if (!row || row.action === 'removed') return null
+  return row.storage_path ?? legacySheet(row.content)
 }
 
 /** The Storage object a path pointed at as of a commit; null when absent or removed. */

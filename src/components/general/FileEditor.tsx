@@ -428,17 +428,17 @@ function Body({
         </Alert>
       )}
 
-      {file.kind === 'rich' && (
+      {file.kind === 'rich' && !readOnly && (
         <Alert tone="info">
-          This copy was converted when it was uploaded, so some Word formatting may be gone. Upload the original .docx as a
-          new version to keep it exactly.
+          This copy was converted when it was uploaded, so some Word formatting may be gone. Upload the original .docx again
+          with New, Upload a file, under the same name, to keep it exactly.
         </Alert>
       )}
 
-      {convertedSheet && (
+      {convertedSheet && !readOnly && (
         <Alert tone="info">
           This copy was converted when it was uploaded, so charts, pictures and some formatting may be gone. Upload the
-          original .{extensionOf(file.path)} as a new version to keep it exactly.
+          original .{extensionOf(file.path)} again with New, Upload a file, under the same name, to keep it exactly.
         </Alert>
       )}
 

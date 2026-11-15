@@ -4,7 +4,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { storagePathAt } from '../../lib/api/general'
 import { formatDue } from '../../lib/general/dates'
-import { isComparableExcel, isExcelPath, isPreviewableWord } from '../../lib/general/files'
+import { isComparableExcel, isExcelPath, isPreviewableWord, mergeStep } from '../../lib/general/files'
 import type { PushVerdict } from '../../lib/general/pushCheck'
 import { ExcelDiff } from './ExcelDiff'
 import { WordDiff } from './WordDiff'
@@ -77,8 +77,8 @@ export function HeldPush({
                 {who} updated this since you pulled{when}.
               </p>
               <p>
-                Download {whose} version and combine the two in{' '}
-                {isExcelPath(path) ? 'Excel' : 'Word (Review, Compare, Combine)'}, then upload the result here.
+                Download {whose} version and{' '}
+                {isExcelPath(path) ? mergeStep(path) : 'combine the two in Word (Review, Compare, Combine)'}, then upload the result here.
               </p>
             </>
           )}

@@ -40,7 +40,7 @@ const state = {
 } as unknown as GeneralProjectState
 
 const NOTE =
-  'This copy was converted when it was uploaded, so charts, pictures and some formatting may be gone. Upload the original .xlsx as a new version to keep it exactly.'
+  'This copy was converted when it was uploaded, so charts, pictures and some formatting may be gone. Upload the original .xlsx again with New, Upload a file, under the same name, to keep it exactly.'
 
 let host: HTMLDivElement | null = null
 let root: ReturnType<typeof createRoot> | null = null
@@ -87,4 +87,30 @@ it('previews an .xlsx kept as uploaded instead of the generic note', async () =>
   expect(host!.querySelector('[data-office-preview="Budget.xlsx"]')).not.toBeNull()
   expect(host!.textContent).not.toContain('opened elsewhere')
   expect(host!.querySelector('[data-sheet-editor]')).toBeNull()
+})
+
+it('hides the conversion note from a read-only viewer', async () => {
+  const readOnlyState = { ...state, readOnly: true } as unknown as GeneralProjectState
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+  await act(async () =>
+    root!.render(
+      <FileEditor file={sheet('Budget.xlsx')} repo={repo as never} state={readOnlyState} onClose={() => {}} onSaved={async () => {}} />,
+    ),
+  )
+  expect(host.textContent).not.toContain('converted when it was uploaded')
+})
+
+it('hides the conversion note from a read-only viewer', async () => {
+  const readOnlyState = { ...state, readOnly: true } as unknown as GeneralProjectState
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+  await act(async () =>
+    root!.render(
+      <FileEditor file={sheet('Budget.xlsx')} repo={repo as never} state={readOnlyState} onClose={() => {}} onSaved={async () => {}} />,
+    ),
+  )
+  expect(host.textContent).not.toContain('converted when it was uploaded')
 })

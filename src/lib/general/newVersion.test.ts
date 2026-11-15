@@ -75,7 +75,7 @@ describe('stalePushMessage', () => {
         'Main has a newer version of Budget/Budget.xlsx than the copy this was made from. Get the newer version, combine the two in Word or Excel, then upload again.',
     }
     expect(stalePushMessage(excel, null)).toBe(
-      'Main has a newer version of Budget/Budget.xlsx than the copy you started from. You have to get the newer version, combine the two in Excel and upload again.',
+      'Main has a newer version of Budget/Budget.xlsx than the copy you started from. You have to get the newer version, copy your changes into the newer version in Excel and upload again.',
     )
   })
 

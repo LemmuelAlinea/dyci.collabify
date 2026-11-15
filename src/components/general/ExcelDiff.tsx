@@ -7,14 +7,16 @@ import type { Workbook } from '../../lib/general/sheet'
 import { sheetCellChanges } from '../../lib/general/sheetCellChanges'
 import type { CellChange } from '../../lib/general/sheetCellChanges'
 
-/** A storage path, null (nothing there), or a lookup that gives one. */
-type Source = string | null | (() => Promise<string | null>)
+/** A storage path, a ready workbook (a converted sheet), null (nothing there), or a lookup that gives one. */
+type Found = string | Workbook | null
+type Source = Found | (() => Promise<Found>)
 
 const SHOWN = 200
 
 async function workbookOf(source: Source): Promise<Workbook | null> {
   const path = typeof source === 'function' ? await source() : source
   if (!path) return null
+  if (typeof path !== 'string') return path
   const blob = await projectFileBlob(path)
   return xlsxToWorkbook(new File([blob], path.split('/').pop() || 'file.xlsx'))
 }

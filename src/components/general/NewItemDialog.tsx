@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { endPull, mainSeq, pullFile, pushState, recordBase } from '../../lib/api/filePulls'
 import { projectFileUrl, saveDraftFile, storagePathAt, uploadProjectFile } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isOfficePath, joinPath, kindForPath, nodesAt, officeAppName, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
+import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isOfficePath, joinPath, kindForPath, mergeStep, nodesAt, officeAppName, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
 import { OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
 import { newVersionProblem, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
@@ -242,7 +242,7 @@ export function NewItemDialog({
         setPickKey((k) => k + 1)
         setGotTheirs(officeAppName(path))
         overrides.current = new Set()
-        if (!link) show(`Downloaded the newer version. Combine the two in ${officeAppName(path)}, then upload the result here.`)
+        if (!link) show(`Downloaded the newer version. ${mergeStep(path, true)}, then upload the result here.`)
       })
       .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
   }
@@ -304,7 +304,7 @@ export function NewItemDialog({
           {error && <Alert tone="error">{error}</Alert>}
           {gotTheirs && !pending && (
             <Alert tone="info">
-              You have the newer version now. Combine the two in {gotTheirs}, then pick the combined copy here.
+              You have the newer version now. {gotTheirs === 'Excel' ? mergeStep('x.xlsx', true) : mergeStep('x.docx', true)}, then pick the combined copy here.
               {blocked && (
                 <>
                   {' '}
@@ -414,7 +414,7 @@ export function NewItemDialog({
               {office && <Alert tone="info">{OFFICE_WARNING}</Alert>}
               {word && (
                 <Alert tone="info">
-                  Kept exactly as uploaded. From Google Docs or Google Sheets, download it as a Microsoft Word (.docx) or Excel (.xlsx) file first.
+                  Kept exactly as uploaded. From {picked && officeAppName(picked.name) === 'Excel' ? 'Google Sheets' : 'Google Docs'}, download it as a Microsoft {picked && officeAppName(picked.name) === 'Excel' ? 'Excel (.xlsx)' : 'Word (.docx)'} file first.
                 </Alert>
               )}
             </>

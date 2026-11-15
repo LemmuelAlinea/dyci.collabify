@@ -163,12 +163,12 @@ it('offers Edit in Excel for a .xlsm and a .xls too', async () => {
   expect(buttons()).toContain('Edit in Excel')
 })
 
-it('holds a push of an .xlsx from an old copy and says to combine the two in Excel', async () => {
+it('holds a push of an .xlsx from an old copy and says to copy changes into the newer version in Excel', async () => {
   m.pushState.mockResolvedValue({ base_seq: 4, main_seq: 6, main_author: 'ben', main_at: '2026-11-15T07:10:00Z', main_removed: false })
   await show(mainFile)
   await pick('Budget.xlsx')
   expect(host!.textContent).toContain('Ben updated this since you pulled')
-  expect(host!.textContent).toContain('combine the two in Excel, then upload the result here.')
+  expect(host!.textContent).toContain('copy your changes into the newer version in Excel, then upload the result here.')
   expect(host!.textContent).not.toContain('Word')
   expect(m.upload).not.toHaveBeenCalled()
   await click('Replace it anyway')
@@ -183,12 +183,12 @@ it('records the base of a clear .xlsx upload', async () => {
   expect(m.recordBase).toHaveBeenCalledWith('repo', 'Budget/Budget.xlsx', 'p/files/new.xlsx', 4)
 })
 
-it("gets the newer version and says to combine the two in Excel", async () => {
+it("gets the newer version and says to copy changes into the newer version in Excel", async () => {
   m.pushState.mockResolvedValue({ base_seq: 4, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false })
   m.at.mockResolvedValue('p/files/ben.xlsx')
   await show(mainFile)
   await pick('Budget.xlsx')
   await click("Download Ben's version")
   expect(m.at).toHaveBeenCalledWith('repo', 'Budget/Budget.xlsx', 6)
-  expect(m.toast).toHaveBeenCalledWith('Downloaded the newer version. Combine the two in Excel, then upload the result here.')
+  expect(m.toast).toHaveBeenCalledWith('Downloaded the newer version. Copy your changes into the newer version in Excel, then upload the result here.')
 })

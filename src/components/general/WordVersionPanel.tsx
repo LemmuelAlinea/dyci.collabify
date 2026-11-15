@@ -15,7 +15,7 @@ import {
 } from '../../lib/api/general'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { extensionOf, fileName, isOfficePath, officeAppName } from '../../lib/general/files'
+import { extensionOf, fileName, isOfficePath, mergeStep, officeAppName } from '../../lib/general/files'
 import { newVersionProblem, pulledAgo, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
@@ -137,7 +137,7 @@ export function WordVersionPanel({
         // They now hold Main's version, so the pull's fresh base is the one to carry.
         setDraftCopy(null)
         setStage({ step: 'idle' })
-        if (!link) show(`Downloaded the newer version. Combine the two in ${app}, then upload the result here.`)
+        if (!link) show(`Downloaded the newer version. ${mergeStep(file.path, true)}, then upload the result here.`)
         await refreshPulls()
       })
       .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))

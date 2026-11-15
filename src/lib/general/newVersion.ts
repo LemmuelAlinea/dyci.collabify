@@ -1,5 +1,5 @@
 import { formatDue } from './dates'
-import { GENERAL_FILE_LIMIT, extensionOf, fileName, officeAppName, sameExtension } from './files'
+import { GENERAL_FILE_LIMIT, extensionOf, fileName, mergeStep, sameExtension } from './files'
 import { isStalePushError } from './pushCheck'
 
 /** Why a picked file cannot replace the open one; null when it can. */
@@ -42,7 +42,7 @@ export function stalePushMessage(err: unknown, who: string | null): string | nul
   if (!isStalePushError(err)) return null
   const path = STALE_PATH.exec((err as { message: string }).message)?.[1] ?? 'this file'
   const subject = who ? `${who.charAt(0).toUpperCase()}${who.slice(1)} has` : 'You have'
-  return `Main has a newer version of ${path} than the copy ${who ?? 'you'} started from. ${subject} to get the newer version, combine the two in ${officeAppName(path)} and upload again.`
+  return `Main has a newer version of ${path} than the copy ${who ?? 'you'} started from. ${subject} to get the newer version, ${mergeStep(path)} and upload again.`
 }
 
 /** The warning for a Word or Excel upload whose starting copy is not on record, the same wherever it shows. */

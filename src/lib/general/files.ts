@@ -103,6 +103,12 @@ export function officeAppName(path: string): 'Word' | 'Excel' {
   return isExcelPath(path) ? 'Excel' : 'Word'
 }
 
+/** How to reconcile two copies: Word can combine them, Excel has no such menu. */
+export function mergeStep(path: string, capital = false): string {
+  const step = isExcelPath(path) ? 'copy your changes into the newer version in Excel' : 'combine the two in Word'
+  return capital ? step.charAt(0).toUpperCase() + step.slice(1) : step
+}
+
 /** Only .docx can be previewed in the browser. */
 export function isPreviewableWord(path: string) {
   return extensionOf(path) === 'docx'

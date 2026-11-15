@@ -50,6 +50,11 @@ export function parseWorkbook(json: string): Workbook {
   return out.length ? { sheets: out } : emptyWorkbook()
 }
 
+/** The workbook a converted sheet's stored content holds; null when there is none. */
+export function legacySheet(content: string): Workbook | null {
+  return content.trim() ? parseWorkbook(content) : null
+}
+
 /** Stable key order, so an unchanged sheet produces an identical string. */
 export function serializeWorkbook(wb: Workbook) {
   return JSON.stringify({
