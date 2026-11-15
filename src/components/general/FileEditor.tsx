@@ -13,13 +13,14 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { summarizeFile, writeChangeMessage } from '../../lib/api/workAi'
-import { extensionOf, fileName, isEditable, looksLikeMisreadOfficeFile } from '../../lib/general/files'
+import { extensionOf, fileName, isEditable, isPreviewableWord, looksLikeMisreadOfficeFile } from '../../lib/general/files'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
 import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
 import { FILE_KIND_LABEL } from '../../lib/general/types'
 import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
+import { LazyDocxPreview as DocxPreview } from './LazyDocxPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 
 // Monaco is several megabytes; it loads when somebody opens a code file.
@@ -170,6 +171,7 @@ function Body({
   const frozen = readOnly || !isEditable(file.kind) || misreadOfficeFile
   const name = fileName(file.path)
   const isPdf = file.kind === 'binary' && extensionOf(file.path) === 'pdf'
+  const isDocx = file.kind === 'binary' && isPreviewableWord(file.path)
   // Summaries read Main's version, so a shared copy or a draft has none.
   // The AI helpers answer project members only, so a class's teacher gets none.
   const summarizable =
@@ -386,7 +388,7 @@ function Body({
         </Alert>
       )}
 
-      {file.kind === 'binary' && !isPdf && (
+      {file.kind === 'binary' && !isPdf && !isDocx && (
         <Alert tone="info">
           This kind of file is kept and versioned here but opened elsewhere. Download it, change it
           in the program that made it, and upload it again.
@@ -395,6 +397,10 @@ function Body({
 
       {isPdf && (
         file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} fill={full} /> : null
+      )}
+
+      {isDocx && (
+        file.storagePath ? <DocxPreview storagePath={file.storagePath} label={name} fill={full} /> : null
       )}
 
       {!mayCommit && !readOnly && isEditable(file.kind) && (

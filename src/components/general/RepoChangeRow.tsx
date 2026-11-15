@@ -31,6 +31,7 @@ import type {
 import { DiffView } from './DiffView'
 import { WordDiff } from './WordDiff'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
+import { LazyDocxPreview as DocxPreview } from './LazyDocxPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 import { isReviewer } from '../../lib/general/review'
 import { Linkify } from '../ui/Linkify'
@@ -419,7 +420,8 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
   const ext = extensionOf(file.path)
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
   const isPdf = ext === 'pdf'
-  const canPreview = isPdf || isImage
+  const isDocx = isPreviewableWord(file.path)
+  const canPreview = isPdf || isDocx || isImage
 
   useEffect(() => {
     let alive = true
@@ -428,7 +430,7 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
     setError(null)
     if (file.kind !== 'binary' || file.action === 'removed' || !file.storage_path) return
     void Promise.all([
-      isPdf ? Promise.resolve(null) : projectFileUrl(file.storage_path),
+      isPdf || isDocx ? Promise.resolve(null) : projectFileUrl(file.storage_path),
       projectFileUrl(file.storage_path, name),
     ])
       .then(([preview, download]) => {
@@ -442,7 +444,7 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
     return () => {
       alive = false
     }
-  }, [file.action, file.kind, file.storage_path, isPdf, name])
+  }, [file.action, file.kind, file.storage_path, isPdf, isDocx, name])
 
   if (file.kind !== 'binary' || file.action === 'removed') return null
 
@@ -470,6 +472,8 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
         <div className="overflow-hidden rounded-xl border border-line bg-[var(--surface-sunken)]">
           {isPdf && file.storage_path ? (
             <PdfPreview storagePath={file.storage_path} label={name} />
+          ) : isDocx && file.storage_path ? (
+            <DocxPreview storagePath={file.storage_path} label={name} />
           ) : !url ? (
             <div className="flex min-h-[14rem] items-center justify-center text-[13px] text-muted">
               Loading preview…

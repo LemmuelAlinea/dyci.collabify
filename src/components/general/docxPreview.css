@@ -1,0 +1,22 @@
+/*
+ * A Word file drawn as pages. The ground around them is the app's sunken
+ * surface; each page is the paper token (white in both themes), as Word's own
+ * pages are. Scoped to .docx-preview so docx-preview's grey wrapper never
+ * reaches anything else.
+ */
+.docx-preview {
+  background: var(--surface-sunken);
+}
+.docx-preview .docx-wrapper {
+  background: transparent;
+  padding: 12px;
+  padding-bottom: 0;
+  align-items: center;
+}
+.docx-preview .docx-wrapper > section.docx {
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
