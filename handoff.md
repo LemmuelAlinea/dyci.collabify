@@ -4965,3 +4965,39 @@ accepted." from the setting; no failed requests.
 
 **Deferred**
 - The space banner (Overview greeting band) does not show the mark; `DashboardSummary` has no mark slot.
+
+## Exact Word files (2026-11-16)
+
+- Why: a group's thesis (.docx) came back badly changed after upload → draft → Main → download (margins,
+  4 sections → 1, headers and logos gone, 396 fields → 0, styles and numbering stripped). The upload turned
+  Word files into HTML and threw the original away. Spec `docs/superpowers/specs/2026-11-15-exact-word-files-design.md`,
+  plan `docs/superpowers/plans/2026-11-15-exact-word-files.md`. Branch `exact-word-files`.
+- Word files (`docx`, `doc`, `odt`, `rtf`) are now `binary` blobs: the uploaded object, untouched. A storage
+  round trip of the real thesis returned the same SHA-256 (2,016,358 bytes). `scripts/word-roundtrip.mjs`
+  compares two files.
+- Preview: `.docx` shows as pages (`DocxPreview`, `docx-preview` 0.4.1) with Tinos/Arimo/Carlito/Caladea as
+  stand-ins for Times New Roman/Arial/Calibri/Cambria when those fonts are missing. Checked on the real thesis
+  on a throwaway route: Letter page, margins exactly as in Word, 98 pages with headers, no sideways scroll on a
+  phone. Page numbers show the value Word last saved ("1" on every page); the download is the exact file.
+- Pull → edit in Word → push: **Edit in Word** downloads and records a pull (`supabase/file-pulls.sql`, after
+  `space-look.sql`, before `anon-lockdown.sql`; suite `supabase/tests/file-pulls.test.sql`, 35 PASS; applied live).
+  A push made from an older copy is held by a trigger on `general_blobs` on every way into Main (commit, commit a
+  draft path, merged change). The app shows who changed it, their words (`WordDiff`), **Download <name>'s
+  version**, and **Replace it anyway** (confirm, then `end_general_file_pull`). Others see "<name> pulled this
+  <time>"; a pull ends on push, on I'm done editing, or after 7 days. **Upload a new version** on any uploaded
+  file; New → Upload offers a new version when the name exists (text and sheet files keep the refusal).
+- Draft, change and commit views compare Word files by their words (`docxParagraphs`, tracked deletions and
+  field codes left out). Old converted (`rich`) files keep opening in the Word editor with a note to upload the
+  original again.
+- `work-ai` reads `.docx` text from storage through the caller's client (summary, Write it, change summary,
+  Q&A). **Redeploy `work-ai` with the frontend** (`npx supabase functions deploy work-ai`); until then "Write it"
+  on an uploaded version gets no text.
+- Verified: 2,435 tests, build clean, SQL suite, storage SHA round trip, preview on the real file. Not walked
+  signed in with two accounts.
+
+**Deferred**
+- Page numbers in the preview (docx-preview has no PAGE field); in-browser Office editing (ONLYOFFICE, phase 2);
+  Excel files still convert (same kind of loss).
+- Pre-existing live failures, unrelated to this work (reproduced with the pull triggers dropped):
+  `commit-main`, `project-stakeholders` ("a class-board member can write"), `general-review-many` suites.
+- Minors from task reviews are in `.superpowers/sdd/2026-11-15-exact-word-files/progress.md`.
