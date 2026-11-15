@@ -4,8 +4,9 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { storagePathAt } from '../../lib/api/general'
 import { formatDue } from '../../lib/general/dates'
-import { isExcelPath, isPreviewableWord } from '../../lib/general/files'
+import { isComparableExcel, isExcelPath, isPreviewableWord } from '../../lib/general/files'
 import type { PushVerdict } from '../../lib/general/pushCheck'
+import { ExcelDiff } from './ExcelDiff'
 import { WordDiff } from './WordDiff'
 
 /**
@@ -40,7 +41,9 @@ export function HeldPush({
   const who = state.by ? names(state.by) : 'Someone'
   const whose = state.by ? `${who}'s` : 'their'
   const when = state.at ? `, ${formatDue(state.at)}` : ''
-  const compare = Boolean(repoId) && !state.removed && isPreviewableWord(path)
+  const compare = Boolean(repoId) && !state.removed && (isPreviewableWord(path) || isComparableExcel(path))
+  const Diff = isComparableExcel(path) ? ExcelDiff : WordDiff
+  const how = isComparableExcel(path) ? 'by its cells' : 'by its words'
   const downloadLabel = `Download ${state.by ? `${who}'s` : 'the newer'} version`
 
   function getTheirs() {
@@ -93,11 +96,11 @@ export function HeldPush({
 
       {compare && repoId && (
         <div className="rounded-lg border border-line surface px-3 py-2.5 text-ink">
-          <WordDiff
+          <Diff
             key={`${repoId}:${path}:${state.baseSeq}:${state.mainSeq}`}
             before={() => storagePathAt(repoId, path, state.baseSeq)}
             after={() => storagePathAt(repoId, path, state.mainSeq)}
-            caption={`What ${who} changed in ${path}, by its words`}
+            caption={`What ${who} changed in ${path}, ${how}`}
           />
         </div>
       )}

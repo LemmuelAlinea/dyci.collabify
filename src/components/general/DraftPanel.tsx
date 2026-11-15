@@ -26,7 +26,7 @@ import { baseOf, endPull, pullFile, recordBase } from '../../lib/api/filePulls'
 import { trashDraftPath } from '../../lib/api/trash'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { buildTree, describeDraft, fileName, fileText, flatFiles, isExcelPath, isOfficePath, isPreviewableWord, isWordPath, nodesAt, officeAppName } from '../../lib/general/files'
+import { buildTree, describeDraft, fileName, fileText, flatFiles, isComparableExcel, isExcelPath, isOfficePath, isPreviewableWord, isWordPath, nodesAt, officeAppName } from '../../lib/general/files'
 import { stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { isOthersCopyError, pushVerdict } from '../../lib/general/pushCheck'
@@ -45,6 +45,7 @@ import { DiffView } from './DiffView'
 import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
 import { HeldPush } from './HeldPush'
+import { ExcelDiff } from './ExcelDiff'
 import { WordDiff } from './WordDiff'
 import { ShareDialog } from './ShareDialog'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -483,7 +484,7 @@ export function DraftPanel({
           if (asking.then === 'submit') setSubmitting(asking.target)
           else setCommitting(asking.target)
         }}
-        title={asking?.paths.length === 1 ? `Check ${fileName(asking.paths[0])} first` : 'Check these files first'}
+        title={asking?.paths.length === 1 ? `Check ${fileName(asking.paths[0])} first` : `Check these ${heldKind(asking?.paths ?? [])} first`}
         body={
           <div className="space-y-3">
             {asking?.paths.map((p) => (
@@ -762,6 +763,13 @@ function DraftNode({
               before={f.action === 'added' ? null : mainStorageOf(f.path)}
               after={f.action === 'removed' ? null : f.storage_path}
               caption={`What your draft would do to ${f.path}, by its words`}
+            />
+          ) : f.kind === 'binary' && isComparableExcel(f.path) ? (
+            <ExcelDiff
+              key={`${f.path}:${f.storage_path}`}
+              before={f.action === 'added' ? null : mainStorageOf(f.path)}
+              after={f.action === 'removed' ? null : f.storage_path}
+              caption={`What your draft would do to ${f.path}, by its cells`}
             />
           ) : f.kind === 'binary' ? (
             <p className="text-[12px] text-muted">

@@ -48,6 +48,7 @@ import type {
   GeneralTreeFile,
 } from '../../lib/general/types'
 import { DiffView } from './DiffView'
+import { ExcelDiff } from './ExcelDiff'
 import { WordDiff } from './WordDiff'
 import { DeleteMainFileDialog } from './DeleteMainFileDialog'
 import { DraftPanel } from './DraftPanel'
@@ -1060,6 +1061,13 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
               before={f.seq > 1 ? () => storagePathAt(f.repo_id, f.path, f.seq - 1) : null}
               after={f.action === 'removed' ? null : f.storage_path}
               caption={`What commit ${commit.seq} did to ${f.path}, by its words`}
+            />
+          ) : f.kind === 'binary' && isComparableExcel(f.path) ? (
+            <ExcelDiff
+              key={`${f.path}:${f.storage_path}`}
+              before={f.seq > 1 ? () => storagePathAt(f.repo_id, f.path, f.seq - 1) : null}
+              after={f.action === 'removed' ? null : f.storage_path}
+              caption={`What commit ${commit.seq} did to ${f.path}, by its cells`}
             />
           ) : f.kind === 'binary' ? (
             <p className="text-[12px] text-muted">

@@ -18,6 +18,12 @@ vi.mock('./WordDiff', () => ({
     return <p>{p.caption}</p>
   },
 }))
+vi.mock('./ExcelDiff', () => ({
+  ExcelDiff: (p: { caption: string }) => {
+    m.diff(p)
+    return <p>{p.caption}</p>
+  },
+}))
 vi.mock('../ui/ConfirmDialog', () => ({
   ConfirmDialog: (p: { open: boolean; title: string; body: ReactNode; confirmLabel: string; onConfirm: () => Promise<void> }) =>
     p.open ? (
@@ -153,4 +159,9 @@ it('shows no comparison for a removed file or a .doc', async () => {
     <HeldPush state={held()} path="a.doc" repoId="repo" names={names} onGetTheirs={vi.fn()} onReplaceAnyway={vi.fn()} />,
   ))
   expect(m.diff).not.toHaveBeenCalled()
+})
+
+it('compares an Excel file by its cells', async () => {
+  await show(<HeldPush state={held()} path="Budget.xlsx" repoId="r1" names={names} onGetTheirs={vi.fn()} onReplaceAnyway={vi.fn()} />)
+  expect(host!.textContent).toContain('by its cells')
 })

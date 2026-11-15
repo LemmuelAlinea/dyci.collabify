@@ -21,7 +21,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { summarizeChange } from '../../lib/api/workAi'
 import { formatDue } from '../../lib/general/dates'
 import { stalePushMessage } from '../../lib/general/newVersion'
-import { countShown, extensionOf, fileName, fileText, isPreviewableWord, shownFiles } from '../../lib/general/files'
+import { countShown, extensionOf, fileName, fileText, isComparableExcel, isPreviewableWord, shownFiles } from '../../lib/general/files'
 import { officePreviewable } from '../../lib/general/officeViewer'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
@@ -31,6 +31,7 @@ import type {
   RepoFile,
 } from '../../lib/general/types'
 import { DiffView } from './DiffView'
+import { ExcelDiff } from './ExcelDiff'
 import { WordDiff } from './WordDiff'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import { LazyDocxPreview as DocxPreview } from './LazyDocxPreview'
@@ -252,6 +253,13 @@ export function RepoChangeRow({
                     before={() => storagePathAt(repo.id, f.path, change.base_seq)}
                     after={f.action === 'removed' ? null : f.storage_path}
                     caption={`What this change would do to ${f.path}, by its words`}
+                  />
+                ) : f.kind === 'binary' && isComparableExcel(f.path) ? (
+                  <ExcelDiff
+                    key={`${f.path}:${f.storage_path}`}
+                    before={() => storagePathAt(repo.id, f.path, change.base_seq)}
+                    after={f.action === 'removed' ? null : f.storage_path}
+                    caption={`What this change would do to ${f.path}, by its cells`}
                   />
                 ) : f.kind === 'binary' ? (
                   <p className="text-[12px] text-muted">
