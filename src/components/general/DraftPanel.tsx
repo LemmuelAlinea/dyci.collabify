@@ -13,6 +13,7 @@ import { useToast } from '../ui/Toast'
 import {
   archiveDraftPath,
   commitDraftPath,
+  copyProjectFile,
   discardDraft,
   projectFileUrl,
   saveDraftFile,
@@ -28,7 +29,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { buildTree, describeDraft, fileName, fileText, flatFiles, isPreviewableWord, isWordPath, nodesAt } from '../../lib/general/files'
 import { stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
-import { pushVerdict } from '../../lib/general/pushCheck'
+import { isOthersCopyError, pushVerdict } from '../../lib/general/pushCheck'
 import type { PushVerdict } from '../../lib/general/pushCheck'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
@@ -193,12 +194,26 @@ export function DraftPanel({
   }
 
   async function replaceAnyway(f: GeneralDraftFile, verdict: Held) {
+    // Main removed the file, so the draft's copy goes back in as a new one.
+    const action = verdict.removed && f.action === 'changed' ? 'added' : f.action
     try {
-      // The copy now counts as made from Main's newest version.
-      if (f.storage_path) await recordBase(repo.id, f.path, f.storage_path, verdict.mainSeq)
-      // Main removed the file, so the draft's copy goes back in as a new one.
-      if (verdict.removed && f.action === 'changed') {
-        await saveDraftFile({ repoId: repo.id, path: f.path, action: 'added', kind: 'binary', storagePath: f.storage_path })
+      let storage = f.storage_path
+      if (storage) {
+        try {
+          // The copy now counts as made from Main's newest version.
+          await recordBase(repo.id, f.path, storage, verdict.mainSeq)
+        } catch (err) {
+          // A copy taken from someone's share is still their object: make it the person's own first.
+          const projectId = state.project?.id
+          if (!isOthersCopyError(err) || !projectId) throw err
+          storage = await copyProjectFile(projectId, storage).catch(() => {
+            throw err
+          })
+          await recordBase(repo.id, f.path, storage, verdict.mainSeq)
+        }
+      }
+      if (storage !== f.storage_path || action !== f.action) {
+        await saveDraftFile({ repoId: repo.id, path: f.path, action, kind: 'binary', storagePath: storage })
       }
     } catch (err) {
       throw new Error(authErrorMessage(err, 'Could not replace it. Try again in a moment.'))

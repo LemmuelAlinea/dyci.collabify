@@ -20,6 +20,8 @@ const m = vi.hoisted(() => ({
   commitPath: vi.fn(),
   at: vi.fn(),
   url: vi.fn(),
+  copy: vi.fn(),
+  confirmError: null as unknown,
 }))
 
 vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: vi.fn() }) }))
@@ -38,8 +40,12 @@ vi.mock('../ui/ConfirmDialog', () => ({
           type="button"
           data-confirm
           onClick={async () => {
-            await p.onConfirm()
-            p.onClose()
+            try {
+              await p.onConfirm()
+              p.onClose()
+            } catch (err) {
+              m.confirmError = err
+            }
           }}
         >
           {p.confirmLabel}
@@ -64,6 +70,7 @@ vi.mock('../../lib/api/general', () => ({
   saveDraftFile: m.saveDraft,
   storagePathAt: m.at,
   projectFileUrl: m.url,
+  copyProjectFile: m.copy,
 }))
 vi.mock('../../lib/api/trash', () => ({ trashDraftPath: vi.fn() }))
 vi.mock('../../lib/api/workAi', () => ({ writeChangeMessage: vi.fn() }))
@@ -116,6 +123,8 @@ beforeEach(() => {
   m.url.mockResolvedValue('https://signed/ben')
   m.endPull.mockResolvedValue(undefined)
   m.saveDraft.mockResolvedValue({})
+  m.copy.mockResolvedValue('p/files/mine-copy.docx')
+  m.confirmError = null
 })
 
 afterEach(async () => {
@@ -196,6 +205,53 @@ it('replaces a removed file by recording Main as its base, then saving the row a
   })
   expect(m.endPull).toHaveBeenCalledWith('repo', 'Chap1-4.docx')
   expect(m.recordBase.mock.invocationCallOrder[0]).toBeLessThan(m.endPull.mock.invocationCallOrder[0])
+})
+
+const OTHERS = {
+  message: "Only whoever uploaded that copy can say which version it was made from. Download it, then upload it here as a new version.",
+}
+
+async function replaceIt() {
+  await act(async () => button('Replace it anyway').click())
+  await act(async () => (document.body.querySelector('[data-dialog^="Replace"] [data-confirm]') as HTMLElement).click())
+}
+
+it("copies a shared copy to the person's own object before recording its base", async () => {
+  m.baseOf.mockResolvedValue(HELD)
+  m.recordBase.mockRejectedValueOnce(OTHERS).mockResolvedValue(undefined)
+  await show([row()])
+  await replaceIt()
+  expect(m.copy).toHaveBeenCalledWith('p', 'p/files/mine.docx')
+  expect(m.recordBase).toHaveBeenLastCalledWith('repo', 'Chap1-4.docx', 'p/files/mine-copy.docx', 6)
+  expect(m.saveDraft).toHaveBeenCalledWith({
+    repoId: 'repo',
+    path: 'Chap1-4.docx',
+    action: 'changed',
+    kind: 'binary',
+    storagePath: 'p/files/mine-copy.docx',
+  })
+  expect(m.recordBase.mock.invocationCallOrder[1]).toBeLessThan(m.saveDraft.mock.invocationCallOrder[0])
+  expect(m.confirmError).toBeNull()
+})
+
+it('says what to do when a shared copy cannot be copied', async () => {
+  m.baseOf.mockResolvedValue(HELD)
+  m.recordBase.mockRejectedValue(OTHERS)
+  m.copy.mockRejectedValue({ message: 'new row violates row-level security policy' })
+  await show([row()])
+  await replaceIt()
+  expect((m.confirmError as Error).message).toContain('Download it, then upload it here as a new version.')
+  expect(m.saveDraft).not.toHaveBeenCalled()
+  expect(m.endPull).not.toHaveBeenCalled()
+})
+
+it("saves nothing again when the copy is already the person's own", async () => {
+  m.baseOf.mockResolvedValue(HELD)
+  await show([row()])
+  await replaceIt()
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Chap1-4.docx', 'p/files/mine.docx', 6)
+  expect(m.copy).not.toHaveBeenCalled()
+  expect(m.saveDraft).not.toHaveBeenCalled()
 })
 
 it("keeps the row held after their version is downloaded, since the copy's base has not moved", async () => {

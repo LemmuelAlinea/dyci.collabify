@@ -22,7 +22,8 @@
 -- Refreshing, ending or outliving a pull therefore never lifts a hold, and a
 -- folder Submit or Commit that carries the copy is held like the file alone.
 -- The base is the uploader's claim: a collaboration safeguard, not a security
--- boundary (Replace anyway exists), so only the uploader may re-record it.
+-- boundary (Replace anyway exists). Only the object's uploader (storage.objects
+-- owner) records or re-records a base for it.
 --
 -- The guard is a BEFORE INSERT trigger on general_blobs, so it covers every
 -- way into Main (commit_general_files directly, commit_general_draft_path and
@@ -218,8 +219,10 @@ $function$;
 
 /**
  * Records the Main version an uploaded Word copy was made from. The caller
- * must be able to change the project, the object must be one of its files and
- * the path a Word file. A copy's base is changed only by whoever recorded it.
+ * must be able to change the project, the object must be one of its files,
+ * uploaded by the caller (storage.objects owner), and the path a Word file. A
+ * copy's base is changed only by whoever recorded it. A draft row copied from
+ * someone's share keeps their object, so the app copies it first.
  */
 create or replace function public.record_general_file_base(p_repo uuid, p_path text, p_storage text, p_base_seq int)
  returns void
@@ -257,6 +260,14 @@ begin
   if p_base_seq is null or p_base_seq < 0 or p_base_seq > r.commit_count then
     raise exception 'That version is not in Main.' using errcode = 'invalid_parameter_value';
   end if;
+  if not exists (
+       select 1 from storage.objects o
+        where o.bucket_id = 'general-files'
+          and o.name = p_storage
+          and coalesce(o.owner_id, o.owner::text) = auth.uid()::text) then
+    raise exception '%', 'Only whoever uploaded that copy can say which version it was made from. Download it, then upload it here as a new version.'
+      using errcode = 'insufficient_privilege';
+  end if;
 
   insert into public.general_file_bases (storage_path, repo_id, project_id, path, user_id, base_seq, created_at)
   values (p_storage, r.id, r.project_id, v_path, auth.uid(), p_base_seq, now())
@@ -269,7 +280,7 @@ begin
    where public.general_file_bases.user_id = auth.uid();
   get diagnostics n = row_count;
   if n = 0 then
-    raise exception 'Someone else uploaded that copy, so only they can change which version it was made from.'
+    raise exception '%', 'Only whoever uploaded that copy can say which version it was made from. Download it, then upload it here as a new version.'
       using errcode = 'insufficient_privilege';
   end if;
 end;

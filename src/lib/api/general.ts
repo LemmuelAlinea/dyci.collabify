@@ -1992,6 +1992,20 @@ export async function uploadProjectFile(projectId: string, file: File) {
   return path
 }
 
+/**
+ * Copies one of a project's files to a new object of the caller's own beside
+ * it, under the same name, and answers the new path. Reading the source and
+ * writing under `<project>/files/` are both what the files storage policies
+ * already let a member do.
+ */
+export async function copyProjectFile(projectId: string, storagePath: string) {
+  const name = storagePath.slice(storagePath.lastIndexOf('/') + 1).replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '')
+  const path = `${projectId}/files/${crypto.randomUUID()}-${name || 'file'}`
+  const { error } = await supabase.storage.from(BUCKET).copy(storagePath, path)
+  if (error) throw error
+  return path
+}
+
 /** Pictures inside Word files: up to 5 MB each. */
 export const DOC_IMAGE_LIMIT = 5 * 1024 * 1024
 

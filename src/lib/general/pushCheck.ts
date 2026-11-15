@@ -27,3 +27,9 @@ export function isStalePushError(err: unknown): boolean {
   const message = (err as { message?: unknown } | null)?.message
   return typeof message === 'string' && message.startsWith('Main has a newer version of')
 }
+
+/** The database's refusal to record a base on an object someone else uploaded (a copied share). */
+export function isOthersCopyError(err: unknown): boolean {
+  const message = (err as { message?: unknown } | null)?.message
+  return typeof message === 'string' && message.startsWith('Only whoever uploaded that copy')
+}

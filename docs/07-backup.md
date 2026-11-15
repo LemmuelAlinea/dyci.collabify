@@ -997,7 +997,7 @@ changes and nothing else needs re-running after it. Suite: `supabase/tests/space
 `file-pulls.sql` runs after `space-look.sql` and before `anon-lockdown.sql`. It owns the tables
 `general_file_pulls` (one row per person and path: the Main version a Word file was pulled from, `base_seq`, and
 `pulled_at`; the heads-up) and `general_file_bases` (one row per uploaded Word object, keyed by `storage_path`: the
-Main version the copy was made from, recorded by its uploader), both read by anyone who reads the project and written
+Main version the copy was made from, recorded only by the object's storage owner, `storage.objects` `owner_id`), both read by anyone who reads the project and written
 only by its functions; and `general_main_seq`, `pull_general_file`, `end_general_file_pull`,
 `general_file_push_state`, `record_general_file_base`, `general_file_base_state` and two triggers on `general_blobs`:
 `general_blobs_pull_guard` (BEFORE INSERT) refuses a binary blob whose storage path has a base on record, for the same

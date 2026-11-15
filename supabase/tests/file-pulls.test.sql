@@ -49,10 +49,24 @@ begin
 end;
 $$;
 
-/** A fresh uploaded object in the project's files. */
+/**
+ * A fresh object in the project's files, uploaded by whoever the test is
+ * acting as (its storage owner), written as the service role.
+ */
 create or replace function pg_temp.upload(p_project uuid) returns text
-language sql as $$
-  select p_project::text || '/files/' || gen_random_uuid()::text || '.docx';
+language plpgsql as $$
+declare
+  v_role   text := current_setting('role');
+  v_claims text := coalesce(current_setting('request.jwt.claims', true), '');
+  v_owner  uuid := nullif(nullif(v_claims, '')::json ->> 'sub', '')::uuid;
+  v_name   text := p_project::text || '/files/' || gen_random_uuid()::text || '.docx';
+begin
+  perform set_config('role', 'none', true);
+  insert into storage.objects (bucket_id, name, owner, owner_id)
+  values ('general-files', v_name, v_owner, v_owner::text);
+  perform set_config('role', v_role, true);
+  return v_name;
+end;
 $$;
 
 /** The one file a push carries: a Word file is binary, anything else text. */
@@ -216,12 +230,22 @@ begin
   perform pg_temp.must_be('...and ana''s next unbased push lands at 6',
     pg_temp.push(v_repo, v_proj, 'chap.docx', 'changed') = 6);
 
+  v_bens := pg_temp.upload(v_proj);  -- ana's upload with no base yet, as a shared copy would be
   perform pg_temp.act_as(v_ben);
   perform pg_temp.must_refuse_with('ben cannot overwrite the base of ana''s copy',
     format($q$select public.record_general_file_base(%L, 'chap.docx', %L, 6)$q$, v_repo, v_copy),
-    'only they can change');
+    'Only whoever uploaded that copy');
   perform pg_temp.must_be('...which keeps base 2',
     (select base_seq = 2 and user_id = v_ana from public.general_file_bases where storage_path = v_copy));
+  perform pg_temp.must_refuse_with('ben cannot claim a first base on an object ana uploaded, and is told what to do',
+    format($q$select public.record_general_file_base(%L, 'chap.docx', %L, 6)$q$, v_repo, v_bens),
+    'Download it, then upload it here as a new version');
+  perform pg_temp.must_refuse_with('...nor on an object that was never uploaded',
+    format($q$select public.record_general_file_base(%L, 'chap.docx', %L, 6)$q$, v_repo,
+           v_proj::text || '/files/' || gen_random_uuid()::text || '.docx'),
+    'Only whoever uploaded that copy');
+  perform pg_temp.must_be('...so neither has a base',
+    not exists (select 1 from public.general_file_bases where storage_path = v_bens));
   perform pg_temp.must_refuse_with('nobody writes a base directly',
     format($q$insert into public.general_file_bases (storage_path, repo_id, project_id, path, base_seq)
               values (%L, %L, %L, 'chap.docx', 6)$q$, pg_temp.upload(v_proj), v_repo, v_proj), 'denied');
