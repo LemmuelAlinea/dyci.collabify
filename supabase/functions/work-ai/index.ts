@@ -86,7 +86,7 @@ type FileRow = { path: string; kind: string; content: string; storage_path: stri
 /** Same rule as lib/general/files.ts: the extension decides how a file is held. */
 function kindOf(path: string) {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  if (['docx', 'doc', 'odt', 'rtf'].includes(ext)) return 'rich'
+  if (['docx', 'doc', 'odt', 'rtf'].includes(ext)) return 'binary'
   if (['xlsx', 'xlsm', 'csv'].includes(ext)) return 'sheet'
   return 'text'
 }
@@ -98,6 +98,8 @@ function fileText(f: FileRow) {
   return ''
 }
 
+const isWord = (path: string) => /\.(docx|doc|odt|rtf)$/i.test(path)
+
 const cap = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}\n[…cut at ${n} characters]` : s)
 
 async function pdfText(caller: SupabaseClient, storagePath: string) {
@@ -107,6 +109,31 @@ async function pdfText(caller: SupabaseClient, storagePath: string) {
   const { text } = await extractText(pdf, { mergePages: true })
   return String(text ?? '')
 }
+
+/**
+ * A file's text. A Word file kept as uploaded is read from storage through the
+ * caller's own client (storage policy applies); only .docx has readable text
+ * here, the other Word formats give ''. A PDF is read the same way.
+ */
+async function readText(caller: SupabaseClient, f: FileRow): Promise<string> {
+  if (f.kind === 'binary' && f.storage_path) {
+    if (f.path.toLowerCase().endsWith('.pdf')) return pdfText(caller, f.storage_path)
+    if (f.path.toLowerCase().endsWith('.docx')) {
+      try {
+        const { data, error } = await caller.storage.from(BUCKET).download(f.storage_path)
+        if (error || !data) return ''
+        return docxText(new Uint8Array(await data.arrayBuffer()))
+      } catch {
+        return ''
+      }
+    }
+    return ''
+  }
+  return fileText(f)
+}
+
+/** readText for a helper that can do without one file: a failure gives ''. */
+const readTextSoft = (caller: SupabaseClient, f: FileRow) => readText(caller, f).catch(() => '')
 
 /* ------------------------------------------------------------ the model */
 
@@ -464,25 +491,28 @@ ${VOICE}`,
 }
 
 /** Old and new text per path, for describing a change. */
-function beforeAfter(files: { path: string; action: string; after: string }[], main: FileRow[]) {
+async function beforeAfter(caller: SupabaseClient, files: { path: string; action: string; after: string }[], main: FileRow[]) {
   const byPath = new Map(main.map((f) => [f.path, f]))
   let budget = 80000
-  return files
-    .filter((f) => !f.path.endsWith('.keep'))
-    .map((f) => {
+  const parts: string[] = []
+  for (const f of files.filter((x) => !x.path.endsWith('.keep'))) {
+    {
       const old = byPath.get(f.path)
-      const before = old ? fileText(old) : ''
+      const before = old ? await readTextSoft(caller, old) : ''
       const each = Math.max(1000, Math.min(12000, Math.floor(budget / 2)))
       budget -= each
-      return [
-        `=== ${f.path} (${f.action}) ===`,
-        f.action === 'added' ? '' : `--- before ---\n${cap(before, each)}`,
-        f.action === 'removed' ? '' : `--- after ---\n${cap(f.after, each)}`,
-      ]
-        .filter(Boolean)
-        .join('\n')
-    })
-    .join('\n\n')
+      parts.push(
+        [
+          `=== ${f.path} (${f.action}) ===`,
+          f.action === 'added' ? '' : `--- before ---\n${cap(before, each)}`,
+          f.action === 'removed' ? '' : `--- after ---\n${cap(f.after, each)}`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      )
+    }
+  }
+  return parts.join('\n\n')
 }
 
 async function describeAction(ctx: Ctx) {
@@ -490,13 +520,15 @@ async function describeAction(ctx: Ctx) {
   // sends that text itself. It is the caller's own writing, so nothing is
   // exposed by trusting it.
   if (Array.isArray(ctx.body.files) && ctx.body.files.length > 0) {
-    const given = (ctx.body.files as Json[]).slice(0, 20).map((f) => ({
-      path: String(f.path ?? ''),
-      action: 'modified',
-      after: cap(
-        fileText({ path: String(f.path ?? ''), kind: String(f.kind ?? kindOf(String(f.path ?? ''))), content: String(f.content ?? ''), storage_path: null }),
-        20000,
-      ),
+    const given = await Promise.all((ctx.body.files as Json[]).slice(0, 20).map(async (f) => {
+      const path = String(f.path ?? '')
+      const row: FileRow = {
+        path,
+        kind: String(f.kind ?? kindOf(path)),
+        content: String(f.content ?? ''),
+        storage_path: typeof f.storage_path === 'string' && f.storage_path ? f.storage_path : null,
+      }
+      return { path, action: 'modified', after: cap(await readTextSoft(ctx.caller, row), 20000) }
     }))
     return describeFiles(ctx, given)
   }
@@ -513,9 +545,11 @@ async function describeAction(ctx: Ctx) {
     .select('path, action, kind, content, storage_path')
     .eq('draft_id', draft.id)
     .is('archived_at', null)
-  const files = ((rows ?? []) as (FileRow & { action: string })[])
-    .filter((f) => !only || [...only].some((p) => f.path === p || f.path.startsWith(`${p}/`)))
-    .map((f) => ({ path: f.path, action: f.action, after: fileText(f) }))
+  const files = await Promise.all(
+    ((rows ?? []) as (FileRow & { action: string })[])
+      .filter((f) => !only || [...only].some((p) => f.path === p || f.path.startsWith(`${p}/`)))
+      .map(async (f) => ({ path: f.path, action: f.action, after: await readTextSoft(ctx.caller, f) })),
+  )
   if (files.length === 0) throw new Refused('You have nothing in your draft.')
   return describeFiles(ctx, files)
 }
@@ -529,7 +563,7 @@ how the text was edited.
 - title: at most 10 words, sentence case, no trailing period.
 - message: one to three sentences. Name the files or sections touched.
 ${VOICE}`,
-    beforeAfter(files, await mainFiles(ctx)),
+    await beforeAfter(ctx.caller, files, await mainFiles(ctx)),
     obj({ title: str, message: str }),
     'low',
     2000,
@@ -544,12 +578,14 @@ async function summarizeChangeAction(ctx: Ctx) {
     .eq('id', String(ctx.body.change_id ?? ''))
     .maybeSingle()
   if (!change || change.project_id !== ctx.projectId) throw new Refused('That change is not available to you.', 403)
-  const files = ((change.files as { path: string; action: string; content?: string; kind?: string }[]) ?? []).map(
-    (f) => ({
-      path: f.path,
-      action: f.action,
-      after: fileText({ path: f.path, kind: f.kind ?? kindOf(f.path), content: f.content ?? '', storage_path: null }),
-    }),
+  const files = await Promise.all(
+    ((change.files as { path: string; action: string; content?: string; kind?: string; storage_path?: string | null }[]) ?? []).map(
+      async (f) => ({
+        path: f.path,
+        action: f.action,
+        after: await readTextSoft(ctx.caller, { path: f.path, kind: f.kind ?? kindOf(f.path), content: f.content ?? '', storage_path: f.storage_path ?? null }),
+      }),
+    ),
   )
   const out = await ask(
     ctx.anthropic,
@@ -561,7 +597,7 @@ the files before and after, say plainly what the change does.
   meaning. Point out anything a reviewer should look at twice. Do not judge
   quality and do not recommend accepting or rejecting.
 ${VOICE}`,
-    `Change title: ${change.title}\nAuthor's note: ${change.body || '(none)'}\n\n${beforeAfter(files, await mainFiles(ctx))}`,
+    `Change title: ${change.title}\nAuthor's note: ${change.body || '(none)'}\n\n${await beforeAfter(ctx.caller, files, await mainFiles(ctx))}`,
     obj({ overall: str, files: { type: 'array', items: obj({ path: str, summary: str }) } }),
     'medium',
     4000,
@@ -579,12 +615,7 @@ async function summarizeFileAction(ctx: Ctx) {
   const path = String(ctx.body.path ?? '')
   const file = (await mainFiles(ctx)).find((f) => f.path === path)
   if (!file) throw new Refused('That file is not in Main.')
-  const text =
-    file.kind === 'binary'
-      ? file.storage_path && path.toLowerCase().endsWith('.pdf')
-        ? await pdfText(ctx.caller, file.storage_path)
-        : ''
-      : fileText(file)
+  const text = await readText(ctx.caller, file)
   if (text.trim().length < 40) throw new Refused('There is not enough text in that file to summarize.')
   const out = await ask(
     ctx.anthropic,
@@ -639,13 +670,13 @@ ${VOICE}`,
 async function askAction(ctx: Ctx) {
   const question = String(ctx.body.question ?? '').trim().slice(0, 500)
   if (question.length < 4) throw new Refused('Ask a question about the files.')
-  const files = (await mainFiles(ctx)).filter((f) => f.kind !== 'binary')
+  const files = (await mainFiles(ctx)).filter((f) => f.kind !== 'binary' || isWord(f.path))
   if (files.length === 0) throw new Refused('There are no documents, sheets or text files in Main to read yet.')
   let budget = 250000
   const parts: string[] = []
   let left = 0
   for (const f of files) {
-    const text = fileText(f)
+    const text = await readTextSoft(ctx.caller, f)
     if (!text.trim()) continue
     if (budget <= 0) {
       left++
