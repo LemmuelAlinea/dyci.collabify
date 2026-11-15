@@ -18,7 +18,7 @@ import type { Sheet, Workbook } from './sheet'
 import type { BorderLine, CellBorder, CellStyle, Merge } from './sheetFormat'
 
 export const OFFICE_WARNING =
-  'Word files keep their fonts, colours, alignment, lists, tables, pictures and page size; headers, footers, footnotes, comments and tracked changes do not come across. Excel files keep their numbers and formulas; charts and macros do not.'
+  'Excel files keep their numbers and formulas; charts and macros do not.'
 
 /* ------------------------------------------------------------------- word */
 

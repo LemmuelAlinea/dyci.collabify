@@ -47,7 +47,8 @@ export function pathWithPickedExtension(path: string, pickedName?: string | null
   return `${p}.${pickedExt}`
 }
 
-const RICH = new Set(['docx', 'doc', 'odt', 'rtf'])
+/** Word files are kept exactly as uploaded, in Storage, like a PDF. */
+export const WORD_EXTENSIONS: ReadonlySet<string> = new Set(['docx', 'doc', 'odt', 'rtf'])
 const SHEET = new Set(['xlsx', 'xlsm', 'csv'])
 const TEXT = new Set([
   'txt', 'md', 'markdown', 'ts', 'tsx', 'js', 'jsx', 'json', 'html', 'css', 'scss',
@@ -66,13 +67,25 @@ const TEXT = new Set([
  */
 export function kindForPath(path: string): FileKind {
   const ext = extensionOf(path)
-  if (RICH.has(ext)) return 'rich'
   if (SHEET.has(ext)) return 'sheet'
   if (TEXT.has(ext)) return 'text'
   // A file with no extension at all is usually a config file — README, LICENSE,
   // Dockerfile. Treating those as text is right far more often than not.
   if (ext === '') return 'text'
   return 'binary'
+}
+
+export function isWordPath(path: string) {
+  return WORD_EXTENSIONS.has(extensionOf(path))
+}
+
+/** Only .docx can be previewed in the browser. */
+export function isPreviewableWord(path: string) {
+  return extensionOf(path) === 'docx'
+}
+
+export function sameExtension(a: string, b: string) {
+  return extensionOf(a) === extensionOf(b)
 }
 
 export function isEditable(kind: FileKind) {

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { saveDraftFile, uploadProjectFile } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { KEEP, actionFor, buildTree, fileName, folderNameProblem, joinPath, kindForPath, nodesAt, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
-import { docxToHtml, OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
+import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isWordPath, joinPath, kindForPath, nodesAt, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
+import { OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
 import { serializeWorkbook } from '../../lib/general/sheet'
 import type { GeneralDraftFile, GeneralRepoSummary, GeneralTreeFile } from '../../lib/general/types'
 import { Alert } from '../ui/Alert'
@@ -68,8 +68,7 @@ export function NewItemDialog({
     const k = kindForPath(target)
     let content = ''
     let storagePath: string | null = null
-    if (k === 'rich') content = (await docxToHtml(file, repo.project_id)).html
-    else if (k === 'sheet') content = serializeWorkbook(await xlsxToWorkbook(file))
+    if (k === 'sheet') content = serializeWorkbook(await xlsxToWorkbook(file))
     else if (k === 'text') content = await readAsText(file)
     else storagePath = await uploadProjectFile(repo.project_id, file)
     await saveDraftFile({ repoId: repo.id, path: target, action: actionFor(target, tree), kind: k, content, storagePath })
@@ -130,7 +129,8 @@ export function NewItemDialog({
     }
   }
 
-  const office = picked && ['rich', 'sheet'].includes(kindForPath(picked.name))
+  const office = picked && kindForPath(picked.name) === 'sheet'
+  const word = picked && isWordPath(picked.name)
 
   return (
     <Modal
@@ -203,6 +203,11 @@ export function NewItemDialog({
                 </Field>
               )}
               {office && <Alert tone="info">{OFFICE_WARNING}</Alert>}
+              {word && (
+                <Alert tone="info">
+                  Kept exactly as uploaded. From Google Docs, download it as Microsoft Word (.docx) first.
+                </Alert>
+              )}
             </>
           )}
           {step === 'upload-folder' && (

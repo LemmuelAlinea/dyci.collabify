@@ -6,6 +6,9 @@ import {
   crumbs,
   describeDraft,
   extensionOf,
+  isPreviewableWord,
+  isWordPath,
+  sameExtension,
   fileText,
   fileName,
   flatFiles,
@@ -99,8 +102,17 @@ describe('naming', () => {
 })
 
 describe('kindForPath', () => {
-  it('sends Word and Excel to their editors', () => {
-    expect(kindForPath('documents/Chapter 1.docx')).toBe('rich')
+  it('keeps Word files as uploaded', () => {
+    for (const p of ['ch1.docx', 'old.DOC', 'notes.odt', 'memo.rtf']) expect(kindForPath(p)).toBe('binary')
+    expect(isWordPath('Thesis/Chap1-4.docx')).toBe(true)
+    expect(isWordPath('scan.pdf')).toBe(false)
+    expect(isPreviewableWord('a.docx')).toBe(true)
+    expect(isPreviewableWord('a.doc')).toBe(false)
+    expect(sameExtension('Chap1-4.docx', 'Chap1-4 final.DOCX')).toBe(true)
+    expect(sameExtension('a.docx', 'a.doc')).toBe(false)
+  })
+
+  it('sends Excel to its editor', () => {
     expect(kindForPath('Budget.XLSX')).toBe('sheet')
     expect(kindForPath('Budget.XLSM')).toBe('sheet')
     expect(kindForPath('data.csv')).toBe('sheet')

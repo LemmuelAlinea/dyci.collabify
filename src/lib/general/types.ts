@@ -511,7 +511,7 @@ export type FileAction = 'added' | 'changed' | 'removed'
  *   text    plain text and code, in `content`, compared line by line
  *   rich    a Word document, stored as HTML in `content`
  *   sheet   a spreadsheet, stored as JSON in `content`
- *   binary  a PDF or an image, in Storage, with `storage_path` pointing at it
+ *   binary  a PDF, a Word file or an image, in Storage, with `storage_path` pointing at it
  */
 export type FileKind = 'text' | 'rich' | 'sheet' | 'binary'
 
