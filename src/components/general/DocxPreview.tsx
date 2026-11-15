@@ -81,21 +81,80 @@ export function registerWordFonts() {
   }
 }
 
-/** Draw a .docx into `container` as pages; its styles go into `styleContainer`. */
+/**
+ * docx-preview's options. Embedded HTML (altChunk) is off: the library would
+ * draw it as an unsandboxed same-origin iframe.
+ */
+export const DOCX_OPTIONS = {
+  className: 'docx',
+  inWrapper: true,
+  breakPages: true,
+  ignoreLastRenderedPageBreak: false,
+  renderHeaders: true,
+  renderFooters: true,
+  renderFootnotes: true,
+  renderEndnotes: true,
+  renderAltChunks: false,
+  experimental: true,
+  useBase64URL: true,
+} as const
+
+// A Word file is someone else's input: nothing in it may run here.
+const ACTIVE = 'iframe, frame, frameset, script, object, embed, form, base, meta, link, noscript, template'
+const SAFE_LINK = /^(https?:|mailto:|#)/i
+const SAFE_IMAGE = /^(data:image\/|blob:)/i
+
+/**
+ * Makes a drawn Word file inert before it reaches the page: no active
+ * elements, no event handlers, links only to the web, mail or within the
+ * file, and pictures only from the file itself.
+ */
+export function sanitizePreview(root: HTMLElement) {
+  for (const el of [...root.querySelectorAll(ACTIVE)]) el.remove()
+  for (const el of [root, ...root.querySelectorAll('*')]) {
+    for (const name of el.getAttributeNames()) {
+      const lower = name.toLowerCase()
+      if (lower.startsWith('on') || lower === 'srcdoc' || lower === 'formaction') el.removeAttribute(name)
+    }
+    const tag = el.tagName.toLowerCase()
+    if (tag === 'a') {
+      const href = (el.getAttribute('href') ?? '').trim()
+      if (!href || !SAFE_LINK.test(href)) {
+        el.removeAttribute('href')
+        el.removeAttribute('target')
+      } else if (!href.startsWith('#')) {
+        el.setAttribute('target', '_blank')
+        el.setAttribute('rel', 'noopener noreferrer')
+      }
+    } else if (tag === 'img') {
+      const src = (el.getAttribute('src') ?? '').trim()
+      if (!SAFE_IMAGE.test(src)) el.removeAttribute('src')
+      el.removeAttribute('srcset')
+    } else {
+      // SVG links and pictures (an <a> or <image> inside drawn shapes) take the same rules.
+      for (const name of ['href', 'xlink:href']) {
+        const value = el.getAttribute(name)
+        if (value === null) continue
+        const ok = tag === 'image' ? SAFE_IMAGE.test(value.trim()) : value.trim().startsWith('#')
+        if (!ok) el.removeAttribute(name)
+      }
+    }
+  }
+}
+
+/** The style container takes only <style> elements. */
+export function sanitizeStyles(box: HTMLElement) {
+  for (const node of [...box.childNodes]) {
+    if (node.nodeName !== 'STYLE') node.remove()
+  }
+}
+
+/** Draw a .docx into `container` as pages; its styles go into `styleContainer`. Both come out sanitized. */
 export async function renderDocx(blob: Blob, container: HTMLElement, styleContainer: HTMLElement) {
   const { renderAsync } = await import('docx-preview')
-  await renderAsync(blob, container, styleContainer, {
-    className: 'docx',
-    inWrapper: true,
-    breakPages: true,
-    ignoreLastRenderedPageBreak: false,
-    renderHeaders: true,
-    renderFooters: true,
-    renderFootnotes: true,
-    renderEndnotes: true,
-    experimental: true,
-    useBase64URL: true,
-  })
+  await renderAsync(blob, container, styleContainer, { ...DOCX_OPTIONS })
+  sanitizePreview(container)
+  sanitizeStyles(styleContainer)
 }
 
 const STEPS = [0.5, 0.75, 1, 1.25, 1.5]
@@ -221,6 +280,10 @@ export function DocxPreview({
           </Button>
         </div>
       </div>
+      <p className="text-[12px] text-muted">
+        From Google Docs, download it as Microsoft Word (.docx) before uploading. Converting it to a
+        Google Doc and back can change the formatting.
+      </p>
       {downloadError && <Alert tone="error">{downloadError}</Alert>}
       <div
         ref={box}
