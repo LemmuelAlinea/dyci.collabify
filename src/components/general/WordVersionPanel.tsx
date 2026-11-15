@@ -18,6 +18,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { extensionOf, fileName, isWordPath } from '../../lib/general/files'
 import { newVersionProblem, pulledAgo, stalePushMessage } from '../../lib/general/newVersion'
+import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
 import type { PushVerdict } from '../../lib/general/pushCheck'
 import type { FileAction, FilePull, GeneralRepoSummary } from '../../lib/general/types'
@@ -68,6 +69,8 @@ export function WordVersionPanel({
   const [message, setMessage] = useState('')
   const [writing, setWriting] = useState(false)
   const [busy, setBusy] = useState(false)
+  // A download link, when the browser blocked the tab it was opening in.
+  const [blocked, setBlocked] = useState<string | null>(null)
   const picker = useRef<HTMLInputElement>(null)
 
   const refreshPulls = useCallback(async () => {
@@ -84,25 +87,25 @@ export function WordVersionPanel({
     void refreshPulls()
   }, [refreshPulls])
 
-  async function download(storagePath: string) {
-    window.open(await projectFileUrl(storagePath, name), '_blank', 'noopener')
-  }
-
-  async function editInWord() {
-    if (!file.storagePath || busy) return
+  // Both downloads open their tab inside the click (openTabFor), before any await.
+  function editInWord() {
+    const storagePath = file.storagePath
+    if (!storagePath || busy) return
     setError(null)
+    setBlocked(null)
     setBusy(true)
-    try {
+    void openTabFor(async () => {
       // A file Main has never had has nothing to fall behind: it only downloads.
       if (existsInMain) await pullFile(repo.id, file.path, !file.fromDraft)
-      await download(file.storagePath)
-      show('Downloaded. Edit it in Word, then upload it here as a new version.')
-      await refreshPulls()
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not download it. Try again in a moment.'))
-    } finally {
-      setBusy(false)
-    }
+      return projectFileUrl(storagePath, name)
+    })
+      .then(async (link) => {
+        setBlocked(link)
+        if (!link) show('Downloaded. Edit it in Word, then upload it here as a new version.')
+        await refreshPulls()
+      })
+      .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
+      .finally(() => setBusy(false))
   }
 
   async function doneEditing() {
@@ -115,23 +118,26 @@ export function WordVersionPanel({
     }
   }
 
-  async function getTheirs(verdict: Held) {
+  function getTheirs(verdict: Held) {
     setError(null)
-    try {
+    setBlocked(null)
+    return openTabFor(async () => {
       await pullFile(repo.id, file.path, true)
       const storagePath = await storagePathAt(repo.id, file.path, verdict.mainSeq)
       if (!storagePath) throw new Error('That version has no file to download. Open the file again and retry.')
-      await download(storagePath)
-      setStage({ step: 'idle' })
-      show('Downloaded the newer version. Combine the two in Word, then upload the result here.')
-      await refreshPulls()
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not download it. Try again in a moment.'))
-    }
+      return projectFileUrl(storagePath, name)
+    })
+      .then(async (link) => {
+        setBlocked(link)
+        setStage({ step: 'idle' })
+        if (!link) show('Downloaded the newer version. Combine the two in Word, then upload the result here.')
+        await refreshPulls()
+      })
+      .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
   }
 
   async function upload(picked: File, action: FileAction) {
-    if (!state.project) return
+    if (!state.project) return setStage({ step: 'idle' })
     setStage({ step: 'working', what: `Uploading ${picked.name}…` })
     try {
       const storagePath = await uploadProjectFile(state.project.id, picked)
@@ -231,7 +237,7 @@ export function WordVersionPanel({
         {canEdit && (
           <div className="flex flex-wrap gap-2">
             {word && file.storagePath && (
-              <Button size="sm" variant="outline" disabled={busy} onClick={() => void editInWord()}>
+              <Button size="sm" variant="outline" disabled={busy} onClick={editInWord}>
                 <Icon name="edit" size={14} />
                 Edit in Word
               </Button>
@@ -261,6 +267,15 @@ export function WordVersionPanel({
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
+
+      {blocked && (
+        <p className="text-[13px] text-ink">
+          Your browser blocked the download.{' '}
+          <a href={blocked} target="_blank" rel="noopener" className="font-medium text-navy-600 underline dark:text-navy-200">
+            Download {name}
+          </a>
+        </p>
+      )}
 
       {stage.step === 'working' && (
         <p className="flex items-center gap-2 text-[12px] text-muted">

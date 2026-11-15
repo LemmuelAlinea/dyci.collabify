@@ -118,6 +118,43 @@ it("shows the words changed between the pulled copy and Main's for a .docx", asy
   expect(host!.textContent).toContain("What Ben changed in Thesis/Chap1-4.docx")
 })
 
+it('gets their version once, however fast the clicks come', async () => {
+  let finish = () => {}
+  const getTheirs = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)))
+  await show(<HeldPush state={held()} path="a.docx" names={names} onGetTheirs={getTheirs} onReplaceAnyway={vi.fn()} />)
+  const download = button("Download Ben's version")
+  await act(async () => {
+    download.click()
+    // Synchronously, inside the click: the caller opens its download tab here.
+    expect(getTheirs).toHaveBeenCalledTimes(1)
+    download.click()
+  })
+  await act(async () => button("Download Ben's version").click())
+  expect(getTheirs).toHaveBeenCalledTimes(1)
+  await act(async () => finish())
+  await act(async () => button("Download Ben's version").click())
+  expect(getTheirs).toHaveBeenCalledTimes(2)
+})
+
+it('stays held after their version is downloaded, until the combined copy is uploaded', async () => {
+  await show(
+    <HeldPush state={held()} path="a.docx" names={names} gotTheirs onGetTheirs={vi.fn()} onReplaceAnyway={vi.fn()} />,
+  )
+  expect(host!.textContent).toContain("You have Ben's version now.")
+  expect(host!.textContent).toContain('Once you upload your combined copy here as a new version, the hold lifts.')
+  expect(host!.textContent).not.toContain('updated this since you pulled')
+  expect(buttons()).toContain('Replace it anyway')
+})
+
+it('offers a link when the browser blocked the download', async () => {
+  await show(
+    <HeldPush state={held()} path="a.docx" names={names} blockedUrl="https://signed/ben" onGetTheirs={vi.fn()} onReplaceAnyway={vi.fn()} />,
+  )
+  const link = host!.querySelector('a[href="https://signed/ben"]')
+  expect(link?.textContent).toContain("Download Ben's version")
+  expect(host!.textContent).toContain('Your browser blocked the download.')
+})
+
 it('shows no comparison for a removed file or a .doc', async () => {
   await show(
     <HeldPush state={held({ removed: true })} path="a.docx" repoId="repo" names={names} onGetTheirs={vi.fn()} onReplaceAnyway={vi.fn()} />,

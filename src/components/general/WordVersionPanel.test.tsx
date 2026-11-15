@@ -85,8 +85,11 @@ let root: ReturnType<typeof createRoot> | null = null
 const onClose = vi.fn()
 const onSaved = vi.fn(async () => {})
 const open = vi.fn()
+let tab: { location: { href: string }; close: ReturnType<typeof vi.fn>; opener: unknown }
 
 beforeEach(() => {
+  tab = { location: { href: '' }, close: vi.fn(), opener: {} }
+  open.mockReturnValue(tab)
   vi.stubGlobal('open', open)
   m.listPulls.mockResolvedValue([])
   m.url.mockResolvedValue('https://signed/url')
@@ -137,7 +140,9 @@ it('pulls from Main and downloads on Edit in Word', async () => {
   await click('Edit in Word')
   expect(m.pullFile).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', true)
   expect(m.url).toHaveBeenCalledWith('p/files/main.docx', 'Chap1-4.docx')
-  expect(open).toHaveBeenCalledWith('https://signed/url', '_blank', 'noopener')
+  expect(open).toHaveBeenCalledWith('', '_blank')
+  expect(tab.location.href).toBe('https://signed/url')
+  expect(tab.opener).toBeNull()
   expect(m.toast).toHaveBeenCalledWith('Downloaded. Edit it in Word, then upload it here as a new version.')
 })
 
@@ -151,7 +156,35 @@ it('only downloads a file Main has never had', async () => {
   await show({ ...mainFile, fromDraft: true, action: 'added', mainAt: null })
   await click('Edit in Word')
   expect(m.pullFile).not.toHaveBeenCalled()
-  expect(open).toHaveBeenCalled()
+  expect(tab.location.href).toBe('https://signed/url')
+})
+
+it('opens the tab inside the click, before anything is awaited', async () => {
+  let release = () => {}
+  m.pullFile.mockReturnValue(new Promise<void>((resolve) => (release = resolve)))
+  await show(mainFile)
+  await act(async () => button('Edit in Word').click())
+  expect(open).toHaveBeenCalledTimes(1)
+  expect(m.url).not.toHaveBeenCalled()
+  await act(async () => release())
+  expect(tab.location.href).toBe('https://signed/url')
+})
+
+it('offers a link when the browser blocks the new tab, and still records the pull', async () => {
+  open.mockReturnValue(null)
+  await show(mainFile)
+  await click('Edit in Word')
+  expect(m.pullFile).toHaveBeenCalled()
+  expect(host!.textContent).toContain('Your browser blocked the download.')
+  expect(host!.querySelector('a[href="https://signed/url"]')?.textContent).toContain('Download Chap1-4.docx')
+})
+
+it('closes the opened tab when the download fails', async () => {
+  m.pullFile.mockRejectedValue({ message: 'That file is not in Main yet.' })
+  await show(mainFile)
+  await click('Edit in Word')
+  expect(tab.close).toHaveBeenCalled()
+  expect(host!.textContent).toContain('That file is not in Main yet.')
 })
 
 it('hides every write control from read-only viewers, stakeholders and teachers', async () => {
@@ -245,6 +278,7 @@ it("gets the newer version as a new pull from Main", async () => {
   expect(m.pullFile).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', true)
   expect(m.at).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', 6)
   expect(m.url).toHaveBeenCalledWith('p/files/ben.docx', 'Chap1-4.docx')
+  expect(tab.location.href).toBe('https://signed/url')
   expect(m.upload).not.toHaveBeenCalled()
 })
 
@@ -283,4 +317,13 @@ it('commits to Main and explains a stale push in plain words', async () => {
   expect(host!.textContent).toContain(
     'Main has a newer version of Thesis/Chap1-4.docx than the copy you started from. You have to get the newer version, combine the two in Word and upload again.',
   )
+})
+
+it('never leaves a spinner behind when the project is not loaded', async () => {
+  m.pushState.mockResolvedValue(null)
+  await show({ ...mainFile, mainAt: null, fromDraft: true, action: 'added' }, member({ project: null } as never))
+  await pick('Chap1-4.docx')
+  expect(m.upload).not.toHaveBeenCalled()
+  expect(host!.textContent).not.toContain('Uploading')
+  expect(host!.textContent).not.toContain('Checking Main')
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
@@ -18,6 +18,8 @@ export function HeldPush({
   path,
   repoId,
   names,
+  gotTheirs = false,
+  blockedUrl = null,
   onGetTheirs,
   onReplaceAnyway,
 }: {
@@ -26,21 +28,51 @@ export function HeldPush({
   /** Given, a .docx shows the words that changed in Main since the pulled copy. */
   repoId?: string
   names: (id: string) => string
+  /** They downloaded the newer version; the hold stays until their combined copy is uploaded. */
+  gotTheirs?: boolean
+  /** The newer version's link, when the browser blocked the tab it was opening in. */
+  blockedUrl?: string | null
+  /** Called inside the click, so it can open its download tab before anything is awaited. */
   onGetTheirs: () => void | Promise<void>
   onReplaceAnyway: () => void | Promise<void>
 }) {
   const [confirming, setConfirming] = useState(false)
+  // One download at a time: a double click must not record two pulls.
+  const getting = useRef(false)
+  const [busy, setBusy] = useState(false)
   const who = state.by ? names(state.by) : 'Someone'
   const whose = state.by ? `${who}'s` : 'their'
   const when = state.at ? `, ${formatDue(state.at)}` : ''
   const compare = Boolean(repoId) && !state.removed && isPreviewableWord(path)
+  const downloadLabel = `Download ${state.by ? `${who}'s` : 'the newer'} version`
+
+  function getTheirs() {
+    if (getting.current) return
+    getting.current = true
+    setBusy(true)
+    // Called right here, inside the click, so its tab opens before anything is awaited.
+    void new Promise<void>((resolve) => resolve(onGetTheirs()))
+      .catch(() => {})
+      .finally(() => {
+        getting.current = false
+        setBusy(false)
+      })
+  }
 
   return (
     <section className="space-y-3 rounded-xl border border-warning-300 bg-warning-50 px-3.5 py-3 text-[13px] text-warning-800 dark:border-warning-400/40 dark:bg-warning-400/15 dark:text-warning-300">
       <div className="flex items-start gap-2">
         <Icon name="alert" size={15} className="mt-0.5 shrink-0" />
         <div className="min-w-0 space-y-1">
-          {state.removed ? (
+          {gotTheirs && !state.removed ? (
+            <>
+              <p className="font-medium">You have {whose} version now.</p>
+              <p>
+                Combine it with yours in Word (Review, Compare, Combine). Once you upload your combined copy here
+                as a new version, the hold lifts.
+              </p>
+            </>
+          ) : state.removed ? (
             <>
               <p className="font-medium">
                 {who} removed this file since you pulled{when}.
@@ -61,6 +93,15 @@ export function HeldPush({
         </div>
       </div>
 
+      {blockedUrl && (
+        <p>
+          Your browser blocked the download.{' '}
+          <a href={blockedUrl} target="_blank" rel="noopener" className="font-medium underline">
+            {downloadLabel}
+          </a>
+        </p>
+      )}
+
       {compare && repoId && (
         <div className="rounded-lg border border-line surface px-3 py-2.5 text-ink">
           <WordDiff
@@ -74,9 +115,9 @@ export function HeldPush({
 
       <div className="flex flex-wrap gap-2">
         {!state.removed && (
-          <Button size="sm" onClick={() => void onGetTheirs()}>
-            <Icon name="download" size={14} />
-            Download {state.by ? `${who}'s` : 'the newer'} version
+          <Button size="sm" variant={gotTheirs ? 'outline' : undefined} loading={busy} onClick={getTheirs}>
+            {!busy && <Icon name="download" size={14} />}
+            {downloadLabel}
           </Button>
         )}
         <Button size="sm" variant="outline" onClick={() => setConfirming(true)}>

@@ -27,6 +27,7 @@ import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
 import { buildTree, describeDraft, fileName, fileText, flatFiles, isPreviewableWord, isWordPath, nodesAt } from '../../lib/general/files'
 import { stalePushMessage } from '../../lib/general/newVersion'
+import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
 import type { PushVerdict } from '../../lib/general/pushCheck'
 import type { TreeNode } from '../../lib/general/files'
@@ -50,6 +51,40 @@ import type { GeneralProjectState } from './useGeneralProject'
 type SubmitTarget = { type: 'file' | 'folder'; path: string }
 
 type Held = PushVerdict & { kind: 'held' }
+
+/**
+ * A held file whose newer version was downloaded: the draft copy it was held
+ * for, and the hold. The row stays held while the draft still has that copy,
+ * since the fresh pull clears the database's check before anything is combined.
+ */
+type GotTheirs = Record<string, { storage: string | null; verdict: Held }>
+
+const gotKey = (repoId: string) => `collabify.gotTheirs.${repoId}`
+
+// Kept for the browser session, so leaving the tab or reloading does not lift the hold.
+function readGot(repoId: string): GotTheirs {
+  try {
+    return JSON.parse(sessionStorage.getItem(gotKey(repoId)) ?? '{}') as GotTheirs
+  } catch {
+    return {}
+  }
+}
+
+function writeGot(repoId: string, got: GotTheirs) {
+  try {
+    if (Object.keys(got).length === 0) sessionStorage.removeItem(gotKey(repoId))
+    else sessionStorage.setItem(gotKey(repoId), JSON.stringify(got))
+  } catch {
+    // Without storage the hold lasts until the panel closes.
+  }
+}
+
+/** The hold on a draft row: Main's check, or a download that has not been combined yet. */
+function holdOf(f: GeneralDraftFile, held: Record<string, Held>, got: GotTheirs) {
+  if (held[f.path]) return { verdict: held[f.path], gotTheirs: false }
+  const g = got[f.path]
+  return g && g.storage === f.storage_path ? { verdict: g.verdict, gotTheirs: true } : null
+}
 
 /** A stale push said in plain words; any other error as it came. */
 const plainStale = (err: unknown) => {
@@ -112,6 +147,21 @@ export function DraftPanel({
   // Word files in the draft made from a copy Main has moved past, by path.
   const [held, setHeld] = useState<Record<string, Held>>({})
   const [recheck, setRecheck] = useState(0)
+  const [got, setGot] = useState<GotTheirs>(() => readGot(repo.id))
+  // Download links for the rows whose tab the browser blocked.
+  const [links, setLinks] = useState<Record<string, string>>({})
+
+  useEffect(() => writeGot(repo.id, got), [repo.id, got])
+
+  // A new copy in the draft (or the row gone) lifts a download's hold.
+  useEffect(() => {
+    setGot((current) => {
+      const kept = Object.fromEntries(
+        Object.entries(current).filter(([p, g]) => files.some((f) => f.path === p && f.storage_path === g.storage)),
+      )
+      return Object.keys(kept).length === Object.keys(current).length ? current : kept
+    })
+  }, [files])
 
   const behind = draft !== null && draft.base_seq !== repo.commit_count
 
@@ -137,21 +187,27 @@ export function DraftPanel({
     }
   }, [repo.id, repo.commit_count, pulledPaths, state.readOnly, recheck])
 
-  async function getTheirs(path: string, verdict: Held) {
-    try {
-      await pullFile(repo.id, path, true)
-      const storagePath = await storagePathAt(repo.id, path, verdict.mainSeq)
+  // Opens its tab inside the click (openTabFor), before any await.
+  function getTheirs(f: GeneralDraftFile, verdict: Held) {
+    setLinks(({ [f.path]: _old, ...rest }) => rest)
+    return openTabFor(async () => {
+      await pullFile(repo.id, f.path, true)
+      const storagePath = await storagePathAt(repo.id, f.path, verdict.mainSeq)
       if (!storagePath) throw new Error('That version has no file to download. Reload the page and try again.')
-      window.open(await projectFileUrl(storagePath, fileName(path)), '_blank', 'noopener')
-      show('Downloaded the newer version. Combine the two in Word, then open the file and upload the result as a new version.')
-      setRecheck((n) => n + 1)
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not download it. Try again in a moment.'), 'error')
-    }
+      return projectFileUrl(storagePath, fileName(f.path))
+    })
+      .then((link) => {
+        setGot((current) => ({ ...current, [f.path]: { storage: f.storage_path, verdict } }))
+        if (link) setLinks((current) => ({ ...current, [f.path]: link }))
+        else show('Downloaded the newer version. Combine the two in Word, then upload your combined copy as a new version.')
+        setRecheck((n) => n + 1)
+      })
+      .catch((err: unknown) => show(authErrorMessage(err, 'Could not download it. Try again in a moment.'), 'error'))
   }
 
   async function replaceAnyway(f: GeneralDraftFile, verdict: Held) {
     await endPull(repo.id, f.path)
+    setGot(({ [f.path]: _old, ...rest }) => rest)
     // Main removed the file, so the draft's copy goes back in as a new one.
     if (verdict.removed && f.action === 'changed') {
       await saveDraftFile({ repoId: repo.id, path: f.path, action: 'added', kind: 'binary', storagePath: f.storage_path })
@@ -310,6 +366,8 @@ export function DraftPanel({
                   onSubmit={setSubmitting}
                   onShare={setSharing}
                   held={held}
+                  got={got}
+                  links={links}
                   names={state.nameOf}
                   repoId={repo.id}
                   onGetTheirs={getTheirs}
@@ -343,6 +401,8 @@ export function DraftPanel({
               onSubmit={setSubmitting}
               onShare={setSharing}
               held={held}
+              got={got}
+              links={links}
               names={state.nameOf}
               repoId={repo.id}
               onGetTheirs={getTheirs}
@@ -471,6 +531,8 @@ function DraftNode({
   onShare,
   onCommit,
   held,
+  got,
+  links,
   names,
   repoId,
   onGetTheirs,
@@ -495,9 +557,12 @@ function DraftNode({
   onCommit?: (target: SubmitTarget) => void
   /** Word files whose push Main has moved past, by path. */
   held: Record<string, Held>
+  /** Held rows whose newer version was downloaded but not combined yet. */
+  got: GotTheirs
+  links: Record<string, string>
   names: (id: string) => string
   repoId: string
-  onGetTheirs: (path: string, verdict: Held) => Promise<void>
+  onGetTheirs: (file: GeneralDraftFile, verdict: Held) => Promise<void>
   onReplaceAnyway: (file: GeneralDraftFile, verdict: Held) => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -538,7 +603,8 @@ function DraftNode({
 
   const f = node.file as unknown as GeneralDraftFile
   const clashing = conflicts.some((c) => c.path === f.path)
-  const hold = held[f.path]
+  const holding = holdOf(f, held, got)
+  const hold = holding?.verdict
   // A held file goes nowhere until it is combined or knowingly replaced.
   const stuck = behind || Boolean(hold)
 
@@ -608,10 +674,12 @@ function DraftNode({
         <div className="px-4 pb-3 sm:px-5">
           <HeldPush
             state={hold}
+            gotTheirs={holding?.gotTheirs}
+            blockedUrl={links[f.path] ?? null}
             path={f.path}
             repoId={repoId}
             names={names}
-            onGetTheirs={() => onGetTheirs(f.path, hold)}
+            onGetTheirs={() => onGetTheirs(f, hold)}
             onReplaceAnyway={() => onReplaceAnyway(f, hold)}
           />
         </div>

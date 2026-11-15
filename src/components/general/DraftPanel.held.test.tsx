@@ -17,6 +17,8 @@ const m = vi.hoisted(() => ({
   pullFile: vi.fn(),
   saveDraft: vi.fn(),
   commitPath: vi.fn(),
+  at: vi.fn(),
+  url: vi.fn(),
 }))
 
 vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: vi.fn() }) }))
@@ -46,8 +48,8 @@ vi.mock('../../lib/api/general', () => ({
   submitDraftFile: vi.fn(),
   syncDraft: vi.fn(),
   saveDraftFile: m.saveDraft,
-  storagePathAt: vi.fn(),
-  projectFileUrl: vi.fn(),
+  storagePathAt: m.at,
+  projectFileUrl: m.url,
 }))
 vi.mock('../../lib/api/trash', () => ({ trashDraftPath: vi.fn() }))
 vi.mock('../../lib/api/workAi', () => ({ writeChangeMessage: vi.fn() }))
@@ -84,7 +86,17 @@ let host: HTMLDivElement | null = null
 let root: ReturnType<typeof createRoot> | null = null
 const onDone = vi.fn(async () => {})
 
+const open = vi.fn()
+let tab: { location: { href: string }; close: () => void; opener: unknown }
+
 beforeEach(() => {
+  sessionStorage.clear()
+  tab = { location: { href: '' }, close: vi.fn(), opener: {} }
+  open.mockReturnValue(tab)
+  vi.stubGlobal('open', open)
+  m.pullFile.mockResolvedValue({})
+  m.at.mockResolvedValue('p/files/ben.docx')
+  m.url.mockResolvedValue('https://signed/ben')
   m.endPull.mockResolvedValue(undefined)
   m.saveDraft.mockResolvedValue({})
 })
@@ -97,12 +109,8 @@ afterEach(async () => {
   vi.clearAllMocks()
 })
 
-async function show(files: GeneralDraftFile[]) {
-  host = document.createElement('div')
-  document.body.append(host)
-  root = createRoot(host)
-  await act(async () =>
-    root!.render(
+function panel(files: GeneralDraftFile[]) {
+  return (
       <DraftPanel
         draft={{ id: 'd', base_seq: 6 } as never}
         files={files}
@@ -116,9 +124,15 @@ async function show(files: GeneralDraftFile[]) {
         onRename={vi.fn()}
         onOpen={vi.fn()}
         onDone={onDone}
-      />,
-    ),
+      />
   )
+}
+
+async function show(files: GeneralDraftFile[]) {
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+  await act(async () => root!.render(panel(files)))
 }
 
 const button = (label: string) => [...host!.querySelectorAll('button')].find((b) => b.textContent?.trim() === label)!
@@ -156,4 +170,40 @@ it('replaces a removed file by ending the pull and saving the draft row as added
     kind: 'binary',
     storagePath: 'p/files/mine.docx',
   })
+})
+
+it("keeps the row held after their version is downloaded, until a new copy replaces the draft's", async () => {
+  const held = { base_seq: 4, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false }
+  m.pushState.mockResolvedValueOnce(held).mockResolvedValue({ ...held, base_seq: 6 })
+  await show([row()])
+  await act(async () => button("Download Ben's version").click())
+  expect(m.pullFile).toHaveBeenCalledWith('repo', 'Chap1-4.docx', true)
+  expect(open).toHaveBeenCalledWith('', '_blank')
+  expect(tab.location.href).toBe('https://signed/ben')
+  // The recheck now says clear, but the draft still holds the old copy.
+  expect(m.pushState).toHaveBeenCalledTimes(2)
+  expect(host!.textContent).toContain("You have Ben's version now.")
+  expect(host!.textContent).toContain('Held')
+  await act(async () => root!.render(panel([row({ storage_path: 'p/files/combined.docx' })])))
+  expect(host!.textContent).not.toContain("You have Ben's version now.")
+  expect(host!.textContent).not.toContain('Held')
+})
+
+it('offers a link in the row when the browser blocks the download', async () => {
+  open.mockReturnValue(null)
+  m.pushState.mockResolvedValue({ base_seq: 4, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false })
+  await show([row()])
+  await act(async () => button("Download Ben's version").click())
+  expect(host!.querySelector('a[href="https://signed/ben"]')).toBeTruthy()
+})
+
+it('keeps that hold when the panel opens again, as after leaving the tab', async () => {
+  const held = { base_seq: 4, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false }
+  m.pushState.mockResolvedValueOnce(held).mockResolvedValue({ ...held, base_seq: 6 })
+  await show([row()])
+  await act(async () => button("Download Ben's version").click())
+  await act(async () => root!.unmount())
+  root = createRoot(host!)
+  await act(async () => root!.render(panel([row()])))
+  expect(host!.textContent).toContain("You have Ben's version now.")
 })

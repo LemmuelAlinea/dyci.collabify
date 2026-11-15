@@ -1,4 +1,5 @@
 import { GENERAL_FILE_LIMIT, extensionOf, fileName, sameExtension } from './files'
+import { isStalePushError } from './pushCheck'
 
 /** Why a picked file cannot replace the open one; null when it can. */
 export function newVersionProblem(currentPath: string, picked: File): string | null {
@@ -28,7 +29,8 @@ export function editingLabel(names: string[]) {
   return `${names[0]} and ${names.length - 1} others are editing`
 }
 
-const STALE = /^Main has a newer version of (.+) than the copy this was made from\./
+// Reads the path only; whether an error is the stale refusal is isStalePushError's call.
+const STALE_PATH = /^Main has a newer version of (.+?) than the copy /
 
 /**
  * The database's refusal of a push from an old copy, said to whoever sees it:
@@ -36,9 +38,8 @@ const STALE = /^Main has a newer version of (.+) than the copy this was made fro
  * null for the viewer. Null for every other error.
  */
 export function stalePushMessage(err: unknown, who: string | null): string | null {
-  const message = (err as { message?: unknown } | null)?.message
-  const hit = typeof message === 'string' ? STALE.exec(message) : null
-  if (!hit) return null
+  if (!isStalePushError(err)) return null
+  const path = STALE_PATH.exec((err as { message: string }).message)?.[1] ?? 'this file'
   const subject = who ? `${who.charAt(0).toUpperCase()}${who.slice(1)} has` : 'You have'
-  return `Main has a newer version of ${hit[1]} than the copy ${who ?? 'you'} started from. ${subject} to get the newer version, combine the two in Word and upload again.`
+  return `Main has a newer version of ${path} than the copy ${who ?? 'you'} started from. ${subject} to get the newer version, combine the two in Word and upload again.`
 }
