@@ -312,7 +312,6 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   attention lines link. Space lines never link. `navFor` takes the rail's `headsOffice` flag as a separate argument; it never changes which rail
   shows, it only adds My office (`/office`). Re-running `offices.sql` means re-running `offboarding.sql` and
   `office-heads.sql` after it. Suite: `supabase/tests/office-heads.test.sql`.
-
 - Notice audiences (`supabase/notice-audience.sql`, after `office-heads.sql`, before `anon-lockdown.sql`): a program notice
   has one audience, `everyone`, `offices` or `groups` (students, teaching = members with `can_teach`, staff = members
   without; an admin is in no group and no office). The read policy, the `program_notices` view and the notifier all
@@ -352,7 +351,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   lands (`general_blobs_pull_end`) or `end_general_file_pull`; a pull is only the heads-up and the base for the next
   upload. The hold lives with the copy: every Word upload calls `record_general_file_base` right after
   `uploadProjectFile` (the live pull's base, else Main's current seq for Continue or Replace anyway; Edit in Word on a
-  draft copy carries that copy's base), into `general_file_bases` by `storage_path`, re-recorded only by its uploader.
+  draft copy carries that copy's base), into `general_file_bases` by `storage_path`, recorded only by the object's storage owner (a draft row copied
+  from a share is copied to the person's own object by Replace anyway first).
   `general_blobs_pull_guard` (BEFORE INSERT on `general_blobs`) refuses a binary blob whose copy's base is older than
   Main's newest version of the path, so direct commits, committed draft files and folders and merged changes are all
   held without redefining their functions; a blob with no base passes. The app matches the error by its prefix "Main has

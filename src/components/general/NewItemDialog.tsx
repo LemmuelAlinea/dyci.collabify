@@ -260,7 +260,16 @@ export function NewItemDialog({
       footer={
         step === 'choose' ? undefined : (
           <>
-            <Button variant="ghost" onClick={() => { setStep('choose'); setError(null) }} disabled={busy}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                // A confirm given on this step must not carry to the next one.
+                pickChanged()
+                setStep('choose')
+                setError(null)
+              }}
+              disabled={busy}
+            >
               Back
             </Button>
             <Button loading={busy} disabled={pending?.step === 'held'} onClick={() => void submit()}>

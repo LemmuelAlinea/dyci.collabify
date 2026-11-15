@@ -254,6 +254,16 @@ it("saves nothing again when the copy is already the person's own", async () => 
   expect(m.saveDraft).not.toHaveBeenCalled()
 })
 
+it('keeps Submit off until the check of a Word copy comes back', async () => {
+  let answer: (v: unknown) => void = () => {}
+  m.baseOf.mockReturnValue(new Promise((r) => (answer = r)))
+  await show([row()])
+  await openMenu('Chap1-4.docx')
+  expect(menuItem('Submit for review').disabled).toBe(true)
+  await act(async () => answer(null))
+  expect(menuItem('Submit for review').disabled).toBe(false)
+})
+
 it("keeps the row held after their version is downloaded, since the copy's base has not moved", async () => {
   m.baseOf.mockResolvedValue(HELD)
   await show([row()])

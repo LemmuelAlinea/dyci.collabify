@@ -272,3 +272,16 @@ it('saves after Continue when the copy it started from is unknown', async () => 
   expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ path: 'Chap1-4.docx', action: 'changed' }))
   expect(m.recordBase).toHaveBeenCalledWith('repo', 'Chap1-4.docx', 'p/files/new.docx', 7)
 })
+
+it('clears a shown confirm on Back, so it cannot be used on another step', async () => {
+  await render()
+  await click('Upload a file')
+  await pickFiles([doc('Chap1-4.docx')])
+  await click('Add to my draft')
+  expect(text()).toContain('Chap1-4.docx is already here')
+  await click('Back')
+  await click('New folder')
+  expect(text()).not.toContain('new version')
+  expect([...document.body.querySelectorAll('button')].some((b) => /^Upload( as a new version)?$/.test(b.textContent?.trim() ?? ''))).toBe(false)
+  expect(m.saveDraft).not.toHaveBeenCalled()
+})

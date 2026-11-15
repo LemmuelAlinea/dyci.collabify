@@ -138,6 +138,8 @@ export function DraftPanel({
   const [recheck, setRecheck] = useState(0)
   // Download links for the rows whose tab the browser blocked.
   const [links, setLinks] = useState<Record<string, string>>({})
+  // The key the held and unknown lists were last worked out for.
+  const [checked, setChecked] = useState<string | null>(null)
 
   const behind = draft !== null && draft.base_seq !== repo.commit_count
 
@@ -159,6 +161,7 @@ export function DraftPanel({
       for (const [p, v] of pairs) if (v.kind === 'held') next[p] = v
       setHeld(next)
       setUnknown(pairs.filter(([, v]) => v.kind === 'unknown').map(([p]) => p))
+      setChecked(wordCopies)
     })
     return () => {
       alive = false
@@ -175,6 +178,10 @@ export function DraftPanel({
   const onSubmitTarget = (target: SubmitTarget) => begin('submit', target)
   const onCommitTarget = (target: SubmitTarget) => begin('commit', target)
   const folderHeld = path ? heldFolderReason(path, held) : null
+  // Word copies whose check has not come back yet: Submit and Commit wait for it.
+  const unchecked =
+    !state.readOnly && wordCopies && checked !== wordCopies ? wordCopies.split('\n').map((r) => r.split('\t')[0]) : []
+  const folderWaiting = Boolean(path) && unchecked.some((p) => under({ type: 'folder', path }, p))
 
   // Opens its tab inside the click (openTabFor), before any await.
   function getTheirs(f: GeneralDraftFile, verdict: Held) {
@@ -220,6 +227,7 @@ export function DraftPanel({
     }
     await endPull(repo.id, f.path).catch(() => {})
     show('Your copy will replace it')
+    setChecked(null)
     setRecheck((n) => n + 1)
     await onDone()
   }
@@ -301,7 +309,7 @@ export function DraftPanel({
                     {
                       label: 'Submit for review',
                       icon: 'refresh',
-                      disabled: behind || Boolean(folderHeld),
+                      disabled: behind || Boolean(folderHeld) || folderWaiting,
                       hint: folderHeld ?? undefined,
                       onSelect: () => onSubmitTarget({ type: 'folder', path }),
                     },
@@ -310,7 +318,7 @@ export function DraftPanel({
                           {
                             label: 'Commit to main',
                             icon: 'check' as const,
-                            disabled: behind || Boolean(folderHeld),
+                            disabled: behind || Boolean(folderHeld) || folderWaiting,
                             hint: folderHeld ?? undefined,
                             onSelect: () => onCommitTarget({ type: 'folder', path }),
                           },
@@ -387,6 +395,7 @@ export function DraftPanel({
                   onSubmit={onSubmitTarget}
                   onShare={setSharing}
                   held={held}
+                  unchecked={unchecked}
                   links={links}
                   names={state.nameOf}
                   repoId={repo.id}
@@ -421,6 +430,7 @@ export function DraftPanel({
               onSubmit={onSubmitTarget}
               onShare={setSharing}
               held={held}
+              unchecked={unchecked}
               links={links}
               names={state.nameOf}
               repoId={repo.id}
@@ -573,6 +583,7 @@ function DraftNode({
   onShare,
   onCommit,
   held,
+  unchecked,
   links,
   names,
   repoId,
@@ -598,6 +609,8 @@ function DraftNode({
   onCommit?: (target: SubmitTarget) => void
   /** Word copies made from a version Main has moved past, by path. */
   held: Record<string, Held>
+  /** Word copies whose check has not come back yet. */
+  unchecked: string[]
   links: Record<string, string>
   names: (id: string) => string
   repoId: string
@@ -608,6 +621,7 @@ function DraftNode({
 
   if (node.type === 'folder') {
     const folderHeld = heldFolderReason(node.path, held)
+    const waiting = unchecked.some((p) => under({ type: 'folder', path: node.path }, p))
     return (
       <li>
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5">
@@ -629,7 +643,7 @@ function DraftNode({
                 {
                   label: 'Submit for review',
                   icon: 'refresh',
-                  disabled: behind || Boolean(folderHeld),
+                  disabled: behind || Boolean(folderHeld) || waiting,
                   hint: folderHeld ?? undefined,
                   onSelect: () => onSubmit({ type: 'folder', path: node.path }),
                 },
@@ -638,7 +652,7 @@ function DraftNode({
                       {
                         label: 'Commit to main',
                         icon: 'check' as const,
-                        disabled: behind || Boolean(folderHeld),
+                        disabled: behind || Boolean(folderHeld) || waiting,
                         hint: folderHeld ?? undefined,
                         onSelect: () => onCommit({ type: 'folder', path: node.path }),
                       },
@@ -659,7 +673,7 @@ function DraftNode({
   const clashing = conflicts.some((c) => c.path === f.path)
   const hold = held[f.path]
   // A held file goes nowhere until it is combined or knowingly replaced.
-  const stuck = behind || Boolean(hold)
+  const stuck = behind || Boolean(hold) || unchecked.includes(f.path)
 
   return (
     <li>
