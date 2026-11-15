@@ -1617,6 +1617,21 @@ export async function contentAt(repoId: string, path: string, seq: number) {
   return !row || row.action === 'removed' ? null : row.content
 }
 
+/** The Storage object a path pointed at as of a commit; null when absent or removed. */
+export async function storagePathAt(repoId: string, path: string, seq: number) {
+  const { data, error } = await supabase
+    .from('general_blobs')
+    .select('action, storage_path')
+    .eq('repo_id', repoId)
+    .eq('path', path)
+    .lte('seq', seq)
+    .order('seq', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = (data ?? [])[0] as { action: FileAction; storage_path: string | null } | undefined
+  return !row || row.action === 'removed' ? null : row.storage_path
+}
+
 export async function commitFiles(input: {
   repoId: string
   message: string

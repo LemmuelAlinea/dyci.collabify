@@ -743,3 +743,22 @@ export const FILE_KIND_LABEL: Record<FileKind, string> = {
   sheet: 'Spreadsheet',
   binary: 'File',
 }
+
+/** A person's live pull of a Word file from Main (7 days). */
+export type FilePull = {
+  repo_id: string
+  project_id: string
+  path: string
+  user_id: string
+  base_seq: number
+  pulled_at: string
+}
+
+/** Where a pulled file stands against Main now. */
+export type PushState = {
+  base_seq: number
+  main_seq: number
+  main_author: string | null
+  main_at: string | null
+  main_removed: boolean
+}
