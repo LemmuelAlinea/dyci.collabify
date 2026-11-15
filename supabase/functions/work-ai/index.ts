@@ -276,6 +276,8 @@ function xlsxText(bytes: Uint8Array) {
     for (const row of xml.matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
       const cells: string[] = []
       let next = 0
+      let rowSize = 0
+      let full = false
       for (const c of (row[1] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
         const at = xmlAttr(c[1], 'r')
         const at2 = at ? colIndex(at) : -1
@@ -291,15 +293,27 @@ function xlsxText(bytes: Uint8Array) {
           else if (type === 'b') value = v.trim() === '1' ? 'TRUE' : 'FALSE'
           else value = decodeXml(v)
         }
+        // Skip empty cells before padding, so work follows real content.
+        value = value.slice(0, 2000).replace(/[\t\r\n]+/g, ' ')
+        if (value === '') {
+          next = i + 1
+          continue
+        }
+        // Padding counts toward the budget, and a full row ends the sheet.
+        rowSize += Math.max(0, i - cells.length) + value.length + 1
+        if (size + rowSize >= 60000) {
+          full = true
+          break
+        }
         while (cells.length < i) cells.push('')
-        cells[i] = value.replace(/[\t\r\n]+/g, ' ')
+        cells[i] = value
         next = i + 1
       }
       while (cells.length && cells[cells.length - 1] === '') cells.pop()
       const line = cells.join('\t')
       size += line.length + 1
       out.push(line)
-      if (size >= 60000) return out.join('\n')
+      if (full || size >= 60000) return out.join('\n')
     }
   }
   return out.join('\n')
@@ -793,7 +807,7 @@ async function askAction(ctx: Ctx) {
   if (question.length < 4) throw new Refused('Ask a question about the files.')
   // Only .docx and .xlsx/.xlsm among uploads have text to read here.
   const files = (await mainFiles(ctx)).filter((f) => f.kind !== 'binary' || isDocx(f.path) || isXlsx(f.path))
-  if (files.length === 0) throw new Refused('There are no documents, sheets, text or Word files in Main to read yet.')
+  if (files.length === 0) throw new Refused('There are no documents, sheets, text, Word or Excel files in Main to read yet.')
   let budget = 250000
   const parts: string[] = []
   let left = 0
