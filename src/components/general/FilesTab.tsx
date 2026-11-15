@@ -56,6 +56,8 @@ import { DraftPanel } from './DraftPanel'
 import { FileEditor } from './FileEditor'
 import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
+import { PropertiesDialog } from './PropertiesDialog'
+import type { PropertyTarget } from './PropertiesDialog'
 import { NewItemDialog } from './NewItemDialog'
 import { RenameFolderDialog } from './RenameFolderDialog'
 import { SharedTab } from './SharedTab'
@@ -735,6 +737,10 @@ function MainView({
   onStarted: () => Promise<void>
 }) {
   const all = buildTree(tree)
+  const [properties, setProperties] = useState<PropertyTarget | null>(null)
+  const showProperties = (path: string, folder: boolean) => setProperties({
+    path, files: tree.filter((file) => folder ? file.path.startsWith(`${path}/`) : file.path === path),
+  })
 
   if (tree.length === 0) {
     return draftFiles.length === 0 && state.can('commit_main') && !state.readOnly ? (
@@ -753,13 +759,13 @@ function MainView({
         Nothing in Main matches “{query.trim()}”.
       </p>
     ) : (
-      <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
+      <><PropertiesDialog target={properties} onClose={() => setProperties(null)} /><ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
         {hits.map((node) => (
           <li key={node.path}>
-            <MainFileRow node={{ ...node, name: node.path }} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} onDelete={onDelete} />
+            <MainFileRow node={{ ...node, name: node.path }} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} onDelete={onDelete} onProperties={showProperties} />
           </li>
         ))}
-      </ul>
+      </ul></>
     )
   }
 
@@ -769,6 +775,7 @@ function MainView({
 
   return (
     <div className="space-y-2">
+      <PropertiesDialog target={properties} onClose={() => setProperties(null)} />
       <FolderBar
         rootLabel="Main"
         path={path}
@@ -776,6 +783,7 @@ function MainView({
         actions={
           <>
             <ZipButton tree={tree} path={path} project={state.project?.name ?? 'Files'} />
+            {path && <ActionMenu label={`Actions for ${path}`} size="sm" items={[{ label: 'Properties', icon: 'info', onSelect: () => showProperties(path, true) }]} />}
             {path && !state.readOnly && (
               <Button size="sm" variant="ghost" onClick={() => onRename(path)}>
                 <Icon name="edit" size={14} />
@@ -795,18 +803,17 @@ function MainView({
           {level.map((node) => (
             <li key={node.path}>
               {node.type === 'folder' ? (
-                <button
-                  type="button"
-                  onClick={() => onNavigate(node.path)}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[var(--surface-sunken)]"
-                >
-                  <Icon name="folder" size={15} className="shrink-0 text-faint" />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{node.name}</span>
-                  <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
-                  <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
-                </button>
+                <div className="flex items-center hover:bg-[var(--surface-sunken)]">
+                  <button type="button" onClick={() => onNavigate(node.path)} className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left">
+                    <Icon name="folder" size={15} className="shrink-0 text-faint" />
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{node.name}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
+                    <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
+                  </button>
+                  <div className="shrink-0 pr-2"><ActionMenu label={`Actions for ${node.path}`} size="sm" items={[{ label: 'Properties', icon: 'info', onSelect: () => showProperties(node.path, true) }]} /></div>
+                </div>
               ) : (
-                <MainFileRow node={node} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} onDelete={onDelete} />
+                <MainFileRow node={node} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} onDelete={onDelete} onProperties={showProperties} />
               )}
             </li>
           ))}
@@ -822,6 +829,7 @@ function MainFileRow({
   editing,
   onOpen,
   onDelete,
+  onProperties,
 }: {
   node: Extract<TreeNode, { type: 'file' }>
   draftFiles: GeneralDraftFile[]
@@ -830,6 +838,7 @@ function MainFileRow({
   onOpen: (file: OpenFile) => void
   /** Deleting from Main, for whoever may commit to it; null hides it. */
   onDelete: ((file: GeneralTreeFile) => void) | null
+  onProperties: (path: string, folder: boolean) => void
 }) {
   const { show } = useToast()
   const inDraft = draftFiles.some((f) => f.path === node.path)
@@ -873,6 +882,7 @@ function MainFileRow({
           label={`More for ${node.file.path}`}
           size="sm"
           items={[
+            { label: 'Properties', icon: 'info', onSelect: () => onProperties(node.path, false) },
             { label: 'Download', icon: 'download', onSelect: () => void download() },
             onDelete && { label: 'Delete file', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onDelete(node.file) },
           ]}

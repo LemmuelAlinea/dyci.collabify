@@ -1574,6 +1574,12 @@ export async function listTree(repoId: string) {
   return (data ?? []) as GeneralTreeFile[]
 }
 
+export async function projectFileSize(storagePath: string) {
+  const { data, error } = await supabase.storage.from(BUCKET).info(storagePath)
+  if (error) throw error
+  return data.size ?? null
+}
+
 export async function listRemovedRepoPaths(projectId: string) {
   const { data, error } = await supabase.rpc('list_removed_general_repo_paths', {
     p_project: projectId,

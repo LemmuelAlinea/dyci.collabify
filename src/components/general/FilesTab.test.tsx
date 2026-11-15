@@ -142,7 +142,7 @@ it('offers Download and Delete file on a Main file, and deletes only after the n
   await show(member)
   const trigger = host!.querySelector<HTMLButtonElement>('button[aria-label="More for Notes.txt"]')!
   await act(async () => trigger.click())
-  expect(menuItems()).toEqual(expect.arrayContaining(['Download', 'Delete file']))
+  expect(menuItems()).toEqual(expect.arrayContaining(['Properties', 'Download', 'Delete file']))
   const del = [...document.querySelectorAll<HTMLElement>('[role="menu"] *')].find((b) => b.textContent?.trim() === 'Delete file' && b.tagName === 'BUTTON')!
   await act(async () => del.click())
   expect(document.body.textContent).toContain('Delete Notes.txt from Main?')
@@ -159,14 +159,32 @@ it('offers Download and Delete file on a Main file, and deletes only after the n
   vi.mocked(listTree).mockResolvedValue([])
 })
 
-it('offers only Download to someone who cannot commit to Main', async () => {
+it('offers Properties and Download to someone who cannot commit to Main', async () => {
   const member = { ...viewer, myRole: 'member', readOnly: false } as unknown as GeneralProjectState
   const doc = { id: 'n', repo_id: 'repo', project_id: 'p', commit_id: 'c', seq: 1, path: 'Notes.txt', kind: 'text', content: 'hi', storage_path: null, size: 2, created_at: '2026-11-14T00:00:00Z' }
   vi.mocked(getRepo).mockResolvedValue({ ...repo, file_count: 1, commit_count: 1 } as never)
   vi.mocked(listTree).mockResolvedValue([doc] as never)
   await show(member)
   await act(async () => host!.querySelector<HTMLButtonElement>('button[aria-label="More for Notes.txt"]')!.click())
+  expect(menuItems()).toContain('Properties')
   expect(menuItems()).toContain('Download')
   expect(menuItems()).not.toContain('Delete file')
+  await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[role="menu"] button')].find((button) => button.textContent?.trim() === 'Properties')!.click())
+  expect(document.body.querySelector('dl')?.textContent).toContain('Notes.txt')
+  expect(document.body.querySelector('dl')?.textContent).toContain('2 B')
+  vi.mocked(listTree).mockResolvedValue([])
+})
+
+it('shows folder properties with the total size of its files', async () => {
+  const member = { ...viewer, myRole: 'member', readOnly: false } as unknown as GeneralProjectState
+  const file = (path: string, content: string) => ({ id: path, repo_id: 'repo', project_id: 'p', commit_id: 'c', seq: 1, path, kind: 'text', content, storage_path: null, size: content.length, created_at: '2026-11-14T00:00:00Z' })
+  vi.mocked(getRepo).mockResolvedValue({ ...repo, file_count: 2, commit_count: 1 } as never)
+  vi.mocked(listTree).mockResolvedValue([file('docs/Notes.txt', 'hello'), file('docs/.keep', '')] as never)
+  await show(member)
+  await act(async () => host!.querySelector<HTMLButtonElement>('button[aria-label="Actions for docs"]')!.click())
+  expect(menuItems()).toContain('Properties')
+  await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[role="menu"] button')].find((button) => button.textContent?.trim() === 'Properties')!.click())
+  expect(document.body.querySelector('dl')?.textContent).toContain('docs')
+  expect(document.body.querySelector('dl')?.textContent).toContain('5 B')
   vi.mocked(listTree).mockResolvedValue([])
 })

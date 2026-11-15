@@ -45,6 +45,8 @@ import { fullName } from '../../lib/types'
 import { DiffView } from './DiffView'
 import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
+import { PropertiesDialog } from './PropertiesDialog'
+import type { PropertyTarget } from './PropertiesDialog'
 import { HeldPush } from './HeldPush'
 import { ExcelDiff } from './ExcelDiff'
 import { WordDiff } from './WordDiff'
@@ -144,6 +146,11 @@ export function DraftPanel({
   const [recheck, setRecheck] = useState(0)
   // Download links for the rows whose tab the browser blocked.
   const [links, setLinks] = useState<Record<string, string>>({})
+  const [properties, setProperties] = useState<PropertyTarget | null>(null)
+  const showProperties = (target: SubmitTarget) => setProperties({
+    path: target.path,
+    files: files.filter((file) => target.type === 'folder' ? file.path.startsWith(`${target.path}/`) : file.path === target.path),
+  })
   // The key the held and unknown lists were last worked out for.
   const [checked, setChecked] = useState<string | null>(null)
 
@@ -282,6 +289,7 @@ export function DraftPanel({
 
   return (
     <div className="space-y-4">
+      <PropertiesDialog target={properties} onClose={() => setProperties(null)} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-muted">
           {describeDraft(files)}
@@ -302,19 +310,21 @@ export function DraftPanel({
           path={path}
           onNavigate={onNavigate}
           actions={
-            path && !state.readOnly ? (
+            path ? (
               <>
-                <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRename(path)}>
+                {!state.readOnly && <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRename(path)}>
                   <Icon name="edit" size={14} />
                   Rename
-                </Button>
+                </Button>}
                 <ActionMenu
                   label={`Actions for ${path}`}
                   disabled={busy}
                   items={[
+                    { label: 'Properties', icon: 'info', onSelect: () => showProperties({ type: 'folder', path }) },
+                    ...(!state.readOnly ? [
                     {
                       label: 'Submit for review',
-                      icon: 'refresh',
+                      icon: 'refresh' as const,
                       disabled: behind || Boolean(folderHeld) || folderWaiting,
                       hint: folderHeld ?? undefined,
                       onSelect: () => onSubmitTarget({ type: 'folder', path }),
@@ -330,9 +340,10 @@ export function DraftPanel({
                           },
                         ]
                       : []),
-                    { label: 'Share', icon: 'users', onSelect: () => setSharing({ type: 'folder', path }) },
-                    { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
-                    { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => moveToTrash({ type: 'folder', path }) },
+                    { label: 'Share', icon: 'users' as const, onSelect: () => setSharing({ type: 'folder', path }) },
+                    { label: 'Archive', icon: 'archive' as const, onSelect: () => setArchiving({ type: 'folder', path }) },
+                    { label: 'Move to trash', icon: 'trash' as const, tone: 'danger' as const, separated: true, onSelect: () => moveToTrash({ type: 'folder', path }) },
+                    ] : []),
                   ]}
                 />
               </>
@@ -407,6 +418,7 @@ export function DraftPanel({
                   repoId={repo.id}
                   onGetTheirs={getTheirs}
                   onReplaceAnyway={replaceAnyway}
+                  onProperties={showProperties}
                   onCommit={mayCommit ? onCommitTarget : undefined}
                 />
               ))}
@@ -442,6 +454,7 @@ export function DraftPanel({
               repoId={repo.id}
               onGetTheirs={getTheirs}
               onReplaceAnyway={replaceAnyway}
+              onProperties={showProperties}
               onCommit={mayCommit ? onCommitTarget : undefined}
             />
           ))}
@@ -595,6 +608,7 @@ function DraftNode({
   repoId,
   onGetTheirs,
   onReplaceAnyway,
+  onProperties,
 }: {
   node: TreeNode
   fullPath?: boolean
@@ -622,6 +636,7 @@ function DraftNode({
   repoId: string
   onGetTheirs: (file: GeneralDraftFile, verdict: Held) => Promise<void>
   onReplaceAnyway: (file: GeneralDraftFile, verdict: Held) => Promise<void>
+  onProperties: (target: SubmitTarget) => void
 }) {
   const [open, setOpen] = useState(false)
 
@@ -641,14 +656,15 @@ function DraftNode({
             <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
             <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
           </button>
-          {!readOnly && (
             <ActionMenu
               label={`Actions for ${node.name}`}
               disabled={busy}
               items={[
+                { label: 'Properties', icon: 'info', onSelect: () => onProperties({ type: 'folder', path: node.path }) },
+                ...(!readOnly ? [
                 {
                   label: 'Submit for review',
-                  icon: 'refresh',
+                  icon: 'refresh' as const,
                   disabled: behind || Boolean(folderHeld) || waiting,
                   hint: folderHeld ?? undefined,
                   onSelect: () => onSubmit({ type: 'folder', path: node.path }),
@@ -664,12 +680,12 @@ function DraftNode({
                       },
                     ]
                   : []),
-                { label: 'Share', icon: 'users', onSelect: () => onShare({ type: 'folder', path: node.path }) },
-                { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
-                { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onTrash({ type: 'folder', path: node.path }) },
+                { label: 'Share', icon: 'users' as const, onSelect: () => onShare({ type: 'folder', path: node.path }) },
+                { label: 'Archive', icon: 'archive' as const, onSelect: () => onArchive({ type: 'folder', path: node.path }) },
+                { label: 'Move to trash', icon: 'trash' as const, tone: 'danger' as const, separated: true, onSelect: () => onTrash({ type: 'folder', path: node.path }) },
+                ] : []),
               ]}
             />
-          )}
         </div>
       </li>
     )
@@ -724,12 +740,13 @@ function DraftNode({
         >
           Open
         </Button>
-        {!readOnly && (
           <ActionMenu
             label={`Actions for ${node.name}`}
             disabled={busy}
             items={[
-              { label: 'Submit for review', icon: 'refresh', disabled: stuck, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
+              { label: 'Properties', icon: 'info', onSelect: () => onProperties({ type: 'file', path: f.path }) },
+              ...(!readOnly ? [
+              { label: 'Submit for review', icon: 'refresh' as const, disabled: stuck, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
               ...(onCommit
                 ? [{ label: 'Commit to main', icon: 'check' as const, disabled: stuck, onSelect: () => onCommit({ type: 'file', path: f.path }) }]
                 : []),
@@ -737,11 +754,11 @@ function DraftNode({
               ...(f.action !== 'removed'
                 ? [{ label: 'Share', icon: 'users' as const, onSelect: () => onShare({ type: 'file', path: f.path }) }]
                 : []),
-              { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'file', path: f.path }) },
-              { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onTrash({ type: 'file', path: f.path }) },
+              { label: 'Archive', icon: 'archive' as const, onSelect: () => onArchive({ type: 'file', path: f.path }) },
+              { label: 'Move to trash', icon: 'trash' as const, tone: 'danger' as const, separated: true, onSelect: () => onTrash({ type: 'file', path: f.path }) },
+              ] : []),
             ]}
           />
-        )}
       </div>
       {hold && !readOnly && (
         <div className="px-4 pb-3 sm:px-5">

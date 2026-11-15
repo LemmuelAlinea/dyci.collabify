@@ -71,6 +71,7 @@ vi.mock('../../lib/api/general', () => ({
   storagePathAt: m.at,
   projectFileUrl: m.url,
   copyProjectFile: m.copy,
+  projectFileSize: vi.fn(),
 }))
 vi.mock('../../lib/api/trash', () => ({ trashDraftPath: vi.fn() }))
 vi.mock('../../lib/api/workAi', () => ({ writeChangeMessage: vi.fn() }))
@@ -169,6 +170,27 @@ const menuItem = (label: string) =>
 async function openMenu(name: string) {
   await act(async () => (document.body.querySelector(`button[aria-label="Actions for ${name}"]`) as HTMLElement).click())
 }
+
+it('shows Properties for workspace files and folders', async () => {
+  await show([
+    row({ path: 'docs/Notes.txt', kind: 'text', content: 'hello', storage_path: null, updated_at: '2026-11-14T00:00:00Z' }),
+    row({ path: 'docs/.keep', kind: 'text', content: '', storage_path: null, updated_at: '2026-11-13T00:00:00Z' }),
+  ])
+  await openMenu('docs')
+  await act(async () => menuItem('Properties').click())
+  expect(document.querySelector('[data-modal="Properties"]')?.textContent).toContain('docs')
+  expect(document.querySelector('[data-modal="Properties"]')?.textContent).toContain('5 B')
+})
+
+it('shows a workspace file name, updated date, and size', async () => {
+  await show([row({ path: 'Notes.txt', kind: 'text', content: 'hello', storage_path: null, updated_at: '2026-11-14T00:00:00Z' })])
+  await openMenu('Notes.txt')
+  await act(async () => menuItem('Properties').click())
+  const details = document.querySelector('[data-modal="Properties"]')?.textContent
+  expect(details).toContain('Notes.txt')
+  expect(details).toContain(new Date('2026-11-14T00:00:00Z').toLocaleString())
+  expect(details).toContain('5 B')
+})
 
 it("holds a Word copy by its own recorded base, with the same message as the upload", async () => {
   m.baseOf.mockResolvedValue(HELD)
