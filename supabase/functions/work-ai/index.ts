@@ -183,7 +183,9 @@ type SharedFile = { id: string; name: string; path: string; mime: string | null;
 
 /** A Word file's text, from its document.xml. */
 function docxText(bytes: Uint8Array) {
-  const files = unzipSync(bytes, { filter: (f) => f.name === 'word/document.xml' })
+  const files = unzipSync(bytes, {
+    filter: (f) => f.name === 'word/document.xml' && inflateBudget()(f.originalSize),
+  })
   const xml = files['word/document.xml']
   if (!xml) return ''
   return htmlToText(
@@ -193,14 +195,27 @@ function docxText(bytes: Uint8Array) {
   )
 }
 
+/** A character from a code point; an invalid one gives '' instead of throwing. */
+const safeCode = (n: number) => (Number.isInteger(n) && n >= 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '')
+
+/** Allows entries up to 8 MB each and 20 MB in all, by their declared size. */
+const inflateBudget = () => {
+  let total = 0
+  return (size: number) => {
+    if (!(size <= 8 * 1024 * 1024) || total + size > 20 * 1024 * 1024) return false
+    total += size
+    return true
+  }
+}
+
 const decodeXml = (s: string) =>
   s
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => safeCode(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => safeCode(Number(d)))
     .replace(/&amp;/g, '&')
 
 /** The text of a shared or inline string: every <t> run, phonetic runs left out. */
@@ -224,13 +239,18 @@ function colIndex(ref: string) {
  * cached value. Empty trailing cells are dropped.
  */
 function xlsxText(bytes: Uint8Array) {
+  const room = inflateBudget()
+  let worksheets = 0
   const files = unzipSync(bytes, {
-    filter: (f) =>
-      f.name === 'xl/workbook.xml' || f.name === 'xl/_rels/workbook.xml.rels' || f.name === 'xl/sharedStrings.xml' ||
-      /^xl\/worksheets\/[^/]+\.xml$/.test(f.name),
+    filter: (f) => {
+      const sheet = /^xl\/worksheets\/[^/]+\.xml$/.test(f.name)
+      const wanted = f.name === 'xl/workbook.xml' || f.name === 'xl/_rels/workbook.xml.rels' || f.name === 'xl/sharedStrings.xml' || sheet
+      if (!wanted || (sheet && ++worksheets > 50)) return false
+      return room(f.originalSize)
+    },
   })
   const read = (name: string) => (files[name] ? strFromU8(files[name]) : '')
-  const shared = [...read('xl/sharedStrings.xml').matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)].map((m) => xmlRuns(m[1]))
+  const shared = [...read('xl/sharedStrings.xml').matchAll(/<si\b[^>]*?(?:\/>|>([\s\S]*?)<\/si>)/g)].map((m) => xmlRuns(m[1] ?? ''))
   const targets = new Map<string, string>()
   for (const m of read('xl/_rels/workbook.xml.rels').matchAll(/<Relationship\b[^>]*>/g)) {
     const id = xmlAttr(m[0], 'Id')
@@ -248,6 +268,7 @@ function xlsxText(bytes: Uint8Array) {
       .map((path, i) => ({ name: `Sheet${i + 1}`, path }))
   }
   const out: string[] = []
+  let size = 0
   for (const sheet of sheets) {
     const xml = read(sheet.path)
     if (!xml) continue
@@ -257,7 +278,9 @@ function xlsxText(bytes: Uint8Array) {
       let next = 0
       for (const c of (row[1] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
         const at = xmlAttr(c[1], 'r')
-        const i = at ? colIndex(at) : next
+        const at2 = at ? colIndex(at) : -1
+        const i = at2 >= 0 && at2 <= 16383 ? at2 : next
+        if (i > 16383) continue
         const type = xmlAttr(c[1], 't')
         const body = c[2] ?? ''
         const v = body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/)?.[1]
@@ -273,7 +296,10 @@ function xlsxText(bytes: Uint8Array) {
         next = i + 1
       }
       while (cells.length && cells[cells.length - 1] === '') cells.pop()
-      out.push(cells.join('\t'))
+      const line = cells.join('\t')
+      size += line.length + 1
+      out.push(line)
+      if (size >= 60000) return out.join('\n')
     }
   }
   return out.join('\n')
