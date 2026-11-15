@@ -22,7 +22,9 @@ it('uses the Home banner panel for empty Overview cards', () => {
   ].join('')
 
   expect(html.match(/bg-banner-tile text-banner-tile-glyph/g)).toHaveLength(5)
-  expect(html).toContain('No sprint is running.')
+  expect(html).toContain('No active sprint')
+  expect(html).toContain('Plan your next sprint from Backlog.')
+  expect(html).toContain('Open Backlog')
   expect(html).toContain('No milestones yet.')
   expect(html).toContain('Nothing needs you right now.')
   expect(html).toContain('This project has no tasks yet.')

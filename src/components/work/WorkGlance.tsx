@@ -113,10 +113,39 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, organizat
   if (!sprint) {
     const planned = sprints.some((s) => s.state === 'planned')
     return (
-      <section className="card flex flex-col p-4 shadow-card sm:p-5">
-        <CardHead icon="target" label="Running sprint" action="Open Backlog" onAction={() => onSection('backlog')} />
-        <div className="grid flex-1 items-center pt-3">
-          <TilePanel icon="target" title="No sprint is running." body={canPlan ? (planned ? 'Start a planned one from Backlog.' : 'Plan one from Backlog when the team is ready.') : 'Running sprints show here when one starts.'} />
+      <section className="card relative flex min-h-[310px] flex-col overflow-hidden p-4 shadow-card sm:min-h-[340px] sm:p-5">
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: 'radial-gradient(var(--banner-tile-glyph) 1px, transparent 1px)',
+            backgroundSize: '22px 22px',
+            maskImage: 'radial-gradient(ellipse at center, var(--banner-tile) 0%, transparent 65%)',
+          }}
+        />
+        <span className="eyebrow relative flex items-center gap-2">
+          <Icon name="target" size={14} />
+          Running sprint
+        </span>
+        <div className="relative flex flex-1 flex-col items-center justify-center py-5 text-center">
+          <span aria-hidden="true" className="relative grid h-28 w-28 place-items-center">
+            <span className="absolute inset-0 rounded-full border border-banner-tile-glyph/20" />
+            <span className="absolute inset-3 rounded-full border border-banner-tile-glyph/40" />
+            <span className="grid h-20 w-20 place-items-center rounded-full border border-banner-tile-glyph/60 bg-banner-tile text-banner-tile-glyph">
+              <Icon name="flag" size={34} />
+            </span>
+          </span>
+          <h3 className="mt-3 font-display text-[26px] leading-tight sm:text-[30px]">No active sprint</h3>
+          <p className="mt-1.5 max-w-sm text-[13px] text-muted sm:text-[14px]">
+            {canPlan ? (planned ? 'Start a planned sprint from Backlog.' : 'Plan your next sprint from Backlog.') : 'A sprint appears here when the team starts one.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => onSection('backlog')}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-banner-tile-glyph/70 bg-banner-tile px-5 py-2.5 font-medium text-banner-tile-glyph transition-colors hover:border-banner-tile-glyph focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-banner-tile-glyph"
+          >
+            Open Backlog <Icon name="arrowRight" size={18} />
+          </button>
         </div>
       </section>
     )
