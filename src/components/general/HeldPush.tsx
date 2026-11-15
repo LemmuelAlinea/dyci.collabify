@@ -115,12 +115,12 @@ export function HeldPush({
 
       <div className="flex flex-wrap gap-2">
         {!state.removed && (
-          <Button size="sm" variant={gotTheirs ? 'outline' : undefined} loading={busy} onClick={getTheirs}>
+          <Button type="button" size="sm" variant={gotTheirs ? 'outline' : undefined} loading={busy} onClick={getTheirs}>
             {!busy && <Icon name="download" size={14} />}
             {downloadLabel}
           </Button>
         )}
-        <Button size="sm" variant="outline" onClick={() => setConfirming(true)}>
+        <Button type="button" size="sm" variant="outline" onClick={() => setConfirming(true)}>
           Replace it anyway
         </Button>
       </div>

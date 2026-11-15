@@ -12,6 +12,7 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 const m = vi.hoisted(() => ({
   toast: vi.fn(),
   endPull: vi.fn(),
+  pullFile: vi.fn(),
   pushState: vi.fn(),
   upload: vi.fn(),
   saveDraft: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock('../ui/ConfirmDialog', () => ({
       </button>
     ) : null,
 }))
-vi.mock('../../lib/api/filePulls', () => ({ endPull: m.endPull, pushState: m.pushState, pullFile: vi.fn() }))
+vi.mock('../../lib/api/filePulls', () => ({ endPull: m.endPull, pushState: m.pushState, pullFile: m.pullFile }))
 vi.mock('../../lib/api/general', () => ({
   uploadProjectFile: m.upload,
   saveDraftFile: m.saveDraft,
@@ -55,6 +56,10 @@ beforeEach(() => {
   m.upload.mockResolvedValue('p/files/new.docx')
   m.saveDraft.mockResolvedValue({})
   m.endPull.mockResolvedValue(undefined)
+  m.pullFile.mockResolvedValue({})
+  m.at.mockResolvedValue('s/main6.docx')
+  m.url.mockResolvedValue('https://signed/url')
+  vi.stubGlobal('open', vi.fn(() => ({ location: { href: '' }, close: vi.fn(), opener: {} })))
   m.pushState.mockResolvedValue({ main_seq: 4, base_seq: 4, main_author: null, main_at: null, main_removed: false })
 })
 afterEach(async () => {
@@ -139,4 +144,53 @@ it('keeps refusing an existing text file', async () => {
   await click('Add to my draft')
   expect(text()).toContain('already has a file with that name')
   expect(m.saveDraft).not.toHaveBeenCalled()
+})
+
+const HELD = { main_seq: 6, base_seq: 4, main_author: 'ana', main_at: '2026-11-14T02:00:00Z', main_removed: false }
+
+async function heldDialog() {
+  m.pushState.mockResolvedValue(HELD)
+  await render()
+  await click('Upload a file')
+  await pickFiles([doc('Chap1-4.docx')])
+  await click('Add to my draft')
+  await click('Upload as a new version')
+}
+
+it('drops the picked file after Download their version and saves nothing', async () => {
+  await heldDialog()
+  await click("Download Someone's version")
+  expect(m.pullFile).toHaveBeenCalled()
+  m.pushState.mockResolvedValue({ ...HELD, base_seq: 6 })
+  expect(text()).toContain('You have the newer version now')
+  await click('Add to my draft')
+  expect(text()).toContain('Choose a file from your computer.')
+  expect(m.saveDraft).not.toHaveBeenCalled()
+  expect(m.upload).not.toHaveBeenCalled()
+})
+
+it('disables Add to my draft while the upload is held', async () => {
+  await heldDialog()
+  expect((button('Add to my draft') as HTMLButtonElement).disabled).toBe(true)
+})
+
+it('ends the pull and saves after Replace it anyway', async () => {
+  await heldDialog()
+  await click('Replace it anyway')
+  await click('Replace it')
+  expect(m.endPull).toHaveBeenCalledWith('repo', 'Chap1-4.docx')
+  expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ path: 'Chap1-4.docx', action: 'changed' }))
+})
+
+it('saves after Continue when the copy it started from is unknown', async () => {
+  m.pushState.mockResolvedValue(null)
+  await render()
+  await click('Upload a file')
+  await pickFiles([doc('Chap1-4.docx')])
+  await click('Add to my draft')
+  await click('Upload as a new version')
+  expect(text()).toContain("doesn't know which copy")
+  expect(m.saveDraft).not.toHaveBeenCalled()
+  await click('Continue')
+  expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ path: 'Chap1-4.docx', action: 'changed' }))
 })

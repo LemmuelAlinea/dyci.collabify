@@ -67,6 +67,8 @@ export function NewItemDialog({
   const [pending, setPending] = useState<Pending | null>(null)
   const [blocked, setBlocked] = useState<string | null>(null)
   // Held or unknown files the person chose to replace anyway, across the checks.
+  const [gotTheirs, setGotTheirs] = useState(false)
+  const [pickKey, setPickKey] = useState(0)
   const overrides = useRef(new Set<string>())
 
   const siblings = (
@@ -83,6 +85,7 @@ export function NewItemDialog({
     setError(null)
     setPending(null)
     setBlocked(null)
+    setGotTheirs(false)
     overrides.current = new Set()
     onClose()
   }
@@ -119,6 +122,7 @@ export function NewItemDialog({
     if (busy) return
     setPending(null)
     setBlocked(null)
+    setGotTheirs(false)
     overrides.current = new Set()
     if (step === 'folder') {
       const problem = folderNameProblem(name, siblings)
@@ -206,7 +210,15 @@ export function NewItemDialog({
       return projectFileUrl(storagePath, fileName(path))
     })
       .then((link) => {
+        // The pull moved the person's base to Main, so the picked copy must not be saved as is.
         setBlocked(link)
+        setPending(null)
+        setPicked(null)
+        setFolderFiles([])
+        setName('')
+        setPickKey((k) => k + 1)
+        setGotTheirs(true)
+        overrides.current = new Set()
         if (!link) show('Downloaded the newer version. Combine the two in Word, then upload the result here.')
       })
       .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
@@ -229,7 +241,7 @@ export function NewItemDialog({
             <Button variant="ghost" onClick={() => { setStep('choose'); setError(null) }} disabled={busy}>
               Back
             </Button>
-            <Button loading={busy} onClick={() => void submit()}>
+            <Button loading={busy} disabled={pending?.step === 'held'} onClick={() => void submit()}>
               {step === 'folder' ? 'Create folder' : 'Add to my draft'}
             </Button>
           </>
@@ -258,6 +270,19 @@ export function NewItemDialog({
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="space-y-4">
           {error && <Alert tone="error">{error}</Alert>}
+          {gotTheirs && !pending && (
+            <Alert tone="info">
+              You have the newer version now. Combine the two in Word, then pick the combined copy here.
+              {blocked && (
+                <>
+                  {' '}
+                  <a href={blocked} target="_blank" rel="noopener" className="font-medium underline">
+                    Download it again
+                  </a>
+                </>
+              )}
+            </Alert>
+          )}
           {pending?.step === 'confirm' && (
             <div className="space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-3.5 py-3 text-[13px] text-warning-800 dark:border-warning-400/40 dark:bg-warning-400/15 dark:text-warning-300">
               {step === 'file' && pending.existing.length === 1 ? (
@@ -272,15 +297,15 @@ export function NewItemDialog({
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => void go()}>
+                <Button type="button" size="sm" onClick={() => void go()}>
                   {step === 'file' && pending.existing.length === 1 ? 'Upload as a new version' : 'Upload'}
                 </Button>
                 {step === 'file' && pending.existing.length === 1 && (
-                  <Button size="sm" variant="outline" onClick={() => setPending(null)}>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setPending(null)}>
                     Rename
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setPending(null)}>
                   Cancel
                 </Button>
               </div>
@@ -307,10 +332,10 @@ export function NewItemDialog({
                 it wasn't Main's latest version, someone's changes may be lost.
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => void go(pending.path)}>
+                <Button type="button" size="sm" onClick={() => void go(pending.path)}>
                   Continue
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setPending(null)}>
                   Cancel
                 </Button>
               </div>
@@ -327,6 +352,7 @@ export function NewItemDialog({
                 {(id) => (
                   <input
                     id={id}
+                    key={pickKey}
                     type="file"
                     accept={FILE_ACCEPT}
                     onChange={(e) => {
@@ -357,6 +383,7 @@ export function NewItemDialog({
                 {(id) => (
                   <input
                     id={id}
+                    key={pickKey}
                     type="file"
                     multiple
                     {...{ webkitdirectory: '', directory: '' }}
