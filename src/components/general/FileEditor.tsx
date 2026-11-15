@@ -180,6 +180,8 @@ function Body({
   // The AI helpers answer project members only, so a class's teacher gets none.
   const summarizable =
     !file.fromDraft && file.sharedBy === undefined && (isEditable(file.kind) || isPdf || isDocx) && Boolean(state.project) && !state.classTeacher
+  // Who may upload a new version, as WordVersionPanel decides it.
+  const mayUpload = !readOnly && state.myRole !== 'stakeholder' && !state.classTeacher
 
   const [text, setText] = useState(file.kind === 'sheet' ? '' : file.content)
   const [book, setBook] = useState<Workbook>(() =>
@@ -398,8 +400,9 @@ function Body({
 
       {file.kind === 'binary' && !isPdf && !isDocx && (
         <Alert tone="info">
-          This kind of file is kept and versioned here but opened elsewhere. Download it, change it
-          in the program that made it, and upload it here as a new version.
+          {mayUpload
+            ? 'This kind of file is kept and versioned here but opened elsewhere. Download it, change it in the program that made it, and upload it here as a new version.'
+            : 'This kind of file is kept and versioned here but opened elsewhere. Download it to open it in the program that made it.'}
         </Alert>
       )}
 
