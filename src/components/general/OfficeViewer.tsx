@@ -87,7 +87,8 @@ export function OfficeViewer({
             src={src}
             onLoad={() => setLoaded(true)}
             referrerPolicy="no-referrer"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"
+            // The viewer loads the document by posting a form inside its own frame.
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
             className="relative block h-full w-full border-0"
           />
         )}
