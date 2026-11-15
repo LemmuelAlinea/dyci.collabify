@@ -6,8 +6,12 @@ import {
   crumbs,
   describeDraft,
   extensionOf,
+  isComparableExcel,
+  isExcelPath,
+  isOfficePath,
   isPreviewableWord,
   isWordPath,
+  officeAppName,
   sameExtension,
   fileText,
   fileName,
@@ -112,10 +116,25 @@ describe('kindForPath', () => {
     expect(sameExtension('a.docx', 'a.doc')).toBe(false)
   })
 
-  it('sends Excel to its editor', () => {
-    expect(kindForPath('Budget.XLSX')).toBe('sheet')
-    expect(kindForPath('Budget.XLSM')).toBe('sheet')
-    expect(kindForPath('data.csv')).toBe('sheet')
+  it('keeps Excel files as uploaded and sends csv to the editor', () => {
+    for (const p of ['a.xlsx', 'a.xlsm', 'Budget.XLSX', 'old.xls']) expect(kindForPath(p)).toBe('binary')
+    expect(kindForPath('a.csv')).toBe('sheet')
+  })
+
+  it('names the Office app by the file', () => {
+    expect(isExcelPath('Budget.XLSX')).toBe(true)
+    expect(isExcelPath('old.xls')).toBe(true)
+    expect(isExcelPath('data.csv')).toBe(false)
+    expect(isExcelPath('a.docx')).toBe(false)
+    expect(isOfficePath('a.docx')).toBe(true)
+    expect(isOfficePath('B/a.XLSM')).toBe(true)
+    expect(isOfficePath('a.pdf')).toBe(false)
+    expect(isComparableExcel('a.xlsx')).toBe(true)
+    expect(isComparableExcel('a.XLSM')).toBe(true)
+    expect(isComparableExcel('a.xls')).toBe(false)
+    expect(officeAppName('x.docx')).toBe('Word')
+    expect(officeAppName('x.XLSX')).toBe('Excel')
+    expect(officeAppName('x.xls')).toBe('Excel')
   })
 
   it('treats code and notes as text', () => {

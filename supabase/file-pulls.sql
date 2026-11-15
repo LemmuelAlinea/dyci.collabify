@@ -138,8 +138,8 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  if v_path is null or v_path !~* '\.(docx|doc|odt|rtf)$' then
-    raise exception 'Only a Word file is pulled to edit in Word.' using errcode = 'invalid_parameter_value';
+  if v_path is null or v_path !~* '\.(docx|doc|odt|rtf|xlsx|xlsm|xls)$' then
+    raise exception 'Only a Word or Excel file is pulled to edit.' using errcode = 'invalid_parameter_value';
   end if;
   if coalesce((
        select b.action <> 'removed'
@@ -249,8 +249,8 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  if v_path is null or v_path !~* '\.(docx|doc|odt|rtf)$' then
-    raise exception 'Only a Word file records the version it was made from.'
+  if v_path is null or v_path !~* '\.(docx|doc|odt|rtf|xlsx|xlsm|xls)$' then
+    raise exception 'Only a Word or Excel file records the version it was made from.'
       using errcode = 'invalid_parameter_value';
   end if;
   v_prefix := r.project_id::text || '/files/';
@@ -342,7 +342,7 @@ begin
      and f.path = new.path;
 
   if found and public.general_main_seq(new.repo_id, new.path, new.seq) > v_base then
-    raise exception 'Main has a newer version of % than the copy this was made from. Get the newer version, combine the two in Word, then upload again.', new.path
+    raise exception 'Main has a newer version of % than the copy this was made from. Get the newer version, combine the two in Word or Excel, then upload again.', new.path
       using errcode = 'serialization_failure';
   end if;
 

@@ -18,7 +18,7 @@ import type { Sheet, Workbook } from './sheet'
 import type { BorderLine, CellBorder, CellStyle, Merge } from './sheetFormat'
 
 export const OFFICE_WARNING =
-  'Excel files keep their numbers and formulas; charts and macros do not.'
+  'CSV files keep their values as plain text; formatting, formulas and charts do not.'
 
 /* ------------------------------------------------------------------- word */
 

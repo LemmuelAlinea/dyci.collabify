@@ -53,13 +53,13 @@ $$;
  * A fresh object in the project's files, uploaded by whoever the test is
  * acting as (its storage owner), written as the service role.
  */
-create or replace function pg_temp.upload(p_project uuid) returns text
+create or replace function pg_temp.upload(p_project uuid, p_ext text default 'docx') returns text
 language plpgsql as $$
 declare
   v_role   text := current_setting('role');
   v_claims text := coalesce(current_setting('request.jwt.claims', true), '');
   v_owner  uuid := nullif(nullif(v_claims, '')::json ->> 'sub', '')::uuid;
-  v_name   text := p_project::text || '/files/' || gen_random_uuid()::text || '.docx';
+  v_name   text := p_project::text || '/files/' || gen_random_uuid()::text || '.' || p_ext;
 begin
   perform set_config('role', 'none', true);
   insert into storage.objects (bucket_id, name, owner, owner_id)
@@ -69,16 +69,16 @@ begin
 end;
 $$;
 
-/** The one file a push carries: a Word file is binary, anything else text. */
+/** The one file a push carries: a Word or Excel file is binary, anything else text. */
 create or replace function pg_temp.file(p_project uuid, p_path text, p_action text, p_storage text default null)
 returns jsonb
 language sql as $$
   select jsonb_build_object(
     'path', p_path, 'action', p_action,
-    'kind', case when p_path ~ '\.docx$' then 'binary' else 'text' end,
-    'content', case when p_path ~ '\.docx$' then '' else 'Zz ' || p_action end,
-    'storage_path', case when p_path ~ '\.docx$'
-                         then coalesce(p_storage, pg_temp.upload(p_project)) end);
+    'kind', case when p_path ~ '\.(docx|xlsx|xlsm|xls)$' then 'binary' else 'text' end,
+    'content', case when p_path ~ '\.(docx|xlsx|xlsm|xls)$' then '' else 'Zz ' || p_action end,
+    'storage_path', case when p_path ~ '\.(docx|xlsx|xlsm|xls)$'
+                         then coalesce(p_storage, pg_temp.upload(p_project, substring(p_path from '[^.]+$'))) end);
 $$;
 
 /** Commits one file to Main as the caller (the given upload, or a fresh one); returns the new commit's seq. */
@@ -371,6 +371,44 @@ begin
     pg_temp.push(v_repo, v_proj, 'Thesis/two.docx', 'removed', v_copy) = 12);
   perform pg_temp.must_be('...and the file is gone from Main',
     not exists (select 1 from public.general_repo_tree where repo_id = v_repo and path = 'Thesis/two.docx'));
+
+  ------------------------------------------------------------ 9c. Excel files hold like Word files
+  select commit_count into n from public.general_repos where id = v_repo;
+  v_seq := (public.commit_general_files(v_repo, 'Zz excel', n, jsonb_build_array(
+       pg_temp.file(v_proj, 'budget.xlsx', 'added'),
+       pg_temp.file(v_proj, 'plan.xlsm', 'added'),
+       pg_temp.file(v_proj, 'old.xls', 'added')))).seq;
+  perform pg_temp.must_be('budget.xlsx, plan.xlsm and old.xls go into Main as binary, at seq 13',
+    v_seq = 13
+    and (select count(*) = 3 from public.general_blobs
+          where repo_id = v_repo and kind = 'binary' and path in ('budget.xlsx', 'plan.xlsm', 'old.xls')));
+  perform pg_temp.must_be('ana pulls budget.xlsx at base 13',
+    (public.pull_general_file(v_repo, 'budget.xlsx', true)).base_seq = 13);
+  perform pg_temp.must_be('...and plan.xlsm and old.xls',
+    (public.pull_general_file(v_repo, 'plan.xlsm', true)).base_seq = 13
+    and (public.pull_general_file(v_repo, 'old.xls', true)).base_seq = 13);
+  perform pg_temp.must_refuse_with('pulling a text file is refused, naming Word or Excel',
+    format($q$select public.pull_general_file(%L, 'notes.txt', true)$q$, v_repo), 'Word or Excel');
+  v_copy := pg_temp.upload(v_proj, 'xlsx');
+  perform public.record_general_file_base(v_repo, 'budget.xlsx', v_copy, 13);
+  perform pg_temp.must_be('ana records base 13 for an xlsx copy',
+    exists (select 1 from public.general_file_bases
+             where storage_path = v_copy and base_seq = 13 and path = 'budget.xlsx' and user_id = v_ana));
+  perform pg_temp.act_as(v_ben);
+  perform pg_temp.must_be('ben moves budget.xlsx to seq 14',
+    pg_temp.push(v_repo, v_proj, 'budget.xlsx', 'changed') = 14);
+  perform pg_temp.act_as(v_ana);
+  perform pg_temp.must_refuse_with('ana''s xlsx copy from base 13 is held',
+    format($q$select pg_temp.push(%L, %L, 'budget.xlsx', 'changed', %L)$q$, v_repo, v_proj, v_copy),
+    'Main has a newer version of budget.xlsx');
+  perform pg_temp.must_be('...and nothing landed', public.general_main_seq(v_repo, 'budget.xlsx') = 14);
+  perform public.record_general_file_base(v_repo, 'budget.xlsx', v_copy, 14);
+  perform pg_temp.must_be('Replace anyway (base 14) lets it through, at seq 15',
+    pg_temp.push(v_repo, v_proj, 'budget.xlsx', 'changed', v_copy) = 15);
+  v_copy := pg_temp.upload(v_proj, 'xlsx');
+  perform public.record_general_file_base(v_repo, 'budget.xlsx', v_copy, 13);
+  perform pg_temp.must_be('removing budget.xlsx with a copy based on 13 is not held, at seq 16',
+    pg_temp.push(v_repo, v_proj, 'budget.xlsx', 'removed', v_copy) = 16);
 
   ------------------------------------------------------------ 10. anon
   perform set_config('role', 'anon', true);

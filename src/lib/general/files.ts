@@ -52,7 +52,9 @@ export function pathWithPickedExtension(path: string, pickedName?: string | null
 
 /** Word files are kept exactly as uploaded, in Storage, like a PDF. */
 export const WORD_EXTENSIONS: ReadonlySet<string> = new Set(['docx', 'doc', 'odt', 'rtf'])
-const SHEET = new Set(['xlsx', 'xlsm', 'csv'])
+/** Excel files are kept exactly as uploaded too; only csv is edited in the app. */
+export const EXCEL_EXTENSIONS: ReadonlySet<string> = new Set(['xlsx', 'xlsm', 'xls'])
+const SHEET = new Set(['csv'])
 const TEXT = new Set([
   'txt', 'md', 'markdown', 'ts', 'tsx', 'js', 'jsx', 'json', 'html', 'css', 'scss',
   'sql', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'php', 'rb', 'go', 'rs', 'sh', 'yml',
@@ -80,6 +82,25 @@ export function kindForPath(path: string): FileKind {
 
 export function isWordPath(path: string) {
   return WORD_EXTENSIONS.has(extensionOf(path))
+}
+
+export function isExcelPath(path: string) {
+  return EXCEL_EXTENSIONS.has(extensionOf(path))
+}
+
+/** A Word or Excel file: kept exactly, pulled to edit, held when Main moves on. */
+export function isOfficePath(path: string) {
+  return isWordPath(path) || isExcelPath(path)
+}
+
+/** Only .xlsx and .xlsm can be read cell by cell. */
+export function isComparableExcel(path: string) {
+  const ext = extensionOf(path)
+  return ext === 'xlsx' || ext === 'xlsm'
+}
+
+export function officeAppName(path: string): 'Word' | 'Excel' {
+  return isExcelPath(path) ? 'Excel' : 'Word'
 }
 
 /** Only .docx can be previewed in the browser. */

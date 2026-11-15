@@ -357,7 +357,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   Main's newest version of the path, so direct commits, committed draft files and folders and merged changes are all
   held without redefining their functions; a blob with no base passes. The app matches the error by its prefix "Main has
   a newer version of". DraftPanel reads `general_file_base_state` per Word row (no base: the unknown warning on Submit or
-  Commit); `general_file_push_state` gives a pull next to Main's newest version. Suite: `supabase/tests/file-pulls.test.sql`.
+  Commit); `general_file_push_state` gives a pull next to Main's newest version. Excel files (`xlsx`, `xlsm`, `xls`) follow the same rules as Word files. Suite: `supabase/tests/file-pulls.test.sql`.
 
 ## First-run walkthroughs
 

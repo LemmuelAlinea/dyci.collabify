@@ -1007,7 +1007,7 @@ lives with the copy, so refreshing, ending or outliving a pull never lifts it; r
 does. A pull is live for 7 days; an older row counts as none. Because the guard sits on the blob insert, it covers
 direct commits, committed draft paths (a file or a folder) and merged changes without redefining
 `commit_general_files`, `commit_general_draft_path` or `answer_general_repo_change`, so nothing else needs re-running
-after it, and re-running those files' owners leaves it in place. Suite: `supabase/tests/file-pulls.test.sql`.
+after it, and re-running those files' owners leaves it in place. Excel files (`xlsx`, `xlsm`, `xls`) are pulled, based and held exactly like Word files. Suite: `supabase/tests/file-pulls.test.sql`.
 
 ## Peer round delete
 

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { endPull, mainSeq, pullFile, pushState, recordBase } from '../../lib/api/filePulls'
 import { projectFileUrl, saveDraftFile, storagePathAt, uploadProjectFile } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isWordPath, joinPath, kindForPath, nodesAt, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
+import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isOfficePath, joinPath, kindForPath, nodesAt, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
 import { OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
 import { newVersionProblem, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
@@ -98,7 +98,7 @@ export function NewItemDialog({
     overrides.current = new Set()
   }
 
-  /** `base`: for a Word file, the Main version it was made from, recorded right after the upload. */
+  /** `base`: for a Word or Excel file, the Main version it was made from, recorded right after the upload. */
   async function savePickedFile(file: File, target: string, base: number | undefined) {
     const k = kindForPath(target)
     let content = ''
@@ -169,8 +169,8 @@ export function NewItemDialog({
     return save(targets, files, folder, step === 'file' ? 'Added to your draft' : 'Folder added to your draft', new Set())
   }
 
-  // Every Word file that replaces an existing name gets the open file's push check
-  // first, and nothing is saved until all of them pass. Each Word upload then
+  // Every Word or Excel file that replaces an existing name gets the open file's push check
+  // first, and nothing is saved until all of them pass. Each such upload then
   // records the Main version it was made from: the live pull's, else Main's now.
   async function save(targets: string[], files: File[], landAt: string, done: string, overridden: Set<string>) {
     if (busy) return
@@ -179,7 +179,7 @@ export function NewItemDialog({
     try {
       const bases = new Map<string, number>()
       for (const t of targets) {
-        if (!isWordPath(t)) continue
+        if (!isOfficePath(t)) continue
         if (overridden.has(t) || !(inMain(t) || inDraft(t))) {
           bases.set(t, await mainSeq(repo.id, t))
           continue
@@ -247,7 +247,7 @@ export function NewItemDialog({
   }
 
   const office = picked && kindForPath(picked.name) === 'sheet'
-  const word = picked && isWordPath(picked.name)
+  const word = picked && isOfficePath(picked.name)
 
   return (
     <Modal
@@ -413,7 +413,7 @@ export function NewItemDialog({
               {office && <Alert tone="info">{OFFICE_WARNING}</Alert>}
               {word && (
                 <Alert tone="info">
-                  Kept exactly as uploaded. From Google Docs, download it as Microsoft Word (.docx) first.
+                  Kept exactly as uploaded. From Google Docs or Google Sheets, download it as a Microsoft Word (.docx) or Excel (.xlsx) file first.
                 </Alert>
               )}
             </>
