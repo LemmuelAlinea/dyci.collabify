@@ -5019,3 +5019,16 @@ accepted." from the setting; no failed requests.
   (caller must own the storage object) and read by the `general_blobs` guard. Refreshing or ending a pull no longer
   lifts a hold; folder Submit/Commit are disabled while a held file is inside; Replace anyway on a teammate's shared
   copy copies the object first. Suite: 64 PASS. `work-ai` refuses a `storage_path` outside the project.
+
+## Word files shown by Microsoft's Office viewer (2026-11-16)
+
+- The in-app preview (`docx-preview`) skipped Word shapes and text boxes (the thesis's blue page borders, the
+  "DR. YANGA'S COLLEGES, INC." header box, the boxed page number) and broke pages oddly. The owner chose Microsoft's
+  Office viewer: `OfficeViewer` embeds `view.officeapps.live.com/op/embed.aspx?src=<signed link>`, so Word's own
+  engine draws the pages. Microsoft fetches the file through a 10-minute signed link; this reverses the spec's
+  "no third-party viewer" anti-goal at the owner's request.
+- `LazyDocxPreview` uses it wherever Microsoft can reach the file (`officeViewerReachable`: not localhost, `.localhost`
+  or `.test`), with "Use the simple preview" to switch back to the sealed in-app preview, which stays the default on a
+  developer machine. `vercel.json`'s report-only CSP lists `frame-src https://view.officeapps.live.com`.
+- Checked: the real thesis through a temporary signed copy (deleted) in Microsoft's viewer shows the borders, header
+  box, logo and "Page 2" as in Word. 2,486 tests, build clean. Not yet seen inside the signed-in app.
