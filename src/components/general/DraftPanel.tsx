@@ -21,7 +21,7 @@ import {
 import { trashDraftPath } from '../../lib/api/trash'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { buildTree, describeDraft, fileText, flatFiles, nodesAt } from '../../lib/general/files'
+import { buildTree, describeDraft, fileText, flatFiles, isPreviewableWord, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL } from '../../lib/general/types'
@@ -35,6 +35,7 @@ import { fullName } from '../../lib/types'
 import { DiffView } from './DiffView'
 import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
+import { WordDiff } from './WordDiff'
 import { ShareDialog } from './ShareDialog'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -58,6 +59,7 @@ export function DraftPanel({
   repo,
   state,
   mainOf,
+  mainStorageOf,
   path,
   query,
   onNavigate,
@@ -72,6 +74,8 @@ export function DraftPanel({
   state: GeneralProjectState
   /** What Main says for a path, so the diff shows what submitting would do. */
   mainOf: (path: string) => string
+  /** The Storage object Main holds for a path, for Word files. */
+  mainStorageOf: (path: string) => string | null
   path: string
   query?: string
   onNavigate: (path: string) => void
@@ -233,6 +237,7 @@ export function DraftPanel({
                   behind={behind}
                   conflicts={conflicts}
                   mainOf={mainOf}
+                  mainStorageOf={mainStorageOf}
                   onNavigate={onNavigate}
                   onOpen={onOpen}
                   onArchive={setArchiving}
@@ -260,6 +265,7 @@ export function DraftPanel({
               behind={behind}
               conflicts={conflicts}
               mainOf={mainOf}
+                  mainStorageOf={mainStorageOf}
               onNavigate={onNavigate}
               onOpen={onOpen}
               onArchive={setArchiving}
@@ -375,6 +381,7 @@ function DraftNode({
   behind,
   conflicts,
   mainOf,
+  mainStorageOf,
   onNavigate,
   onOpen,
   onArchive,
@@ -390,6 +397,8 @@ function DraftNode({
   behind: boolean
   conflicts: DraftConflict[]
   mainOf: (path: string) => string
+  /** The Storage object Main holds for a path, for Word files. */
+  mainStorageOf: (path: string) => string | null
   onNavigate: (path: string) => void
   onOpen: (file: OpenFile) => void
   onArchive: (target: SubmitTarget) => void
@@ -497,7 +506,14 @@ function DraftNode({
       </div>
       {open && (
         <div className="px-4 pb-4 sm:px-5">
-          {f.kind === 'binary' ? (
+          {f.kind === 'binary' && isPreviewableWord(f.path) ? (
+            <WordDiff
+              key={`${f.path}:${f.storage_path}`}
+              before={f.action === 'added' ? null : mainStorageOf(f.path)}
+              after={f.action === 'removed' ? null : f.storage_path}
+              caption={`What your draft would do to ${f.path}, by its words`}
+            />
+          ) : f.kind === 'binary' ? (
             <p className="text-[12px] text-muted">
               An uploaded file. Its contents are not compared here.
             </p>

@@ -10,6 +10,7 @@ import {
   addRepoComment,
   answerRepoChange,
   contentAt,
+  storagePathAt,
   deleteRepoComment,
   listRepoComments,
   projectFileUrl,
@@ -19,7 +20,7 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { summarizeChange } from '../../lib/api/workAi'
 import { formatDue } from '../../lib/general/dates'
-import { countShown, extensionOf, fileName, fileText, shownFiles } from '../../lib/general/files'
+import { countShown, extensionOf, fileName, fileText, isPreviewableWord, shownFiles } from '../../lib/general/files'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   GeneralRepoChange,
@@ -28,6 +29,7 @@ import type {
   RepoFile,
 } from '../../lib/general/types'
 import { DiffView } from './DiffView'
+import { WordDiff } from './WordDiff'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 import { isReviewer } from '../../lib/general/review'
@@ -241,7 +243,14 @@ export function RepoChangeRow({
                   </span>
                   {bringBackButton(f.path)}
                 </p>
-                {f.kind === 'binary' ? (
+                {f.kind === 'binary' && isPreviewableWord(f.path) ? (
+                  <WordDiff
+                    key={`${f.path}:${f.storage_path}`}
+                    before={() => storagePathAt(repo.id, f.path, change.base_seq)}
+                    after={f.action === 'removed' ? null : f.storage_path}
+                    caption={`What this change would do to ${f.path}, by its words`}
+                  />
+                ) : f.kind === 'binary' ? (
                   <p className="text-[12px] text-muted">
                     An uploaded file. Its contents are not compared here.
                   </p>

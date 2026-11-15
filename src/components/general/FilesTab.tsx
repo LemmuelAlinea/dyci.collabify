@@ -9,6 +9,7 @@ import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
 import {
   contentAt,
+  storagePathAt,
   createRepo,
   draftConflicts,
   getRepo,
@@ -23,7 +24,7 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { groupChanges } from '../../lib/general/review'
-import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isKeep, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
+import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import { zipFolder } from '../../lib/general/zipFolder'
 import { downloadBlob } from '../../lib/general/office'
@@ -42,6 +43,7 @@ import type {
   GeneralTreeFile,
 } from '../../lib/general/types'
 import { DiffView } from './DiffView'
+import { WordDiff } from './WordDiff'
 import { DraftPanel } from './DraftPanel'
 import { FileEditor } from './FileEditor'
 import type { OpenFile } from './FileEditor'
@@ -199,6 +201,11 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     [tree],
   )
 
+  const mainStorageOf = useCallback(
+    (path: string) => tree.find((f) => f.path === path)?.storage_path ?? null,
+    [tree],
+  )
+
   if (!loaded) {
     return (
       <div className="flex items-center gap-3 py-8 text-[14px] text-muted">
@@ -310,6 +317,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
             repo={repo}
             state={state}
             mainOf={mainOf}
+            mainStorageOf={mainStorageOf}
             path={folder}
             query={query}
             onNavigate={(p) => go(view, p)}
@@ -967,7 +975,14 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
               {FILE_ACTION_LABEL[f.action]}
             </span>
           </p>
-          {f.kind === 'binary' ? (
+          {f.kind === 'binary' && isPreviewableWord(f.path) ? (
+            <WordDiff
+              key={`${f.path}:${f.storage_path}`}
+              before={f.seq > 1 ? () => storagePathAt(f.repo_id, f.path, f.seq - 1) : null}
+              after={f.action === 'removed' ? null : f.storage_path}
+              caption={`What commit ${commit.seq} did to ${f.path}, by its words`}
+            />
+          ) : f.kind === 'binary' ? (
             <p className="text-[12px] text-muted">
               An uploaded file. Its contents are not compared here.
             </p>
