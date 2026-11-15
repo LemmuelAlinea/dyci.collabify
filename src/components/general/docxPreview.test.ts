@@ -12,7 +12,18 @@ vi.mock('../../lib/api/general', () => ({
   projectFileUrl: vi.fn(async () => 'https://example.test/file'),
 }))
 
-import { DOCX_OPTIONS, DocxPreview, FRAME_CSP, frameDocument, localFaces, renderDocx, sanitizePreview, sanitizeStyles, wordFontCss } from './DocxPreview'
+import {
+  DOCX_OPTIONS,
+  DocxPreview,
+  FRAME_CSP,
+  frameDocument,
+  keepAnchorsInside,
+  localFaces,
+  renderDocx,
+  sanitizePreview,
+  sanitizeStyles,
+  wordFontCss,
+} from './DocxPreview'
 
 async function docx(text: string) {
   const doc = new Document({ sections: [{ children: [new Paragraph({ children: [new TextRun(text)] })] }] })
@@ -210,5 +221,62 @@ describe('wordFontCss', () => {
     expect(css).toContain('font-family: "Times New Roman"')
     expect(css).toContain('local("Times New Roman")')
     expect(css.indexOf('local("Calibri")')).toBeLessThan(css.indexOf('woff2', css.indexOf('local("Calibri")')))
+  })
+})
+
+describe('keepAnchorsInside', () => {
+  function frameDoc() {
+    const doc = document.implementation.createHTMLDocument('frame')
+    doc.body.innerHTML =
+      '<a id="toc" href="#_Toc1"><span>Chapter 1</span></a><a id="mark" href="#Figure%201">Figure</a>' +
+      '<a id="web" href="https://example.test/x">Site</a><a id="mail" href="mailto:ana@example.test">Mail</a>' +
+      '<a id="gone" href="#missing">Gone</a><p id="_Toc1">Chapter 1</p><a name="Figure 1"></a>'
+    const scrollTo = vi.fn()
+    keepAnchorsInside(doc, scrollTo)
+    const click = (el: Element) => {
+      const e = new MouseEvent('click', { bubbles: true, cancelable: true })
+      el.dispatchEvent(e)
+      return e
+    }
+    return { doc, scrollTo, click }
+  }
+
+  it('keeps an in-file link in the frame and scrolls to its target', () => {
+    const { doc, scrollTo, click } = frameDoc()
+    const e = click(doc.querySelector('#toc span')!)
+    expect(e.defaultPrevented).toBe(true)
+    expect(scrollTo).toHaveBeenCalledWith(doc.getElementById('_Toc1'))
+  })
+
+  it('finds a bookmark by its name', () => {
+    const { doc, scrollTo, click } = frameDoc()
+    expect(click(doc.getElementById('mark')!).defaultPrevented).toBe(true)
+    expect(scrollTo).toHaveBeenCalledWith(doc.getElementsByName('Figure 1')[0])
+  })
+
+  it('keeps a link to a missing target from navigating, without scrolling', () => {
+    const { doc, scrollTo, click } = frameDoc()
+    expect(click(doc.getElementById('gone')!).defaultPrevented).toBe(true)
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+
+  it('leaves web and mail links alone', () => {
+    const { doc, scrollTo, click } = frameDoc()
+    expect(click(doc.getElementById('web')!).defaultPrevented).toBe(false)
+    expect(click(doc.getElementById('mail')!).defaultPrevented).toBe(false)
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+})
+
+describe('comments', () => {
+  it('removes comment nodes from the pages', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<!--docxjs comment--><section class="docx"><p>Text<!-- a note --></p></section>'
+    sanitizePreview(root)
+    expect(root.innerHTML).toBe('<section class="docx"><p>Text</p></section>')
+  })
+
+  it('pins Word comments off in the renderer', () => {
+    expect(DOCX_OPTIONS.renderComments).toBe(false)
   })
 })

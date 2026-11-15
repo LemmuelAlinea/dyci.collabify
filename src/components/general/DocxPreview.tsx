@@ -106,6 +106,8 @@ export const DOCX_OPTIONS = {
   renderFootnotes: true,
   renderEndnotes: true,
   renderAltChunks: false,
+  // Word comments stay out of the preview (their popovers are not tidied for it).
+  renderComments: false,
   experimental: true,
   useBase64URL: true,
 } as const
@@ -123,6 +125,11 @@ const SAFE_IMAGE = /^data:image\//i
  */
 export function sanitizePreview(root: HTMLElement) {
   for (const el of [...root.querySelectorAll(ACTIVE)]) el.remove()
+  // Comment nodes carry nothing a reader needs.
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_COMMENT)
+  const comments: Node[] = []
+  while (walker.nextNode()) comments.push(walker.currentNode)
+  for (const c of comments) c.parentNode?.removeChild(c)
   for (const el of [root, ...root.querySelectorAll('*')]) {
     for (const name of el.getAttributeNames()) {
       const lower = name.toLowerCase()
@@ -202,6 +209,29 @@ export function frameDocument(styles: HTMLElement, pages: HTMLElement, ground: s
     pages.innerHTML,
     '</body></html>',
   ].join('')
+}
+
+/**
+ * In-file links (a table of contents, a bookmark) resolve against the app's
+ * address from inside the frame, so following one would load the app into the
+ * frame. Instead the click is kept and `scrollTo` brings the target into view.
+ * Web and mail links are left alone.
+ */
+export function keepAnchorsInside(doc: Document, scrollTo: (target: Element) => void) {
+  doc.addEventListener('click', (e) => {
+    const link = (e.target as Element | null)?.closest?.('a')
+    const href = link?.getAttribute('href') ?? ''
+    if (!href.startsWith('#')) return
+    e.preventDefault()
+    let name = href.slice(1)
+    try {
+      name = decodeURIComponent(name)
+    } catch {
+      // A malformed escape is looked up as written.
+    }
+    const target = (name && (doc.getElementById(name) ?? doc.getElementsByName(name)[0])) || null
+    if (target) scrollTo(target)
+  })
 }
 
 const STEPS = [0.5, 0.75, 1, 1.25, 1.5]
@@ -288,6 +318,18 @@ export function DocxPreview({
     }
   }, [ready, layout])
 
+  // The frame is as tall as its pages, so the box around it is what scrolls.
+  const scrollToTarget = useCallback((target: Element) => {
+    const el = box.current
+    const f = frame.current
+    if (el && f && el.scrollHeight > el.clientHeight) {
+      // The target's box inside the frame is already in zoomed pixels.
+      el.scrollTo({ top: f.offsetTop + target.getBoundingClientRect().top - 8, behavior: 'smooth' })
+    } else {
+      target.scrollIntoView({ block: 'start' })
+    }
+  }, [])
+
   async function download() {
     setDownloadError(null)
     try {
@@ -367,7 +409,11 @@ export function DocxPreview({
             title={label}
             sandbox={FRAME_SANDBOX}
             srcDoc={doc.html}
-            onLoad={() => setReady(true)}
+            onLoad={(e) => {
+              const d = e.currentTarget.contentDocument
+              if (d) keepAnchorsInside(d, scrollToTarget)
+              setReady(true)
+            }}
             className="block border-0"
             style={{
               width: size ? `max(100%, ${size.width}px)` : '100%',
