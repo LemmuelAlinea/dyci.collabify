@@ -4,7 +4,7 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
-import { endPull, listPulls, pullFile, pushState } from '../../lib/api/filePulls'
+import { baseOf, endPull, listPulls, mainSeq, pullFile, pushState, recordBase } from '../../lib/api/filePulls'
 import {
   commitFiles,
   discardDraftFile,
@@ -15,9 +15,8 @@ import {
 } from '../../lib/api/general'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { formatDue } from '../../lib/general/dates'
 import { extensionOf, fileName, isWordPath } from '../../lib/general/files'
-import { newVersionProblem, pulledAgo, stalePushMessage } from '../../lib/general/newVersion'
+import { newVersionProblem, pulledAgo, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
 import type { PushVerdict } from '../../lib/general/pushCheck'
@@ -33,13 +32,15 @@ type Stage =
   | { step: 'working'; what: string }
   | { step: 'held'; picked: File; verdict: Held }
   | { step: 'unknown'; picked: File }
-  | { step: 'ready'; picked: File; storagePath: string; action: FileAction }
+  /** `endPull`: the upload replaced a newer Main knowingly, so the pull ends once it is saved. */
+  | { step: 'ready'; picked: File; storagePath: string; action: FileAction; endPull: boolean }
 
 /**
  * An uploaded file's way to change: download it, change it in the program that
  * made it, and upload it again as a new version of the same path. For Word
- * files the download is a pull (Edit in Word), so a push made from a copy Main
- * has moved past is held instead of quietly replacing someone's work.
+ * files the download is a pull (Edit in Word), and every upload records the
+ * Main version it was made from, so a push made from a copy Main has moved
+ * past is held instead of quietly replacing someone's work.
  */
 export function WordVersionPanel({
   file,
@@ -71,6 +72,8 @@ export function WordVersionPanel({
   const [busy, setBusy] = useState(false)
   // A download link, when the browser blocked the tab it was opening in.
   const [blocked, setBlocked] = useState<string | null>(null)
+  // The draft copy downloaded with Edit in Word: its recorded base carries to the next upload.
+  const [draftCopy, setDraftCopy] = useState<string | null>(null)
   const picker = useRef<HTMLInputElement>(null)
 
   const refreshPulls = useCallback(async () => {
@@ -101,6 +104,7 @@ export function WordVersionPanel({
     })
       .then(async (link) => {
         setBlocked(link)
+        setDraftCopy(file.fromDraft ? storagePath : null)
         if (!link) show('Downloaded. Edit it in Word, then upload it here as a new version.')
         await refreshPulls()
       })
@@ -129,6 +133,8 @@ export function WordVersionPanel({
     })
       .then(async (link) => {
         setBlocked(link)
+        // They now hold Main's version, so the pull's fresh base is the one to carry.
+        setDraftCopy(null)
         setStage({ step: 'idle' })
         if (!link) show('Downloaded the newer version. Combine the two in Word, then upload the result here.')
         await refreshPulls()
@@ -136,12 +142,14 @@ export function WordVersionPanel({
       .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
   }
 
-  async function upload(picked: File, action: FileAction) {
+  /** Uploads the copy and, for a Word file, records the Main version it was made from. */
+  async function upload(picked: File, action: FileAction, base: number | null, endAfter = false) {
     if (!state.project) return setStage({ step: 'idle' })
     setStage({ step: 'working', what: `Uploading ${picked.name}…` })
     try {
       const storagePath = await uploadProjectFile(state.project.id, picked)
-      setStage({ step: 'ready', picked, storagePath, action })
+      if (base !== null) await recordBase(repo.id, file.path, storagePath, base)
+      setStage({ step: 'ready', picked, storagePath, action, endPull: endAfter })
     } catch (err) {
       setStage({ step: 'idle' })
       setError(authErrorMessage(err, 'Could not upload it. Try again in a moment.'))
@@ -152,13 +160,28 @@ export function WordVersionPanel({
     setError(null)
     const problem = newVersionProblem(file.path, picked)
     if (problem) return setError(problem)
-    if (!word) return upload(picked, baseAction)
+    if (!word) return upload(picked, baseAction, null)
     setStage({ step: 'working', what: 'Checking Main…' })
     try {
-      const verdict = pushVerdict(await pushState(repo.id, file.path), existsInMain)
+      // A draft copy downloaded here keeps its own base; otherwise the live pull's.
+      const carried = draftCopy ? await baseOf(draftCopy) : null
+      const from = carried ?? (await pushState(repo.id, file.path))
+      const verdict = pushVerdict(from, existsInMain)
       if (verdict.kind === 'held') return setStage({ step: 'held', picked, verdict })
       if (verdict.kind === 'unknown') return setStage({ step: 'unknown', picked })
-      await upload(picked, baseAction)
+      await upload(picked, baseAction, from ? from.base_seq : await mainSeq(repo.id, file.path))
+    } catch (err) {
+      setStage({ step: 'idle' })
+      setError(authErrorMessage(err, 'Could not check Main. Try again in a moment.'))
+    }
+  }
+
+  /** Continue past the unknown warning: the copy counts as made from Main's version now. */
+  async function continueUnknown(picked: File) {
+    setError(null)
+    setStage({ step: 'working', what: 'Checking Main…' })
+    try {
+      await upload(picked, baseAction, await mainSeq(repo.id, file.path))
     } catch (err) {
       setStage({ step: 'idle' })
       setError(authErrorMessage(err, 'Could not check Main. Try again in a moment.'))
@@ -191,6 +214,8 @@ export function WordVersionPanel({
         })
         show('Saved to your draft')
       }
+      // A knowing replacement is saved, so the stale pull has nothing left to hold.
+      if (ready.endPull) await endPull(repo.id, file.path).catch(() => {})
       onClose()
       await onSaved()
     } catch (err) {
@@ -291,21 +316,18 @@ export function WordVersionPanel({
           repoId={repo.id}
           names={state.nameOf}
           onGetTheirs={() => getTheirs(stage.verdict)}
-          onReplaceAnyway={async () => {
-            await endPull(repo.id, file.path)
-            void upload(stage.picked, stage.verdict.removed ? 'added' : baseAction)
+          onReplaceAnyway={() => {
+            // The copy is recorded as made from Main's newest version; the pull ends once it is saved.
+            void upload(stage.picked, stage.verdict.removed ? 'added' : baseAction, stage.verdict.mainSeq, true)
           }}
         />
       )}
 
       {stage.step === 'unknown' && (
         <div className="space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-3.5 py-3 text-[13px] text-warning-800 dark:border-warning-400/40 dark:bg-warning-400/15 dark:text-warning-300">
-          <p>
-            Collabify doesn't know which copy you started from. If it wasn't Main's version from{' '}
-            {file.mainAt ? formatDue(file.mainAt) : 'its last commit'}, someone's changes may be lost.
-          </p>
+          <p>{unknownCopyMessage(file.mainAt ?? null)}</p>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => void upload(stage.picked, baseAction)}>
+            <Button size="sm" onClick={() => void continueUnknown(stage.picked)}>
               Continue
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setStage({ step: 'idle' })}>

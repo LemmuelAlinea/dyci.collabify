@@ -11,22 +11,32 @@
 -- live rows as a heads-up ("Ana pulled this 2 hours ago"), never as a lock.
 --
 -- A pull is live for 7 days. An older row counts as no pull everywhere: the
--- select policy, general_file_push_state and the guard all read
+-- select policy and general_file_push_state read
 -- pulled_at > now() - interval '7 days'.
+--
+-- The hold lives with the uploaded copy, not with the pull. Every Word upload
+-- records the Main version it was made from in general_file_bases, keyed by
+-- the uploaded object's storage path (record_general_file_base, called right
+-- after the upload): the pull's base when there is a live pull, else Main's
+-- version at the time (the person chose to continue, or to replace anyway).
+-- Refreshing, ending or outliving a pull therefore never lifts a hold, and a
+-- folder Submit or Commit that carries the copy is held like the file alone.
+-- The base is the uploader's claim: a collaboration safeguard, not a security
+-- boundary (Replace anyway exists), so only the uploader may re-record it.
 --
 -- The guard is a BEFORE INSERT trigger on general_blobs, so it covers every
 -- way into Main (commit_general_files directly, commit_general_draft_path and
--- a merged review change, which commits as the change's author) without
--- redefining any of them. When the commit's author has a live pull on the path
--- and Main holds a newer version of it than their base, the blob is refused
+-- a merged review change) without redefining any of them. When a binary
+-- blob's storage path has a base on record for the same repo and path, and
+-- Main holds a newer version of the path than that base, the blob is refused
 -- with a message the app matches by its prefix "Main has a newer version of".
--- A blob that lands ends its author's pull on that path (AFTER INSERT).
--- "Replace it anyway" in the app ends the pull and pushes without one.
+-- No base on record: it passes. A blob that lands ends its author's pull on
+-- that path (AFTER INSERT); that only clears the heads-up.
 --
--- No write policy: rows are written only by the functions here and the two
--- triggers. Runs after space-look.sql and before anon-lockdown.sql. Nothing
--- else redefines this table, its policy, the functions or the triggers.
--- Idempotent. Suite: supabase/tests/file-pulls.test.sql
+-- No write policy on either table: rows are written only by the functions
+-- here and the triggers. Runs after space-look.sql and before
+-- anon-lockdown.sql. Nothing else redefines these tables, their policies, the
+-- functions or the triggers. Idempotent. Suite: supabase/tests/file-pulls.test.sql
 
 begin;
 
@@ -54,6 +64,31 @@ create policy general_file_pulls_select on public.general_file_pulls
 revoke all on table public.general_file_pulls from public, anon, authenticated;
 grant select on table public.general_file_pulls to authenticated;
 grant all on table public.general_file_pulls to service_role;
+
+create table if not exists public.general_file_bases (
+  storage_path text primary key,
+  repo_id      uuid not null,
+  project_id   uuid not null,
+  path         text not null,
+  user_id      uuid default auth.uid() references public.profiles (id) on delete set null,
+  base_seq     int not null,
+  created_at   timestamptz not null default now(),
+  foreign key (repo_id, project_id) references public.general_repos (id, project_id) on delete cascade
+);
+
+comment on table public.general_file_bases is
+  'The Main version an uploaded Word copy was made from, by its storage path. Holds a push from a copy Main has moved past.';
+
+alter table public.general_file_bases enable row level security;
+
+drop policy if exists general_file_bases_select on public.general_file_bases;
+create policy general_file_bases_select on public.general_file_bases
+  for select to authenticated
+  using (public.can_read_general_project(project_id));
+
+revoke all on table public.general_file_bases from public, anon, authenticated;
+grant select on table public.general_file_bases to authenticated;
+grant all on table public.general_file_bases to service_role;
 
 /**
  * Main's newest seq for a path (any action, a removal included), below
@@ -182,8 +217,97 @@ as $function$
 $function$;
 
 /**
- * Holds a blob whose commit author pulled the path from an older version than
- * Main now has. Every way into Main inserts its blobs here.
+ * Records the Main version an uploaded Word copy was made from. The caller
+ * must be able to change the project, the object must be one of its files and
+ * the path a Word file. A copy's base is changed only by whoever recorded it.
+ */
+create or replace function public.record_general_file_base(p_repo uuid, p_path text, p_storage text, p_base_seq int)
+ returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  r        public.general_repos%rowtype;
+  v_path   text := btrim(p_path);
+  v_prefix text;
+  n        int;
+begin
+  select * into r from public.general_repos where id = p_repo;
+  if not found then
+    raise exception 'That repository is gone' using errcode = 'no_data_found';
+  end if;
+
+  if not public.general_viewer_active() or not public.is_general_member(r.project_id) then
+    raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+  end if;
+  if not public.general_can_write(r.project_id) then
+    raise exception 'Stakeholders can view this project but not change it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if v_path is null or v_path !~* '\.(docx|doc|odt|rtf)$' then
+    raise exception 'Only a Word file records the version it was made from.'
+      using errcode = 'invalid_parameter_value';
+  end if;
+  v_prefix := r.project_id::text || '/files/';
+  if p_storage is null or left(p_storage, length(v_prefix)) <> v_prefix then
+    raise exception 'That upload is not one of this project''s files.' using errcode = 'invalid_parameter_value';
+  end if;
+  if p_base_seq is null or p_base_seq < 0 or p_base_seq > r.commit_count then
+    raise exception 'That version is not in Main.' using errcode = 'invalid_parameter_value';
+  end if;
+
+  insert into public.general_file_bases (storage_path, repo_id, project_id, path, user_id, base_seq, created_at)
+  values (p_storage, r.id, r.project_id, v_path, auth.uid(), p_base_seq, now())
+  on conflict (storage_path) do update
+     set repo_id = excluded.repo_id,
+         project_id = excluded.project_id,
+         path = excluded.path,
+         base_seq = excluded.base_seq,
+         created_at = excluded.created_at
+   where public.general_file_bases.user_id = auth.uid();
+  get diagnostics n = row_count;
+  if n = 0 then
+    raise exception 'Someone else uploaded that copy, so only they can change which version it was made from.'
+      using errcode = 'insufficient_privilege';
+  end if;
+end;
+$function$;
+
+/**
+ * An uploaded Word copy's base next to Main's newest version of its path: its
+ * seq, the author and time of its commit, and whether it removed the file. No
+ * row when the copy has no base on record, or the caller cannot read it.
+ */
+create or replace function public.general_file_base_state(p_storage text)
+ returns table (base_seq int, main_seq int, main_author uuid, main_at timestamptz, main_removed boolean)
+ language sql
+ stable
+ security definer
+ set search_path to 'public'
+as $function$
+  select f.base_seq,
+         coalesce(b.seq, 0),
+         c.author_id,
+         c.created_at,
+         coalesce(b.action = 'removed', false)
+    from public.general_file_bases f
+    left join lateral (
+      select x.seq, x.action, x.commit_id
+        from public.general_blobs x
+       where x.repo_id = f.repo_id and x.path = f.path
+       order by x.seq desc
+       limit 1
+    ) b on true
+    left join public.general_commits c on c.id = b.commit_id
+   where f.storage_path = p_storage
+     and public.can_read_general_project(f.project_id);
+$function$;
+
+/**
+ * Holds a binary blob whose uploaded copy was made from an older version of
+ * its path than Main now has. Every way into Main inserts its blobs here.
  */
 create or replace function public.general_blobs_pull_guard()
  returns trigger
@@ -192,18 +316,17 @@ create or replace function public.general_blobs_pull_guard()
  set search_path to 'public'
 as $function$
 declare
-  v_author uuid;
-  v_base   int;
+  v_base int;
 begin
-  select c.author_id into v_author from public.general_commits c where c.id = new.commit_id;
-  if v_author is null then
+  if new.kind <> 'binary' or new.storage_path is null then
     return new;
   end if;
 
   select f.base_seq into v_base
-    from public.general_file_pulls f
-   where f.repo_id = new.repo_id and f.path = new.path and f.user_id = v_author
-     and f.pulled_at > now() - interval '7 days';
+    from public.general_file_bases f
+   where f.storage_path = new.storage_path
+     and f.repo_id = new.repo_id
+     and f.path = new.path;
 
   if found and public.general_main_seq(new.repo_id, new.path, new.seq) > v_base then
     raise exception 'Main has a newer version of % than the copy this was made from. Get the newer version, combine the two in Word, then upload again.', new.path
@@ -244,11 +367,15 @@ revoke all on function public.general_main_seq(uuid, text, int) from public, ano
 revoke all on function public.pull_general_file(uuid, text, boolean) from public, anon;
 revoke all on function public.end_general_file_pull(uuid, text) from public, anon;
 revoke all on function public.general_file_push_state(uuid, text, uuid) from public, anon;
+revoke all on function public.record_general_file_base(uuid, text, text, int) from public, anon;
+revoke all on function public.general_file_base_state(text) from public, anon;
 revoke all on function public.general_blobs_pull_guard() from public, anon, authenticated;
 revoke all on function public.general_blobs_pull_end() from public, anon, authenticated;
 grant execute on function public.general_main_seq(uuid, text, int) to authenticated, service_role;
 grant execute on function public.pull_general_file(uuid, text, boolean) to authenticated, service_role;
 grant execute on function public.end_general_file_pull(uuid, text) to authenticated, service_role;
 grant execute on function public.general_file_push_state(uuid, text, uuid) to authenticated, service_role;
+grant execute on function public.record_general_file_base(uuid, text, text, int) to authenticated, service_role;
+grant execute on function public.general_file_base_state(text) to authenticated, service_role;
 
 commit;

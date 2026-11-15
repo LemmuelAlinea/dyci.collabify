@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
-import { endPull, pullFile, pushState } from '../../lib/api/filePulls'
+import { endPull, mainSeq, pullFile, pushState, recordBase } from '../../lib/api/filePulls'
 import { projectFileUrl, saveDraftFile, storagePathAt, uploadProjectFile } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isWordPath, joinPath, kindForPath, nodesAt, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
 import { OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
-import { newVersionProblem, stalePushMessage } from '../../lib/general/newVersion'
+import { newVersionProblem, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
 import type { PushVerdict } from '../../lib/general/pushCheck'
@@ -66,9 +66,9 @@ export function NewItemDialog({
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
   const [blocked, setBlocked] = useState<string | null>(null)
-  // Held or unknown files the person chose to replace anyway, across the checks.
   const [gotTheirs, setGotTheirs] = useState(false)
   const [pickKey, setPickKey] = useState(0)
+  // Held or unknown files the person chose to replace anyway, across the checks.
   const overrides = useRef(new Set<string>())
 
   const siblings = (
@@ -90,13 +90,17 @@ export function NewItemDialog({
     onClose()
   }
 
-  async function savePickedFile(file: File, target: string) {
+  /** `base`: for a Word file, the Main version it was made from, recorded right after the upload. */
+  async function savePickedFile(file: File, target: string, base: number | undefined) {
     const k = kindForPath(target)
     let content = ''
     let storagePath: string | null = null
     if (k === 'sheet') content = serializeWorkbook(await xlsxToWorkbook(file))
     else if (k === 'text') content = await readAsText(file)
-    else storagePath = await uploadProjectFile(repo.project_id, file)
+    else {
+      storagePath = await uploadProjectFile(repo.project_id, file)
+      if (base !== undefined) await recordBase(repo.id, target, storagePath, base)
+    }
     await saveDraftFile({ repoId: repo.id, path: target, action: actionFor(target, tree), kind: k, content, storagePath })
   }
 
@@ -158,15 +162,22 @@ export function NewItemDialog({
   }
 
   // Every Word file that replaces an existing name gets the open file's push check
-  // first, and nothing is saved until all of them pass.
+  // first, and nothing is saved until all of them pass. Each Word upload then
+  // records the Main version it was made from: the live pull's, else Main's now.
   async function save(targets: string[], files: File[], landAt: string, done: string, overridden: Set<string>) {
     if (busy) return
     setError(null)
     setBusy(true)
     try {
+      const bases = new Map<string, number>()
       for (const t of targets) {
-        if (!isWordPath(t) || overridden.has(t) || !(inMain(t) || inDraft(t))) continue
-        const verdict = pushVerdict(await pushState(repo.id, t), inMain(t))
+        if (!isWordPath(t)) continue
+        if (overridden.has(t) || !(inMain(t) || inDraft(t))) {
+          bases.set(t, await mainSeq(repo.id, t))
+          continue
+        }
+        const from = await pushState(repo.id, t)
+        const verdict = pushVerdict(from, inMain(t))
         if (verdict.kind === 'held') {
           setPending({ step: 'held', verdict, path: t })
           setBusy(false)
@@ -177,13 +188,16 @@ export function NewItemDialog({
           setBusy(false)
           return
         }
+        bases.set(t, from ? from.base_seq : await mainSeq(repo.id, t))
       }
       setPending(null)
       if (step === 'folder') {
         await saveDraftFile({ repoId: repo.id, path: targets[0], action: 'added', kind: 'text', content: '' })
       } else {
-        for (let i = 0; i < files.length; i += 1) await savePickedFile(files[i], targets[i])
+        for (let i = 0; i < files.length; i += 1) await savePickedFile(files[i], targets[i], bases.get(targets[i]))
       }
+      // Saved past a hold: the stale pull has nothing left to hold.
+      for (const t of overridden) if (targets.includes(t)) await endPull(repo.id, t).catch(() => {})
       show(done)
       setBusy(false)
       close()
@@ -319,18 +333,16 @@ export function NewItemDialog({
               names={names}
               blockedUrl={blocked}
               onGetTheirs={() => getTheirs(pending.path, pending.verdict)}
-              onReplaceAnyway={async () => {
-                await endPull(repo.id, pending.path)
+              onReplaceAnyway={() => {
+                // Recorded as made from Main's newest version; the pull ends once it is saved.
                 void go(pending.path)
               }}
             />
           )}
           {pending?.step === 'unknown' && (
             <div className="space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-3.5 py-3 text-[13px] text-warning-800 dark:border-warning-400/40 dark:bg-warning-400/15 dark:text-warning-300">
-              <p>
-                Collabify doesn't know which copy of <span className="font-mono">{fileName(pending.path)}</span> you started from. If
-                it wasn't Main's latest version, someone's changes may be lost.
-              </p>
+              <p className="font-mono">{fileName(pending.path)}</p>
+              <p>{unknownCopyMessage(tree.find((f) => f.path === pending.path)?.created_at ?? null)}</p>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" size="sm" onClick={() => void go(pending.path)}>
                   Continue

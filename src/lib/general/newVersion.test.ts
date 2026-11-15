@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editingLabel, newVersionProblem, pulledAgo, stalePushMessage } from './newVersion'
+import { editingLabel, newVersionProblem, pulledAgo, stalePushMessage, unknownCopyMessage } from './newVersion'
 
 const picked = (name: string, size = 10) => new File([new Uint8Array(size)], name)
 
@@ -76,5 +76,20 @@ describe('stalePushMessage', () => {
   it('leaves every other error alone', () => {
     expect(stalePushMessage({ message: 'permission denied' }, null)).toBeNull()
     expect(stalePushMessage(null, null)).toBeNull()
+  })
+})
+
+describe('unknownCopyMessage', () => {
+  it("names Main's version by its date", () => {
+    const at = '2026-11-14T02:00:00Z'
+    expect(unknownCopyMessage(at)).toBe(
+      `Collabify doesn't know which copy you started from. If it wasn't Main's version from ${new Date(at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}, someone's changes may be lost.`,
+    )
+  })
+
+  it('falls back to its last commit without a date', () => {
+    expect(unknownCopyMessage(null)).toBe(
+      "Collabify doesn't know which copy you started from. If it wasn't Main's version from its last commit, someone's changes may be lost.",
+    )
   })
 })

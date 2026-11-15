@@ -18,7 +18,6 @@ export function HeldPush({
   path,
   repoId,
   names,
-  gotTheirs = false,
   blockedUrl = null,
   onGetTheirs,
   onReplaceAnyway,
@@ -28,8 +27,6 @@ export function HeldPush({
   /** Given, a .docx shows the words that changed in Main since the pulled copy. */
   repoId?: string
   names: (id: string) => string
-  /** They downloaded the newer version; the hold stays until their combined copy is uploaded. */
-  gotTheirs?: boolean
   /** The newer version's link, when the browser blocked the tab it was opening in. */
   blockedUrl?: string | null
   /** Called inside the click, so it can open its download tab before anything is awaited. */
@@ -64,15 +61,7 @@ export function HeldPush({
       <div className="flex items-start gap-2">
         <Icon name="alert" size={15} className="mt-0.5 shrink-0" />
         <div className="min-w-0 space-y-1">
-          {gotTheirs && !state.removed ? (
-            <>
-              <p className="font-medium">You have {whose} version now.</p>
-              <p>
-                Combine it with yours in Word (Review, Compare, Combine). Once you upload your combined copy here
-                as a new version, the hold lifts.
-              </p>
-            </>
-          ) : state.removed ? (
+          {state.removed ? (
             <>
               <p className="font-medium">
                 {who} removed this file since you pulled{when}.
@@ -115,7 +104,7 @@ export function HeldPush({
 
       <div className="flex flex-wrap gap-2">
         {!state.removed && (
-          <Button type="button" size="sm" variant={gotTheirs ? 'outline' : undefined} loading={busy} onClick={getTheirs}>
+          <Button type="button" size="sm" loading={busy} onClick={getTheirs}>
             {!busy && <Icon name="download" size={14} />}
             {downloadLabel}
           </Button>

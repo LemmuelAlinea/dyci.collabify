@@ -337,6 +337,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
             state={state}
             mainOf={mainOf}
             mainStorageOf={mainStorageOf}
+            mainAtOf={(p) => tree.find((f) => f.path === p)?.created_at ?? null}
             path={folder}
             query={query}
             onNavigate={(p) => go(view, p)}

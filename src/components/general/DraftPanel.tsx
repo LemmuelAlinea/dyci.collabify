@@ -21,12 +21,12 @@ import {
   submitDraftFile,
   syncDraft,
 } from '../../lib/api/general'
-import { endPull, pullFile, pushState } from '../../lib/api/filePulls'
+import { baseOf, endPull, pullFile, recordBase } from '../../lib/api/filePulls'
 import { trashDraftPath } from '../../lib/api/trash'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
 import { buildTree, describeDraft, fileName, fileText, flatFiles, isPreviewableWord, isWordPath, nodesAt } from '../../lib/general/files'
-import { stalePushMessage } from '../../lib/general/newVersion'
+import { stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
 import type { PushVerdict } from '../../lib/general/pushCheck'
@@ -52,38 +52,20 @@ type SubmitTarget = { type: 'file' | 'folder'; path: string }
 
 type Held = PushVerdict & { kind: 'held' }
 
-/**
- * A held file whose newer version was downloaded: the draft copy it was held
- * for, and the hold. The row stays held while the draft still has that copy,
- * since the fresh pull clears the database's check before anything is combined.
- */
-type GotTheirs = Record<string, { storage: string | null; verdict: Held }>
+/** Submit or Commit, waiting on the person past the warning for copies with no known start. */
+type Asking = { then: 'submit' | 'commit'; target: SubmitTarget; paths: string[] }
 
-const gotKey = (repoId: string) => `collabify.gotTheirs.${repoId}`
+/** The draft paths a target carries: the file itself, or every file under the folder. */
+const under = (target: SubmitTarget, path: string) =>
+  target.type === 'file' ? path === target.path : path.startsWith(`${target.path}/`)
 
-// Kept for the browser session, so leaving the tab or reloading does not lift the hold.
-function readGot(repoId: string): GotTheirs {
-  try {
-    return JSON.parse(sessionStorage.getItem(gotKey(repoId)) ?? '{}') as GotTheirs
-  } catch {
-    return {}
-  }
-}
-
-function writeGot(repoId: string, got: GotTheirs) {
-  try {
-    if (Object.keys(got).length === 0) sessionStorage.removeItem(gotKey(repoId))
-    else sessionStorage.setItem(gotKey(repoId), JSON.stringify(got))
-  } catch {
-    // Without storage the hold lasts until the panel closes.
-  }
-}
-
-/** The hold on a draft row: Main's check, or a download that has not been combined yet. */
-function holdOf(f: GeneralDraftFile, held: Record<string, Held>, got: GotTheirs) {
-  if (held[f.path]) return { verdict: held[f.path], gotTheirs: false }
-  const g = got[f.path]
-  return g && g.storage === f.storage_path ? { verdict: g.verdict, gotTheirs: true } : null
+/** Why a folder cannot go anywhere yet, naming its held Word files; null when none is held. */
+export function heldFolderReason(folder: string, held: Record<string, Held>) {
+  const paths = Object.keys(held).filter((p) => under({ type: 'folder', path: folder }, p))
+  if (paths.length === 0) return null
+  return paths.length === 1
+    ? `${fileName(paths[0])} is held. Combine it with Main's newer version or replace it first.`
+    : `${paths.length} Word files in it are held. Combine them with Main's newer versions or replace them first.`
 }
 
 /** A stale push said in plain words; any other error as it came. */
@@ -111,6 +93,7 @@ export function DraftPanel({
   state,
   mainOf,
   mainStorageOf,
+  mainAtOf = () => null,
   path,
   query,
   onNavigate,
@@ -127,6 +110,8 @@ export function DraftPanel({
   mainOf: (path: string) => string
   /** The Storage object Main holds for a path, for Word files. */
   mainStorageOf: (path: string) => string | null
+  /** When Main's version of a path was committed, for the unknown-copy warning. */
+  mainAtOf?: (path: string) => string | null
   path: string
   query?: string
   onNavigate: (path: string) => void
@@ -144,48 +129,51 @@ export function DraftPanel({
   const mayCommit = state.can('commit_main')
   const [discarding, setDiscarding] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Word files in the draft made from a copy Main has moved past, by path.
+  // Word copies in the draft made from a version Main has moved past, by path.
   const [held, setHeld] = useState<Record<string, Held>>({})
+  // Word copies in Main's paths with no starting version on record.
+  const [unknown, setUnknown] = useState<string[]>([])
+  const [asking, setAsking] = useState<Asking | null>(null)
   const [recheck, setRecheck] = useState(0)
-  const [got, setGot] = useState<GotTheirs>(() => readGot(repo.id))
   // Download links for the rows whose tab the browser blocked.
   const [links, setLinks] = useState<Record<string, string>>({})
 
-  useEffect(() => writeGot(repo.id, got), [repo.id, got])
-
-  // A new copy in the draft (or the row gone) lifts a download's hold.
-  useEffect(() => {
-    setGot((current) => {
-      const kept = Object.fromEntries(
-        Object.entries(current).filter(([p, g]) => files.some((f) => f.path === p && f.storage_path === g.storage)),
-      )
-      return Object.keys(kept).length === Object.keys(current).length ? current : kept
-    })
-  }, [files])
-
   const behind = draft !== null && draft.base_seq !== repo.commit_count
 
-  // One key for the Word files whose push could be held, so the check reruns only when they change.
-  const pulledPaths = files
-    .filter((f) => f.kind === 'binary' && isWordPath(f.path) && f.action !== 'added')
-    .map((f) => f.path)
+  // One key for the Word copies whose push could be held, so the check reruns only when they change.
+  const wordCopies = files
+    .filter((f) => f.kind === 'binary' && isWordPath(f.path) && f.action !== 'removed' && f.storage_path)
+    .map((f) => [f.path, f.storage_path, mainStorageOf(f.path) ? 'main' : ''].join('\t'))
     .join('\n')
 
+  // Each copy's recorded base against Main's newest version of its path.
   useEffect(() => {
     let alive = true
-    const paths = pulledPaths && !state.readOnly ? pulledPaths.split('\n') : []
+    const rows = wordCopies && !state.readOnly ? wordCopies.split('\n').map((r) => r.split('\t')) : []
     void Promise.all(
-      paths.map(async (p) => [p, pushVerdict(await pushState(repo.id, p).catch(() => null), true)] as const),
+      rows.map(async ([p, storage, main]) => [p, pushVerdict(await baseOf(storage).catch(() => null), main === 'main')] as const),
     ).then((pairs) => {
       if (!alive) return
       const next: Record<string, Held> = {}
       for (const [p, v] of pairs) if (v.kind === 'held') next[p] = v
       setHeld(next)
+      setUnknown(pairs.filter(([, v]) => v.kind === 'unknown').map(([p]) => p))
     })
     return () => {
       alive = false
     }
-  }, [repo.id, repo.commit_count, pulledPaths, state.readOnly, recheck])
+  }, [repo.id, repo.commit_count, wordCopies, state.readOnly, recheck])
+
+  /** Submit or Commit; a copy with no known start asks first. */
+  function begin(then: Asking['then'], target: SubmitTarget) {
+    const paths = unknown.filter((p) => under(target, p))
+    if (paths.length > 0) return setAsking({ then, target, paths })
+    if (then === 'submit') setSubmitting(target)
+    else setCommitting(target)
+  }
+  const onSubmitTarget = (target: SubmitTarget) => begin('submit', target)
+  const onCommitTarget = (target: SubmitTarget) => begin('commit', target)
+  const folderHeld = path ? heldFolderReason(path, held) : null
 
   // Opens its tab inside the click (openTabFor), before any await.
   function getTheirs(f: GeneralDraftFile, verdict: Held) {
@@ -197,21 +185,25 @@ export function DraftPanel({
       return projectFileUrl(storagePath, fileName(f.path))
     })
       .then((link) => {
-        setGot((current) => ({ ...current, [f.path]: { storage: f.storage_path, verdict } }))
+        // The hold stays with the draft's copy until the combined copy replaces it.
         if (link) setLinks((current) => ({ ...current, [f.path]: link }))
         else show('Downloaded the newer version. Combine the two in Word, then upload your combined copy as a new version.')
-        setRecheck((n) => n + 1)
       })
       .catch((err: unknown) => show(authErrorMessage(err, 'Could not download it. Try again in a moment.'), 'error'))
   }
 
   async function replaceAnyway(f: GeneralDraftFile, verdict: Held) {
-    await endPull(repo.id, f.path)
-    setGot(({ [f.path]: _old, ...rest }) => rest)
-    // Main removed the file, so the draft's copy goes back in as a new one.
-    if (verdict.removed && f.action === 'changed') {
-      await saveDraftFile({ repoId: repo.id, path: f.path, action: 'added', kind: 'binary', storagePath: f.storage_path })
+    try {
+      // The copy now counts as made from Main's newest version.
+      if (f.storage_path) await recordBase(repo.id, f.path, f.storage_path, verdict.mainSeq)
+      // Main removed the file, so the draft's copy goes back in as a new one.
+      if (verdict.removed && f.action === 'changed') {
+        await saveDraftFile({ repoId: repo.id, path: f.path, action: 'added', kind: 'binary', storagePath: f.storage_path })
+      }
+    } catch (err) {
+      throw new Error(authErrorMessage(err, 'Could not replace it. Try again in a moment.'))
     }
+    await endPull(repo.id, f.path).catch(() => {})
     show('Your copy will replace it')
     setRecheck((n) => n + 1)
     await onDone()
@@ -291,9 +283,23 @@ export function DraftPanel({
                   label={`Actions for ${path}`}
                   disabled={busy}
                   items={[
-                    { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => setSubmitting({ type: 'folder', path }) },
+                    {
+                      label: 'Submit for review',
+                      icon: 'refresh',
+                      disabled: behind || Boolean(folderHeld),
+                      hint: folderHeld ?? undefined,
+                      onSelect: () => onSubmitTarget({ type: 'folder', path }),
+                    },
                     ...(mayCommit
-                      ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => setCommitting({ type: 'folder', path }) }]
+                      ? [
+                          {
+                            label: 'Commit to main',
+                            icon: 'check' as const,
+                            disabled: behind || Boolean(folderHeld),
+                            hint: folderHeld ?? undefined,
+                            onSelect: () => onCommitTarget({ type: 'folder', path }),
+                          },
+                        ]
                       : []),
                     { label: 'Share', icon: 'users', onSelect: () => setSharing({ type: 'folder', path }) },
                     { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
@@ -363,16 +369,15 @@ export function DraftPanel({
                   onOpen={onOpen}
                   onArchive={setArchiving}
                   onTrash={moveToTrash}
-                  onSubmit={setSubmitting}
+                  onSubmit={onSubmitTarget}
                   onShare={setSharing}
                   held={held}
-                  got={got}
                   links={links}
                   names={state.nameOf}
                   repoId={repo.id}
                   onGetTheirs={getTheirs}
                   onReplaceAnyway={replaceAnyway}
-                  onCommit={mayCommit ? setCommitting : undefined}
+                  onCommit={mayCommit ? onCommitTarget : undefined}
                 />
               ))}
             </ul>
@@ -398,16 +403,15 @@ export function DraftPanel({
               onOpen={onOpen}
               onArchive={setArchiving}
               onTrash={moveToTrash}
-              onSubmit={setSubmitting}
+              onSubmit={onSubmitTarget}
               onShare={setSharing}
               held={held}
-              got={got}
               links={links}
               names={state.nameOf}
               repoId={repo.id}
               onGetTheirs={getTheirs}
               onReplaceAnyway={replaceAnyway}
-              onCommit={mayCommit ? setCommitting : undefined}
+              onCommit={mayCommit ? onCommitTarget : undefined}
             />
           ))}
         </ul>
@@ -441,6 +445,29 @@ export function DraftPanel({
       />
 
       <ShareDialog repoId={repo.id} target={sharing} state={state} onClose={() => setSharing(null)} />
+
+      <ConfirmDialog
+        open={asking !== null}
+        onClose={() => setAsking(null)}
+        onConfirm={() => {
+          if (!asking) return
+          if (asking.then === 'submit') setSubmitting(asking.target)
+          else setCommitting(asking.target)
+        }}
+        title={asking?.paths.length === 1 ? `Check ${fileName(asking.paths[0])} first` : 'Check these Word files first'}
+        body={
+          <div className="space-y-3">
+            {asking?.paths.map((p) => (
+              <div key={p} className="space-y-1">
+                <p className="font-mono text-[13px] text-ink">{p}</p>
+                <p>{unknownCopyMessage(mainAtOf(p))}</p>
+              </div>
+            ))}
+          </div>
+        }
+        confirmLabel="Continue"
+        tone="primary"
+      />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -531,7 +558,6 @@ function DraftNode({
   onShare,
   onCommit,
   held,
-  got,
   links,
   names,
   repoId,
@@ -555,10 +581,8 @@ function DraftNode({
   onShare: (target: SubmitTarget) => void
   /** Only for whoever may commit to Main without a review. */
   onCommit?: (target: SubmitTarget) => void
-  /** Word files whose push Main has moved past, by path. */
+  /** Word copies made from a version Main has moved past, by path. */
   held: Record<string, Held>
-  /** Held rows whose newer version was downloaded but not combined yet. */
-  got: GotTheirs
   links: Record<string, string>
   names: (id: string) => string
   repoId: string
@@ -568,6 +592,7 @@ function DraftNode({
   const [open, setOpen] = useState(false)
 
   if (node.type === 'folder') {
+    const folderHeld = heldFolderReason(node.path, held)
     return (
       <li>
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5">
@@ -586,9 +611,23 @@ function DraftNode({
               label={`Actions for ${node.name}`}
               disabled={busy}
               items={[
-                { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'folder', path: node.path }) },
+                {
+                  label: 'Submit for review',
+                  icon: 'refresh',
+                  disabled: behind || Boolean(folderHeld),
+                  hint: folderHeld ?? undefined,
+                  onSelect: () => onSubmit({ type: 'folder', path: node.path }),
+                },
                 ...(onCommit
-                  ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'folder', path: node.path }) }]
+                  ? [
+                      {
+                        label: 'Commit to main',
+                        icon: 'check' as const,
+                        disabled: behind || Boolean(folderHeld),
+                        hint: folderHeld ?? undefined,
+                        onSelect: () => onCommit({ type: 'folder', path: node.path }),
+                      },
+                    ]
                   : []),
                 { label: 'Share', icon: 'users', onSelect: () => onShare({ type: 'folder', path: node.path }) },
                 { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
@@ -603,8 +642,7 @@ function DraftNode({
 
   const f = node.file as unknown as GeneralDraftFile
   const clashing = conflicts.some((c) => c.path === f.path)
-  const holding = holdOf(f, held, got)
-  const hold = holding?.verdict
+  const hold = held[f.path]
   // A held file goes nowhere until it is combined or knowingly replaced.
   const stuck = behind || Boolean(hold)
 
@@ -674,7 +712,6 @@ function DraftNode({
         <div className="px-4 pb-3 sm:px-5">
           <HeldPush
             state={hold}
-            gotTheirs={holding?.gotTheirs}
             blockedUrl={links[f.path] ?? null}
             path={f.path}
             repoId={repoId}

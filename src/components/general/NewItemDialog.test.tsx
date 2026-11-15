@@ -14,6 +14,8 @@ const m = vi.hoisted(() => ({
   endPull: vi.fn(),
   pullFile: vi.fn(),
   pushState: vi.fn(),
+  recordBase: vi.fn(),
+  mainSeq: vi.fn(),
   upload: vi.fn(),
   saveDraft: vi.fn(),
   at: vi.fn(),
@@ -30,7 +32,13 @@ vi.mock('../ui/ConfirmDialog', () => ({
       </button>
     ) : null,
 }))
-vi.mock('../../lib/api/filePulls', () => ({ endPull: m.endPull, pushState: m.pushState, pullFile: m.pullFile }))
+vi.mock('../../lib/api/filePulls', () => ({
+  endPull: m.endPull,
+  pushState: m.pushState,
+  pullFile: m.pullFile,
+  recordBase: m.recordBase,
+  mainSeq: m.mainSeq,
+}))
 vi.mock('../../lib/api/general', () => ({
   uploadProjectFile: m.upload,
   saveDraftFile: m.saveDraft,
@@ -43,6 +51,7 @@ const tree = [
   { path: 'Chap1-4.docx', kind: 'binary', content: '', storage_path: 's/a.docx' },
   { path: 'Thesis/Chap2.docx', kind: 'binary', content: '', storage_path: 's/b.docx' },
   { path: 'Thesis/notes.txt', kind: 'text', content: 'x', storage_path: null },
+  { path: 'notes.md', kind: 'text', content: 'x', storage_path: null },
 ] as never
 
 let host: HTMLDivElement
@@ -61,6 +70,8 @@ beforeEach(() => {
   m.url.mockResolvedValue('https://signed/url')
   vi.stubGlobal('open', vi.fn(() => ({ location: { href: '' }, close: vi.fn(), opener: {} })))
   m.pushState.mockResolvedValue({ main_seq: 4, base_seq: 4, main_author: null, main_at: null, main_removed: false })
+  m.recordBase.mockResolvedValue(undefined)
+  m.mainSeq.mockResolvedValue(7)
 })
 afterEach(async () => {
   await act(async () => root.unmount())
@@ -111,6 +122,29 @@ it('saves the new version as changed after Upload as a new version', async () =>
   await click('Add to my draft')
   await click('Upload as a new version')
   expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ path: 'Chap1-4.docx', action: 'changed', kind: 'binary' }))
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Chap1-4.docx', 'p/files/new.docx', 4)
+  expect(m.recordBase.mock.invocationCallOrder[0]).toBeLessThan(m.saveDraft.mock.invocationCallOrder[0])
+  expect(m.endPull).not.toHaveBeenCalled()
+})
+
+it("records Main's version as the base of a new Word file", async () => {
+  await render()
+  await click('Upload a file')
+  await pickFiles([doc('Chap5.docx')])
+  await click('Add to my draft')
+  expect(m.pushState).not.toHaveBeenCalled()
+  expect(m.mainSeq).toHaveBeenCalledWith('repo', 'Chap5.docx')
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Chap5.docx', 'p/files/new.docx', 7)
+  expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ path: 'Chap5.docx', action: 'added' }))
+})
+
+it('records no base for an upload that is not Word', async () => {
+  await render()
+  await click('Upload a file')
+  await pickFiles([doc('Scan.pdf')])
+  await click('Add to my draft')
+  expect(m.saveDraft).toHaveBeenCalled()
+  expect(m.recordBase).not.toHaveBeenCalled()
 })
 
 it('asks once for a folder with two existing names and saves nothing on Cancel', async () => {
@@ -174,12 +208,22 @@ it('disables Add to my draft while the upload is held', async () => {
   expect((button('Add to my draft') as HTMLButtonElement).disabled).toBe(true)
 })
 
-it('ends the pull and saves after Replace it anyway', async () => {
+it("saves after Replace it anyway as made from Main's version, then ends the pull", async () => {
   await heldDialog()
   await click('Replace it anyway')
   await click('Replace it')
-  expect(m.endPull).toHaveBeenCalledWith('repo', 'Chap1-4.docx')
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Chap1-4.docx', 'p/files/new.docx', 7)
   expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ path: 'Chap1-4.docx', action: 'changed' }))
+  expect(m.endPull).toHaveBeenCalledWith('repo', 'Chap1-4.docx')
+  expect(m.saveDraft.mock.invocationCallOrder[0]).toBeLessThan(m.endPull.mock.invocationCallOrder[0])
+})
+
+it('keeps the pull when Replace it anyway fails to save', async () => {
+  await heldDialog()
+  m.saveDraft.mockRejectedValue({ message: 'Could not reach the server' })
+  await click('Replace it anyway')
+  await click('Replace it')
+  expect(m.endPull).not.toHaveBeenCalled()
 })
 
 it('saves after Continue when the copy it started from is unknown', async () => {
@@ -193,4 +237,5 @@ it('saves after Continue when the copy it started from is unknown', async () => 
   expect(m.saveDraft).not.toHaveBeenCalled()
   await click('Continue')
   expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ path: 'Chap1-4.docx', action: 'changed' }))
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Chap1-4.docx', 'p/files/new.docx', 7)
 })

@@ -136,16 +136,6 @@ it('gets their version once, however fast the clicks come', async () => {
   expect(getTheirs).toHaveBeenCalledTimes(2)
 })
 
-it('stays held after their version is downloaded, until the combined copy is uploaded', async () => {
-  await show(
-    <HeldPush state={held()} path="a.docx" names={names} gotTheirs onGetTheirs={vi.fn()} onReplaceAnyway={vi.fn()} />,
-  )
-  expect(host!.textContent).toContain("You have Ben's version now.")
-  expect(host!.textContent).toContain('Once you upload your combined copy here as a new version, the hold lifts.')
-  expect(host!.textContent).not.toContain('updated this since you pulled')
-  expect(buttons()).toContain('Replace it anyway')
-})
-
 it('offers a link when the browser blocked the download', async () => {
   await show(
     <HeldPush state={held()} path="a.docx" names={names} blockedUrl="https://signed/ben" onGetTheirs={vi.fn()} onReplaceAnyway={vi.fn()} />,

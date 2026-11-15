@@ -11,6 +11,8 @@ export type ActionMenuItem = {
   tone?: 'danger'
   disabled?: boolean
   separated?: boolean
+  /** A short line under the label, such as why the item is disabled. */
+  hint?: string
   /** Set (true or false) to make the item one of a pick-one group, ticked when true. */
   checked?: boolean
 }
@@ -148,6 +150,7 @@ export function ActionMenu({
                 role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
                 aria-checked={item.checked}
                 disabled={item.disabled}
+                title={item.hint}
                 onClick={() => {
                   setOpen(false)
                   item.onSelect()
@@ -161,7 +164,14 @@ export function ActionMenu({
                 }`}
               >
                 {item.icon && <Icon name={item.icon} size={15} className={item.tone === 'danger' ? '' : 'text-muted'} />}
-                {item.label}
+                {item.hint ? (
+                  <span className="min-w-0">
+                    <span className="block">{item.label}</span>
+                    <span className="block text-[11px] leading-snug text-muted">{item.hint}</span>
+                  </span>
+                ) : (
+                  item.label
+                )}
                 {item.checked && <Icon name="check" size={15} className="ml-auto text-navy-600 dark:text-navy-200" />}
               </button>
             ))}

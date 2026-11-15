@@ -994,16 +994,20 @@ changes and nothing else needs re-running after it. Suite: `supabase/tests/space
 
 ## File pulls
 
-`file-pulls.sql` runs after `space-look.sql` and before `anon-lockdown.sql`. It owns the table
+`file-pulls.sql` runs after `space-look.sql` and before `anon-lockdown.sql`. It owns the tables
 `general_file_pulls` (one row per person and path: the Main version a Word file was pulled from, `base_seq`, and
-`pulled_at`; read by anyone who reads the project, written only by its functions), `general_main_seq`,
-`pull_general_file`, `end_general_file_pull`, `general_file_push_state` and two triggers on `general_blobs`:
-`general_blobs_pull_guard` (BEFORE INSERT) refuses a blob whose commit author holds a live pull of that path older
-than Main's newest version ("Main has a newer version of …"), and `general_blobs_pull_end` (AFTER INSERT) ends that
-author's pull. A pull is live for 7 days; an older row counts as none. Because the guard sits on the blob insert, it
-covers direct commits, committed draft paths and merged changes without redefining `commit_general_files`,
-`commit_general_draft_path` or `answer_general_repo_change`, so nothing else needs re-running after it, and
-re-running those files' owners leaves it in place. Suite: `supabase/tests/file-pulls.test.sql`.
+`pulled_at`; the heads-up) and `general_file_bases` (one row per uploaded Word object, keyed by `storage_path`: the
+Main version the copy was made from, recorded by its uploader), both read by anyone who reads the project and written
+only by its functions; and `general_main_seq`, `pull_general_file`, `end_general_file_pull`,
+`general_file_push_state`, `record_general_file_base`, `general_file_base_state` and two triggers on `general_blobs`:
+`general_blobs_pull_guard` (BEFORE INSERT) refuses a binary blob whose storage path has a base on record, for the same
+repo and path, older than Main's newest version of the path ("Main has a newer version of …"); a blob with no base on
+record passes. `general_blobs_pull_end` (AFTER INSERT) ends the author's pull, which only clears the heads-up. The hold
+lives with the copy, so refreshing, ending or outliving a pull never lifts it; recording a newer base (Replace anyway)
+does. A pull is live for 7 days; an older row counts as none. Because the guard sits on the blob insert, it covers
+direct commits, committed draft paths (a file or a folder) and merged changes without redefining
+`commit_general_files`, `commit_general_draft_path` or `answer_general_repo_change`, so nothing else needs re-running
+after it, and re-running those files' owners leaves it in place. Suite: `supabase/tests/file-pulls.test.sql`.
 
 ## Peer round delete
 

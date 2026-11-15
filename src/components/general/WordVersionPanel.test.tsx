@@ -17,6 +17,9 @@ const m = vi.hoisted(() => ({
   endPull: vi.fn(),
   listPulls: vi.fn(),
   pushState: vi.fn(),
+  baseOf: vi.fn(),
+  recordBase: vi.fn(),
+  mainSeq: vi.fn(),
   upload: vi.fn(),
   saveDraft: vi.fn(),
   commit: vi.fn(),
@@ -44,6 +47,9 @@ vi.mock('../../lib/api/filePulls', () => ({
   endPull: m.endPull,
   listPulls: m.listPulls,
   pushState: m.pushState,
+  baseOf: m.baseOf,
+  recordBase: m.recordBase,
+  mainSeq: m.mainSeq,
 }))
 vi.mock('../../lib/api/general', () => ({
   uploadProjectFile: m.upload,
@@ -99,6 +105,9 @@ beforeEach(() => {
   m.saveDraft.mockResolvedValue({})
   m.commit.mockResolvedValue({})
   m.discard.mockResolvedValue(undefined)
+  m.recordBase.mockResolvedValue(undefined)
+  m.baseOf.mockResolvedValue(null)
+  m.mainSeq.mockResolvedValue(5)
 })
 
 afterEach(async () => {
@@ -231,6 +240,7 @@ it('uploads a clear push and saves it to the draft as a change', async () => {
   await show(mainFile)
   await pick('Chap1-4.docx')
   expect(m.upload).toHaveBeenCalledWith('p', expect.any(File))
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', 'p/files/new.docx', 4)
   await click('Save to my draft')
   expect(m.saveDraft).toHaveBeenCalledWith({
     repoId: 'repo',
@@ -239,11 +249,20 @@ it('uploads a clear push and saves it to the draft as a change', async () => {
     kind: 'binary',
     storagePath: 'p/files/new.docx',
   })
+  expect(m.recordBase.mock.invocationCallOrder[0]).toBeLessThan(m.saveDraft.mock.invocationCallOrder[0])
+  expect(m.endPull).not.toHaveBeenCalled()
   expect(onClose).toHaveBeenCalled()
   expect(onSaved).toHaveBeenCalled()
 })
 
-it('holds a push from an old copy, then replaces it only after ending the pull', async () => {
+it('records no base for an upload that is not Word', async () => {
+  await show({ ...mainFile, path: 'Forms/Consent.pdf' })
+  await pick('Consent.pdf')
+  expect(m.upload).toHaveBeenCalled()
+  expect(m.recordBase).not.toHaveBeenCalled()
+})
+
+it("holds a push from an old copy, then replaces it as made from Main's version and ends the pull once saved", async () => {
   m.pushState.mockResolvedValue({ base_seq: 4, main_seq: 6, main_author: 'ben', main_at: '2026-11-15T07:10:00Z', main_removed: false })
   await show(mainFile)
   await pick('Chap1-4.docx')
@@ -251,11 +270,53 @@ it('holds a push from an old copy, then replaces it only after ending the pull',
   expect(m.upload).not.toHaveBeenCalled()
   await click('Replace it anyway')
   await act(async () => (host!.querySelector('[data-confirm]') as HTMLElement).click())
-  expect(m.endPull).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx')
   expect(m.pullFile).not.toHaveBeenCalled()
   expect(m.upload).toHaveBeenCalled()
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', 'p/files/new.docx', 6)
+  expect(m.endPull).not.toHaveBeenCalled()
   await click('Save to my draft')
   expect(m.saveDraft).toHaveBeenCalledWith(expect.objectContaining({ action: 'changed' }))
+  expect(m.endPull).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx')
+  expect(m.saveDraft.mock.invocationCallOrder[0]).toBeLessThan(m.endPull.mock.invocationCallOrder[0])
+})
+
+it('keeps the pull when a knowing replacement fails to save', async () => {
+  m.pushState.mockResolvedValue({ base_seq: 4, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false })
+  m.saveDraft.mockRejectedValue({ message: 'Could not reach the server' })
+  await show(mainFile)
+  await pick('Chap1-4.docx')
+  await click('Replace it anyway')
+  await act(async () => (host!.querySelector('[data-confirm]') as HTMLElement).click())
+  await click('Save to my draft')
+  expect(m.endPull).not.toHaveBeenCalled()
+})
+
+it("carries a draft copy's own base from Edit in Word to the next upload", async () => {
+  m.pushState.mockResolvedValue({ base_seq: 6, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false })
+  m.baseOf.mockResolvedValue({ base_seq: 4, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false })
+  await show({ ...mainFile, fromDraft: true, storagePath: 'p/files/draft.docx' })
+  await click('Edit in Word')
+  await pick('Chap1-4.docx')
+  expect(m.baseOf).toHaveBeenCalledWith('p/files/draft.docx')
+  expect(host!.textContent).toContain('Ben updated this since you pulled')
+  expect(m.upload).not.toHaveBeenCalled()
+})
+
+it("records a draft copy's base again when its edit uploads clear", async () => {
+  m.pushState.mockResolvedValue(null)
+  m.baseOf.mockResolvedValue({ base_seq: 4, main_seq: 4, main_author: 'ben', main_at: null, main_removed: false })
+  await show({ ...mainFile, fromDraft: true, storagePath: 'p/files/draft.docx' })
+  await click('Edit in Word')
+  await pick('Chap1-4.docx')
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', 'p/files/new.docx', 4)
+})
+
+it('uses the pull without Edit in Word on the draft copy', async () => {
+  m.pushState.mockResolvedValue({ base_seq: 6, main_seq: 6, main_author: 'ben', main_at: null, main_removed: false })
+  await show({ ...mainFile, fromDraft: true, storagePath: 'p/files/draft.docx' })
+  await pick('Chap1-4.docx')
+  expect(m.baseOf).not.toHaveBeenCalled()
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', 'p/files/new.docx', 6)
 })
 
 it('puts a removed file back as an added one', async () => {
@@ -291,6 +352,17 @@ it("warns when there is no pull on record, and continues on request", async () =
   expect(m.upload).not.toHaveBeenCalled()
   await click('Continue')
   expect(m.upload).toHaveBeenCalled()
+  expect(m.mainSeq).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx')
+  expect(m.recordBase).toHaveBeenCalledWith('repo', 'Thesis/Chap1-4.docx', 'p/files/new.docx', 5)
+})
+
+it('saves nothing when the base cannot be recorded', async () => {
+  m.pushState.mockResolvedValue({ base_seq: 4, main_seq: 4, main_author: null, main_at: null, main_removed: false })
+  m.recordBase.mockRejectedValue({ message: 'That version is not in Main.' })
+  await show(mainFile)
+  await pick('Chap1-4.docx')
+  expect(host!.textContent).toContain('That version is not in Main.')
+  expect(buttons()).not.toContain('Save to my draft')
 })
 
 it('commits to Main and explains a stale push in plain words', async () => {
