@@ -91,8 +91,9 @@ it('offers no simple preview for a .xls', async () => {
   expect(host!.textContent).not.toContain('Use the simple preview')
 })
 
-it('keeps the Word copy for a .docx', async () => {
+it('keeps the Microsoft Word viewer on Windows', async () => {
   m.reachable = true
+  vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0')
   await show('Chap1.docx')
   expect(host!.textContent).toContain('as Word draws it')
   expect(host!.textContent).toContain('From Google Docs')
@@ -101,6 +102,16 @@ it('keeps the Word copy for a .docx', async () => {
 it('opens a .docx in the simple preview by default on Mac', async () => {
   m.reachable = true
   vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Chrome/131.0')
+  await show('Chap1.docx')
+  await settle(() => host!.querySelector('[data-docx]') !== null)
+  expect(host!.querySelector('[data-docx]')).not.toBeNull()
+  expect(host!.textContent).toContain('Show it as Word draws it')
+  expect(m.url).not.toHaveBeenCalled()
+})
+
+it('opens a .docx in the simple preview by default on Android', async () => {
+  m.reachable = true
+  vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 15; Pixel 8) Chrome/131.0 Mobile Safari/537.36')
   await show('Chap1.docx')
   await settle(() => host!.querySelector('[data-docx]') !== null)
   expect(host!.querySelector('[data-docx]')).not.toBeNull()
