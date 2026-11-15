@@ -4,8 +4,24 @@ import { Button } from '../ui/Button'
 import { Icon, Spinner } from '../ui/Icon'
 import { projectFileBlob, projectFileUrl } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { safeSheetText, sanitizeInlineStyle } from '../../lib/general/docx/previewCss'
 import './docxPreview.css'
+
+/*
+ * A Word file is someone else's input, and docx-preview copies its style
+ * names, values and shape CSS into the output without escaping them. So the
+ * drawn pages never touch the app's document: they go into a sandboxed frame
+ * (no scripts, no top navigation) whose own Content-Security-Policy lets
+ * nothing load but the file's own data: pictures and fonts and the app's
+ * same-origin font files. The browser is the boundary; the element sanitizer
+ * below only keeps the frame's DOM tidy.
+ */
+
+/** The frame may read nothing but itself; links open in a new tab outside it. */
+export const FRAME_SANDBOX = 'allow-same-origin allow-popups allow-popups-to-escape-sandbox'
+
+/** docx-preview writes pictures, bullets and embedded fonts as data: urls (useBase64URL), so no blob: is needed. */
+export const FRAME_CSP =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src 'self' data:; base-uri 'none'; form-action 'none'"
 
 // Metric twins: Tinos, Arimo, Carlito and Caladea take the same space as Word's
 // Times New Roman, Arial, Calibri and Cambria, so lines break where Word's do.
@@ -60,31 +76,25 @@ const FILES = import.meta.glob(
   { query: '?url', import: 'default', eager: true },
 ) as Record<string, string>
 
-let fontsRegistered = false
-
-/** Register the metric twins once; an installed Word font wins, the twin fills in. */
-export function registerWordFonts() {
-  if (fontsRegistered || typeof FontFace === 'undefined' || !document.fonts) return
-  fontsRegistered = true
+/** @font-face rules for the twins under Word's names: an installed Word face wins, the twin fills in. */
+export function wordFontCss() {
+  const rules: string[] = []
   for (const [path, url] of Object.entries(FILES)) {
     const m = /\/([a-z]+)-(latin(?:-ext)?)-(400|700)-(normal|italic)\.woff2$/.exec(path)
     if (!m) continue
     const [, name, subset, weight, style] = m
     const family = TWINS[name]
-    const face = new FontFace(family, `${localFaces(family, weight, style).map((n) => `local("${n}")`).join(', ')}, url("${url}") format("woff2")`, {
-      weight,
-      style,
-      unicodeRange: RANGES[subset],
-      display: 'swap',
-    })
-    document.fonts.add(face)
-    void face.load().catch(() => {})
+    const src = [...localFaces(family, weight, style).map((n) => `local("${n}")`), `url("${url}") format("woff2")`].join(', ')
+    rules.push(
+      `@font-face { font-family: "${family}"; src: ${src}; font-weight: ${weight}; font-style: ${style}; unicode-range: ${RANGES[subset]}; font-display: swap; }`,
+    )
   }
+  return rules.join('\n')
 }
 
 /**
  * docx-preview's options. Embedded HTML (altChunk) is off: the library would
- * draw it as an unsandboxed same-origin iframe.
+ * draw it as an iframe of its own.
  */
 export const DOCX_OPTIONS = {
   className: 'docx',
@@ -100,16 +110,16 @@ export const DOCX_OPTIONS = {
   useBase64URL: true,
 } as const
 
-// A Word file is someone else's input: nothing in it may run here.
-const ACTIVE = 'iframe, frame, frameset, script, object, embed, form, base, meta, link, noscript, template, style'
+// Nothing that runs, loads, navigates or keeps raw text through serialization.
+const ACTIVE =
+  'iframe, frame, frameset, script, object, embed, form, base, meta, link, noscript, template, style, xmp, noembed, noframes, plaintext, textarea'
 const SAFE_LINK = /^(https?:|mailto:|#)/i
-const SAFE_IMAGE = /^(data:image\/|blob:)/i
+const SAFE_IMAGE = /^data:image\//i
 
 /**
- * Makes a drawn Word file inert before it reaches the page: no active
- * elements, no event handlers, links only to the web, mail or within the
- * file, pictures only from the file itself, and no inline CSS that fetches
- * from elsewhere or pins itself over the page.
+ * Tidies the drawn pages before they go into the frame: no active elements,
+ * no event handlers, links only to the web, mail or within the file (web
+ * links open in a new tab), and pictures only from the file itself.
  */
 export function sanitizePreview(root: HTMLElement) {
   for (const el of [...root.querySelectorAll(ACTIVE)]) el.remove()
@@ -117,11 +127,6 @@ export function sanitizePreview(root: HTMLElement) {
     for (const name of el.getAttributeNames()) {
       const lower = name.toLowerCase()
       if (lower.startsWith('on') || lower === 'srcdoc' || lower === 'formaction') el.removeAttribute(name)
-      else if (lower === 'style') sanitizeInlineStyle(el)
-      // SVG paint, filter, mask and marker references may point only within the file.
-      else if (/url\s*\(/i.test(el.getAttribute(name) ?? '') && !/^\s*url\(\s*["']?#/i.test(el.getAttribute(name) ?? '')) {
-        el.removeAttribute(name)
-      }
     }
     const tag = el.tagName.toLowerCase()
     if (tag === 'a') {
@@ -149,23 +154,54 @@ export function sanitizePreview(root: HTMLElement) {
   }
 }
 
-/**
- * The style container takes only <style> elements, each rebuilt from its
- * parsed rules: scoped under the preview box, nothing fetched from outside the file.
- */
+/** The style container takes only <style> elements. */
 export function sanitizeStyles(box: HTMLElement) {
   for (const node of [...box.childNodes]) {
     if (node.nodeName !== 'STYLE') node.remove()
-    else node.textContent = safeSheetText(node.textContent ?? '')
   }
 }
 
-/** Draw a .docx into `container` as pages; its styles go into `styleContainer`. Both come out sanitized. */
+/** Draw a .docx into `container` as pages; its styles go into `styleContainer`. Both come out tidied. */
 export async function renderDocx(blob: Blob, container: HTMLElement, styleContainer: HTMLElement) {
   const { renderAsync } = await import('docx-preview')
   await renderAsync(blob, container, styleContainer, { ...DOCX_OPTIONS })
   sanitizePreview(container)
   sanitizeStyles(styleContainer)
+}
+
+// A `<` in style text becomes the CSS escape for it, so no `</style>` can end the element early.
+const styleText = (css: string) => css.replace(/</g, '\\3c ')
+
+// The ground around the pages comes from the app's theme as a resolved colour; anything else falls back.
+const COLOUR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,/%]+\)|transparent)$/i
+
+/** The paper and the ground around it: white pages in both themes, as Word's are. */
+function frameCss(ground: string) {
+  const bg = COLOUR.test(ground.trim()) ? ground.trim() : '#eef0f4'
+  return [
+    `html, body { margin: 0; padding: 0; background: ${bg}; overflow: hidden; }`,
+    // As wide as its widest page, so a zoomed page widens the frame instead of spilling off its left edge.
+    '.docx-wrapper { background: transparent; padding: 12px; padding-bottom: 0; align-items: center; width: max-content; min-width: 100%; box-sizing: border-box; }',
+    '.docx-wrapper > section.docx { background: #ffffff; color: #000000; box-shadow: 0 1px 2px rgb(13 19 48 / 0.1), 0 2px 6px rgb(13 19 48 / 0.07); margin-bottom: 12px; flex-shrink: 0; }',
+  ].join('\n')
+}
+
+/**
+ * The frame's whole document: the Content-Security-Policy first in the head,
+ * then docx-preview's styles, the font twins, the paper, then the pages.
+ */
+export function frameDocument(styles: HTMLElement, pages: HTMLElement, ground: string) {
+  const sheets = [...styles.querySelectorAll('style')].map((s) => `<style>${styleText(s.textContent ?? '')}</style>`)
+  return [
+    '<!doctype html><html><head>',
+    `<meta http-equiv="Content-Security-Policy" content="${FRAME_CSP}">`,
+    ...sheets,
+    `<style>${styleText(wordFontCss())}</style>`,
+    `<style>${styleText(frameCss(ground))}</style>`,
+    '</head><body>',
+    pages.innerHTML,
+    '</body></html>',
+  ].join('')
 }
 
 const STEPS = [0.5, 0.75, 1, 1.25, 1.5]
@@ -181,32 +217,32 @@ export function DocxPreview({
   fill?: boolean
 }) {
   const box = useRef<HTMLDivElement>(null)
-  const pages = useRef<HTMLDivElement>(null)
-  const styles = useRef<HTMLDivElement>(null)
+  const frame = useRef<HTMLIFrameElement>(null)
+  // The frame's document and a fresh key per render, so a stale frame is never reused.
+  const [doc, setDoc] = useState<{ html: string; key: number } | null>(null)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [fit, setFit] = useState(1)
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
 
   useEffect(() => {
     let alive = true
     setReady(false)
     setFailed(false)
-    pages.current?.replaceChildren()
-    styles.current?.replaceChildren()
-    registerWordFonts()
+    setDoc(null)
+    setSize(null)
     void (async () => {
       try {
         const blob = await projectFileBlob(storagePath)
-        // Draw into fresh detached nodes; only the run still current swaps them in.
-        const nextPages = document.createElement('div')
-        const nextStyles = document.createElement('div')
-        await renderDocx(blob, nextPages, nextStyles)
-        if (!alive || !pages.current || !styles.current) return
-        pages.current.replaceChildren(...nextPages.childNodes)
-        styles.current.replaceChildren(...nextStyles.childNodes)
-        setReady(true)
+        // Draw into fresh detached nodes; only the run still current builds the frame.
+        const pages = document.createElement('div')
+        const styles = document.createElement('div')
+        await renderDocx(blob, pages, styles)
+        if (!alive) return
+        const ground = box.current ? getComputedStyle(box.current).backgroundColor : ''
+        setDoc((old) => ({ html: frameDocument(styles, pages, ground), key: (old?.key ?? 0) + 1 }))
       } catch {
         if (alive) setFailed(true)
       }
@@ -216,23 +252,41 @@ export function DocxPreview({
     }
   }, [storagePath])
 
-  // Under 900 px a page is wider than the panel: shrink it to fit.
-  const measure = useCallback(() => {
-    const section = pages.current?.querySelector<HTMLElement>('section.docx')
-    if (!section || !box.current) return
-    const page = parseFloat(section.style.width) || section.offsetWidth
-    const room = box.current.clientWidth - 24
-    setFit(page > 0 && room > 0 ? Math.min(1, room / page) : 1)
-  }, [])
+  // Fit the page to the panel (under 900 px a page is wider), apply the zoom
+  // inside the frame, then size the frame to what it holds.
+  const layout = useCallback(() => {
+    const d = frame.current?.contentDocument
+    const room = (box.current?.clientWidth ?? 0) - 24
+    if (!d?.body || !d.documentElement) return
+    d.body.style.zoom = '1'
+    const section = d.querySelector<HTMLElement>('section.docx')
+    const page = section ? section.offsetWidth + 24 : 0
+    const nextFit = page > 0 && room > 0 ? Math.min(1, room / page) : 1
+    setFit((f) => (Math.abs(f - nextFit) < 0.001 ? f : nextFit))
+    const scale = zoom * nextFit
+    d.body.style.zoom = String(scale)
+    // The wrapper's box is in zoomed pixels; the last page's bottom margin sits below it.
+    // The width comes from the page, never from the frame itself, so the frame can shrink again.
+    const rect = d.querySelector('.docx-wrapper')?.getBoundingClientRect()
+    if (rect) setSize({ width: Math.ceil(page * scale), height: Math.ceil(rect.height + 12 * scale) })
+  }, [zoom])
+
   useLayoutEffect(() => {
     if (!ready) return
-    measure()
+    layout()
+    const d = frame.current?.contentDocument
+    let alive = true
+    // Fonts change line breaks, so measure again once they are in.
+    void d?.fonts?.ready.then(() => alive && layout())
     const el = box.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(measure)
+    if (!el || typeof ResizeObserver === 'undefined') return () => void (alive = false)
+    const ro = new ResizeObserver(() => layout())
     ro.observe(el)
-    return () => ro.disconnect()
-  }, [ready, measure])
+    return () => {
+      alive = false
+      ro.disconnect()
+    }
+  }, [ready, layout])
 
   async function download() {
     setDownloadError(null)
@@ -298,7 +352,6 @@ export function DocxPreview({
       {downloadError && <Alert tone="error">{downloadError}</Alert>}
       <div
         ref={box}
-        aria-label={label}
         className={`docx-preview relative min-h-[12rem] overflow-auto rounded-xl border border-line ${fill ? 'h-[calc((100dvh/var(--zoom,1))-13rem)]' : 'max-h-[calc(70vh/var(--zoom,1))]'}`}
       >
         {!ready && !failed && (
@@ -307,8 +360,22 @@ export function DocxPreview({
             Drawing the pages…
           </div>
         )}
-        <div ref={styles} hidden />
-        <div ref={pages} style={{ zoom: zoom * fit }} />
+        {doc && !failed && (
+          <iframe
+            key={doc.key}
+            ref={frame}
+            title={label}
+            sandbox={FRAME_SANDBOX}
+            srcDoc={doc.html}
+            onLoad={() => setReady(true)}
+            className="block border-0"
+            style={{
+              width: size ? `max(100%, ${size.width}px)` : '100%',
+              height: size ? `${size.height}px` : '12rem',
+              visibility: ready ? 'visible' : 'hidden',
+            }}
+          />
+        )}
       </div>
       </div>
     </div>

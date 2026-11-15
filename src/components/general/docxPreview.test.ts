@@ -12,7 +12,7 @@ vi.mock('../../lib/api/general', () => ({
   projectFileUrl: vi.fn(async () => 'https://example.test/file'),
 }))
 
-import { DOCX_OPTIONS, DocxPreview, localFaces, renderDocx, sanitizePreview, sanitizeStyles } from './DocxPreview'
+import { DOCX_OPTIONS, DocxPreview, FRAME_CSP, frameDocument, localFaces, renderDocx, sanitizePreview, sanitizeStyles, wordFontCss } from './DocxPreview'
 
 async function docx(text: string) {
   const doc = new Document({ sections: [{ children: [new Paragraph({ children: [new TextRun(text)] })] }] })
@@ -30,13 +30,11 @@ describe('renderDocx', () => {
     expect(section?.textContent).toContain('Chapter One')
   })
 
-  it("keeps docx-preview's own styles, scoped under the preview box", async () => {
+  it("keeps docx-preview's own style elements as they are, for the frame", async () => {
     const styles = document.createElement('div')
     await renderDocx(await docx('Chapter One'), document.createElement('div'), styles)
-    const text = [...styles.querySelectorAll('style')].map((s) => s.textContent).join('\n')
-    expect(text).toContain(':where(.docx-preview) .docx-wrapper')
-    expect(text).toContain(':where(.docx-preview) .docx p')
-    expect(text).not.toMatch(/(^|\})\s*\.docx/)
+    const text = [...styles.querySelectorAll('style')].map((s) => s.textContent).join(' ')
+    expect(text).toContain('.docx-wrapper')
   })
 })
 
@@ -67,9 +65,11 @@ describe('DocxPreview', () => {
     await show('a')
     await show('b')
     await settle()
-    expect(host.textContent).toContain('Beta text')
-    expect(host.textContent).not.toContain('Alpha text')
-    expect(host.textContent).not.toContain('Drawing the pages')
+    const frames = host.querySelectorAll('iframe')
+    expect(frames).toHaveLength(1)
+    expect(frames[0].getAttribute('srcdoc')).toContain('Beta text')
+    expect(frames[0].getAttribute('srcdoc')).not.toContain('Alpha text')
+    expect(host.textContent).not.toContain('opened elsewhere')
     await act(async () => root.unmount())
   })
 })
@@ -133,9 +133,15 @@ describe('sanitizePreview', () => {
     const root = tree('<img src="data:image/png;base64,AAAA"><img src="blob:https://app.test/1"><img src="https://tracker.test/p.gif"><img src="data:text/html,x">')
     const imgs = [...root.querySelectorAll('img')]
     expect(imgs[0].getAttribute('src')).toBe('data:image/png;base64,AAAA')
-    expect(imgs[1].getAttribute('src')).toBe('blob:https://app.test/1')
+    expect(imgs[1].hasAttribute('src')).toBe(false)
     expect(imgs[2].hasAttribute('src')).toBe(false)
     expect(imgs[3].hasAttribute('src')).toBe(false)
+  })
+
+  it('removes raw-text elements that would keep markup through serialization', () => {
+    const root = tree('<xmp>&lt;/xmp&gt;</xmp><noembed>x</noembed><noframes>x</noframes><textarea>x</textarea><p>kept</p>')
+    expect(root.querySelector('xmp, noembed, noframes, textarea')).toBeNull()
+    expect(root.textContent).toBe('kept')
   })
 })
 
@@ -146,40 +152,9 @@ describe('sanitizeStyles', () => {
     sanitizeStyles(box)
     expect([...box.childNodes].map((n) => n.nodeName)).toEqual(['STYLE', 'STYLE'])
   })
-
-  it('rebuilds each style: a break-out selector and a remote url() are gone, a .docx rule stays scoped', () => {
-    const box = document.createElement('div')
-    const style = document.createElement('style')
-    style.textContent =
-      'p.docx_x{}*{background:url(https://evil.test/p)} .docx p { color: black; background: url(https://evil.test/q) }'
-    box.append(style)
-    sanitizeStyles(box)
-    const text = box.querySelector('style')!.textContent ?? ''
-    expect(text).not.toContain('evil.test')
-    expect(text).toContain(':where(.docx-preview) .docx p')
-    expect(text).toContain('color: black')
-  })
 })
 
-describe('sanitizePreview inline CSS', () => {
-  it('removes a remote url() and position fixed from a style attribute', () => {
-    const root = document.createElement('div')
-    root.innerHTML = '<svg style="position:fixed;inset:0;background:url(https://evil.test/p);width:10pt"></svg>'
-    sanitizePreview(root)
-    const style = root.querySelector('svg')!.getAttribute('style') ?? ''
-    expect(style).toContain('width: 10pt')
-    expect(style).not.toContain('evil.test')
-    expect(style).not.toContain('fixed')
-  })
-
-  it('keeps an in-file SVG reference and drops a remote one', () => {
-    const root = document.createElement('div')
-    root.innerHTML = '<svg><rect fill="url(#g)"></rect><rect filter="url(https://evil.test/f.svg#x)"></rect></svg>'
-    sanitizePreview(root)
-    const [a, b] = [...root.querySelectorAll('rect')]
-    expect(a.getAttribute('fill')).toBe('url(#g)')
-    expect(b.hasAttribute('filter')).toBe(false)
-  })
+describe('sanitizePreview style elements', () => {
 
   it('removes a style element from the pages', () => {
     const root = document.createElement('div')
@@ -192,5 +167,48 @@ describe('sanitizePreview inline CSS', () => {
 describe('DOCX_OPTIONS', () => {
   it('turns off embedded HTML (altChunk) rendering', () => {
     expect(DOCX_OPTIONS.renderAltChunks).toBe(false)
+  })
+})
+
+describe('frameDocument', () => {
+  function parts(stylesHtml: string, pagesHtml: string) {
+    const styles = document.createElement('div')
+    styles.innerHTML = stylesHtml
+    const pages = document.createElement('div')
+    pages.innerHTML = pagesHtml
+    return frameDocument(styles, pages, 'rgb(238, 240, 244)')
+  }
+
+  it('puts the Content-Security-Policy first in the head', () => {
+    const html = parts('<style>.docx{}</style>', '<p>x</p>')
+    expect(html.startsWith(`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${FRAME_CSP}">`)).toBe(true)
+    expect(FRAME_CSP).toContain("default-src 'none'")
+    expect(FRAME_CSP).toContain('img-src data:;')
+    expect(FRAME_CSP).not.toContain('blob:')
+  })
+
+  it('keeps the order: policy, the file styles, the font twins, the paper, then the pages', () => {
+    const html = parts('<style>.docx { color: black; }</style>', '<section class="docx">Page</section>')
+    const at = (needle: string) => html.indexOf(needle)
+    expect(at('Content-Security-Policy')).toBeLessThan(at('.docx { color: black; }'))
+    expect(at('.docx { color: black; }')).toBeLessThan(at('@font-face'))
+    expect(at('@font-face')).toBeLessThan(at('section.docx { background: #ffffff'))
+    expect(at('section.docx { background: #ffffff')).toBeLessThan(at('<body>'))
+    expect(html).toContain('<section class="docx">Page</section>')
+  })
+
+  it('cannot be ended early from inside a style', () => {
+    const html = parts('<style>p.docx_a{}</style><meta http-equiv=refresh content=0></style>', '')
+    expect(html).not.toContain('</style><meta')
+    expect(html).not.toMatch(/<meta http-equiv=.?refresh/i)
+  })
+})
+
+describe('wordFontCss', () => {
+  it("names each twin as Word's font, with the installed face first", () => {
+    const css = wordFontCss()
+    expect(css).toContain('font-family: "Times New Roman"')
+    expect(css).toContain('local("Times New Roman")')
+    expect(css.indexOf('local("Calibri")')).toBeLessThan(css.indexOf('woff2', css.indexOf('local("Calibri")')))
   })
 })
