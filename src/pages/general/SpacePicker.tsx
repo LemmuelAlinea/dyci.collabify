@@ -10,6 +10,9 @@ import { Icon, Spinner } from '../../components/ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
+import { useSpaceLooks } from '../../hooks/useSpaceLooks'
+import type { ProjectLook } from '../../hooks/useProjectLooks'
+import { ProjectMark } from '../../components/general/ProjectMark'
 import { canManageProjects, canTeach, inAnyClass, isMember } from '../../lib/access'
 import { ROLE_LABEL, levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
@@ -203,10 +206,12 @@ function Section({ title, count, children }: { title: string; count: number; chi
 }
 
 function CardGrid({ spaces, labelled = false }: { spaces: GeneralSpaceSummary[]; labelled?: boolean }) {
+  // A class card keeps the class's own look; only work spaces carry one here.
+  const looks = useSpaceLooks(spaces.filter((s) => s.kind === 'work').map((s) => s.id))
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
       {spaces.map((s, index) => (
-        <SpaceCard key={s.id} space={s} labelled={labelled} index={index} />
+        <SpaceCard key={s.id} space={s} labelled={labelled} index={index} look={looks[s.id]} />
       ))}
     </div>
   )
@@ -224,13 +229,14 @@ function SpaceCard({
   space: s,
   labelled,
   index,
+  look,
 }: {
   space: GeneralSpaceSummary
   labelled: boolean
   index: number
+  look?: ProjectLook
 }) {
   const classId = s.kind === 'education' ? s.class_id : null
-  const initial = s.name.trim().charAt(0).toUpperCase() || 'S'
   const status = s.archived_at ? 'Archived' : classId ? 'Class' : labelled ? 'Space' : 'Active'
 
   return (
@@ -260,9 +266,8 @@ function SpaceCard({
         </div>
 
         <div className="mt-5 flex items-start gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-icon-tile font-display text-[14px] font-bold text-icon-glyph ring-1 ring-white/10">
-            {initial}
-          </span>
+          {/* With no look this is the plain letter tile the card always drew. */}
+          <ProjectMark color={look?.color} icon={look?.icon} name={s.name} size="lg" />
           <div className="min-w-0 flex-1">
             <h3 className="line-clamp-2 text-[17px] leading-snug text-ink transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
               {s.name}

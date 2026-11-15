@@ -167,7 +167,7 @@ export function PlacePicker({
           className="place-row-active mt-2.5 flex items-center gap-3 rounded-xl p-2"
         >
           <ClassMark
-            look={row.classLook}
+            look={row.classLook ?? row.look}
             initial={row.name.trim().charAt(0).toUpperCase()}
             {...CLASS_TILE.rail}
           />

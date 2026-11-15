@@ -10,10 +10,11 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { archiveSpace, updateSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { canEditSpace } from '../../lib/general/permissions'
+import { SpaceLookPanel } from './SpaceLookPanel'
 
 /**
  * Everything about a space a space manager can change, in one tab: its name and
- * description, and archiving. Archive comes first; Restore only shows once the
+ * description, its look (the project manager's), and archiving. Archive comes first; Restore only shows once the
  * space is archived. Deleting a space goes through Archive → Trash.
  */
 export default function SpaceDetails() {
@@ -117,6 +118,8 @@ export default function SpaceDetails() {
         </div>
         )}
       </section>
+
+      {space.kind === 'work' && <SpaceLookPanel space={space} />}
 
       {isPm && (
       <section className="rounded-panel border border-line p-4 sm:p-5">

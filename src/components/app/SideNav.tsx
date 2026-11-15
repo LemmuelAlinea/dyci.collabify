@@ -10,6 +10,7 @@ import { useLive } from '../../hooks/useLive'
 import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { useProjectLooks } from '../../hooks/useProjectLooks'
 import { useClassLooks } from '../../hooks/useClassLooks'
+import { useSpaceLooks } from '../../hooks/useSpaceLooks'
 import { canTeach, membershipOf } from '../../lib/access'
 import { myHeadedOffice } from '../../lib/api/officeHeads'
 import { teachingWaitingCount } from '../../lib/api/waiting'
@@ -88,8 +89,15 @@ export function SideNav({
   const classLooks = useClassLooks(
     (navigation.spaces ?? []).flatMap((space) => (space.kind === 'education' && space.class_id ? [space.class_id] : [])),
   )
-  const withClassLooks = (rows: LiveRow[]): LiveRow[] =>
-    rows.map((row) => (row.classId && classLooks[row.classId] ? { ...row, classLook: classLooks[row.classId] } : row))
+  // And the work spaces' tiles, the same way.
+  const spaceLooks = useSpaceLooks(
+    (navigation.spaces ?? []).flatMap((space) => (space.kind === 'work' ? [space.id] : [])),
+  )
+  const withLooks = (rows: LiveRow[]): LiveRow[] =>
+    rows.map((row) => {
+      if (row.classId) return classLooks[row.classId] ? { ...row, classLook: classLooks[row.classId] } : row
+      return row.tone === 'work' && spaceLooks[row.id] ? { ...row, look: spaceLooks[row.id] } : row
+    })
 
   const unread = useUnreadTotal(profile?.id, 'all')
   const pendingProjects = usePendingInvitations(profile?.id).invitations?.length ?? 0
@@ -185,10 +193,10 @@ export function SideNav({
     const cap = collapsed ? 1 : Infinity
     const lists: PlaceList[] = picker.map((kind) =>
       kind === 'classes'
-        ? { kind, rows: withClassLooks(classRows(spaces, cap)), more: { to: paths.classes, label: 'All classes' } }
+        ? { kind, rows: withLooks(classRows(spaces, cap)), more: { to: paths.classes, label: 'All classes' } }
         : {
             kind,
-            rows: withClassLooks(withClasses ? spaceAndClassRows(spaces, cap) : workSpaceRows(spaces, cap)),
+            rows: withLooks(withClasses ? spaceAndClassRows(spaces, cap) : workSpaceRows(spaces, cap)),
             more: { to: paths.spaces, label: 'All spaces' },
           },
     )

@@ -1,8 +1,9 @@
 // src/components/classes/ClassMark.tsx
 import type { CSSProperties } from 'react'
 import { Icon } from '../ui/Icon'
+import type { IconName } from '../ui/Icon'
 import { colorTile } from '../../lib/general/projectLook'
-import type { ClassLook } from '../../lib/classLook'
+import type { ProjectColor } from '../../lib/general/types'
 
 /** Each place's tile, as it was before classes had a look: box, plain ground, icon size. */
 export const CLASS_TILE = {
@@ -30,7 +31,7 @@ export const CLASS_TILE = {
 
 /**
  * A class's tile: its color as the ground and its icon on it, else its
- * initials. Each place passes its own box (size, corners, type) and plain
+ * initials. A work space's look (a project icon) draws the same way. Each place passes its own box (size, corners, type) and plain
  * ground, so a class with no look draws exactly the tile it drew before.
  */
 export function ClassMark({
@@ -41,7 +42,7 @@ export function ClassMark({
   iconSize = 20,
   style,
 }: {
-  look?: ClassLook | null
+  look?: { color: ProjectColor | null; icon: IconName | null } | null
   /** What the tile shows without an icon: the class initials, or a name's letter. */
   initial: string
   /** Size, corners and type of the tile. */

@@ -13,12 +13,15 @@
  * a thousand lines and covers a different thing.
  */
 import { supabase } from '../supabase'
+import { isMissingColumn } from './missingRelation'
 import type { GeneralLevel, ProjectRole } from '../general/permissions'
 import type {
   GeneralSpace,
   GeneralSpaceSummary,
   MySpaceInvitation,
   PersonHit,
+  ProjectColor,
+  ProjectIcon,
   SpaceInvitation,
   SpacePerson,
 } from '../general/types'
@@ -63,6 +66,24 @@ export async function updateSpace(spaceId: string, name: string, description: st
   })
   if (error) throw error
   return data as GeneralSpace
+}
+
+/** Work spaces' colors and icons, in one request for the whole list (supabase/space-look.sql). */
+export async function listSpaceLooks(spaceIds: string[]) {
+  if (spaceIds.length === 0) return []
+  const { data, error } = await supabase.from('general_spaces').select('id, color, icon').in('id', spaceIds)
+  if (error) {
+    // Until space-look.sql is live there is no look to draw.
+    if (isMissingColumn(error)) return []
+    throw error
+  }
+  return (data ?? []) as { id: string; color: ProjectColor | null; icon: ProjectIcon | null }[]
+}
+
+/** Only the space's project manager sets its look; null clears either half. */
+export async function setSpaceLook(spaceId: string, color: ProjectColor | null, icon: ProjectIcon | null) {
+  const { error } = await supabase.rpc('set_general_space_look', { p_space: spaceId, p_color: color, p_icon: icon })
+  if (error) throw error
 }
 
 /**

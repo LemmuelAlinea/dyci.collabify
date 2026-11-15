@@ -4946,3 +4946,22 @@ accepted." from the setting; no failed requests.
 - App: `Notices.tsx` splits Live now / Past, shows the leave date, and offers Pin only on live notices
   (Unpin stays on a past pinned one). The about copy says a week. Build clean; 2,332 tests passed.
 - Walked: the existing "Suspension" notice (Aug 23) now sits under Past, "Left dashboards August 30, 2026".
+
+## Space look (2026-11-15)
+
+- A work space's project manager now sets its color and icon in Settings → Details → Look, from the same
+  swatches, custom color and icon set as a project's look. Coordinators and members see the panel read-only
+  ("Only the project manager changes it."); an archived space shows it read-only to everyone.
+- SQL: `supabase/space-look.sql` (two `general_spaces` columns with checks, `set_general_space_look`; no view
+  change). Applied live with `anon-lockdown.sql`; suite `supabase/tests/space-look.test.sql` passed (16 checks:
+  PM sets and clears, sets refused, coordinator/member/outsider refused, no direct table write, class space and
+  archived space refused).
+- App: `SpaceLookPanel` (in `SpaceDetails`), `listSpaceLooks` / `setSpaceLook` in `lib/api/spaces.ts`,
+  `useSpaceLooks` (+ `notifySpaceLooksChanged`). The mark shows on space cards (`SpacePicker`), the rail's space
+  rows and the places card (`ClassMark` now takes any icon name). With no look, every tile is unchanged.
+- Verified: build clean; `SpaceLookPanel.test.tsx` (4) and the rail/space/class suites pass; the panel was
+  checked on a throwaway route (desktop dark, phone light, no sideways scroll; a signed-out save is refused
+  with "permission denied"). Not walked signed in as a PM.
+
+**Deferred**
+- The space banner (Overview greeting band) does not show the mark; `DashboardSummary` has no mark slot.

@@ -339,6 +339,11 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `offices.sql`, `trash.sql`, `archive-page.sql`, `project-stakeholders.sql`, `work-task-handoff.sql` or
   `company-accounts.sql` means re-running it afterwards, then `anon-lockdown.sql`. The page is `/admin/organization`.
   Suite: `supabase/tests/organization-settings.test.sql`.
+- Space look (`supabase/space-look.sql`, after `organization-settings.sql`, before `anon-lockdown.sql`): a work space's
+  `color` and `icon`, from the project look sets (`lib/general/projectLook.ts`), set only by the space's project manager
+  through `set_general_space_look` (Coordinators read it; archived and class spaces refuse). Edited in Settings → Details
+  (`SpaceLookPanel`), read with `useSpaceLooks` (never via `general_space_overview`) and drawn with `ProjectMark` on space
+  cards and the rail's space rows, and with `ClassMark` on the rail's places card. Suite: `supabase/tests/space-look.test.sql`.
 
 ## First-run walkthroughs
 
