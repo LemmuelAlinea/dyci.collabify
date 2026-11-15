@@ -10,6 +10,9 @@
 import { parseWorkbook, workbookToText } from './sheet'
 import type { FileKind, GeneralTreeFile, RepoFile } from './types'
 
+/** Uploads to a project's files: up to 50 MB each. */
+export const GENERAL_FILE_LIMIT = 50 * 1024 * 1024
+
 export const PATH_LIMIT = 400
 
 /** Mirrors the general_blobs_path_shape check in supabase/general-repo.sql. */

@@ -14,6 +14,7 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { summarizeFile, writeChangeMessage } from '../../lib/api/workAi'
 import { extensionOf, fileName, isEditable, isPreviewableWord, looksLikeMisreadOfficeFile } from '../../lib/general/files'
+import { stalePushMessage } from '../../lib/general/newVersion'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
 import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
@@ -21,6 +22,7 @@ import { FILE_KIND_LABEL } from '../../lib/general/types'
 import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import { LazyDocxPreview as DocxPreview } from './LazyDocxPreview'
+import { WordVersionPanel } from './WordVersionPanel'
 import type { GeneralProjectState } from './useGeneralProject'
 
 // Monaco is several megabytes; it loads when somebody opens a code file.
@@ -50,6 +52,8 @@ export type OpenFile = {
   fromDraft: boolean
   /** A teammate's shared copy, by who shared it: read-only, never saved from here. */
   sharedBy?: string
+  /** When Main's version of the path was committed; null when Main does not have it. */
+  mainAt?: string | null
 }
 
 /**
@@ -266,7 +270,7 @@ function Body({
       onClose()
       await onSaved()
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not save that.'))
+      setError(stalePushMessage(err, null) ?? authErrorMessage(err, 'Could not save that.'))
     } finally {
       setBusy(false)
     }
@@ -388,10 +392,14 @@ function Body({
         </Alert>
       )}
 
+      {file.kind === 'binary' && file.sharedBy === undefined && file.action !== 'removed' && (
+        <WordVersionPanel file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
+      )}
+
       {file.kind === 'binary' && !isPdf && !isDocx && (
         <Alert tone="info">
           This kind of file is kept and versioned here but opened elsewhere. Download it, change it
-          in the program that made it, and upload it again.
+          in the program that made it, and upload it here as a new version.
         </Alert>
       )}
 

@@ -27,6 +27,12 @@ vi.mock('../../lib/api/workAi', () => ({
   summarizeChange: vi.fn(),
   writeChangeMessage: vi.fn(),
 }))
+vi.mock('../../lib/api/filePulls', () => ({
+  listPulls: vi.fn(async () => []),
+  pullFile: vi.fn(),
+  endPull: vi.fn(),
+  pushState: vi.fn(),
+}))
 vi.mock('../../lib/api/general', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getRepo: vi.fn(),

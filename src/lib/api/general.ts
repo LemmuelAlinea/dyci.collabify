@@ -12,6 +12,7 @@ import { supabase } from '../supabase'
 import { isMissingColumn, isMissingRelation } from './missingRelation'
 import { pathsNotRemoved, rowDeleteError } from '../general/storage'
 import { ProjectDeletedError } from '../general/projectDeleted'
+import { GENERAL_FILE_LIMIT } from '../general/files'
 import type { ImportPreview } from '../general/memberImport'
 import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
@@ -78,7 +79,7 @@ import type {
 
 const PERSON = 'id, first_name, middle_name, last_name, avatar_url'
 const BUCKET = 'general-files'
-export const GENERAL_FILE_LIMIT = 50 * 1024 * 1024
+export { GENERAL_FILE_LIMIT }
 
 function cleanGeneralFileContent(content = '') {
   let out = ''

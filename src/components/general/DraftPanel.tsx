@@ -1,5 +1,5 @@
 import { dayCount, useOrgSettings } from '../../hooks/useOrgSettings'
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -14,14 +14,21 @@ import {
   archiveDraftPath,
   commitDraftPath,
   discardDraft,
+  projectFileUrl,
+  saveDraftFile,
+  storagePathAt,
   submitDraftFolder,
   submitDraftFile,
   syncDraft,
 } from '../../lib/api/general'
+import { endPull, pullFile, pushState } from '../../lib/api/filePulls'
 import { trashDraftPath } from '../../lib/api/trash'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { buildTree, describeDraft, fileText, flatFiles, isPreviewableWord, nodesAt } from '../../lib/general/files'
+import { buildTree, describeDraft, fileName, fileText, flatFiles, isPreviewableWord, isWordPath, nodesAt } from '../../lib/general/files'
+import { stalePushMessage } from '../../lib/general/newVersion'
+import { pushVerdict } from '../../lib/general/pushCheck'
+import type { PushVerdict } from '../../lib/general/pushCheck'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL } from '../../lib/general/types'
@@ -35,11 +42,20 @@ import { fullName } from '../../lib/types'
 import { DiffView } from './DiffView'
 import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
+import { HeldPush } from './HeldPush'
 import { WordDiff } from './WordDiff'
 import { ShareDialog } from './ShareDialog'
 import type { GeneralProjectState } from './useGeneralProject'
 
 type SubmitTarget = { type: 'file' | 'folder'; path: string }
+
+type Held = PushVerdict & { kind: 'held' }
+
+/** A stale push said in plain words; any other error as it came. */
+const plainStale = (err: unknown) => {
+  const message = stalePushMessage(err, null)
+  return message ? new Error(message) : err
+}
 
 /** The last part of a path: what somebody types to confirm a commit. */
 const baseName = (target: SubmitTarget | null) => target?.path.split('/').pop() ?? ''
@@ -93,8 +109,57 @@ export function DraftPanel({
   const mayCommit = state.can('commit_main')
   const [discarding, setDiscarding] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Word files in the draft made from a copy Main has moved past, by path.
+  const [held, setHeld] = useState<Record<string, Held>>({})
+  const [recheck, setRecheck] = useState(0)
 
   const behind = draft !== null && draft.base_seq !== repo.commit_count
+
+  // One key for the Word files whose push could be held, so the check reruns only when they change.
+  const pulledPaths = files
+    .filter((f) => f.kind === 'binary' && isWordPath(f.path) && f.action !== 'added')
+    .map((f) => f.path)
+    .join('\n')
+
+  useEffect(() => {
+    let alive = true
+    const paths = pulledPaths && !state.readOnly ? pulledPaths.split('\n') : []
+    void Promise.all(
+      paths.map(async (p) => [p, pushVerdict(await pushState(repo.id, p).catch(() => null), true)] as const),
+    ).then((pairs) => {
+      if (!alive) return
+      const next: Record<string, Held> = {}
+      for (const [p, v] of pairs) if (v.kind === 'held') next[p] = v
+      setHeld(next)
+    })
+    return () => {
+      alive = false
+    }
+  }, [repo.id, repo.commit_count, pulledPaths, state.readOnly, recheck])
+
+  async function getTheirs(path: string, verdict: Held) {
+    try {
+      await pullFile(repo.id, path, true)
+      const storagePath = await storagePathAt(repo.id, path, verdict.mainSeq)
+      if (!storagePath) throw new Error('That version has no file to download. Reload the page and try again.')
+      window.open(await projectFileUrl(storagePath, fileName(path)), '_blank', 'noopener')
+      show('Downloaded the newer version. Combine the two in Word, then open the file and upload the result as a new version.')
+      setRecheck((n) => n + 1)
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not download it. Try again in a moment.'), 'error')
+    }
+  }
+
+  async function replaceAnyway(f: GeneralDraftFile, verdict: Held) {
+    await endPull(repo.id, f.path)
+    // Main removed the file, so the draft's copy goes back in as a new one.
+    if (verdict.removed && f.action === 'changed') {
+      await saveDraftFile({ repoId: repo.id, path: f.path, action: 'added', kind: 'binary', storagePath: f.storage_path })
+    }
+    show('Your copy will replace it')
+    setRecheck((n) => n + 1)
+    await onDone()
+  }
   const all = buildTree(files as unknown as Parameters<typeof buildTree>[0])
   const level = nodesAt(all, path)
 
@@ -244,6 +309,11 @@ export function DraftPanel({
                   onTrash={moveToTrash}
                   onSubmit={setSubmitting}
                   onShare={setSharing}
+                  held={held}
+                  names={state.nameOf}
+                  repoId={repo.id}
+                  onGetTheirs={getTheirs}
+                  onReplaceAnyway={replaceAnyway}
                   onCommit={mayCommit ? setCommitting : undefined}
                 />
               ))}
@@ -272,6 +342,11 @@ export function DraftPanel({
               onTrash={moveToTrash}
               onSubmit={setSubmitting}
               onShare={setSharing}
+              held={held}
+              names={state.nameOf}
+              repoId={repo.id}
+              onGetTheirs={getTheirs}
+              onReplaceAnyway={replaceAnyway}
               onCommit={mayCommit ? setCommitting : undefined}
             />
           ))}
@@ -291,10 +366,14 @@ export function DraftPanel({
         )}
         onSubmit={async (title, body, reviewerIds) => {
           if (!submitting) return
-          if (submitting.type === 'folder') {
-            await submitDraftFolder(repo.id, submitting.path, title, body, reviewerIds)
-          } else {
-            await submitDraftFile(repo.id, submitting.path, title, body, reviewerIds)
+          try {
+            if (submitting.type === 'folder') {
+              await submitDraftFolder(repo.id, submitting.path, title, body, reviewerIds)
+            } else {
+              await submitDraftFile(repo.id, submitting.path, title, body, reviewerIds)
+            }
+          } catch (err) {
+            throw plainStale(err)
           }
           show('Submitted for review')
           await onDone()
@@ -326,7 +405,9 @@ export function DraftPanel({
         }}
         onConfirm={async () => {
           if (!committing) return
-          await commitDraftPath(repo.id, committing.path, committing.type === 'folder')
+          await commitDraftPath(repo.id, committing.path, committing.type === 'folder').catch((err: unknown) => {
+            throw plainStale(err)
+          })
           show(committing.type === 'folder' ? 'Folder committed to Main' : 'File committed to Main')
           setTyped('')
           await onDone()
@@ -389,6 +470,11 @@ function DraftNode({
   onSubmit,
   onShare,
   onCommit,
+  held,
+  names,
+  repoId,
+  onGetTheirs,
+  onReplaceAnyway,
 }: {
   node: TreeNode
   fullPath?: boolean
@@ -407,6 +493,12 @@ function DraftNode({
   onShare: (target: SubmitTarget) => void
   /** Only for whoever may commit to Main without a review. */
   onCommit?: (target: SubmitTarget) => void
+  /** Word files whose push Main has moved past, by path. */
+  held: Record<string, Held>
+  names: (id: string) => string
+  repoId: string
+  onGetTheirs: (path: string, verdict: Held) => Promise<void>
+  onReplaceAnyway: (file: GeneralDraftFile, verdict: Held) => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
 
@@ -446,6 +538,9 @@ function DraftNode({
 
   const f = node.file as unknown as GeneralDraftFile
   const clashing = conflicts.some((c) => c.path === f.path)
+  const hold = held[f.path]
+  // A held file goes nowhere until it is combined or knowingly replaced.
+  const stuck = behind || Boolean(hold)
 
   return (
     <li>
@@ -469,6 +564,11 @@ function DraftNode({
             Changed in Main
           </span>
         )}
+        {hold && (
+          <span className="shrink-0 rounded-md bg-warning-50 px-2 py-0.5 text-[12px] font-medium text-warning-800 dark:bg-warning-400/15 dark:text-warning-300">
+            Held
+          </span>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -490,9 +590,9 @@ function DraftNode({
             label={`Actions for ${node.name}`}
             disabled={busy}
             items={[
-              { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
+              { label: 'Submit for review', icon: 'refresh', disabled: stuck, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
               ...(onCommit
-                ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'file', path: f.path }) }]
+                ? [{ label: 'Commit to main', icon: 'check' as const, disabled: stuck, onSelect: () => onCommit({ type: 'file', path: f.path }) }]
                 : []),
               // A removal has nothing in it to pass on.
               ...(f.action !== 'removed'
@@ -504,6 +604,18 @@ function DraftNode({
           />
         )}
       </div>
+      {hold && !readOnly && (
+        <div className="px-4 pb-3 sm:px-5">
+          <HeldPush
+            state={hold}
+            path={f.path}
+            repoId={repoId}
+            names={names}
+            onGetTheirs={() => onGetTheirs(f.path, hold)}
+            onReplaceAnyway={() => onReplaceAnyway(f, hold)}
+          />
+        </div>
+      )}
       {open && (
         <div className="px-4 pb-4 sm:px-5">
           {f.kind === 'binary' && isPreviewableWord(f.path) ? (

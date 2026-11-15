@@ -62,7 +62,11 @@ export const draftWorkTasks = (
 /** From the caller's draft (optionally just these paths), or from text on screen. */
 export const writeChangeMessage = (
   projectId: string,
-  source: { paths?: string[]; files?: { path: string; kind: string; content: string }[] },
+  source: {
+    paths?: string[]
+    /** An uploaded file sends its `storage_path` instead of `content`. */
+    files?: { path: string; kind: string; content?: string; storage_path?: string | null }[]
+  },
 ) => call<{ title: string; message: string }>('describe', projectId, source)
 
 export const summarizeChange = (projectId: string, changeId: string) =>

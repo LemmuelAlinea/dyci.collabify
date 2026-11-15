@@ -20,6 +20,7 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { summarizeChange } from '../../lib/api/workAi'
 import { formatDue } from '../../lib/general/dates'
+import { stalePushMessage } from '../../lib/general/newVersion'
 import { countShown, extensionOf, fileName, fileText, isPreviewableWord, shownFiles } from '../../lib/general/files'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
@@ -368,7 +369,15 @@ export function RepoChangeRow({
                       disabled={stale}
                       onClick={() =>
                         void run(
-                          async () => void (await answerRepoChange(change.id, true, note)),
+                          async () => {
+                            try {
+                              await answerRepoChange(change.id, true, note)
+                            } catch (err) {
+                              // A Word file in it came from a copy Main has moved past: its author combines them.
+                              const held = stalePushMessage(err, change.author_id ? state.nameOf(change.author_id) : 'its author')
+                              throw held ? new Error(held) : err
+                            }
+                          },
                           'Change merged',
                           'Could not merge it.',
                         )

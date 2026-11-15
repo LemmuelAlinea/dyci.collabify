@@ -21,8 +21,10 @@ import {
   myDraft,
   saveDraftFile,
 } from '../../lib/api/general'
+import { listPulls } from '../../lib/api/filePulls'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
+import { editingLabel, pulledAgo } from '../../lib/general/newVersion'
 import { groupChanges } from '../../lib/general/review'
 import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
@@ -38,6 +40,7 @@ import type {
   GeneralCommit,
   GeneralDraft,
   GeneralDraftFile,
+  FilePull,
   GeneralRepoChange,
   GeneralRepoSummary,
   GeneralTreeFile,
@@ -77,6 +80,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   const [draft, setDraft] = useState<GeneralDraft | null>(null)
   const [draftFiles, setDraftFiles] = useState<GeneralDraftFile[]>([])
   const [conflicts, setConflicts] = useState<DraftConflict[]>([])
+  const [pulls, setPulls] = useState<FilePull[]>([])
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [params, setParams] = useSearchParams()
@@ -115,7 +119,10 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         setDraft(null)
         setDraftFiles([])
         setConflicts([])
+        setPulls([])
       } else {
+        // Who is editing what is a heads-up: the files never wait for it or fail without it.
+        void listPulls(r.id).then(setPulls, () => setPulls([]))
         const [t, c, ch] = await Promise.all([listTree(r.id), listCommits(r.id), listRepoChanges(r.id)])
         setTree(t)
         setCommits(c)
@@ -206,6 +213,17 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     [tree],
   )
 
+  // The open file learns whether Main has its path, and since when, for Upload a new version.
+  const openFile = (file: OpenFile) =>
+    setOpen({ ...file, mainAt: file.mainAt !== undefined ? file.mainAt : tree.find((f) => f.path === file.path)?.created_at ?? null })
+
+  // Live pulls by other people, by path: the "Ana is editing" chip on a file row.
+  const editingOf = (path: string) => {
+    const theirs = pulls.filter((p) => p.path === path && p.user_id !== state.viewerId)
+    const label = editingLabel(theirs.map((p) => state.nameOf(p.user_id)))
+    return label ? { label, detail: theirs.map((p) => `${state.nameOf(p.user_id)} pulled this ${pulledAgo(p.pulled_at)}`).join('. ') } : null
+  }
+
   if (!loaded) {
     return (
       <div className="flex items-center gap-3 py-8 text-[14px] text-muted">
@@ -288,7 +306,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
 
       {/* The AI helpers answer project members only. */}
       {view === 'main' && state.project && !state.classTeacher && tree.some((f) => f.kind !== 'binary' && !isKeep(f.path)) && (
-        <AskFiles projectId={state.project.id} tree={tree} onOpen={setOpen} />
+        <AskFiles projectId={state.project.id} tree={tree} onOpen={openFile} />
       )}
 
       {view === 'main' && (
@@ -296,12 +314,13 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           repo={repo}
           tree={tree}
           draftFiles={draftFiles}
+          editingOf={editingOf}
           state={state}
           path={folder}
           query={query}
           onNavigate={(p) => go(view, p)}
           onRename={setRenaming}
-          onOpen={setOpen}
+          onOpen={openFile}
           onStarted={async () => {
             await load()
             go('draft')
@@ -322,7 +341,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
             query={query}
             onNavigate={(p) => go(view, p)}
             onRename={setRenaming}
-            onOpen={setOpen}
+            onOpen={openFile}
             onDone={load}
           /></section>
           <section id="project-shared-files" aria-label="Shared files" className="min-w-0 scroll-mt-24 border-t border-line pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><SharedTab state={state} onCopied={() => void load()} /></section>
@@ -670,6 +689,7 @@ function MainView({
   repo,
   tree,
   draftFiles,
+  editingOf,
   state,
   path,
   query,
@@ -681,6 +701,7 @@ function MainView({
   repo: GeneralRepoSummary
   tree: GeneralTreeFile[]
   draftFiles: GeneralDraftFile[]
+  editingOf: (path: string) => { label: string; detail: string } | null
   state: GeneralProjectState
   path: string
   query: string
@@ -711,7 +732,7 @@ function MainView({
       <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
         {hits.map((node) => (
           <li key={node.path}>
-            <MainFileRow node={{ ...node, name: node.path }} draftFiles={draftFiles} onOpen={onOpen} />
+            <MainFileRow node={{ ...node, name: node.path }} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} />
           </li>
         ))}
       </ul>
@@ -761,7 +782,7 @@ function MainView({
                   <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
                 </button>
               ) : (
-                <MainFileRow node={node} draftFiles={draftFiles} onOpen={onOpen} />
+                <MainFileRow node={node} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} />
               )}
             </li>
           ))}
@@ -774,10 +795,13 @@ function MainView({
 function MainFileRow({
   node,
   draftFiles,
+  editing,
   onOpen,
 }: {
   node: Extract<TreeNode, { type: 'file' }>
   draftFiles: GeneralDraftFile[]
+  /** Who else pulled it to edit in Word: a heads-up, never a lock. */
+  editing: { label: string; detail: string } | null
   onOpen: (file: OpenFile) => void
 }) {
   const inDraft = draftFiles.some((f) => f.path === node.path)
@@ -794,6 +818,12 @@ function MainFileRow({
       {inDraft && (
         <span className="shrink-0 rounded-md bg-amber-400/25 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:text-amber-200">
           In your draft
+        </span>
+      )}
+      {editing && (
+        <span title={editing.detail} className="inline-flex min-w-0 max-w-[45%] items-center gap-1 rounded-md surface-sunken px-2 py-0.5 text-[11px] text-muted">
+          <Icon name="edit" size={11} className="shrink-0" />
+          <span className="truncate">{editing.label}</span>
         </span>
       )}
       <span className="shrink-0 rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">{FILE_KIND_LABEL[node.file.kind]}</span>
