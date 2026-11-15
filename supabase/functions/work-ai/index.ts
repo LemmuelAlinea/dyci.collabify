@@ -86,8 +86,8 @@ type FileRow = { path: string; kind: string; content: string; storage_path: stri
 /** Same rule as lib/general/files.ts: the extension decides how a file is held. */
 function kindOf(path: string) {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  if (['docx', 'doc', 'odt', 'rtf'].includes(ext)) return 'binary'
-  if (['xlsx', 'xlsm', 'csv'].includes(ext)) return 'sheet'
+  if (['docx', 'doc', 'odt', 'rtf', 'xlsx', 'xlsm', 'xls'].includes(ext)) return 'binary'
+  if (ext === 'csv') return 'sheet'
   return 'text'
 }
 
@@ -99,6 +99,7 @@ function fileText(f: FileRow) {
 }
 
 const isDocx = (path: string) => path.toLowerCase().endsWith('.docx')
+const isXlsx = (path: string) => /\.(xlsx|xlsm)$/i.test(path)
 
 const cap = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}\n[…cut at ${n} characters]` : s)
 
@@ -118,11 +119,12 @@ async function pdfText(caller: SupabaseClient, storagePath: string) {
 async function readText(caller: SupabaseClient, f: FileRow): Promise<string> {
   if (f.kind === 'binary' && f.storage_path) {
     if (f.path.toLowerCase().endsWith('.pdf')) return pdfText(caller, f.storage_path)
-    if (f.path.toLowerCase().endsWith('.docx')) {
+    if (isDocx(f.path) || isXlsx(f.path)) {
       try {
         const { data, error } = await caller.storage.from(BUCKET).download(f.storage_path)
         if (error || !data) return ''
-        return docxText(new Uint8Array(await data.arrayBuffer()))
+        const bytes = new Uint8Array(await data.arrayBuffer())
+        return isDocx(f.path) ? docxText(bytes) : xlsxText(bytes)
       } catch {
         return ''
       }
@@ -191,6 +193,92 @@ function docxText(bytes: Uint8Array) {
   )
 }
 
+const decodeXml = (s: string) =>
+  s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&amp;/g, '&')
+
+/** The text of a shared or inline string: every <t> run, phonetic runs left out. */
+function xmlRuns(xml: string) {
+  const runs = xml.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '').matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)
+  return decodeXml([...runs].map((m) => m[1]).join(''))
+}
+
+const xmlAttr = (tag: string, name: string) => tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
+
+/** Column letters to a zero-based index: A is 0, AA is 26. */
+function colIndex(ref: string) {
+  let n = 0
+  for (const ch of ref.replace(/[^A-Za-z]/g, '').toUpperCase()) n = n * 26 + ch.charCodeAt(0) - 64
+  return n - 1
+}
+
+/**
+ * An Excel file's cells as text: [Sheet: name], then one tab-separated line per
+ * row. Strings, numbers and booleans read as stored; a formula shows its
+ * cached value. Empty trailing cells are dropped.
+ */
+function xlsxText(bytes: Uint8Array) {
+  const files = unzipSync(bytes, {
+    filter: (f) =>
+      f.name === 'xl/workbook.xml' || f.name === 'xl/_rels/workbook.xml.rels' || f.name === 'xl/sharedStrings.xml' ||
+      /^xl\/worksheets\/[^/]+\.xml$/.test(f.name),
+  })
+  const read = (name: string) => (files[name] ? strFromU8(files[name]) : '')
+  const shared = [...read('xl/sharedStrings.xml').matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)].map((m) => xmlRuns(m[1]))
+  const targets = new Map<string, string>()
+  for (const m of read('xl/_rels/workbook.xml.rels').matchAll(/<Relationship\b[^>]*>/g)) {
+    const id = xmlAttr(m[0], 'Id')
+    const target = xmlAttr(m[0], 'Target')
+    if (id && target) targets.set(id, target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`)
+  }
+  let sheets = [...read('xl/workbook.xml').matchAll(/<sheet\b[^>]*>/g)].map((m) => ({
+    name: decodeXml(xmlAttr(m[0], 'name') ?? ''),
+    path: targets.get(xmlAttr(m[0], 'r:id') ?? '') ?? '',
+  }))
+  if (sheets.length === 0) {
+    sheets = Object.keys(files)
+      .filter((n) => n.startsWith('xl/worksheets/'))
+      .sort()
+      .map((path, i) => ({ name: `Sheet${i + 1}`, path }))
+  }
+  const out: string[] = []
+  for (const sheet of sheets) {
+    const xml = read(sheet.path)
+    if (!xml) continue
+    out.push(`[Sheet: ${sheet.name}]`)
+    for (const row of xml.matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
+      const cells: string[] = []
+      let next = 0
+      for (const c of (row[1] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+        const at = xmlAttr(c[1], 'r')
+        const i = at ? colIndex(at) : next
+        const type = xmlAttr(c[1], 't')
+        const body = c[2] ?? ''
+        const v = body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/)?.[1]
+        let value = ''
+        if (type === 'inlineStr') value = xmlRuns(body)
+        else if (v !== undefined) {
+          if (type === 's') value = shared[Number(v)] ?? ''
+          else if (type === 'b') value = v.trim() === '1' ? 'TRUE' : 'FALSE'
+          else value = decodeXml(v)
+        }
+        while (cells.length < i) cells.push('')
+        cells[i] = value.replace(/[\t\r\n]+/g, ' ')
+        next = i + 1
+      }
+      while (cells.length && cells[cells.length - 1] === '') cells.pop()
+      out.push(cells.join('\t'))
+    }
+  }
+  return out.join('\n')
+}
+
 /**
  * The files shared in a discussion, as content the model can read: text for
  * documents, the PDF itself, the picture itself. Each is labelled with a short
@@ -220,7 +308,7 @@ async function sharedFileBlocks(ctx: Ctx, discussionId: string) {
     const mime = (file.mime ?? '').toLowerCase()
     const tooBig = file.size > bytesLeft
     const readable =
-      mime === 'application/pdf' || ext === 'pdf' || IMAGE_TYPES.includes(mime) || ext === 'docx' ||
+      mime === 'application/pdf' || ext === 'pdf' || IMAGE_TYPES.includes(mime) || ext === 'docx' || ext === 'xlsx' || ext === 'xlsm' ||
       mime.startsWith('text/') || TEXT_EXT.includes(ext)
     if (!readable || tooBig) {
       blocks.push({ type: 'text', text: `${head}\n(${tooBig ? 'too large to read here' : 'not a kind that can be read'}; known by its name only)` })
@@ -249,7 +337,7 @@ async function sharedFileBlocks(ctx: Ctx, discussionId: string) {
           source: { type: 'base64', media_type: mime as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp', data: encodeBase64(bytes) },
         })
       } else {
-        const text = ext === 'docx' ? docxText(bytes) : new TextDecoder().decode(bytes)
+        const text = ext === 'docx' ? docxText(bytes) : ext === 'xlsx' || ext === 'xlsm' ? xlsxText(bytes) : new TextDecoder().decode(bytes)
         const each = Math.max(0, Math.min(15000, textLeft))
         textLeft -= Math.min(text.length, each)
         blocks.push({ type: 'text', text: `${head}\n${each > 0 ? cap(text, each) : '(no room left to include its text)'}` })
@@ -677,8 +765,8 @@ ${VOICE}`,
 async function askAction(ctx: Ctx) {
   const question = String(ctx.body.question ?? '').trim().slice(0, 500)
   if (question.length < 4) throw new Refused('Ask a question about the files.')
-  // Only .docx among uploads has text to read here.
-  const files = (await mainFiles(ctx)).filter((f) => f.kind !== 'binary' || isDocx(f.path))
+  // Only .docx and .xlsx/.xlsm among uploads have text to read here.
+  const files = (await mainFiles(ctx)).filter((f) => f.kind !== 'binary' || isDocx(f.path) || isXlsx(f.path))
   if (files.length === 0) throw new Refused('There are no documents, sheets, text or Word files in Main to read yet.')
   let budget = 250000
   const parts: string[] = []
