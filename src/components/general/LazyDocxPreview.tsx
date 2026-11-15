@@ -19,8 +19,8 @@ const ExcelPreview = lazy(() => import('./ExcelPreview'))
  */
 export function LazyDocxPreview(props: ComponentProps<typeof DocxPreview>) {
   const reachable = officeViewerReachable(window.location.hostname)
-  const [simple, setSimple] = useState(!reachable)
   const app = officeAppName(props.label)
+  const [simple, setSimple] = useState(!reachable || (app === 'Word' && /Macintosh/i.test(navigator.userAgent)))
   const excel = isExcelPath(props.label)
   const hasSimple = !excel || isComparableExcel(props.label)
 

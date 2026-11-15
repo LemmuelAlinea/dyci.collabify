@@ -40,6 +40,7 @@ afterEach(async () => {
   host?.remove()
   host = null
   root = null
+  vi.restoreAllMocks()
   vi.clearAllMocks()
 })
 
@@ -95,4 +96,14 @@ it('keeps the Word copy for a .docx', async () => {
   await show('Chap1.docx')
   expect(host!.textContent).toContain('as Word draws it')
   expect(host!.textContent).toContain('From Google Docs')
+})
+
+it('opens a .docx in the simple preview by default on Mac', async () => {
+  m.reachable = true
+  vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Chrome/131.0')
+  await show('Chap1.docx')
+  await settle(() => host!.querySelector('[data-docx]') !== null)
+  expect(host!.querySelector('[data-docx]')).not.toBeNull()
+  expect(host!.textContent).toContain('Show it as Word draws it')
+  expect(m.url).not.toHaveBeenCalled()
 })
