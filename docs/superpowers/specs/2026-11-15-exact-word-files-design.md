@@ -117,7 +117,7 @@ from an old copy is held until it is brought up to date. Word does the merging (
   and path, which version (the blob seq / commit it came from, Main's or their own draft's), and when. Plain Download
   stays as it is and records nothing. Needs a new table (e.g. `general_file_pulls`, one live row per person and path),
   readable by anyone who can read the project, written only by the person through an RPC. New SQL file after
-  `organization-settings.sql`, before `anon-lockdown.sql`, with a test suite, and listed in `docs/07-backup.md`.
+  `space-look.sql`, before `anon-lockdown.sql`, with a test suite, and listed in `docs/07-backup.md`.
 - **Who is working on it.** The file row and the open file show "Ana pulled this 2 hours ago" for every live pull
   other than yours. A heads-up only, never a lock. A pull ends when that person pushes the path, clicks
   **I'm done editing**, or after 7 days (my call).
