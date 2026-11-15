@@ -15,7 +15,7 @@ import {
 } from '../../lib/api/general'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { extensionOf, fileName, isWordPath } from '../../lib/general/files'
+import { extensionOf, fileName, isOfficePath, officeAppName } from '../../lib/general/files'
 import { newVersionProblem, pulledAgo, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
@@ -38,7 +38,7 @@ type Stage =
 /**
  * An uploaded file's way to change: download it, change it in the program that
  * made it, and upload it again as a new version of the same path. For Word
- * files the download is a pull (Edit in Word), and every upload records the
+ * and Excel files the download is a pull (Edit in Word or Excel), and every upload records the
  * Main version it was made from, so a push made from a copy Main has moved
  * past is held instead of quietly replacing someone's work.
  */
@@ -56,7 +56,8 @@ export function WordVersionPanel({
   onSaved: () => Promise<void>
 }) {
   const { show } = useToast()
-  const word = isWordPath(file.path)
+  const word = isOfficePath(file.path)
+  const app = officeAppName(file.path)
   const name = fileName(file.path)
   const canEdit =
     !state.readOnly && file.sharedBy === undefined && state.myRole !== 'stakeholder' && !state.classTeacher
@@ -72,7 +73,7 @@ export function WordVersionPanel({
   const [busy, setBusy] = useState(false)
   // A download link, when the browser blocked the tab it was opening in.
   const [blocked, setBlocked] = useState<string | null>(null)
-  // The draft copy downloaded with Edit in Word: its recorded base carries to the next upload.
+  // The draft copy downloaded with Edit in Word or Excel: its recorded base carries to the next upload.
   const [draftCopy, setDraftCopy] = useState<string | null>(null)
   const picker = useRef<HTMLInputElement>(null)
 
@@ -91,7 +92,7 @@ export function WordVersionPanel({
   }, [refreshPulls])
 
   // Both downloads open their tab inside the click (openTabFor), before any await.
-  function editInWord() {
+  function editInOffice() {
     const storagePath = file.storagePath
     if (!storagePath || busy) return
     setError(null)
@@ -105,7 +106,7 @@ export function WordVersionPanel({
       .then(async (link) => {
         setBlocked(link)
         setDraftCopy(file.fromDraft ? storagePath : null)
-        if (!link) show('Downloaded. Edit it in Word, then upload it here as a new version.')
+        if (!link) show(`Downloaded. Edit it in ${app}, then upload it here as a new version.`)
         await refreshPulls()
       })
       .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
@@ -136,13 +137,13 @@ export function WordVersionPanel({
         // They now hold Main's version, so the pull's fresh base is the one to carry.
         setDraftCopy(null)
         setStage({ step: 'idle' })
-        if (!link) show('Downloaded the newer version. Combine the two in Word, then upload the result here.')
+        if (!link) show(`Downloaded the newer version. Combine the two in ${app}, then upload the result here.`)
         await refreshPulls()
       })
       .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
   }
 
-  /** Uploads the copy and, for a Word file, records the Main version it was made from. */
+  /** Uploads the copy and, for a Word or Excel file, records the Main version it was made from. */
   async function upload(picked: File, action: FileAction, base: number | null, endAfter = false) {
     if (!state.project) return setStage({ step: 'idle' })
     setStage({ step: 'working', what: `Uploading ${picked.name}…` })
@@ -254,7 +255,7 @@ export function WordVersionPanel({
           {canEdit && others.length === 0 && !mine && (
             <p>
               {word
-                ? 'Edit it in Word, then upload it here as a new version.'
+                ? `Edit it in ${app}, then upload it here as a new version.`
                 : 'Change it in the program that made it, then upload it here as a new version.'}
             </p>
           )}
@@ -262,9 +263,9 @@ export function WordVersionPanel({
         {canEdit && (
           <div className="flex flex-wrap gap-2">
             {word && file.storagePath && (
-              <Button size="sm" variant="outline" disabled={busy} onClick={editInWord}>
+              <Button size="sm" variant="outline" disabled={busy} onClick={editInOffice}>
                 <Icon name="edit" size={14} />
-                Edit in Word
+                Edit in {app}
               </Button>
             )}
             <Button

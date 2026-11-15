@@ -13,8 +13,9 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { summarizeFile, writeChangeMessage } from '../../lib/api/workAi'
-import { extensionOf, fileName, isEditable, isPreviewableWord, looksLikeMisreadOfficeFile } from '../../lib/general/files'
+import { extensionOf, fileName, isComparableExcel, isEditable, isPreviewableWord, looksLikeMisreadOfficeFile } from '../../lib/general/files'
 import { stalePushMessage } from '../../lib/general/newVersion'
+import { officePreviewable } from '../../lib/general/officeViewer'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
 import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
@@ -176,10 +177,16 @@ function Body({
   const name = fileName(file.path)
   const isPdf = file.kind === 'binary' && extensionOf(file.path) === 'pdf'
   const isDocx = file.kind === 'binary' && isPreviewableWord(file.path)
+  // A Word or Excel file Microsoft's viewer or the simple preview can show.
+  const isOfficePreview = file.kind === 'binary' && officePreviewable(file.path, window.location.hostname)
+  // The AI helpers read the text of a .docx, .xlsx or .xlsm.
+  const isOfficeText = isDocx || (file.kind === 'binary' && isComparableExcel(file.path))
+  // A sheet converted from an .xlsx or .xlsm on upload, before Excel files were kept exactly.
+  const convertedSheet = file.kind === 'sheet' && isComparableExcel(file.path)
   // Summaries read Main's version, so a shared copy or a draft has none.
   // The AI helpers answer project members only, so a class's teacher gets none.
   const summarizable =
-    !file.fromDraft && file.sharedBy === undefined && (isEditable(file.kind) || isPdf || isDocx) && Boolean(state.project) && !state.classTeacher
+    !file.fromDraft && file.sharedBy === undefined && (isEditable(file.kind) || isPdf || isOfficeText) && Boolean(state.project) && !state.classTeacher
   // Who may upload a new version, as WordVersionPanel decides it.
   const mayUpload = !readOnly && state.myRole !== 'stakeholder' && !state.classTeacher
 
@@ -398,7 +405,7 @@ function Body({
         <WordVersionPanel file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
       )}
 
-      {file.kind === 'binary' && !isPdf && !isDocx && (
+      {file.kind === 'binary' && !isPdf && !isOfficePreview && (
         <Alert tone="info">
           {mayUpload
             ? 'This kind of file is kept and versioned here but opened elsewhere. Download it, change it in the program that made it, and upload it here as a new version.'
@@ -410,7 +417,7 @@ function Body({
         file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} fill={full} /> : null
       )}
 
-      {isDocx && (
+      {isOfficePreview && (
         file.storagePath ? <DocxPreview storagePath={file.storagePath} label={name} fill={full} /> : null
       )}
 
@@ -425,6 +432,13 @@ function Body({
         <Alert tone="info">
           This copy was converted when it was uploaded, so some Word formatting may be gone. Upload the original .docx as a
           new version to keep it exactly.
+        </Alert>
+      )}
+
+      {convertedSheet && (
+        <Alert tone="info">
+          This copy was converted when it was uploaded, so charts, pictures and some formatting may be gone. Upload the
+          original .{extensionOf(file.path)} as a new version to keep it exactly.
         </Alert>
       )}
 

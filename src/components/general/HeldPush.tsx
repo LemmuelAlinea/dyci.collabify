@@ -4,14 +4,14 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { storagePathAt } from '../../lib/api/general'
 import { formatDue } from '../../lib/general/dates'
-import { isPreviewableWord } from '../../lib/general/files'
+import { isExcelPath, isPreviewableWord } from '../../lib/general/files'
 import type { PushVerdict } from '../../lib/general/pushCheck'
 import { WordDiff } from './WordDiff'
 
 /**
- * A Word upload made from a copy Main has moved past. Collabify cannot merge
- * two Word files, so it holds the push: the person gets the newer version,
- * combines the two in Word, and uploads again, or replaces it knowingly.
+ * A Word or Excel upload made from a copy Main has moved past. Collabify cannot
+ * merge two Office files, so it holds the push: the person gets the newer version,
+ * combines the two in Word or Excel, and uploads again, or replaces it knowingly.
  */
 export function HeldPush({
   state,
@@ -74,8 +74,8 @@ export function HeldPush({
                 {who} updated this since you pulled{when}.
               </p>
               <p>
-                Download {whose} version and combine the two in Word (Review, Compare, Combine), then upload
-                the result here.
+                Download {whose} version and combine the two in{' '}
+                {isExcelPath(path) ? 'Excel' : 'Word (Review, Compare, Combine)'}, then upload the result here.
               </p>
             </>
           )}

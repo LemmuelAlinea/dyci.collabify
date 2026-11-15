@@ -22,6 +22,7 @@ import { summarizeChange } from '../../lib/api/workAi'
 import { formatDue } from '../../lib/general/dates'
 import { stalePushMessage } from '../../lib/general/newVersion'
 import { countShown, extensionOf, fileName, fileText, isPreviewableWord, shownFiles } from '../../lib/general/files'
+import { officePreviewable } from '../../lib/general/officeViewer'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   GeneralRepoChange,
@@ -373,7 +374,7 @@ export function RepoChangeRow({
                             try {
                               await answerRepoChange(change.id, true, note)
                             } catch (err) {
-                              // A Word file in it came from a copy Main has moved past: its author combines them.
+                              // A Word or Excel file in it came from a copy Main has moved past: its author combines them.
                               const held = stalePushMessage(err, change.author_id ? state.nameOf(change.author_id) : 'its author')
                               throw held ? new Error(held) : err
                             }
@@ -429,8 +430,9 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
   const ext = extensionOf(file.path)
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
   const isPdf = ext === 'pdf'
-  const isDocx = isPreviewableWord(file.path)
-  const canPreview = isPdf || isDocx || isImage
+  // A Word or Excel file: Microsoft's viewer, else the simple preview.
+  const isOffice = officePreviewable(file.path, window.location.hostname)
+  const canPreview = isPdf || isOffice || isImage
 
   useEffect(() => {
     let alive = true
@@ -439,7 +441,7 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
     setError(null)
     if (file.kind !== 'binary' || file.action === 'removed' || !file.storage_path) return
     void Promise.all([
-      isPdf || isDocx ? Promise.resolve(null) : projectFileUrl(file.storage_path),
+      isPdf || isOffice ? Promise.resolve(null) : projectFileUrl(file.storage_path),
       projectFileUrl(file.storage_path, name),
     ])
       .then(([preview, download]) => {
@@ -453,7 +455,7 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
     return () => {
       alive = false
     }
-  }, [file.action, file.kind, file.storage_path, isPdf, isDocx, name])
+  }, [file.action, file.kind, file.storage_path, isPdf, isOffice, name])
 
   if (file.kind !== 'binary' || file.action === 'removed') return null
 
@@ -481,7 +483,7 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
         <div className="overflow-hidden rounded-xl border border-line bg-[var(--surface-sunken)]">
           {isPdf && file.storage_path ? (
             <PdfPreview storagePath={file.storage_path} label={name} />
-          ) : isDocx && file.storage_path ? (
+          ) : isOffice && file.storage_path ? (
             <DocxPreview storagePath={file.storage_path} label={name} />
           ) : !url ? (
             <div className="flex min-h-[14rem] items-center justify-center text-[13px] text-muted">

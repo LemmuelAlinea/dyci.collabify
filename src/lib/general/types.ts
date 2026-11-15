@@ -744,7 +744,7 @@ export const FILE_KIND_LABEL: Record<FileKind, string> = {
   binary: 'File',
 }
 
-/** A person's live pull of a Word file from Main (7 days). */
+/** A person's live pull of a Word or Excel file from Main (7 days). */
 export type FilePull = {
   repo_id: string
   project_id: string

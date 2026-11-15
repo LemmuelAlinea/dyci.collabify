@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { officeViewerReachable, officeViewerUrl } from './officeViewer'
+import { officePreviewable, officeViewerReachable, officeViewerUrl } from './officeViewer'
 
 describe("Microsoft's Office viewer", () => {
   it('passes the signed link to the viewer, encoded', () => {
@@ -15,5 +15,17 @@ describe("Microsoft's Office viewer", () => {
     for (const host of ['localhost', '127.0.0.1', '[::1]', 'app.localhost', 'collabify.test']) {
       expect(officeViewerReachable(host)).toBe(false)
     }
+  })
+
+  it('previews .docx, .xlsx and .xlsm everywhere, and .xls only where the viewer reaches it', () => {
+    for (const host of ['dyci-collabify.vercel.app', 'localhost']) {
+      expect(officePreviewable('a/Chap1.docx', host)).toBe(true)
+      expect(officePreviewable('a/Budget.xlsx', host)).toBe(true)
+      expect(officePreviewable('a/Macros.XLSM', host)).toBe(true)
+      expect(officePreviewable('a/Consent.pdf', host)).toBe(false)
+      expect(officePreviewable('a/Old.doc', host)).toBe(false)
+    }
+    expect(officePreviewable('a/Old.xls', 'dyci-collabify.vercel.app')).toBe(true)
+    expect(officePreviewable('a/Old.xls', 'localhost')).toBe(false)
   })
 })

@@ -27,7 +27,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { editingLabel, pulledAgo } from '../../lib/general/newVersion'
 import { groupChanges } from '../../lib/general/review'
-import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
+import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isComparableExcel, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import { zipFolder } from '../../lib/general/zipFolder'
 import { downloadBlob } from '../../lib/general/office'
@@ -309,7 +309,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       />
 
       {/* The AI helpers answer project members only. */}
-      {view === 'main' && state.project && !state.classTeacher && tree.some((f) => (f.kind !== 'binary' || isPreviewableWord(f.path)) && !isKeep(f.path)) && (
+      {view === 'main' && state.project && !state.classTeacher && tree.some((f) => (f.kind !== 'binary' || isPreviewableWord(f.path) || isComparableExcel(f.path)) && !isKeep(f.path)) && (
         <AskFiles projectId={state.project.id} tree={tree} onOpen={openFile} />
       )}
 
@@ -410,7 +410,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
 
 /**
  * A question about the project, answered only from what Main's documents,
- * sheets, text files and Word files (.docx) say, with the files it came from
+ * sheets, text files, Word files (.docx) and Excel files (.xlsx, .xlsm) say, with the files it came from
  * one click away. PDFs and other uploads are not read here.
  */
 function AskFiles({
@@ -501,7 +501,7 @@ function AskFiles({
             </div>
           )}
           <p className="text-[11px] text-faint">
-            Answered from Main's documents, sheets, text files and Word files. PDFs and other uploads are not read.
+            Answered from Main's documents, sheets, text files, Word files and Excel files. PDFs and other uploads are not read.
             {answer.skipped > 0 && ` ${answer.skipped} files were too much to read in one go.`}
           </p>
         </div>
@@ -823,7 +823,7 @@ function MainFileRow({
 }: {
   node: Extract<TreeNode, { type: 'file' }>
   draftFiles: GeneralDraftFile[]
-  /** Who else pulled it to edit in Word: a heads-up, never a lock. */
+  /** Who else pulled it to edit in Word or Excel: a heads-up, never a lock. */
   editing: { label: string; detail: string } | null
   onOpen: (file: OpenFile) => void
   /** Deleting from Main, for whoever may commit to it; null hides it. */

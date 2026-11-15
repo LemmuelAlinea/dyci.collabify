@@ -8,7 +8,7 @@ export type PushVerdict =
   | { kind: 'unknown' }
   | { kind: 'held'; by: string | null; at: string | null; removed: boolean; mainSeq: number; baseSeq: number }
 
-/** Whether pushing a Word file would replace a newer version in Main. */
+/** Whether pushing a Word or Excel file would replace a newer version in Main. */
 export function pushVerdict(state: PushState | null, existsInMain: boolean): PushVerdict {
   if (!state) return existsInMain ? { kind: 'unknown' } : { kind: 'clear' }
   if (state.main_seq <= state.base_seq) return { kind: 'clear' }

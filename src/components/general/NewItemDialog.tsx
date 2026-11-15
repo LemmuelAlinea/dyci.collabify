@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { endPull, mainSeq, pullFile, pushState, recordBase } from '../../lib/api/filePulls'
 import { projectFileUrl, saveDraftFile, storagePathAt, uploadProjectFile } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isOfficePath, joinPath, kindForPath, nodesAt, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
+import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isOfficePath, joinPath, kindForPath, nodesAt, officeAppName, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
 import { OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
 import { newVersionProblem, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
@@ -66,7 +66,8 @@ export function NewItemDialog({
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
   const [blocked, setBlocked] = useState<string | null>(null)
-  const [gotTheirs, setGotTheirs] = useState(false)
+  // After Get theirs: the program to combine the two in.
+  const [gotTheirs, setGotTheirs] = useState<'Word' | 'Excel' | null>(null)
   const [pickKey, setPickKey] = useState(0)
   // Held or unknown files the person chose to replace anyway, across the checks.
   const overrides = useRef(new Set<string>())
@@ -85,7 +86,7 @@ export function NewItemDialog({
     setError(null)
     setPending(null)
     setBlocked(null)
-    setGotTheirs(false)
+    setGotTheirs(null)
     overrides.current = new Set()
     onClose()
   }
@@ -94,7 +95,7 @@ export function NewItemDialog({
   function pickChanged() {
     setPending(null)
     setBlocked(null)
-    setGotTheirs(false)
+    setGotTheirs(null)
     overrides.current = new Set()
   }
 
@@ -134,7 +135,7 @@ export function NewItemDialog({
     if (busy) return
     setPending(null)
     setBlocked(null)
-    setGotTheirs(false)
+    setGotTheirs(null)
     overrides.current = new Set()
     if (step === 'folder') {
       const problem = folderNameProblem(name, siblings)
@@ -239,9 +240,9 @@ export function NewItemDialog({
         setFolderFiles([])
         setName('')
         setPickKey((k) => k + 1)
-        setGotTheirs(true)
+        setGotTheirs(officeAppName(path))
         overrides.current = new Set()
-        if (!link) show('Downloaded the newer version. Combine the two in Word, then upload the result here.')
+        if (!link) show(`Downloaded the newer version. Combine the two in ${officeAppName(path)}, then upload the result here.`)
       })
       .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
   }
@@ -303,7 +304,7 @@ export function NewItemDialog({
           {error && <Alert tone="error">{error}</Alert>}
           {gotTheirs && !pending && (
             <Alert tone="info">
-              You have the newer version now. Combine the two in Word, then pick the combined copy here.
+              You have the newer version now. Combine the two in {gotTheirs}, then pick the combined copy here.
               {blocked && (
                 <>
                   {' '}

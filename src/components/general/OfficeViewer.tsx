@@ -7,21 +7,24 @@ import { authErrorMessage } from '../../lib/authError'
 import { officeViewerUrl } from '../../lib/general/officeViewer'
 
 /**
- * A Word file drawn by Microsoft's own Office viewer, so headers, text boxes,
- * page borders, page numbers and page breaks look as they do in Word.
+ * A Word or Excel file drawn by Microsoft's own Office viewer, so headers, text
+ * boxes, page breaks, charts and cell formatting look as they do in Word or Excel.
  * Microsoft fetches the file through a signed link that expires in 10 minutes.
  */
 export function OfficeViewer({
   storagePath,
   label,
   fill = false,
+  app = 'Word',
   onSimple,
 }: {
   storagePath: string
   label: string
   fill?: boolean
-  /** Switch to the in-app preview instead. */
-  onSimple: () => void
+  /** The program the file belongs to, for the copy. */
+  app?: 'Word' | 'Excel'
+  /** Switch to the in-app preview instead; absent when there is none. */
+  onSimple?: () => void
 }) {
   const [src, setSrc] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -55,20 +58,27 @@ export function OfficeViewer({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[12px] text-muted">Shown by Microsoft's Office viewer, as Word draws it.</p>
+        <p className="text-[12px] text-muted">Shown by Microsoft's Office viewer, as {app} draws it.</p>
         <Button size="sm" variant="outline" onClick={() => void download()}>
           <Icon name="download" size={14} />
           Download
         </Button>
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={onSimple}>
-          Use the simple preview
-        </Button>
+        {onSimple && (
+          <Button size="sm" variant="ghost" className="ml-auto" onClick={onSimple}>
+            Use the simple preview
+          </Button>
+        )}
       </div>
       <p className="text-[12px] text-faint">
-        From Google Docs, download it as Microsoft Word (.docx) before uploading. Converting it to a Google Doc
-        and back can change the formatting.
+        {app === 'Excel'
+          ? 'From Google Sheets, download it as Microsoft Excel (.xlsx) before uploading. Converting it to a Google Sheet and back can change the formatting.'
+          : 'From Google Docs, download it as Microsoft Word (.docx) before uploading. Converting it to a Google Doc and back can change the formatting.'}
       </p>
-      {error && <Alert tone="error">{error} Try the simple preview, or download the file.</Alert>}
+      {error && (
+        <Alert tone="error">
+          {error} {onSimple ? 'Try the simple preview, or download the file.' : 'Download the file instead.'}
+        </Alert>
+      )}
       <div
         className={`relative overflow-hidden rounded-xl border border-line bg-[var(--surface-sunken)] ${
           fill ? 'h-[calc((100dvh/var(--zoom,1))-14rem)]' : 'h-[calc(75vh/var(--zoom,1))]'

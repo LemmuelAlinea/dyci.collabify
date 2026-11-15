@@ -26,7 +26,7 @@ import { baseOf, endPull, pullFile, recordBase } from '../../lib/api/filePulls'
 import { trashDraftPath } from '../../lib/api/trash'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { buildTree, describeDraft, fileName, fileText, flatFiles, isPreviewableWord, isWordPath, nodesAt } from '../../lib/general/files'
+import { buildTree, describeDraft, fileName, fileText, flatFiles, isExcelPath, isOfficePath, isPreviewableWord, isWordPath, nodesAt, officeAppName } from '../../lib/general/files'
 import { stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { isOthersCopyError, pushVerdict } from '../../lib/general/pushCheck'
@@ -60,14 +60,18 @@ type Asking = { then: 'submit' | 'commit'; target: SubmitTarget; paths: string[]
 const under = (target: SubmitTarget, path: string) =>
   target.type === 'file' ? path === target.path : path.startsWith(`${target.path}/`)
 
-/** Why a folder cannot go anywhere yet, naming its held Word files; null when none is held. */
+/** Why a folder cannot go anywhere yet, naming its held Word and Excel files; null when none is held. */
 export function heldFolderReason(folder: string, held: Record<string, Held>) {
   const paths = Object.keys(held).filter((p) => under({ type: 'folder', path: folder }, p))
   if (paths.length === 0) return null
   return paths.length === 1
     ? `${fileName(paths[0])} is held. Combine it with Main's newer version or replace it first.`
-    : `${paths.length} Word files in it are held. Combine them with Main's newer versions or replace them first.`
+    : `${paths.length} ${heldKind(paths)} in it are held. Combine them with Main's newer versions or replace them first.`
 }
+
+/** "Word files", "Excel files", or "files" for a mix. */
+const heldKind = (paths: string[]) =>
+  paths.every(isWordPath) ? 'Word files' : paths.every(isExcelPath) ? 'Excel files' : 'files'
 
 /** A stale push said in plain words; any other error as it came. */
 const plainStale = (err: unknown) => {
@@ -109,7 +113,7 @@ export function DraftPanel({
   state: GeneralProjectState
   /** What Main says for a path, so the diff shows what submitting would do. */
   mainOf: (path: string) => string
-  /** The Storage object Main holds for a path, for Word files. */
+  /** The Storage object Main holds for a path, for Word and Excel files. */
   mainStorageOf: (path: string) => string | null
   /** When Main's version of a path was committed, for the unknown-copy warning. */
   mainAtOf?: (path: string) => string | null
@@ -130,9 +134,9 @@ export function DraftPanel({
   const mayCommit = state.can('commit_main')
   const [discarding, setDiscarding] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Word copies in the draft made from a version Main has moved past, by path.
+  // Word and Excel copies in the draft made from a version Main has moved past, by path.
   const [held, setHeld] = useState<Record<string, Held>>({})
-  // Word copies in Main's paths with no starting version on record.
+  // Word and Excel copies in Main's paths with no starting version on record.
   const [unknown, setUnknown] = useState<string[]>([])
   const [asking, setAsking] = useState<Asking | null>(null)
   const [recheck, setRecheck] = useState(0)
@@ -143,9 +147,9 @@ export function DraftPanel({
 
   const behind = draft !== null && draft.base_seq !== repo.commit_count
 
-  // One key for the Word copies whose push could be held, so the check reruns only when they change.
+  // One key for the Word and Excel copies whose push could be held, so the check reruns only when they change.
   const wordCopies = files
-    .filter((f) => f.kind === 'binary' && isWordPath(f.path) && f.action !== 'removed' && f.storage_path)
+    .filter((f) => f.kind === 'binary' && isOfficePath(f.path) && f.action !== 'removed' && f.storage_path)
     .map((f) => [f.path, f.storage_path, mainStorageOf(f.path) ? 'main' : ''].join('\t'))
     .join('\n')
 
@@ -178,7 +182,7 @@ export function DraftPanel({
   const onSubmitTarget = (target: SubmitTarget) => begin('submit', target)
   const onCommitTarget = (target: SubmitTarget) => begin('commit', target)
   const folderHeld = path ? heldFolderReason(path, held) : null
-  // Word copies whose check has not come back yet: Submit and Commit wait for it.
+  // Word and Excel copies whose check has not come back yet: Submit and Commit wait for it.
   const unchecked =
     !state.readOnly && wordCopies && checked !== wordCopies ? wordCopies.split('\n').map((r) => r.split('\t')[0]) : []
   const folderWaiting = Boolean(path) && unchecked.some((p) => under({ type: 'folder', path }, p))
@@ -195,7 +199,7 @@ export function DraftPanel({
       .then((link) => {
         // The hold stays with the draft's copy until the combined copy replaces it.
         if (link) setLinks((current) => ({ ...current, [f.path]: link }))
-        else show('Downloaded the newer version. Combine the two in Word, then upload your combined copy as a new version.')
+        else show(`Downloaded the newer version. Combine the two in ${officeAppName(f.path)}, then upload your combined copy as a new version.`)
       })
       .catch((err: unknown) => show(authErrorMessage(err, 'Could not download it. Try again in a moment.'), 'error'))
   }
@@ -479,7 +483,7 @@ export function DraftPanel({
           if (asking.then === 'submit') setSubmitting(asking.target)
           else setCommitting(asking.target)
         }}
-        title={asking?.paths.length === 1 ? `Check ${fileName(asking.paths[0])} first` : 'Check these Word files first'}
+        title={asking?.paths.length === 1 ? `Check ${fileName(asking.paths[0])} first` : 'Check these files first'}
         body={
           <div className="space-y-3">
             {asking?.paths.map((p) => (
@@ -597,7 +601,7 @@ function DraftNode({
   behind: boolean
   conflicts: DraftConflict[]
   mainOf: (path: string) => string
-  /** The Storage object Main holds for a path, for Word files. */
+  /** The Storage object Main holds for a path, for Word and Excel files. */
   mainStorageOf: (path: string) => string | null
   onNavigate: (path: string) => void
   onOpen: (file: OpenFile) => void
@@ -607,9 +611,9 @@ function DraftNode({
   onShare: (target: SubmitTarget) => void
   /** Only for whoever may commit to Main without a review. */
   onCommit?: (target: SubmitTarget) => void
-  /** Word copies made from a version Main has moved past, by path. */
+  /** Word and Excel copies made from a version Main has moved past, by path. */
   held: Record<string, Held>
-  /** Word copies whose check has not come back yet. */
+  /** Word and Excel copies whose check has not come back yet. */
   unchecked: string[]
   links: Record<string, string>
   names: (id: string) => string

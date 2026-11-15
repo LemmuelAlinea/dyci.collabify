@@ -1,5 +1,5 @@
 import { formatDue } from './dates'
-import { GENERAL_FILE_LIMIT, extensionOf, fileName, sameExtension } from './files'
+import { GENERAL_FILE_LIMIT, extensionOf, fileName, officeAppName, sameExtension } from './files'
 import { isStalePushError } from './pushCheck'
 
 /** Why a picked file cannot replace the open one; null when it can. */
@@ -42,10 +42,10 @@ export function stalePushMessage(err: unknown, who: string | null): string | nul
   if (!isStalePushError(err)) return null
   const path = STALE_PATH.exec((err as { message: string }).message)?.[1] ?? 'this file'
   const subject = who ? `${who.charAt(0).toUpperCase()}${who.slice(1)} has` : 'You have'
-  return `Main has a newer version of ${path} than the copy ${who ?? 'you'} started from. ${subject} to get the newer version, combine the two in Word and upload again.`
+  return `Main has a newer version of ${path} than the copy ${who ?? 'you'} started from. ${subject} to get the newer version, combine the two in ${officeAppName(path)} and upload again.`
 }
 
-/** The warning for a Word upload whose starting copy is not on record, the same wherever it shows. */
+/** The warning for a Word or Excel upload whose starting copy is not on record, the same wherever it shows. */
 export function unknownCopyMessage(mainAt: string | null) {
   return `Collabify doesn't know which copy you started from. If it wasn't Main's version from ${mainAt ? formatDue(mainAt) : 'its last commit'}, someone's changes may be lost.`
 }

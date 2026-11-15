@@ -39,7 +39,7 @@ export async function pushState(repoId: string, path: string, userId?: string): 
 }
 
 /**
- * Records the Main version an uploaded Word copy was made from, right after
+ * Records the Main version an uploaded Word or Excel copy was made from, right after
  * the upload and before it is saved or committed. Main refuses the copy while
  * it has a newer version of the path than this base.
  */

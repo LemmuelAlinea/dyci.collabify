@@ -19,7 +19,7 @@ export function DeleteMainFileDialog({
 }: {
   repo: GeneralRepoSummary
   file: GeneralTreeFile | null
-  /** Who else pulled it to edit in Word, if anyone. */
+  /** Who else pulled it to edit in Word or Excel, if anyone. */
   editing: string | null
   onClose: () => void
   onDeleted: () => Promise<void>

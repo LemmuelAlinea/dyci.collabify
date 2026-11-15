@@ -178,6 +178,16 @@ it("holds a Word copy by its own recorded base, with the same message as the upl
   expect(button("Download Ben's version")).toBeTruthy()
 })
 
+it('holds an Excel copy the same way and says to combine the two in Excel', async () => {
+  m.baseOf.mockResolvedValue(HELD)
+  await show([row({ path: 'Budget.xlsx', storage_path: 'p/files/mine.xlsx' })])
+  expect(m.baseOf).toHaveBeenCalledWith('p/files/mine.xlsx')
+  expect(host!.textContent).toContain('Ben updated this since you pulled')
+  expect(host!.textContent).toContain('combine the two in Excel, then upload the result here.')
+  await act(async () => button("Download Ben's version").click())
+  expect(m.pullFile).toHaveBeenCalledWith('repo', 'Budget.xlsx', true)
+})
+
 it('does not check a removal or a file that is not Word', async () => {
   await show([row({ action: 'removed', storage_path: null }), row({ path: 'Notes.pdf', storage_path: 'p/files/n.pdf' })])
   expect(m.baseOf).not.toHaveBeenCalled()
@@ -344,5 +354,7 @@ describe('heldFolderReason', () => {
     expect(heldFolderReason('A', { 'A/x.docx': v })).toContain('x.docx is held')
     expect(heldFolderReason('A', { 'A/x.docx': v, 'A/B/y.docx': v })).toContain('2 Word files in it are held')
     expect(heldFolderReason('A', { 'AB/x.docx': v })).toBeNull()
+    expect(heldFolderReason('A', { 'A/x.xlsx': v, 'A/y.xls': v })).toContain('2 Excel files in it are held')
+    expect(heldFolderReason('A', { 'A/x.xlsx': v, 'A/y.docx': v })).toContain('2 files in it are held')
   })
 })
