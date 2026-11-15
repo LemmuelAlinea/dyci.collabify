@@ -5044,3 +5044,28 @@ accepted." from the setting; no failed requests.
   the new flow (or renaming the folder holding one) was refused with "Main has a newer version". Removals are never held
   now. Applied live with `anon-lockdown.sql`; suite 66 PASS (new: deleting a Word file whose copy has a base).
 - 2,488 tests, build clean. Not walked signed in.
+
+## Exact Excel files (2026-11-16)
+
+- `.xlsx` and `.xlsm` uploads are now kept byte-for-byte (`binary`), like Word: no more conversion to sheet JSON
+  (which lost charts, pictures, pivots, macros, conditional formats, validation and comments). `.csv` stays an in-app
+  editable sheet. Spec `docs/superpowers/specs/2026-11-16-exact-excel-files-design.md`, plan
+  `docs/superpowers/plans/2026-11-16-exact-excel-files.md`.
+- Same flow as Word: Microsoft's Office viewer (localhost: a read-only simplified sheet view), **Edit in Excel** →
+  **Upload a new version**, the pull heads-up, the hold and Replace anyway (`supabase/file-pulls.sql` accepts
+  `xlsx|xlsm|xls`; applied live; suite 76 PASS). `.xls` joins the flow without a cell comparison.
+- Reviewers see changed cells per sheet (`sheetCellChanges`, `ExcelDiff`: first 200, then "and N more"); an exact
+  upload replacing an old converted sheet compares against that sheet's content. Old converted sheets keep the in-app
+  editor with a note to upload the original again with New → Upload a file under the same name (Word's note now says
+  the same).
+- `work-ai` reads `.xlsx`/`.xlsm` cells (`xlsxText`): one linear pass, 8 MB per entry / 20 MB total unzip caps, 50
+  sheets, 2,000 characters per cell, 60,000 in all; hostile workbooks finish in under 40 ms. Redeploy `work-ai` with
+  the frontend.
+- Verified: a real 53 KB workbook round-trips through storage with the same SHA-256 and renders in Microsoft's viewer;
+  2,520 tests; build clean. Not walked signed in.
+
+**Deferred**
+- A held `.xlsx` whose base is an old converted sheet can still say "Sheet added" in the held message (once per file).
+- No committed unit test for `xlsxText` (the Deno function has no test harness); its bounds were checked with
+  throwaway scripts.
+- A zip that lies about an entry's declared size is not covered by the unzip caps (one failed AI call at worst).
