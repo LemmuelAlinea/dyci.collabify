@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import ExcelJS from 'exceljs'
-import { xlsxToWorkbook } from './office'
+import { workbookToXlsx, xlsxToWorkbook } from './office'
 
 describe('xlsxToWorkbook', () => {
   it('reads an Excel workbook into editable cells', async () => {
@@ -41,4 +41,14 @@ describe('xlsxToWorkbook', () => {
       ],
     })
   })
+})
+
+it('keeps CSV values literal in an XLSX preview', async () => {
+  const blob = await workbookToXlsx({ sheets: [{ name: 'Data', rows: [['0012', '=SUM(1,2)', '42']] }] }, { preserveText: true })
+  const book = new ExcelJS.Workbook()
+  await book.xlsx.load(await blob.arrayBuffer() as never)
+  const sheet = book.getWorksheet('Data')!
+  expect(sheet.getCell('A1').value).toBe('0012')
+  expect(sheet.getCell('B1').value).toBe('=SUM(1,2)')
+  expect(sheet.getCell('C1').value).toBe('42')
 })

@@ -27,6 +27,7 @@ vi.mock('./CodeEditor', () => ({ default: () => <div data-code-editor /> }))
 vi.mock('./word/WordEditor', () => ({ default: () => <div data-word-editor /> }))
 vi.mock('./LazyPdfPreview', () => ({ LazyPdfPreview: () => null }))
 vi.mock('./LazyDocxPreview', () => ({ LazyDocxPreview: (p: { label: string }) => <div data-office-preview={p.label} /> }))
+vi.mock('./CsvPreview', () => ({ CsvPreview: (p: { onEdit?: () => void }) => <button data-csv-preview onClick={p.onEdit}>Edit CSV</button> }))
 vi.mock('./WordVersionPanel', () => ({ WordVersionPanel: () => null }))
 
 const repo = { id: 'repo', name: 'Files', file_count: 1, commit_count: 4, last_author: null, last_commit_at: null }
@@ -76,10 +77,14 @@ it('notes that an old converted .xlsx sheet lost what conversion drops', async (
   expect(host!.querySelector('[data-sheet-editor]')).not.toBeNull()
 })
 
-it('gives a .csv sheet no conversion note', async () => {
+it('opens a .csv sheet in preview, then lets its owner edit it', async () => {
   await open(sheet('data.csv'))
   expect(host!.textContent).not.toContain('converted when it was uploaded')
+  expect(host!.querySelector('[data-csv-preview]')).not.toBeNull()
+  expect(host!.querySelector('[data-sheet-editor]')).toBeNull()
+  await act(async () => host!.querySelector<HTMLButtonElement>('[data-csv-preview]')!.click())
   expect(host!.querySelector('[data-sheet-editor]')).not.toBeNull()
+  expect(host!.textContent).toContain('View in Microsoft Excel')
 })
 
 it('previews an .xlsx kept as uploaded instead of the generic note', async () => {

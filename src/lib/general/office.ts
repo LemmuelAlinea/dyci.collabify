@@ -292,7 +292,7 @@ function cellText(value: unknown): string {
   return String(value)
 }
 
-export async function workbookToXlsx(workbook: Workbook): Promise<Blob> {
+export async function workbookToXlsx(workbook: Workbook, { preserveText = false }: { preserveText?: boolean } = {}): Promise<Blob> {
   const ExcelJS = await import('exceljs')
   const book = new ExcelJS.Workbook()
   book.created = new Date()
@@ -306,8 +306,8 @@ export async function workbookToXlsx(workbook: Workbook): Promise<Blob> {
       row.forEach((text, c) => {
         if (text === '') return
         const cell = ws.getCell(r + 1, c + 1)
-        if (text.startsWith('=')) cell.value = { formula: text.slice(1) }
-        else if (text !== '' && !Number.isNaN(Number(text))) cell.value = Number(text)
+        if (!preserveText && text.startsWith('=')) cell.value = { formula: text.slice(1) }
+        else if (!preserveText && text !== '' && !Number.isNaN(Number(text))) cell.value = Number(text)
         else cell.value = text
       })
     })

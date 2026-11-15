@@ -17,6 +17,7 @@ export function OfficeViewer({
   fill = false,
   app = 'Word',
   onSimple,
+  note,
 }: {
   storagePath: string
   label: string
@@ -25,6 +26,7 @@ export function OfficeViewer({
   app?: 'Word' | 'Excel'
   /** Switch to the in-app preview instead; absent when there is none. */
   onSimple?: () => void
+  note?: string
 }) {
   const [src, setSrc] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -69,11 +71,11 @@ export function OfficeViewer({
           </Button>
         )}
       </div>
-      <p className="text-[12px] text-faint">
-        {app === 'Excel'
+      {(note === undefined || note) && <p className="text-[12px] text-faint">
+        {note ?? (app === 'Excel'
           ? 'From Google Sheets, download it as Microsoft Excel (.xlsx) before uploading. Converting it to a Google Sheet and back can change the formatting.'
-          : 'From Google Docs, download it as Microsoft Word (.docx) before uploading. Converting it to a Google Doc and back can change the formatting.'}
-      </p>
+          : 'From Google Docs, download it as Microsoft Word (.docx) before uploading. Converting it to a Google Doc and back can change the formatting.')}
+      </p>}
       {error && (
         <Alert tone="error">
           {error} {onSimple ? 'Try the simple preview, or download the file.' : 'Download the file instead.'}

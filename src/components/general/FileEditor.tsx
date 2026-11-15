@@ -32,6 +32,7 @@ const CodeEditor = lazy(() => import('./CodeEditor'))
 const WordEditor = lazy(() => import('./word/WordEditor'))
 // The Excel grid and its formula engine load when somebody opens a spreadsheet.
 const ExcelEditor = lazy(() => import('./ExcelEditor'))
+const CsvPreview = lazy(() => import('./CsvPreview').then((m) => ({ default: m.CsvPreview })))
 
 function EditorLoading({ what }: { what: string }) {
   return (
@@ -194,6 +195,7 @@ function Body({
   const [book, setBook] = useState<Workbook>(() =>
     file.kind === 'sheet' ? parseWorkbook(file.content) : { sheets: [] },
   )
+  const [previewCsv, setPreviewCsv] = useState(file.kind === 'sheet' && extensionOf(file.path) === 'csv')
   const [message, setMessage] = useState('')
   const [writing, setWriting] = useState(false)
   const [summarizing, setSummarizing] = useState(false)
@@ -442,6 +444,15 @@ function Body({
         </Alert>
       )}
 
+      {previewCsv && (
+        <Suspense fallback={<EditorLoading what="spreadsheet" />}>
+          <CsvPreview projectId={state.project?.id} label={name} workbook={book} fill={full} onEdit={!frozen ? () => setPreviewCsv(false) : undefined} />
+        </Suspense>
+      )}
+      {file.kind === 'sheet' && extensionOf(file.path) === 'csv' && !previewCsv && (
+        <Button size="sm" variant="outline" onClick={() => setPreviewCsv(true)}>View in Microsoft Excel</Button>
+      )}
+
       <div ref={editorArea}>
         {file.kind === 'rich' && (
           <Suspense fallback={<EditorLoading what="document" />}>
@@ -454,7 +465,7 @@ function Body({
             />
           </Suspense>
         )}
-        {file.kind === 'sheet' && (
+        {file.kind === 'sheet' && !previewCsv && (
           <Suspense fallback={<EditorLoading what="spreadsheet" />}>
             <ExcelEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
           </Suspense>
