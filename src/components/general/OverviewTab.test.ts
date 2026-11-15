@@ -73,6 +73,14 @@ it('shows Project info read-only, with details, stages and fields', async () => 
   await act(async () => root.unmount())
 })
 
+it('shows a banner-colored icon beside Project info', async () => {
+  vi.mocked(requestForProject).mockResolvedValue(null)
+  const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
+  await act(async () => root.render(createElement(MemoryRouter, null, createElement(OverviewTab, { state }))))
+  expect(host.querySelector('section > header .bg-banner-tile.text-banner-tile-glyph svg')).not.toBeNull()
+  await act(async () => root.unmount())
+})
+
 it('links an editor from Project info to Settings', async () => {
   const { root, dialog } = await openInfo(detailed())
   const links = [...dialog.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])

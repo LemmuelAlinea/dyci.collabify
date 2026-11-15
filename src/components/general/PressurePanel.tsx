@@ -1,4 +1,5 @@
 import { formatDue } from '../../lib/general/dates'
+import { TilePanel } from '../dashboard/Bento'
 import { dueByWeek, overdueTasks } from '../../lib/general/pressure'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -22,11 +23,7 @@ export function PressurePanel({
   const ahead = weeks.reduce((n, w) => n + w.count, 0)
 
   if (late.length === 0 && ahead === 0) {
-    return (
-      <p className="text-[13px] text-muted">
-        Nothing is overdue, and no open task falls due in the next four weeks.
-      </p>
-    )
+    return <TilePanel icon="calendar" title="Nothing due soon" body="Nothing is overdue, and no open task falls due in the next four weeks." />
   }
 
   return (

@@ -1,4 +1,5 @@
 import { Alert } from '../ui/Alert'
+import { TilePanel } from '../dashboard/Bento'
 import { projectForecast } from '../../lib/general/forecast'
 import { formatDay } from '../../lib/general/dates'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -23,7 +24,7 @@ export function ForecastPanel({ state }: { state: GeneralProjectState }) {
   const f = projectForecast(state.tasks, project.ends_on)
 
   if (f.state === 'no_tasks') {
-    return <p className="text-[13px] text-muted">This project has no tasks yet.</p>
+    return <TilePanel icon="chart" title="No pace yet" body="This project has no tasks yet." />
   }
 
   if (f.state === 'not_started') {

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Modal } from '../ui/Modal'
+import { Icon } from '../ui/Icon'
 import { requestForProject } from '../../lib/api/projectRequests'
 import type { ProjectRequest } from '../../lib/api/projectRequests'
 import { paths } from '../../lib/paths'
@@ -31,7 +32,12 @@ export function OverviewTab({ state }: { state: GeneralProjectState }) {
     <>
       <section className="card h-full p-4 shadow-card sm:p-5">
         <header className="mb-4 flex items-center justify-between gap-3">
-          <h2>Project info</h2>
+          <h2 className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-banner-tile text-banner-tile-glyph">
+              <Icon name="info" size={18} />
+            </span>
+            Project info
+          </h2>
           <button
             type="button"
             onClick={() => setShowInfo(true)}

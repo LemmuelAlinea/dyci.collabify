@@ -3,6 +3,7 @@ import { SprintTimeline } from './SprintTimeline'
 import { ProgressBar, StatusPill } from './MilestoneBits'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
+import { TilePanel } from '../dashboard/Bento'
 import { useNow } from '../../hooks/useNow'
 import { dateRange, formatDue } from '../../lib/general/dates'
 import type { MilestoneCompletion } from '../../lib/general/milestoneRules'
@@ -112,12 +113,11 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, organizat
   if (!sprint) {
     const planned = sprints.some((s) => s.state === 'planned')
     return (
-      <section className="card p-4 shadow-card sm:p-5">
+      <section className="card flex flex-col p-4 shadow-card sm:p-5">
         <CardHead icon="target" label="Running sprint" action="Open Backlog" onAction={() => onSection('backlog')} />
-        <p className="mt-3 text-[13px] text-muted">
-          No sprint is running.
-          {canPlan && (planned ? ' Start a planned one from Backlog.' : ' Plan one from Backlog when the team is ready.')}
-        </p>
+        <div className="grid flex-1 items-center pt-3">
+          <TilePanel icon="target" title="No sprint is running." body={canPlan ? (planned ? 'Start a planned one from Backlog.' : 'Plan one from Backlog when the team is ready.') : 'Running sprints show here when one starts.'} />
+        </div>
       </section>
     )
   }
@@ -154,9 +154,9 @@ function MilestoneCard({ items, milestones, completion, dependencies, onSection 
     <section className="card p-4 shadow-card sm:p-5">
       <CardHead icon="pin" label="Next milestone" action="Open Milestones" onAction={() => onSection('milestones')} />
       {!next ? (
-        <p className="mt-3 text-[13px] text-muted">
-          {milestones.length === 0 ? 'No milestones yet.' : 'Every milestone is reached.'}
-        </p>
+        <div className="mt-3">
+          <TilePanel icon="pin" title={milestones.length === 0 ? 'No milestones yet.' : 'Every milestone is reached.'} body={milestones.length === 0 ? 'The next milestone shows here when one is added.' : 'The next milestone shows here when one is planned.'} />
+        </div>
       ) : (
         <>
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -193,10 +193,9 @@ function NeedsYouCard({ items, mine, onOpenTask }: Pick<GlanceProps, 'items' | '
         Needs you
       </span>
       {groups.length === 0 ? (
-        <p className="mt-3 text-[13px] text-muted">
-          Nothing needs you right now. None of your tasks is late or due in the next 7 days, and every open
-          task has someone on it.
-        </p>
+        <div className="mt-3">
+          <TilePanel icon="checkCircle" title="Nothing needs you right now." body="None of your tasks is late or due in the next 7 days, and every open task has someone on it." />
+        </div>
       ) : (
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           {groups.map((g) => (
