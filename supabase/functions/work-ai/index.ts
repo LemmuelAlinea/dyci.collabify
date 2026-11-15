@@ -218,10 +218,52 @@ const decodeXml = (s: string) =>
     .replace(/&#(\d+);/g, (_, d) => safeCode(Number(d)))
     .replace(/&amp;/g, '&')
 
+/**
+ * The <name> elements of an XML string in one forward pass: each yields its
+ * attribute text, body and where it ended. Every search starts where the last
+ * ended, and an element with no closing tag ends the walk, so work stays linear
+ * however the input is damaged.
+ */
+function* xmlElements(xml: string, name: string): Generator<{ attrs: string; body: string; start: number; end: number }> {
+  const open = '<' + name
+  const close = '</' + name + '>'
+  let pos = 0
+  while (pos < xml.length) {
+    const start = xml.indexOf(open, pos)
+    if (start < 0) return
+    const after = xml.charAt(start + open.length)
+    if (!(after === '>' || after === '/' || after === ' ' || after === '\t' || after === '\r' || after === '\n')) {
+      pos = start + open.length
+      continue
+    }
+    const gt = xml.indexOf('>', start + open.length)
+    if (gt < 0) return
+    const selfClosed = xml.charAt(gt - 1) === '/'
+    const attrs = xml.slice(start + open.length, selfClosed ? gt - 1 : gt)
+    if (selfClosed) {
+      pos = gt + 1
+      yield { attrs, body: '', start, end: pos }
+      continue
+    }
+    const end = xml.indexOf(close, gt + 1)
+    if (end < 0) return
+    pos = end + close.length
+    yield { attrs, body: xml.slice(gt + 1, end), start, end: pos }
+  }
+}
+
 /** The text of a shared or inline string: every <t> run, phonetic runs left out. */
 function xmlRuns(xml: string) {
-  const runs = xml.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '').matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)
-  return decodeXml([...runs].map((m) => m[1]).join(''))
+  let kept = ''
+  let at = 0
+  for (const ph of xmlElements(xml, 'rPh')) {
+    kept += xml.slice(at, ph.start)
+    at = ph.end
+  }
+  kept += xml.slice(at)
+  let text = ''
+  for (const t of xmlElements(kept, 't')) text += t.body
+  return decodeXml(text)
 }
 
 const xmlAttr = (tag: string, name: string) => tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
@@ -250,17 +292,25 @@ function xlsxText(bytes: Uint8Array) {
     },
   })
   const read = (name: string) => (files[name] ? strFromU8(files[name]) : '')
-  const shared = [...read('xl/sharedStrings.xml').matchAll(/<si\b[^>]*?(?:\/>|>([\s\S]*?)<\/si>)/g)].map((m) => xmlRuns(m[1] ?? ''))
+  const shared: string[] = []
+  for (const si of xmlElements(read('xl/sharedStrings.xml'), 'si')) shared.push(xmlRuns(si.body))
   const targets = new Map<string, string>()
   for (const m of read('xl/_rels/workbook.xml.rels').matchAll(/<Relationship\b[^>]*>/g)) {
     const id = xmlAttr(m[0], 'Id')
     const target = xmlAttr(m[0], 'Target')
     if (id && target) targets.set(id, target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`)
   }
-  let sheets = [...read('xl/workbook.xml').matchAll(/<sheet\b[^>]*>/g)].map((m) => ({
-    name: decodeXml(xmlAttr(m[0], 'name') ?? ''),
-    path: targets.get(xmlAttr(m[0], 'r:id') ?? '') ?? '',
-  }))
+  // At most 50 entries, and each sheet file once.
+  let sheets: { name: string; path: string }[] = []
+  const seen = new Set<string>()
+  let listed = 0
+  for (const m of read('xl/workbook.xml').matchAll(/<sheet\b[^>]*>/g)) {
+    if (++listed > 50) break
+    const path = targets.get(xmlAttr(m[0], 'r:id') ?? '') ?? ''
+    if (seen.has(path)) continue
+    seen.add(path)
+    sheets.push({ name: decodeXml(xmlAttr(m[0], 'name') ?? ''), path })
+  }
   if (sheets.length === 0) {
     sheets = Object.keys(files)
       .filter((n) => n.startsWith('xl/worksheets/'))
@@ -272,20 +322,23 @@ function xlsxText(bytes: Uint8Array) {
   for (const sheet of sheets) {
     const xml = read(sheet.path)
     if (!xml) continue
-    out.push(`[Sheet: ${sheet.name}]`)
-    for (const row of xml.matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
+    const header = `[Sheet: ${sheet.name}]`
+    out.push(header)
+    size += header.length + 1
+    if (size >= 60000) return out.join('\n')
+    for (const row of xmlElements(xml, 'row')) {
       const cells: string[] = []
       let next = 0
       let rowSize = 0
       let full = false
-      for (const c of (row[1] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
-        const at = xmlAttr(c[1], 'r')
+      for (const c of xmlElements(row.body, 'c')) {
+        const at = xmlAttr(c.attrs, 'r')
         const at2 = at ? colIndex(at) : -1
         const i = at2 >= 0 && at2 <= 16383 ? at2 : next
         if (i > 16383) continue
-        const type = xmlAttr(c[1], 't')
-        const body = c[2] ?? ''
-        const v = body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/)?.[1]
+        const type = xmlAttr(c.attrs, 't')
+        const body = c.body
+        const v = xmlElements(body, 'v').next().value?.body
         let value = ''
         if (type === 'inlineStr') value = xmlRuns(body)
         else if (v !== undefined) {

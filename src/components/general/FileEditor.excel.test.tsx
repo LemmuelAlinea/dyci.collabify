@@ -101,16 +101,3 @@ it('hides the conversion note from a read-only viewer', async () => {
   )
   expect(host.textContent).not.toContain('converted when it was uploaded')
 })
-
-it('hides the conversion note from a read-only viewer', async () => {
-  const readOnlyState = { ...state, readOnly: true } as unknown as GeneralProjectState
-  host = document.createElement('div')
-  document.body.append(host)
-  root = createRoot(host)
-  await act(async () =>
-    root!.render(
-      <FileEditor file={sheet('Budget.xlsx')} repo={repo as never} state={readOnlyState} onClose={() => {}} onSaved={async () => {}} />,
-    ),
-  )
-  expect(host.textContent).not.toContain('converted when it was uploaded')
-})
