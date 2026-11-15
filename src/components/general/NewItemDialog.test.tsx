@@ -147,6 +147,39 @@ it('records no base for an upload that is not Word', async () => {
   expect(m.recordBase).not.toHaveBeenCalled()
 })
 
+it('clears a shown confirm when the name changes, so the old answer cannot save', async () => {
+  await render()
+  await click('Upload a file')
+  await pickFiles([doc('Chap1-4.docx')])
+  await click('Add to my draft')
+  expect(button('Upload as a new version')).toBeTruthy()
+  const input = [...document.body.querySelectorAll('input')].find((i) => i.type !== 'file') as HTMLInputElement
+  await act(async () => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+    set.call(input, 'notes.md')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  expect(text()).not.toContain('is already here')
+  expect([...document.body.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Upload as a new version')).toBe(false)
+  await click('Add to my draft')
+  expect(text()).toContain('already has a file with that name')
+  expect(m.saveDraft).not.toHaveBeenCalled()
+  expect(m.upload).not.toHaveBeenCalled()
+})
+
+it('clears a shown confirm when another file is picked', async () => {
+  await render()
+  await click('Upload a file')
+  await pickFiles([doc('Chap1-4.docx')])
+  await click('Add to my draft')
+  expect(text()).toContain('Chap1-4.docx is already here')
+  await pickFiles([new File(['hi'], 'notes.md')])
+  expect(text()).not.toContain('is already here')
+  await click('Add to my draft')
+  expect(text()).toContain('already has a file with that name')
+  expect(m.saveDraft).not.toHaveBeenCalled()
+})
+
 it('asks once for a folder with two existing names and saves nothing on Cancel', async () => {
   await render()
   await click('Upload a folder')

@@ -90,6 +90,14 @@ export function NewItemDialog({
     onClose()
   }
 
+  /** A changed pick or name voids every answer given for the old one. */
+  function pickChanged() {
+    setPending(null)
+    setBlocked(null)
+    setGotTheirs(false)
+    overrides.current = new Set()
+  }
+
   /** `base`: for a Word file, the Main version it was made from, recorded right after the upload. */
   async function savePickedFile(file: File, target: string, base: number | undefined) {
     const k = kindForPath(target)
@@ -369,6 +377,7 @@ export function NewItemDialog({
                     accept={FILE_ACCEPT}
                     onChange={(e) => {
                       const f = e.target.files?.[0] ?? null
+                      pickChanged()
                       setPicked(f)
                       if (f) setName(fileName(f.name))
                     }}
@@ -378,7 +387,18 @@ export function NewItemDialog({
               </Field>
               {picked && (
                 <Field label="Save it as">
-                  {(id) => <Input id={id} maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className="!font-mono" />}
+                  {(id) => (
+                    <Input
+                      id={id}
+                      maxLength={200}
+                      value={name}
+                      onChange={(e) => {
+                        pickChanged()
+                        setName(e.target.value)
+                      }}
+                      className="!font-mono"
+                    />
+                  )}
                 </Field>
               )}
               {office && <Alert tone="info">{OFFICE_WARNING}</Alert>}
@@ -399,7 +419,10 @@ export function NewItemDialog({
                     type="file"
                     multiple
                     {...{ webkitdirectory: '', directory: '' }}
-                    onChange={(e) => setFolderFiles([...(e.target.files ?? [])])}
+                    onChange={(e) => {
+                      pickChanged()
+                      setFolderFiles([...(e.target.files ?? [])])
+                    }}
                     className="w-full rounded-xl border border-line surface px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-sunken)] file:px-3 file:py-1.5 file:text-[13px] file:text-ink"
                   />
                 )}
