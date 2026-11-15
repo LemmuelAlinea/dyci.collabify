@@ -374,6 +374,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         tree={tree}
         draftFiles={draftFiles}
         folder={folder}
+        names={state.nameOf}
         onDone={goAfterReload}
       />
       <RenameFolderDialog

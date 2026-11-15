@@ -418,6 +418,13 @@ function Body({
         </Alert>
       )}
 
+      {file.kind === 'rich' && (
+        <Alert tone="info">
+          This copy was converted when it was uploaded, so some Word formatting may be gone. Upload the original .docx as a
+          new version to keep it exactly.
+        </Alert>
+      )}
+
       <div ref={editorArea}>
         {file.kind === 'rich' && (
           <Suspense fallback={<EditorLoading what="document" />}>

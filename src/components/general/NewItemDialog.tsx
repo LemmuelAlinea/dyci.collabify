@@ -1,17 +1,31 @@
-import { useState } from 'react'
-import { saveDraftFile, uploadProjectFile } from '../../lib/api/general'
+import { useRef, useState } from 'react'
+import { endPull, pullFile, pushState } from '../../lib/api/filePulls'
+import { projectFileUrl, saveDraftFile, storagePathAt, uploadProjectFile } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isWordPath, joinPath, kindForPath, nodesAt, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
 import { OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
+import { newVersionProblem, stalePushMessage } from '../../lib/general/newVersion'
+import { openTabFor } from '../../lib/general/openTab'
+import { pushVerdict } from '../../lib/general/pushCheck'
+import type { PushVerdict } from '../../lib/general/pushCheck'
 import { serializeWorkbook } from '../../lib/general/sheet'
 import type { GeneralDraftFile, GeneralRepoSummary, GeneralTreeFile } from '../../lib/general/types'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
+import { HeldPush } from './HeldPush'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
+
+type Held = PushVerdict & { kind: 'held' }
+
+/** What the dialog waits on before it saves anything. */
+type Pending =
+  | { step: 'confirm'; existing: string[] }
+  | { step: 'held'; verdict: Held; path: string }
+  | { step: 'unknown'; path: string }
 
 type Step = 'choose' | 'folder' | 'file' | 'upload-folder'
 
@@ -31,6 +45,7 @@ export function NewItemDialog({
   tree,
   draftFiles,
   folder,
+  names = () => 'Someone',
   onDone,
 }: {
   open: boolean
@@ -39,6 +54,7 @@ export function NewItemDialog({
   tree: GeneralTreeFile[]
   draftFiles: GeneralDraftFile[]
   folder: string
+  names?: (id: string) => string
   onDone: (landAt: string) => Promise<void>
 }) {
   const { show } = useToast()
@@ -48,6 +64,10 @@ export function NewItemDialog({
   const [folderFiles, setFolderFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
+  const [blocked, setBlocked] = useState<string | null>(null)
+  // Held or unknown files the person chose to replace anyway, across the checks.
+  const overrides = useRef(new Set<string>())
 
   const siblings = (
     nodesAt(buildTree([...tree, ...(draftFiles as unknown as GeneralTreeFile[])]), folder) ?? []
@@ -61,6 +81,9 @@ export function NewItemDialog({
     setPicked(null)
     setFolderFiles([])
     setError(null)
+    setPending(null)
+    setBlocked(null)
+    overrides.current = new Set()
     onClose()
   }
 
@@ -74,46 +97,84 @@ export function NewItemDialog({
     await saveDraftFile({ repoId: repo.id, path: target, action: actionFor(target, tree), kind: k, content, storagePath })
   }
 
+  function plan(): { targets: string[]; files: File[] } {
+    if (step === 'file' && picked) {
+      return { targets: [joinPath(folder, pathWithPickedExtension(name.trim() || picked.name, picked.name))], files: [picked] }
+    }
+    if (step === 'upload-folder') {
+      return {
+        targets: folderFiles.map((f) =>
+          joinPath(folder, ((f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name).replace(/\\/g, '/')),
+        ),
+        files: folderFiles,
+      }
+    }
+    return { targets: [], files: [] }
+  }
+
+  const inMain = (t: string) => tree.some((f) => f.path === t)
+  const inDraft = (t: string) => draftFiles.some((f) => f.path === t)
+
   async function submit() {
     if (busy) return
-    let targets: string[] = []
-    let files: File[] = []
-    let landAt = folder
-    let done = ''
-
+    setPending(null)
+    setBlocked(null)
+    overrides.current = new Set()
     if (step === 'folder') {
       const problem = folderNameProblem(name, siblings)
       if (problem) return setError(problem)
-      landAt = joinPath(folder, name.trim())
-      targets = [joinPath(landAt, KEEP)]
-      done = 'Folder added to your draft'
-    } else if (step === 'file') {
-      if (!picked) return setError('Choose a file from your computer.')
-      const target = joinPath(folder, pathWithPickedExtension(name.trim() || picked.name, picked.name))
-      targets = [target]
-      files = [picked]
-      done = 'Added to your draft'
-    } else if (step === 'upload-folder') {
-      if (folderFiles.length === 0) return setError('Choose a folder from your computer.')
-      files = folderFiles
-      targets = folderFiles.map((f) =>
-        joinPath(folder, ((f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name).replace(/\\/g, '/')),
-      )
-      done = 'Folder added to your draft'
+      const landAt = joinPath(folder, name.trim())
+      const bad = pathProblem(joinPath(landAt, KEEP))
+      if (bad) return setError(bad)
+      return save([joinPath(landAt, KEEP)], [], landAt, 'Folder added to your draft', new Set())
     }
-
+    if (step === 'file' && !picked) return setError('Choose a file from your computer.')
+    if (step === 'upload-folder' && folderFiles.length === 0) return setError('Choose a folder from your computer.')
+    const { targets, files } = plan()
     const problem = targets.map(pathProblem).find(Boolean)
     if (problem) return setError(problem)
-    if (targets.some((t) => tree.some((f) => f.path === t))) {
-      return setError('The project already has a file with that name here. Open it instead, or pick another name.')
+    const existing = targets.filter((t) => inMain(t) || inDraft(t))
+    // Text and sheets are edited in the app, so an upload never replaces them.
+    const edited = existing.find((t) => kindForPath(t) !== 'binary')
+    if (edited) {
+      return setError(
+        inMain(edited)
+          ? 'The project already has a file with that name here. Open it instead, or pick another name.'
+          : 'Your draft already has a file with that name here. Open it instead, or pick another name.',
+      )
     }
-    if (targets.some((t) => draftFiles.some((f) => f.path === t))) {
-      return setError('Your draft already has a file with that name here. Open it instead, or pick another name.')
+    for (let i = 0; i < targets.length; i += 1) {
+      if (!existing.includes(targets[i])) continue
+      const bad = newVersionProblem(targets[i], files[i])
+      if (bad) return setError(bad)
     }
+    setError(null)
+    if (existing.length > 0) return setPending({ step: 'confirm', existing })
+    return save(targets, files, folder, step === 'file' ? 'Added to your draft' : 'Folder added to your draft', new Set())
+  }
 
+  // Every Word file that replaces an existing name gets the open file's push check
+  // first, and nothing is saved until all of them pass.
+  async function save(targets: string[], files: File[], landAt: string, done: string, overridden: Set<string>) {
+    if (busy) return
     setError(null)
     setBusy(true)
     try {
+      for (const t of targets) {
+        if (!isWordPath(t) || overridden.has(t) || !(inMain(t) || inDraft(t))) continue
+        const verdict = pushVerdict(await pushState(repo.id, t), inMain(t))
+        if (verdict.kind === 'held') {
+          setPending({ step: 'held', verdict, path: t })
+          setBusy(false)
+          return
+        }
+        if (verdict.kind === 'unknown') {
+          setPending({ step: 'unknown', path: t })
+          setBusy(false)
+          return
+        }
+      }
+      setPending(null)
       if (step === 'folder') {
         await saveDraftFile({ repoId: repo.id, path: targets[0], action: 'added', kind: 'text', content: '' })
       } else {
@@ -124,9 +185,31 @@ export function NewItemDialog({
       close()
       await onDone(landAt)
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not add it to your draft. Try again in a moment.'))
+      setError(stalePushMessage(err, null) ?? authErrorMessage(err, 'Could not add it to your draft. Try again in a moment.'))
       setBusy(false)
     }
+  }
+
+  function go(overrideNow?: string) {
+    if (overrideNow) overrides.current.add(overrideNow)
+    const { targets, files } = plan()
+    return save(targets, files, folder, step === 'file' ? 'Added to your draft' : 'Folder added to your draft', overrides.current)
+  }
+
+  function getTheirs(path: string, verdict: Held) {
+    setError(null)
+    setBlocked(null)
+    return openTabFor(async () => {
+      await pullFile(repo.id, path, true)
+      const storagePath = await storagePathAt(repo.id, path, verdict.mainSeq)
+      if (!storagePath) throw new Error('That version has no file to download. Open the file again and retry.')
+      return projectFileUrl(storagePath, fileName(path))
+    })
+      .then((link) => {
+        setBlocked(link)
+        if (!link) show('Downloaded the newer version. Combine the two in Word, then upload the result here.')
+      })
+      .catch((err: unknown) => setError(authErrorMessage(err, 'Could not download it. Try again in a moment.')))
   }
 
   const office = picked && kindForPath(picked.name) === 'sheet'
@@ -175,6 +258,64 @@ export function NewItemDialog({
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="space-y-4">
           {error && <Alert tone="error">{error}</Alert>}
+          {pending?.step === 'confirm' && (
+            <div className="space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-3.5 py-3 text-[13px] text-warning-800 dark:border-warning-400/40 dark:bg-warning-400/15 dark:text-warning-300">
+              {step === 'file' && pending.existing.length === 1 ? (
+                <p>
+                  <span className="font-mono">{fileName(pending.existing[0])}</span> is already here. Upload it as a new version to
+                  replace it in your draft, or rename it to keep both.
+                </p>
+              ) : (
+                <p>
+                  Upload {pending.existing.length} {pending.existing.length === 1 ? 'file' : 'files'} as new versions? They replace
+                  the files already here with the same names, in your draft.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void go()}>
+                  {step === 'file' && pending.existing.length === 1 ? 'Upload as a new version' : 'Upload'}
+                </Button>
+                {step === 'file' && pending.existing.length === 1 && (
+                  <Button size="sm" variant="outline" onClick={() => setPending(null)}>
+                    Rename
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {pending?.step === 'held' && (
+            <HeldPush
+              state={pending.verdict}
+              path={pending.path}
+              repoId={repo.id}
+              names={names}
+              blockedUrl={blocked}
+              onGetTheirs={() => getTheirs(pending.path, pending.verdict)}
+              onReplaceAnyway={async () => {
+                await endPull(repo.id, pending.path)
+                void go(pending.path)
+              }}
+            />
+          )}
+          {pending?.step === 'unknown' && (
+            <div className="space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-3.5 py-3 text-[13px] text-warning-800 dark:border-warning-400/40 dark:bg-warning-400/15 dark:text-warning-300">
+              <p>
+                Collabify doesn't know which copy of <span className="font-mono">{fileName(pending.path)}</span> you started from. If
+                it wasn't Main's latest version, someone's changes may be lost.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void go(pending.path)}>
+                  Continue
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
           {step === 'folder' && (
             <Field label="Folder name">
               {(id) => <Input id={id} maxLength={120} placeholder="Chapter 1" value={name} onChange={(e) => setName(e.target.value)} />}
