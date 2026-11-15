@@ -364,6 +364,14 @@ begin
   perform pg_temp.must_be('...until the copy''s base is Main''s version, at seq 11',
     (public.commit_general_draft_path(v_repo, 'Thesis', true)).seq = 11);
 
+  ------------------------------------------------------------ 9b. deleting a copy that has a base
+  -- Its object's base (1) is older than the version it became (11); a removal
+  -- is not a push of an old copy, so it is never held.
+  perform pg_temp.must_be('deleting a Word file whose copy has a base goes through, at seq 12',
+    pg_temp.push(v_repo, v_proj, 'Thesis/two.docx', 'removed', v_copy) = 12);
+  perform pg_temp.must_be('...and the file is gone from Main',
+    not exists (select 1 from public.general_repo_tree where repo_id = v_repo and path = 'Thesis/two.docx'));
+
   ------------------------------------------------------------ 10. anon
   perform set_config('role', 'anon', true);
   perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);

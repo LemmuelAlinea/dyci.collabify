@@ -4,6 +4,7 @@ import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
+import { ActionMenu } from '../ui/ActionMenu'
 import { Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
@@ -30,6 +31,7 @@ import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, i
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import { zipFolder } from '../../lib/general/zipFolder'
 import { downloadBlob } from '../../lib/general/office'
+import { repoFileAsUpload } from '../../lib/general/repoAttach'
 import { askFiles } from '../../lib/api/workAi'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
@@ -47,6 +49,7 @@ import type {
 } from '../../lib/general/types'
 import { DiffView } from './DiffView'
 import { WordDiff } from './WordDiff'
+import { DeleteMainFileDialog } from './DeleteMainFileDialog'
 import { DraftPanel } from './DraftPanel'
 import { FileEditor } from './FileEditor'
 import type { OpenFile } from './FileEditor'
@@ -93,6 +96,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     rawView && VIEWS.includes(rawView) && !(noDraft && rawView === 'draft') ? rawView : legacyShared && !noDraft ? 'draft' : 'main'
   const folder = view === 'main' || view === 'draft' ? params.get('path') ?? '' : ''
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<GeneralTreeFile | null>(null)
   const [open, setOpen] = useState<OpenFile | null>(null)
   const [adding, setAdding] = useState(false)
   const [query, setQuery] = useState('')
@@ -321,6 +325,9 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           onNavigate={(p) => go(view, p)}
           onRename={setRenaming}
           onOpen={openFile}
+          onDelete={
+            !state.readOnly && state.myRole !== 'stakeholder' && !state.classTeacher && state.can('commit_main') ? setDeleting : null
+          }
           onStarted={async () => {
             await load()
             go('draft')
@@ -377,6 +384,16 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         folder={folder}
         names={state.nameOf}
         onDone={goAfterReload}
+      />
+      <DeleteMainFileDialog
+        repo={repo}
+        file={deleting}
+        editing={deleting ? editingOf(deleting.path)?.detail ?? null : null}
+        onClose={() => setDeleting(null)}
+        onDeleted={async () => {
+          setDeleting(null)
+          await load()
+        }}
       />
       <RenameFolderDialog
         repoId={repo.id}
@@ -698,6 +715,7 @@ function MainView({
   onNavigate,
   onRename,
   onOpen,
+  onDelete,
   onStarted,
 }: {
   repo: GeneralRepoSummary
@@ -710,6 +728,8 @@ function MainView({
   onNavigate: (path: string) => void
   onRename: (path: string) => void
   onOpen: (file: OpenFile) => void
+  /** Deleting from Main, for whoever may commit to it; null hides it. */
+  onDelete: ((file: GeneralTreeFile) => void) | null
   onStarted: () => Promise<void>
 }) {
   const all = buildTree(tree)
@@ -734,7 +754,7 @@ function MainView({
       <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
         {hits.map((node) => (
           <li key={node.path}>
-            <MainFileRow node={{ ...node, name: node.path }} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} />
+            <MainFileRow node={{ ...node, name: node.path }} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} onDelete={onDelete} />
           </li>
         ))}
       </ul>
@@ -784,7 +804,7 @@ function MainView({
                   <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
                 </button>
               ) : (
-                <MainFileRow node={node} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} />
+                <MainFileRow node={node} draftFiles={draftFiles} editing={editingOf(node.path)} onOpen={onOpen} onDelete={onDelete} />
               )}
             </li>
           ))}
@@ -799,37 +819,64 @@ function MainFileRow({
   draftFiles,
   editing,
   onOpen,
+  onDelete,
 }: {
   node: Extract<TreeNode, { type: 'file' }>
   draftFiles: GeneralDraftFile[]
   /** Who else pulled it to edit in Word: a heads-up, never a lock. */
   editing: { label: string; detail: string } | null
   onOpen: (file: OpenFile) => void
+  /** Deleting from Main, for whoever may commit to it; null hides it. */
+  onDelete: ((file: GeneralTreeFile) => void) | null
 }) {
+  const { show } = useToast()
   const inDraft = draftFiles.some((f) => f.path === node.path)
+
+  // The file as somebody would get it: an upload as it is, a document as .docx, a sheet as .xlsx.
+  async function download() {
+    try {
+      const file = await repoFileAsUpload(node.file)
+      downloadBlob(file, file.name)
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not prepare that download. Try again in a moment.'), 'error')
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() =>
-        onOpen({ path: node.path, kind: node.file.kind, content: node.file.content, storagePath: node.file.storage_path, action: 'changed', fromDraft: false })
-      }
-      className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[var(--surface-sunken)]"
-    >
-      <Icon name="file" size={15} className="shrink-0 text-faint" />
-      <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{node.name}</span>
-      {inDraft && (
-        <span className="shrink-0 rounded-md bg-amber-400/25 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:text-amber-200">
-          In your draft
-        </span>
-      )}
-      {editing && (
-        <span title={editing.detail} className="inline-flex min-w-0 max-w-[45%] items-center gap-1 rounded-md surface-sunken px-2 py-0.5 text-[11px] text-muted">
-          <Icon name="edit" size={11} className="shrink-0" />
-          <span className="truncate">{editing.label}</span>
-        </span>
-      )}
-      <span className="shrink-0 rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">{FILE_KIND_LABEL[node.file.kind]}</span>
-    </button>
+    <div className="flex items-center hover:bg-[var(--surface-sunken)]">
+      <button
+        type="button"
+        onClick={() =>
+          onOpen({ path: node.path, kind: node.file.kind, content: node.file.content, storagePath: node.file.storage_path, action: 'changed', fromDraft: false })
+        }
+        className="flex min-w-0 flex-1 items-center gap-2 py-2.5 pl-4 pr-2 text-left"
+      >
+        <Icon name="file" size={15} className="shrink-0 text-faint" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{node.name}</span>
+        {inDraft && (
+          <span className="shrink-0 rounded-md bg-amber-400/25 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:text-amber-200">
+            In your draft
+          </span>
+        )}
+        {editing && (
+          <span title={editing.detail} className="inline-flex min-w-0 max-w-[45%] items-center gap-1 rounded-md surface-sunken px-2 py-0.5 text-[11px] text-muted">
+            <Icon name="edit" size={11} className="shrink-0" />
+            <span className="truncate">{editing.label}</span>
+          </span>
+        )}
+        <span className="shrink-0 rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">{FILE_KIND_LABEL[node.file.kind]}</span>
+      </button>
+      <div className="shrink-0 pr-2">
+        <ActionMenu
+          label={`More for ${node.file.path}`}
+          size="sm"
+          items={[
+            { label: 'Download', icon: 'download', onSelect: () => void download() },
+            onDelete && { label: 'Delete file', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onDelete(node.file) },
+          ]}
+        />
+      </div>
+    </div>
   )
 }
 

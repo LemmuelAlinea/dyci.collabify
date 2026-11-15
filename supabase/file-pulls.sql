@@ -329,7 +329,9 @@ as $function$
 declare
   v_base int;
 begin
-  if new.kind <> 'binary' or new.storage_path is null then
+  -- A removal (deleting the file, or the old path of a renamed folder) carries
+  -- the object it drops; it is not a push of an old copy, so it is never held.
+  if new.kind <> 'binary' or new.storage_path is null or new.action = 'removed' then
     return new;
   end if;
 

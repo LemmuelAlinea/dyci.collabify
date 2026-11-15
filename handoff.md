@@ -5032,3 +5032,15 @@ accepted." from the setting; no failed requests.
   developer machine. `vercel.json`'s report-only CSP lists `frame-src https://view.officeapps.live.com`.
 - Checked: the real thesis through a temporary signed copy (deleted) in Microsoft's viewer shows the borders, header
   box, logo and "Page 2" as in Word. 2,486 tests, build clean. Not yet seen inside the signed-in app.
+
+## Download and delete from Main's file list (2026-11-16)
+
+- Every file row in Files → Main has a ⋯ menu: **Download** (the file as somebody would get it: an upload as it is,
+  a document as .docx, a sheet as .xlsx, via `repoFileAsUpload`) and, for whoever may commit to Main (not read-only
+  viewers, stakeholders or class teachers), **Delete file**. Delete opens `DeleteMainFileDialog`: the person types the
+  file name, as when committing a draft path to Main, and it commits a removal ("Deleted <path>"); history keeps every
+  earlier version. If someone pulled the file to edit in Word, the dialog says so.
+- Fixed in `supabase/file-pulls.sql`: the copy-base guard also judged removals, so deleting a Word file uploaded through
+  the new flow (or renaming the folder holding one) was refused with "Main has a newer version". Removals are never held
+  now. Applied live with `anon-lockdown.sql`; suite 66 PASS (new: deleting a Word file whose copy has a base).
+- 2,488 tests, build clean. Not walked signed in.
