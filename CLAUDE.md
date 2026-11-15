@@ -344,6 +344,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   through `set_general_space_look` (Coordinators read it; archived and class spaces refuse). Edited in Settings → Details
   (`SpaceLookPanel`), read with `useSpaceLooks` (never via `general_space_overview`) and drawn with `ProjectMark` on space
   cards and the rail's space rows, and with `ClassMark` on the rail's places card. Suite: `supabase/tests/space-look.test.sql`.
+- File pulls (`supabase/file-pulls.sql`, after `space-look.sql`, before `anon-lockdown.sql`): Edit in Word on a Word file
+  in Main calls `pull_general_file` (writers only, Word extensions only, the path live in Main), which records the
+  person's `base_seq` in `general_file_pulls`; with `p_from_main` false a live pull keeps its base. A pull is live for 7
+  days (`pulled_at > now() - interval '7 days'` everywhere; an older row counts as none) or until that person's blob for
+  the path lands (`general_blobs_pull_end`) or `end_general_file_pull`. `general_blobs_pull_guard` (BEFORE INSERT on
+  `general_blobs`) refuses a blob whose commit author's live pull is older than Main's newest version of the path, so
+  direct commits, committed draft paths and merged changes are all held without redefining their functions; the app
+  matches the error by its prefix "Main has a newer version of". Anyone who reads the project reads live pulls (the
+  heads-up); `general_file_push_state` gives a pull next to Main's newest version, its author and time and whether it was
+  removed. Suite: `supabase/tests/file-pulls.test.sql`.
 
 ## First-run walkthroughs
 
