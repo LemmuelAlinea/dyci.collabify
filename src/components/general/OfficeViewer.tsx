@@ -65,6 +65,9 @@ export function OfficeViewer({
           <Icon name="download" size={14} />
           Download
         </Button>
+        <Button size="sm" variant="ghost" disabled={!src} onClick={() => src && window.open(src, '_blank', 'noopener')}>
+          Open in Microsoft
+        </Button>
         {onSimple && (
           <Button size="sm" variant="ghost" className="ml-auto" onClick={onSimple}>
             Use the simple preview
