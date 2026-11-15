@@ -4992,7 +4992,7 @@ accepted." from the setting; no failed requests.
 - `work-ai` reads `.docx` text from storage through the caller's client (summary, Write it, change summary,
   Q&A). **Redeploy `work-ai` with the frontend** (`npx supabase functions deploy work-ai`); until then "Write it"
   on an uploaded version gets no text.
-- Verified: 2,435 tests, build clean, SQL suite, storage SHA round trip, preview on the real file. Not walked
+- Verified: 2,484 tests, build clean, SQL suite, storage SHA round trip, preview on the real file. Not walked
   signed in with two accounts.
 
 **Deferred**
@@ -5000,4 +5000,22 @@ accepted." from the setting; no failed requests.
   Excel files still convert (same kind of loss).
 - Pre-existing live failures, unrelated to this work (reproduced with the pull triggers dropped):
   `commit-main`, `project-stakeholders` ("a class-board member can write"), `general-review-many` suites.
-- Minors from task reviews are in `.superpowers/sdd/2026-11-15-exact-word-files/progress.md`.
+- Minors left from the reviews: a draft copy's base survives Edit in Word only while the file panel stays open;
+  pre-feature draft Word rows show the unknown warning instead of a hold; a theme switch while a preview is open keeps
+  the old ground colour; Calibri/Cambria PostScript names in `local()` may be wrong (full names match first); held
+  message shows a date, not a time, and names only the last committer; a converted (`rich`) Main version diffs as
+  "all added" on the first upload of the original; a Word read failure in `work-ai` gives an empty summary.
+- If `vercel.json`'s report-only CSP is ever enforced, it needs `font-src data:` or the preview loses embedded fonts.
+
+### Security hardening after the whole-branch review (2026-11-16)
+- The preview renders in an iframe with `sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"`
+  (no scripts) and a CSP meta first in its `srcdoc` (`default-src 'none'; img-src data:; style-src 'unsafe-inline';
+  font-src 'self' data:`). docx-preview is pinned to 0.4.1 with `renderAltChunks: false` and `renderComments: false`;
+  `sanitizePreview` strips active elements, `on*`, comment nodes and unsafe link/image URLs. A hand-written CSS
+  sanitizer was tried and bypassed (raw newline inside a quoted string), so it was deleted; the frame plus CSP is the
+  boundary, checked in Chromium (remote `url()` blocked, `position: fixed` stayed inside the frame). In-file `#` links
+  scroll the preview instead of navigating the frame.
+- The hold lives with the copy: `general_file_bases` (storage_path → base_seq), written by `record_general_file_base`
+  (caller must own the storage object) and read by the `general_blobs` guard. Refreshing or ending a pull no longer
+  lifts a hold; folder Submit/Commit are disabled while a held file is inside; Replace anyway on a teammate's shared
+  copy copies the object first. Suite: 64 PASS. `work-ai` refuses a `storage_path` outside the project.
