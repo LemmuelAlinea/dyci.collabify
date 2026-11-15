@@ -20,6 +20,40 @@ const RANGES: Record<string, string> = {
   'latin-ext':
     'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF',
 }
+// Word's own face names per weight and style, so a twin fills in only when that exact face is missing.
+// Each family lists regular, bold, italic, bold italic as [full name, PostScript name].
+const LOCAL: Record<string, string[][]> = {
+  'Times New Roman': [
+    ['Times New Roman', 'TimesNewRomanPSMT'],
+    ['Times New Roman Bold', 'TimesNewRomanPS-BoldMT'],
+    ['Times New Roman Italic', 'TimesNewRomanPS-ItalicMT'],
+    ['Times New Roman Bold Italic', 'TimesNewRomanPS-BoldItalicMT'],
+  ],
+  Arial: [
+    ['Arial', 'ArialMT'],
+    ['Arial Bold', 'Arial-BoldMT'],
+    ['Arial Italic', 'Arial-ItalicMT'],
+    ['Arial Bold Italic', 'Arial-BoldItalicMT'],
+  ],
+  Calibri: [
+    ['Calibri', 'Calibri-Regular'],
+    ['Calibri Bold', 'Calibri-Bold'],
+    ['Calibri Italic', 'Calibri-Italic'],
+    ['Calibri Bold Italic', 'Calibri-BoldItalic'],
+  ],
+  Cambria: [
+    ['Cambria', 'Cambria-Regular'],
+    ['Cambria Bold', 'Cambria-Bold'],
+    ['Cambria Italic', 'Cambria-Italic'],
+    ['Cambria Bold Italic', 'Cambria-BoldItalic'],
+  ],
+}
+
+/** The installed-face names for one weight and style. */
+export function localFaces(family: string, weight: string, style: string) {
+  return LOCAL[family][(weight === '700' ? 1 : 0) + (style === 'italic' ? 2 : 0)]
+}
+
 const FILES = import.meta.glob(
   '/node_modules/@fontsource/{tinos,arimo,carlito,caladea}/files/*-latin{,-ext}-{400,700}-{normal,italic}.woff2',
   { query: '?url', import: 'default', eager: true },
@@ -36,7 +70,7 @@ export function registerWordFonts() {
     if (!m) continue
     const [, name, subset, weight, style] = m
     const family = TWINS[name]
-    const face = new FontFace(family, `local("${family}"), url("${url}") format("woff2")`, {
+    const face = new FontFace(family, `${localFaces(family, weight, style).map((n) => `local("${n}")`).join(', ')}, url("${url}") format("woff2")`, {
       weight,
       style,
       unicodeRange: RANGES[subset],
@@ -89,15 +123,20 @@ export function DocxPreview({
     let alive = true
     setReady(false)
     setFailed(false)
+    pages.current?.replaceChildren()
+    styles.current?.replaceChildren()
     registerWordFonts()
     void (async () => {
       try {
         const blob = await projectFileBlob(storagePath)
+        // Draw into fresh detached nodes; only the run still current swaps them in.
+        const nextPages = document.createElement('div')
+        const nextStyles = document.createElement('div')
+        await renderDocx(blob, nextPages, nextStyles)
         if (!alive || !pages.current || !styles.current) return
-        pages.current.replaceChildren()
-        styles.current.replaceChildren()
-        await renderDocx(blob, pages.current, styles.current)
-        if (alive) setReady(true)
+        pages.current.replaceChildren(...nextPages.childNodes)
+        styles.current.replaceChildren(...nextStyles.childNodes)
+        setReady(true)
       } catch {
         if (alive) setFailed(true)
       }
@@ -141,22 +180,20 @@ export function DocxPreview({
     </Button>
   )
 
-  if (failed) {
-    return (
-      <div className="space-y-2">
-        <Alert tone="info">
-          This kind of file is kept and versioned here but opened elsewhere. Download it, change it
-          in the program that made it, and upload it again.
-        </Alert>
-        {downloadError && <Alert tone="error">{downloadError}</Alert>}
-        {downloadButton}
-      </div>
-    )
-  }
-
   const step = STEPS.indexOf(zoom)
   return (
     <div className="space-y-2">
+      {failed && (
+        <div className="space-y-2">
+          <Alert tone="info">
+            This kind of file is kept and versioned here but opened elsewhere. Download it, change it
+            in the program that made it, and upload it again.
+          </Alert>
+          {downloadError && <Alert tone="error">{downloadError}</Alert>}
+          {downloadButton}
+        </div>
+      )}
+      <div hidden={failed} className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[12px] text-muted">
           A preview. Download to see it exactly as Word shows it.
@@ -190,7 +227,7 @@ export function DocxPreview({
         aria-label={label}
         className={`docx-preview relative min-h-[12rem] overflow-auto rounded-xl border border-line ${fill ? 'h-[calc((100dvh/var(--zoom,1))-13rem)]' : 'max-h-[calc(70vh/var(--zoom,1))]'}`}
       >
-        {!ready && (
+        {!ready && !failed && (
           <div className="absolute inset-0 flex items-center justify-center gap-2 text-[13px] text-muted">
             <Spinner size={15} />
             Drawing the pages…
@@ -198,6 +235,7 @@ export function DocxPreview({
         )}
         <div ref={styles} hidden />
         <div ref={pages} style={{ zoom: zoom * fit }} />
+      </div>
       </div>
     </div>
   )
