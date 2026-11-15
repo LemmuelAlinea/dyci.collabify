@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { Document, Packer, Paragraph, TextRun } from 'docx'
+import { strToU8, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import { docxParagraphs } from './text'
 
@@ -23,5 +24,20 @@ describe('docxParagraphs', () => {
   })
   it('gives an empty string for a broken file', () => {
     expect(docxParagraphs(Uint8Array.from([1, 2, 3, 4, 5]))).toBe('')
+  })
+
+  const raw = (body: string) =>
+    zipSync({ 'word/document.xml': strToU8(`<w:document xmlns:w="x"><w:body>${body}</w:body></w:document>`) })
+
+  it('keeps a self-closed paragraph as an empty line', () => {
+    const bytes = raw('<w:p w:rsidR="1"/><w:p><w:r><w:t>B</w:t></w:r></w:p>')
+    expect(docxParagraphs(bytes)).toBe('\nB')
+  })
+  it('drops tracked deletions and field codes', () => {
+    const bytes = raw(
+      '<w:p><w:r><w:t>Keep</w:t></w:r><w:del><w:r><w:delText xml:space="preserve"> gone</w:delText></w:r></w:del>' +
+        '<w:r><w:instrText> PAGE </w:instrText></w:r></w:p>',
+    )
+    expect(docxParagraphs(bytes)).toBe('Keep')
   })
 })

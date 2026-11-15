@@ -265,7 +265,7 @@ export function DraftPanel({
               behind={behind}
               conflicts={conflicts}
               mainOf={mainOf}
-                  mainStorageOf={mainStorageOf}
+              mainStorageOf={mainStorageOf}
               onNavigate={onNavigate}
               onOpen={onOpen}
               onArchive={setArchiving}

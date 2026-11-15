@@ -16,11 +16,12 @@ function decode(s: string) {
 export function docxParagraphs(bytes: Uint8Array): string {
   try {
     const xml = strFromU8(unzipSync(bytes, { filter: (f) => f.name === 'word/document.xml' })['word/document.xml'])
-    const paragraphs = xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? []
+    const paragraphs = xml.match(/<w:p(?:\s[^>]*?)?(?:\/>|>[\s\S]*?<\/w:p>)/g) ?? []
     return paragraphs
       .map((p) =>
         decode(
           p
+            .replace(/<w:(delText|instrText)\b[^>]*>[\s\S]*?<\/w:\1>/g, '')
             .replace(/<w:tab\s*\/>/g, '\t')
             .replace(/<w:(?:br|cr)\s*\/>/g, ' ')
             .replace(/<[^>]+>/g, ''),
