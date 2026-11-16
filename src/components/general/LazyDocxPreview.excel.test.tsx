@@ -25,7 +25,9 @@ vi.mock('./ExcelEditor', () => ({
 }))
 vi.mock('./DocxPreview', () => ({ DocxPreview: () => <div data-docx /> }))
 vi.mock('../../lib/api/wordPdf', () => ({ wordPdfUrl: m.pdf }))
-vi.mock('./LazyPdfPreview', () => ({ LazyPdfPreview: (p: { url?: string }) => <div data-pdf={p.url} /> }))
+vi.mock('./LazyPdfPreview', () => ({
+  LazyPdfPreview: (p: { url?: string; size?: number | null }) => <div data-pdf={p.url} data-size={String(p.size)} />,
+}))
 
 let host: HTMLDivElement | null = null
 let root: ReturnType<typeof createRoot> | null = null
@@ -95,11 +97,12 @@ it('offers no simple preview for a .xls', async () => {
 
 it('shows a .docx as the PDF the server made, on any host', async () => {
   m.reachable = true
-  m.pdf.mockResolvedValue('https://signed/preview.pdf')
+  m.pdf.mockResolvedValue({ url: 'https://signed/preview.pdf', size: 3_600_000 })
   await show('Chap1.docx')
   await settle(() => host!.querySelector('[data-pdf]') !== null)
   expect(m.pdf).toHaveBeenCalledWith('p/files/Chap1.docx')
   expect(host!.querySelector('[data-pdf]')?.getAttribute('data-pdf')).toBe('https://signed/preview.pdf')
+  expect(host!.querySelector('[data-pdf]')?.getAttribute('data-size')).toBe('3600000')
   expect(host!.textContent).toContain('Download gets the original Word file.')
   expect(host!.textContent).not.toContain('as Word draws it')
   expect(host!.querySelector('iframe')).toBeNull()
@@ -107,7 +110,7 @@ it('shows a .docx as the PDF the server made, on any host', async () => {
 
 it('says what went wrong, then offers the simple preview and a retry', async () => {
   m.pdf.mockRejectedValueOnce(new Error('The PDF converter is not set up on the server yet.'))
-  m.pdf.mockResolvedValueOnce('https://signed/again.pdf')
+  m.pdf.mockResolvedValueOnce({ url: 'https://signed/again.pdf', size: null })
   await show('Chap1.docx')
   await settle(() => host!.textContent!.includes('not set up'))
   expect(host!.textContent).toContain('Use the simple preview')
@@ -118,8 +121,20 @@ it('says what went wrong, then offers the simple preview and a retry', async () 
 })
 
 it('gives a .doc the PDF preview but no simple preview', async () => {
-  m.pdf.mockResolvedValue('https://signed/old.pdf')
+  m.pdf.mockResolvedValue({ url: 'https://signed/old.pdf', size: null })
   await show('Old.doc')
   await settle(() => host!.querySelector('[data-pdf]') !== null)
   expect(host!.textContent).not.toContain('Use the simple preview')
+})
+
+it('says it is opening a kept PDF, and only after 5 seconds that it is making one', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  m.pdf.mockReturnValue(new Promise(() => {}))
+  await show('Chap1.docx')
+  expect(host!.textContent).toContain('Opening the PDF preview…')
+  expect(host!.textContent).not.toContain('Making the PDF preview')
+  await act(async () => vi.advanceTimersByTime(5000))
+  expect(host!.textContent).toContain('Making the PDF preview…')
+  expect(host!.textContent).toContain('The first look at a long file can take up to a minute.')
+  vi.useRealTimers()
 })

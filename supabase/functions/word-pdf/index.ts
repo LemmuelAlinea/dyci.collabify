@@ -1,11 +1,17 @@
 // A Word file's PDF preview, made once and kept.
 //
-//   POST { storage_path }  ->  { result: 'ok', url }   (a 10-minute signed link)
+//   POST { storage_path }  ->  { result: 'ok', url, size }   (a 10-minute signed link, and
+//                                                    the PDF's bytes so the viewer can read it in ranges)
 //
 // The Word file itself is never changed. Its PDF lives in the private
 // file-previews bucket at `<storage_path>.pdf` (supabase/word-previews.sql), made
 // by the Gotenberg converter on Azure Container Apps (converter/Dockerfile) the first time
 // anyone asks. Uploaded objects never change, so a kept PDF never goes stale.
+// supabase/word-previews.sql keeps one PDF per version in use (Main's current
+// version, drafts, open requests, shares) and drops the rest.
+//
+// Images are saved at most 150 dpi, JPEG quality 85: the thesis's screenshots went
+// from 8.7 MB to about 3 MB, and the PDF is only what people see.
 //
 // Access: the caller's own token signs the Word file first, so the storage
 // policies decide who may see it; only then does the service role read the
@@ -28,6 +34,24 @@ const WORD_PATH = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 const LINK_SECONDS = 600
 /** Long theses take a while in LibreOffice; starting a scaled-to-zero container adds more. */
 const CONVERT_MS = 140_000
+/** Gotenberg 9's LibreOffice image options. */
+const IMAGE_OPTIONS: Record<string, string> = {
+  nativeQuality: '85',
+  nativeReduceImageResolution: 'true',
+  nativeMaxImageResolution: '150',
+}
+
+/** The kept preview's size in bytes, or null when there is none. */
+async function keptSize(admin: ReturnType<typeof createClient>, previewPath: string): Promise<number | null> {
+  const slash = previewPath.lastIndexOf('/')
+  const folder = previewPath.slice(0, slash)
+  const file = previewPath.slice(slash + 1)
+  const { data, error } = await admin.storage.from(PREVIEWS).list(folder, { search: file, limit: 5 })
+  if (error) return null
+  const found = (data ?? []).find((o) => o.name === file)
+  const size = Number((found?.metadata as { size?: number } | undefined)?.size)
+  return found && Number.isFinite(size) && size > 0 ? size : null
+}
 
 function json(headers: Record<string, string>, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -91,8 +115,11 @@ Deno.serve(async (req) => {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
     const previewPath = `${path}.pdf`
 
-    const kept = await admin.storage.from(PREVIEWS).createSignedUrl(previewPath, LINK_SECONDS)
-    if (!kept.error && kept.data?.signedUrl) return json(CORS, { result: 'ok', url: kept.data.signedUrl })
+    const size = await keptSize(admin, previewPath)
+    if (size) {
+      const kept = await admin.storage.from(PREVIEWS).createSignedUrl(previewPath, LINK_SECONDS)
+      if (!kept.error && kept.data?.signedUrl) return json(CORS, { result: 'ok', url: kept.data.signedUrl, size })
+    }
 
     if (!converter) return fail(CORS, 'The PDF converter is not set up on the server yet.', 503)
 
@@ -117,6 +144,7 @@ Deno.serve(async (req) => {
     const name = path.slice(path.lastIndexOf('/') + 1).replace(/^[0-9a-f-]{36}-/i, '') || 'file.docx'
     const form = new FormData()
     form.append('files', new Blob([bytes]), name)
+    for (const [field, value] of Object.entries(IMAGE_OPTIONS)) form.append(field, value)
 
     const converted = await fetch(`${converter.replace(/\/$/, '')}/forms/libreoffice/convert`, {
       method: 'POST',
@@ -141,7 +169,7 @@ Deno.serve(async (req) => {
 
     const link = await admin.storage.from(PREVIEWS).createSignedUrl(previewPath, LINK_SECONDS)
     if (link.error || !link.data?.signedUrl) return fail(CORS, 'Could not open the PDF preview. Try again.', 500)
-    return json(CORS, { result: 'ok', url: link.data.signedUrl })
+    return json(CORS, { result: 'ok', url: link.data.signedUrl, size: pdf.byteLength })
   } catch (err) {
     const timedOut = err instanceof DOMException && err.name === 'TimeoutError'
     console.error('word-pdf:', err)

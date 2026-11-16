@@ -6,6 +6,7 @@ import { Alert } from '../ui/Alert'
 import { Spinner } from '../ui/Icon'
 import { projectFileBlob } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { fetchRange } from '../../lib/general/pdfRange'
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
 
@@ -13,6 +14,28 @@ async function fetchPdf(url: string) {
   const response = await fetch(url)
   if (!response.ok) throw new Error('Could not load the PDF preview. Reopen the file and try again.')
   return response.blob()
+}
+
+/** pdf.js asks for 64 KB pieces; page 1 shows once its own pieces arrive, not the whole file. */
+const RANGE_CHUNK = 65536
+
+/** Feeds pdf.js the pieces it asks for, by Range request on a signed link. */
+class RangeTransport extends pdfjs.PDFDataRangeTransport {
+  private readonly href: string
+  private readonly fail: (err: unknown) => void
+
+  constructor(href: string, length: number, fail: (err: unknown) => void) {
+    super(length, null)
+    this.href = href
+    this.fail = fail
+  }
+
+  requestDataRange(begin: number, end: number) {
+    fetchRange(this.href, begin, end).then(
+      (chunk) => this.onDataRange(begin, chunk),
+      (err) => this.fail(err),
+    )
+  }
 }
 
 type LoadedPdf = {
@@ -24,6 +47,7 @@ type LoadedPdf = {
 export function PdfPreview({
   storagePath,
   url,
+  size,
   label,
   fill = false,
 }: {
@@ -31,6 +55,8 @@ export function PdfPreview({
   storagePath?: string
   /** Or a signed link to one (a Word file's PDF preview). */
   url?: string
+  /** The linked PDF's size in bytes: with it, the PDF is read in pieces as pages need them. */
+  size?: number | null
   label: string
   /** Full screen: take the window's height instead of stopping at 70%. */
   fill?: boolean
@@ -46,9 +72,20 @@ export function PdfPreview({
     setError(null)
     void (async () => {
       try {
-        const blob = url ? await fetchPdf(url) : await projectFileBlob(storagePath ?? '')
-        const bytes = new Uint8Array(await blob.arrayBuffer())
-        task = pdfjs.getDocument({ data: bytes })
+        if (url && size) {
+          const fail = (err: unknown) => {
+            if (alive) setError(authErrorMessage(err, 'Could not load the PDF preview.'))
+          }
+          task = pdfjs.getDocument({
+            range: new RangeTransport(url, size, fail),
+            rangeChunkSize: RANGE_CHUNK,
+            disableAutoFetch: true,
+          })
+        } else {
+          const blob = url ? await fetchPdf(url) : await projectFileBlob(storagePath ?? '')
+          const bytes = new Uint8Array(await blob.arrayBuffer())
+          task = pdfjs.getDocument({ data: bytes })
+        }
         const document = await task.promise
         if (!alive) {
           await document.destroy()
@@ -74,7 +111,7 @@ export function PdfPreview({
         return null
       })
     }
-  }, [storagePath, url])
+  }, [storagePath, url, size])
 
   if (error) return <Alert tone="error">{error}</Alert>
 

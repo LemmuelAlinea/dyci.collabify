@@ -23,9 +23,11 @@ vi.mock('../supabase', () => {
 })
 vi.mock('./general', () => ({ copyProjectFile: vi.fn(), saveDraftFile: vi.fn() }))
 vi.mock('./filePulls', () => ({ recordBase: vi.fn(), mainSeq: vi.fn() }))
+vi.mock('./wordPdf', () => ({ warmWordPdf: vi.fn() }))
 
 import { copyProjectFile, saveDraftFile } from './general'
 import { mainSeq, recordBase } from './filePulls'
+import { warmWordPdf } from './wordPdf'
 import { commitOrigins, fileVersions, restoreFile, restoreToDraft, revertCommit } from './fileHistory'
 
 const base = { repoId: 'r', projectId: 'p', path: 'a.bin' }
@@ -140,5 +142,37 @@ describe('reads', () => {
     expect('general_commits' in o.c1).toBe(false)
     expect(eqs).toEqual([['general_commits.repo_id', 'r']])
     expect(selects[0]).toContain('general_commit_origins_commit_id_fkey')
+  })
+})
+
+describe('the PDF preview of what is put back', () => {
+  it('starts making the PDF of a Word copy restored into a draft', async () => {
+    vi.mocked(copyProjectFile).mockResolvedValue('p/files/new-c.docx')
+    vi.mocked(mainSeq).mockResolvedValue(4)
+    await restoreToDraft({ ...base, path: 'c.docx', target: ver({ storage_path: 'p/files/x-c.docx' }), current: null })
+    expect(warmWordPdf).toHaveBeenCalledWith('p/files/new-c.docx')
+  })
+
+  it('leaves a non-Word copy alone', async () => {
+    vi.mocked(copyProjectFile).mockResolvedValue('p/files/new-a.bin')
+    vi.mocked(mainSeq).mockResolvedValue(4)
+    await restoreToDraft({ ...base, target: ver(), current: null })
+    expect(warmWordPdf).not.toHaveBeenCalled()
+  })
+
+  it("starts making the PDF of each Word version a restore or revert made current", async () => {
+    result = {
+      data: [
+        { id: 'c9', path: 'c.docx', kind: 'binary', action: 'changed', storage_path: 'p/files/x-c.docx' },
+        { id: 'c9', path: 'a.md', kind: 'text', action: 'changed', storage_path: null },
+        { id: 'c9', path: 'old.docx', kind: 'binary', action: 'removed', storage_path: 'p/files/o.docx' },
+      ],
+      error: null,
+    }
+    await restoreFile('r', 'c.docx', 2, 8)
+    await vi.waitFor(() => expect(warmWordPdf).toHaveBeenCalledWith('p/files/x-c.docx'))
+    await revertCommit('c1', 8)
+    await vi.waitFor(() => expect(warmWordPdf).toHaveBeenCalledTimes(2))
+    expect(warmWordPdf).not.toHaveBeenCalledWith('p/files/o.docx')
   })
 })

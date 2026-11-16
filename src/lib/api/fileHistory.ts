@@ -3,6 +3,8 @@ import type { FileVersion } from '../general/fileHistory'
 import type { FileAction, GeneralBlob, GeneralCommit, GeneralCommitOrigin } from '../general/types'
 import { copyProjectFile, saveDraftFile } from './general'
 import { mainSeq, recordBase } from './filePulls'
+import { warmWordPdf } from './wordPdf'
+import { isWordPath } from '../general/files'
 
 /** Every version of one path in Main, newest first, with its commit. */
 export async function fileVersions(
@@ -36,6 +38,19 @@ export async function commitOrigins(repoId: string): Promise<Record<string, Gene
   return out
 }
 
+/**
+ * A put-back makes an older Word version current again, and only current versions
+ * keep a PDF (supabase/word-previews.sql), so its PDF is made now, as an upload's is.
+ */
+async function warmPutBack(commitId: string) {
+  const { data } = await supabase.from('general_blobs').select('*').eq('commit_id', commitId)
+  for (const blob of (Array.isArray(data) ? data : []) as GeneralBlob[]) {
+    if (blob.kind === 'binary' && blob.action !== 'removed' && blob.storage_path && isWordPath(blob.path)) {
+      warmWordPdf(blob.storage_path)
+    }
+  }
+}
+
 export async function revertCommit(
   commitId: string,
   baseSeq: number,
@@ -49,7 +64,9 @@ export async function revertCommit(
     p_message: message,
   })
   if (error) throw error
-  return data as GeneralCommit
+  const commit = data as GeneralCommit
+  void warmPutBack(commit?.id).catch(() => {})
+  return commit
 }
 
 export async function restoreFile(
@@ -67,7 +84,9 @@ export async function restoreFile(
     p_message: message,
   })
   if (error) throw error
-  return data as GeneralCommit
+  const commit = data as GeneralCommit
+  void warmPutBack(commit?.id).catch(() => {})
+  return commit
 }
 
 /**
@@ -101,6 +120,7 @@ export async function restoreToDraft(input: {
     const copy = await copyProjectFile(projectId, target.storage_path ?? '')
     await saveDraftFile({ repoId, path, action, kind: 'binary', storagePath: copy })
     await recordBase(repoId, path, copy, await mainSeq(repoId, path))
+    if (isWordPath(path)) warmWordPdf(copy)
     return
   }
   await saveDraftFile({ repoId, path, action, kind: target.kind, content: target.content })
