@@ -16,6 +16,7 @@ export function PutBackDialog({
   toMain,
   defaultMessage,
   changedSince = [],
+  lead,
   onConfirm,
   onClose,
 }: {
@@ -27,6 +28,8 @@ export function PutBackDialog({
   defaultMessage: string
   /** Paths a later commit changed: nothing is offered but Close. */
   changedSince?: string[]
+  /** What putting it back does, when it is not 'back to how they were before it' (a restore to a version). */
+  lead?: string
   onConfirm: (message: string) => Promise<void>
   onClose: () => void
 }) {
@@ -62,9 +65,10 @@ export function PutBackDialog({
         ) : (
           <div className="space-y-3">
             <p>
-              {toMain
-                ? 'These files go back to how they were before it, in a new commit for everyone on the project. History keeps every version.'
-                : 'These files go back to how they were before it, in your draft. Main does not change until your draft is reviewed.'}
+              {lead ??
+                (toMain
+                  ? 'These files go back to how they were before it, in a new commit for everyone on the project. History keeps every version.'
+                  : 'These files go back to how they were before it, in your draft. Main does not change until your draft is reviewed.')}
             </p>
             <PathList paths={files} />
             {replacesDraft.length > 0 && (

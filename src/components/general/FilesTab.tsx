@@ -10,8 +10,6 @@ import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
 import {
   contentAt,
-  storagePathAt,
-  excelSourceAt,
   createRepo,
   draftConflicts,
   getRepo,
@@ -29,9 +27,9 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { editingLabel, pulledAgo } from '../../lib/general/newVersion'
 import { groupChanges } from '../../lib/general/review'
-import { laterEdits, originLabel, putBack, stateBefore } from '../../lib/general/fileHistory'
-import type { FileVersion } from '../../lib/general/fileHistory'
-import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isComparableExcel, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
+import { laterEdits, originLabel, putBack, putBackTarget, stateBefore } from '../../lib/general/fileHistory'
+import type { FileVersion, PutBackTo } from '../../lib/general/fileHistory'
+import { KEEP, buildTree, fileName, filesUnder, flatFiles, folderOf, isComparableExcel, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import { zipFolder } from '../../lib/general/zipFolder'
 import { downloadBlob } from '../../lib/general/office'
@@ -52,9 +50,6 @@ import type {
   GeneralRepoSummary,
   GeneralTreeFile,
 } from '../../lib/general/types'
-import { DiffView } from './DiffView'
-import { ExcelDiff } from './ExcelDiff'
-import { WordDiff } from './WordDiff'
 import { DeleteMainFileDialog } from './DeleteMainFileDialog'
 import { DraftPanel } from './DraftPanel'
 import { FileEditor } from './FileEditor'
@@ -66,6 +61,7 @@ import { PutBackDialog } from './PutBackDialog'
 import { NewItemDialog } from './NewItemDialog'
 import { RenameFolderDialog } from './RenameFolderDialog'
 import { SharedTab } from './SharedTab'
+import { VersionDiff } from './VersionDiff'
 import { RepoChangeRow } from './RepoChangeRow'
 import { RequestAccessButton } from './RequestAccessButton'
 import { CommitAccessButton } from './CommitAccessButton'
@@ -387,14 +383,21 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           repo={repo}
           draftFiles={draftFiles}
           mainHas={(p) => tree.some((f) => f.path === p)}
-          putBackTo={noDraft || state.readOnly ? null : state.can('commit_main') ? 'main' : 'draft'}
+          putBackTo={putBackTarget(state)}
           state={state}
           query={query}
           onDone={load}
         />
       )}
 
-      <FileEditor file={open} repo={repo} state={state} onClose={() => setOpen(null)} onSaved={load} />
+      <FileEditor
+        file={open}
+        repo={repo}
+        state={state}
+        onClose={() => setOpen(null)}
+        onSaved={load}
+        fileHistory={{ draftFiles }}
+      />
       <NewItemDialog
         open={adding}
         onClose={() => setAdding(false)}
@@ -984,9 +987,6 @@ function ChangeSection({
 
 /* ----------------------------------------------------------------- history */
 
-/** Where a revert or an undo lands: Main as a new commit, the person's draft, or nowhere (no action shown). */
-type PutBackTo = 'main' | 'draft' | null
-
 type HistoryProps = {
   repo: GeneralRepoSummary
   draftFiles: GeneralDraftFile[]
@@ -1231,31 +1231,7 @@ function CommitFiles({
               </Button>
             )}
           </p>
-          {f.kind === 'binary' && isPreviewableWord(f.path) ? (
-            <WordDiff
-              key={`${f.path}:${f.storage_path}`}
-              before={f.seq > 1 ? () => storagePathAt(f.repo_id, f.path, f.seq - 1) : null}
-              after={f.action === 'removed' ? null : f.storage_path}
-              caption={`What commit ${commit.seq} did to ${f.path}, by its words`}
-            />
-          ) : f.kind === 'binary' && isComparableExcel(f.path) ? (
-            <ExcelDiff
-              key={`${f.path}:${f.storage_path}`}
-              before={f.seq > 1 ? () => excelSourceAt(f.repo_id, f.path, f.seq - 1) : null}
-              after={f.action === 'removed' ? null : f.storage_path}
-              caption={`What commit ${commit.seq} did to ${f.path}, by its cells`}
-            />
-          ) : f.kind === 'binary' ? (
-            <p className="text-[12px] text-muted">
-              An uploaded file. Its contents are not compared here.
-            </p>
-          ) : (
-            <DiffView
-              before={fileText(f.kind, before[f.path] ?? '')}
-              after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
-              caption={`What commit ${commit.seq} did to ${f.path}, line by line`}
-            />
-          )}
+          <VersionDiff file={f} commitSeq={commit.seq} before={before[f.path] ?? ''} />
         </section>
       ))}
       {asking && (

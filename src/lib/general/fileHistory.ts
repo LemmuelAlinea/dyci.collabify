@@ -46,3 +46,20 @@ export function originLabel(o: {
   if (o.kind === 'restore') return `Restores ${o.path} to #${o.source_seq}`
   return o.path ? `Undoes #${o.source_seq} on ${o.path}` : `Reverts #${o.source_seq}`
 }
+
+/** Where putting a file back lands: Main as a new commit, the person's draft, or nowhere (no action offered). */
+export type PutBackTo = 'main' | 'draft' | null
+
+/**
+ * Whoever holds `commit_main` puts files back in Main; everyone else with a draft puts them in it.
+ * A stakeholder, a class's teacher and a read-only viewer only look.
+ */
+export function putBackTarget(s: {
+  myRole: string | null
+  classTeacher?: boolean
+  readOnly: boolean
+  can: (permission: 'commit_main') => boolean
+}): PutBackTo {
+  if (s.readOnly || s.myRole === 'stakeholder' || s.classTeacher) return null
+  return s.can('commit_main') ? 'main' : 'draft'
+}

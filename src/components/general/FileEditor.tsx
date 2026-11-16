@@ -20,7 +20,8 @@ import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/offi
 import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
 import { FILE_KIND_LABEL } from '../../lib/general/types'
-import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
+import type { FileAction, FileKind, GeneralDraftFile, GeneralRepoSummary } from '../../lib/general/types'
+import { FileHistoryPanel } from './FileHistoryPanel'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import { LazyDocxPreview as DocxPreview } from './LazyDocxPreview'
 import { WordVersionPanel } from './WordVersionPanel'
@@ -72,12 +73,15 @@ export function FileEditor({
   state,
   onClose,
   onSaved,
+  fileHistory,
 }: {
   file: OpenFile | null
   repo: GeneralRepoSummary
   state: GeneralProjectState
   onClose: () => void
   onSaved: () => Promise<void>
+  /** Given where a file's history can be shown and put back: the Files tab, with the person's draft. */
+  fileHistory?: { draftFiles: GeneralDraftFile[] }
 }) {
   const [full, setFull] = useState(false)
   // Whether the browser's own full screen is ours to leave again.
@@ -149,7 +153,7 @@ export function FileEditor({
       }
     >
       {file && (
-        <Body key={file.path + String(file.fromDraft) + (file.sharedBy ?? '')} file={file} repo={repo} state={state} full={full} onClose={close} onSaved={onSaved} />
+        <Body key={file.path + String(file.fromDraft) + (file.sharedBy ?? '')} file={file} repo={repo} state={state} full={full} onClose={close} onSaved={onSaved} fileHistory={fileHistory} />
       )}
     </Modal>
   )
@@ -162,6 +166,7 @@ function Body({
   full,
   onClose,
   onSaved,
+  fileHistory,
 }: {
   file: OpenFile
   repo: GeneralRepoSummary
@@ -169,6 +174,7 @@ function Body({
   full: boolean
   onClose: () => void
   onSaved: () => Promise<void>
+  fileHistory?: { draftFiles: GeneralDraftFile[] }
 }) {
   const { show } = useToast()
   const readOnly = state.readOnly || file.sharedBy !== undefined
@@ -190,6 +196,10 @@ function Body({
     !file.fromDraft && file.sharedBy === undefined && (isEditable(file.kind) || isPdf || isOfficeText) && Boolean(state.project) && !state.classTeacher
   // Who may upload a new version, as WordVersionPanel decides it.
   const mayUpload = !readOnly && state.myRole !== 'stakeholder' && !state.classTeacher
+  // A file Main has: a draft-only new file has no history yet, and a shared copy is a teammate's, not Main's.
+  const inMain = file.mainAt !== undefined ? file.mainAt !== null : !(file.fromDraft && file.action === 'added')
+  const hasHistory = Boolean(fileHistory) && file.sharedBy === undefined && inMain
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const [text, setText] = useState(file.kind === 'sheet' ? '' : file.content)
   const [book, setBook] = useState<Workbook>(() =>
@@ -321,230 +331,259 @@ function Body({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
-        <span className="rounded-md surface-sunken px-2 py-0.5">{FILE_KIND_LABEL[file.kind]}</span>
-        {file.sharedBy !== undefined ? (
-          <span className="rounded-md surface-sunken px-2 py-0.5">Shared by {file.sharedBy}</span>
-        ) : inDraft ? (
-          <span className="rounded-md bg-amber-400/25 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
-            Your draft
-          </span>
-        ) : (
-          <span className="rounded-md surface-sunken px-2 py-0.5">
-            Main, commit {repo.commit_count}
-          </span>
-        )}
-        {summarizable && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto"
-            loading={summarizing}
-            onClick={async () => {
-              if (!state.project) return
-              setSummarizing(true)
-              setError(null)
-              try {
-                const res = await summarizeFile(state.project.id, file.path)
-                if (res.result !== 'ok') setError(res.message)
-                else setPoints(res.points)
-              } catch (err) {
-                setError(authErrorMessage(err, 'Could not summarize it. Try again in a moment.'))
-              } finally {
-                setSummarizing(false)
-              }
-            }}
-          >
-            {!summarizing && <Icon name="spark" size={14} />}
-            Summarize
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="ghost"
-          className={summarizable ? '' : 'ml-auto'}
-          onClick={() => void download()}
-        >
-          <Icon name="download" size={14} />
-          Download
-        </Button>
-      </div>
-
-      {error && <Alert tone="error">{error}</Alert>}
-
-      {points && (
-        <section className="rounded-xl border border-line surface-sunken px-3.5 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <p className="eyebrow">Key points · AI</p>
-            <button
-              type="button"
-              onClick={() => setPoints(null)}
-              aria-label="Hide the summary"
-              className="-mt-1 -mr-1 grid h-6 w-6 place-items-center rounded-md text-faint hover:text-ink"
-            >
-              <Icon name="x" size={13} />
-            </button>
-          </div>
-          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink">
-            {points.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[11px] text-faint">From the version in Main. Check the file before you rely on it.</p>
-        </section>
-      )}
-
-      {misreadOfficeFile && (
-        <Alert tone="error">
-          This Word or Excel file was uploaded as text, so the original document contents are not
-          recoverable from this draft. Drop it, then upload the file again; the new upload will be
-          saved as an editable document.
-        </Alert>
-      )}
-
-      {file.kind === 'binary' && file.sharedBy === undefined && file.action !== 'removed' && (
-        <WordVersionPanel file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
-      )}
-
-      {file.kind === 'binary' && !isPdf && !isOfficePreview && (
-        <Alert tone="info">
-          {mayUpload
-            ? 'This kind of file is kept and versioned here but opened elsewhere. Download it, change it in the program that made it, and upload it here as a new version.'
-            : 'This kind of file is kept and versioned here but opened elsewhere. Download it to open it in the program that made it.'}
-        </Alert>
-      )}
-
-      {isPdf && (
-        file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} fill={full} /> : null
-      )}
-
-      {isOfficePreview && (
-        file.storagePath ? <DocxPreview storagePath={file.storagePath} label={name} fill={full} /> : null
-      )}
-
-      {!mayCommit && !readOnly && isEditable(file.kind) && (
-        <Alert tone="info">
-          Saving puts this in your draft. Nobody else sees it until you submit your draft for
-          review.
-        </Alert>
-      )}
-
-      {file.kind === 'rich' && !readOnly && (
-        <Alert tone="info">
-          This copy was converted when it was uploaded, so some Word formatting may be gone. Upload the original .docx again
-          with New, Upload a file, under the same name, to keep it exactly.
-        </Alert>
-      )}
-
-      {convertedSheet && !readOnly && (
-        <Alert tone="info">
-          This copy was converted when it was uploaded, so charts, pictures and some formatting may be gone. Upload the
-          original .{extensionOf(file.path)} again with New, Upload a file, under the same name, to keep it exactly.
-        </Alert>
-      )}
-
-      {previewCsv && (
-        <Suspense fallback={<EditorLoading what="spreadsheet" />}>
-          <CsvPreview projectId={state.project?.id} label={name} workbook={book} fill={full} onEdit={!frozen ? () => setPreviewCsv(false) : undefined} />
-        </Suspense>
-      )}
-      {file.kind === 'sheet' && extensionOf(file.path) === 'csv' && !previewCsv && (
-        <Button size="sm" variant="outline" onClick={() => setPreviewCsv(true)}>View in Microsoft Excel</Button>
-      )}
-
-      <div ref={editorArea}>
-        {file.kind === 'rich' && (
-          <Suspense fallback={<EditorLoading what="document" />}>
-            <WordEditor
-              value={file.content}
-              onChange={setText}
-              readOnly={frozen}
-              fill={full}
-              projectId={state.project?.id}
-            />
-          </Suspense>
-        )}
-        {file.kind === 'sheet' && !previewCsv && (
-          <Suspense fallback={<EditorLoading what="spreadsheet" />}>
-            <ExcelEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
-          </Suspense>
-        )}
-        {file.kind === 'text' && !misreadOfficeFile && (
-          <Suspense fallback={<EditorLoading what="code editor" />}>
-            <CodeEditor
-              path={file.path}
-              value={file.content}
-              onChange={(next) => setText(next.slice(0, 400000))}
-              onSave={() => {
-                if (!frozen && current !== baseline) void save(false, true)
-              }}
-              readOnly={frozen}
-              fill={full}
-            />
-          </Suspense>
-        )}
-      </div>
-
-      {misreadOfficeFile && file.fromDraft && (
-        <Button variant="outline" onClick={() => void dropMisreadDraft()} loading={busy}>
-          Drop this bad draft file
-        </Button>
-      )}
-
-      {!frozen && (
-        <div className="flex flex-wrap items-end gap-2">
-          {mayCommit && (
-            <div className="min-w-[14rem] flex-1">
-              <Field label="Commit message">
-                {(id) => (
-                  <Input
-                    id={id}
-                    maxLength={200}
-                    placeholder="Reworded the sampling paragraph"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                  />
-                )}
-              </Field>
-            </div>
+    <div className={historyOpen ? 'grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]' : undefined}>
+      <div className="min-w-0 space-y-4">
+        <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
+          <span className="rounded-md surface-sunken px-2 py-0.5">{FILE_KIND_LABEL[file.kind]}</span>
+          {file.sharedBy !== undefined ? (
+            <span className="rounded-md surface-sunken px-2 py-0.5">Shared by {file.sharedBy}</span>
+          ) : inDraft ? (
+            <span className="rounded-md bg-amber-400/25 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
+              Your draft
+            </span>
+          ) : (
+            <span className="rounded-md surface-sunken px-2 py-0.5">
+              Main, commit {repo.commit_count}
+            </span>
           )}
-          {mayCommit && (
+          {summarizable && (
             <Button
+              size="sm"
               variant="ghost"
-              loading={writing}
-              disabled={!dirty || !state.project}
-              aria-label="Write the commit message for me"
-              title="Write the commit message from what changed"
+              className="ml-auto"
+              loading={summarizing}
               onClick={async () => {
                 if (!state.project) return
-                setWriting(true)
+                setSummarizing(true)
                 setError(null)
                 try {
-                  const res = await writeChangeMessage(state.project.id, {
-                    files: [{ path: file.path, kind: file.kind, content: current }],
-                  })
+                  const res = await summarizeFile(state.project.id, file.path)
                   if (res.result !== 'ok') setError(res.message)
-                  else setMessage(res.title)
+                  else setPoints(res.points)
                 } catch (err) {
-                  setError(authErrorMessage(err, 'Could not write it. Write it yourself, or try again.'))
+                  setError(authErrorMessage(err, 'Could not summarize it. Try again in a moment.'))
                 } finally {
-                  setWriting(false)
+                  setSummarizing(false)
                 }
               }}
             >
-              {!writing && <Icon name="spark" size={15} />}
-              Write it
+              {!summarizing && <Icon name="spark" size={14} />}
+              Summarize
             </Button>
           )}
-          <Button variant="outline" onClick={() => void save(false)} loading={busy} disabled={!dirty}>
-            Save to my draft
+          {hasHistory && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={summarizable ? '' : 'ml-auto'}
+              aria-pressed={historyOpen}
+              onClick={() => setHistoryOpen((o) => !o)}
+            >
+              <Icon name="clock" size={14} />
+              History
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className={summarizable || hasHistory ? '' : 'ml-auto'}
+            onClick={() => void download()}
+          >
+            <Icon name="download" size={14} />
+            Download
           </Button>
-          {mayCommit && (
-            <Button onClick={() => void save(true)} loading={busy} disabled={!dirty}>
-              Commit to Main
-            </Button>
+        </div>
+
+        {error && <Alert tone="error">{error}</Alert>}
+
+        {points && (
+          <section className="rounded-xl border border-line surface-sunken px-3.5 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <p className="eyebrow">Key points · AI</p>
+              <button
+                type="button"
+                onClick={() => setPoints(null)}
+                aria-label="Hide the summary"
+                className="-mt-1 -mr-1 grid h-6 w-6 place-items-center rounded-md text-faint hover:text-ink"
+              >
+                <Icon name="x" size={13} />
+              </button>
+            </div>
+            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink">
+              {points.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-faint">From the version in Main. Check the file before you rely on it.</p>
+          </section>
+        )}
+
+        {misreadOfficeFile && (
+          <Alert tone="error">
+            This Word or Excel file was uploaded as text, so the original document contents are not
+            recoverable from this draft. Drop it, then upload the file again; the new upload will be
+            saved as an editable document.
+          </Alert>
+        )}
+
+        {file.kind === 'binary' && file.sharedBy === undefined && file.action !== 'removed' && (
+          <WordVersionPanel file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
+        )}
+
+        {file.kind === 'binary' && !isPdf && !isOfficePreview && (
+          <Alert tone="info">
+            {mayUpload
+              ? 'This kind of file is kept and versioned here but opened elsewhere. Download it, change it in the program that made it, and upload it here as a new version.'
+              : 'This kind of file is kept and versioned here but opened elsewhere. Download it to open it in the program that made it.'}
+          </Alert>
+        )}
+
+        {isPdf && (
+          file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} fill={full} /> : null
+        )}
+
+        {isOfficePreview && (
+          file.storagePath ? <DocxPreview storagePath={file.storagePath} label={name} fill={full} /> : null
+        )}
+
+        {!mayCommit && !readOnly && isEditable(file.kind) && (
+          <Alert tone="info">
+            Saving puts this in your draft. Nobody else sees it until you submit your draft for
+            review.
+          </Alert>
+        )}
+
+        {file.kind === 'rich' && !readOnly && (
+          <Alert tone="info">
+            This copy was converted when it was uploaded, so some Word formatting may be gone. Upload the original .docx again
+            with New, Upload a file, under the same name, to keep it exactly.
+          </Alert>
+        )}
+
+        {convertedSheet && !readOnly && (
+          <Alert tone="info">
+            This copy was converted when it was uploaded, so charts, pictures and some formatting may be gone. Upload the
+            original .{extensionOf(file.path)} again with New, Upload a file, under the same name, to keep it exactly.
+          </Alert>
+        )}
+
+        {previewCsv && (
+          <Suspense fallback={<EditorLoading what="spreadsheet" />}>
+            <CsvPreview projectId={state.project?.id} label={name} workbook={book} fill={full} onEdit={!frozen ? () => setPreviewCsv(false) : undefined} />
+          </Suspense>
+        )}
+        {file.kind === 'sheet' && extensionOf(file.path) === 'csv' && !previewCsv && (
+          <Button size="sm" variant="outline" onClick={() => setPreviewCsv(true)}>View in Microsoft Excel</Button>
+        )}
+
+        <div ref={editorArea}>
+          {file.kind === 'rich' && (
+            <Suspense fallback={<EditorLoading what="document" />}>
+              <WordEditor
+                value={file.content}
+                onChange={setText}
+                readOnly={frozen}
+                fill={full}
+                projectId={state.project?.id}
+              />
+            </Suspense>
           )}
+          {file.kind === 'sheet' && !previewCsv && (
+            <Suspense fallback={<EditorLoading what="spreadsheet" />}>
+              <ExcelEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
+            </Suspense>
+          )}
+          {file.kind === 'text' && !misreadOfficeFile && (
+            <Suspense fallback={<EditorLoading what="code editor" />}>
+              <CodeEditor
+                path={file.path}
+                value={file.content}
+                onChange={(next) => setText(next.slice(0, 400000))}
+                onSave={() => {
+                  if (!frozen && current !== baseline) void save(false, true)
+                }}
+                readOnly={frozen}
+                fill={full}
+              />
+            </Suspense>
+          )}
+        </div>
+
+        {misreadOfficeFile && file.fromDraft && (
+          <Button variant="outline" onClick={() => void dropMisreadDraft()} loading={busy}>
+            Drop this bad draft file
+          </Button>
+        )}
+
+        {!frozen && (
+          <div className="flex flex-wrap items-end gap-2">
+            {mayCommit && (
+              <div className="min-w-[14rem] flex-1">
+                <Field label="Commit message">
+                  {(id) => (
+                    <Input
+                      id={id}
+                      maxLength={200}
+                      placeholder="Reworded the sampling paragraph"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                    />
+                  )}
+                </Field>
+              </div>
+            )}
+            {mayCommit && (
+              <Button
+                variant="ghost"
+                loading={writing}
+                disabled={!dirty || !state.project}
+                aria-label="Write the commit message for me"
+                title="Write the commit message from what changed"
+                onClick={async () => {
+                  if (!state.project) return
+                  setWriting(true)
+                  setError(null)
+                  try {
+                    const res = await writeChangeMessage(state.project.id, {
+                      files: [{ path: file.path, kind: file.kind, content: current }],
+                    })
+                    if (res.result !== 'ok') setError(res.message)
+                    else setMessage(res.title)
+                  } catch (err) {
+                    setError(authErrorMessage(err, 'Could not write it. Write it yourself, or try again.'))
+                  } finally {
+                    setWriting(false)
+                  }
+                }}
+              >
+                {!writing && <Icon name="spark" size={15} />}
+                Write it
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => void save(false)} loading={busy} disabled={!dirty}>
+              Save to my draft
+            </Button>
+            {mayCommit && (
+              <Button onClick={() => void save(true)} loading={busy} disabled={!dirty}>
+                Commit to Main
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+      {historyOpen && fileHistory && (
+        <div className="order-first min-w-0 md:order-none">
+          <FileHistoryPanel
+            repo={repo}
+            path={file.path}
+            state={state}
+            draftFiles={fileHistory.draftFiles}
+            onDone={async () => {
+              onClose()
+              await onSaved()
+            }}
+            onClose={() => setHistoryOpen(false)}
+          />
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laterEdits, originLabel, putBack, stateBefore, type FileVersion } from './fileHistory'
+import { laterEdits, originLabel, putBack, putBackTarget, stateBefore, type FileVersion } from './fileHistory'
 
 const v = (seq: number, over: Partial<FileVersion> = {}): FileVersion => ({
   seq,
@@ -75,5 +75,23 @@ describe('originLabel', () => {
   })
   it('names a restore', () => {
     expect(originLabel({ kind: 'restore', source_seq: 5, path: 'a.md' })).toBe('Restores a.md to #5')
+  })
+})
+
+describe('putBackTarget', () => {
+  const s = (over: Partial<Parameters<typeof putBackTarget>[0]> = {}) => ({
+    myRole: 'member',
+    readOnly: false,
+    can: () => false,
+    ...over,
+  })
+  it('puts back in Main for commit_main and in the draft for everyone else', () => {
+    expect(putBackTarget(s({ can: (p) => p === 'commit_main' }))).toBe('main')
+    expect(putBackTarget(s())).toBe('draft')
+  })
+  it('offers nothing to a stakeholder, a class teacher or a read-only viewer', () => {
+    expect(putBackTarget(s({ myRole: 'stakeholder' }))).toBeNull()
+    expect(putBackTarget(s({ classTeacher: true }))).toBeNull()
+    expect(putBackTarget(s({ readOnly: true, can: () => true }))).toBeNull()
   })
 })
