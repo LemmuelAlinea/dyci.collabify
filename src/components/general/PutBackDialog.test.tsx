@@ -98,3 +98,13 @@ it('shows what the database refused, in its own words', async () => {
   await act(async () => button('Put back in Main')!.click())
   expect(document.body.textContent).toContain('Later commits changed a.md. Restore each file from its history instead.')
 })
+
+it('says unsaved edits are dropped only when there are some', async () => {
+  await show({ dropsUnsaved: true })
+  expect(document.querySelector('[data-drops-unsaved]')?.textContent).toBe('Your unsaved changes in this file are dropped.')
+  await act(async () => root!.unmount())
+  host!.remove()
+  root = null
+  await show()
+  expect(document.querySelector('[data-drops-unsaved]')).toBeNull()
+})

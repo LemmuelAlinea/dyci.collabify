@@ -30,6 +30,7 @@ export function FileHistoryPanel({
   path,
   state,
   draftFiles,
+  dirty = false,
   onDone,
   onClose,
 }: {
@@ -37,6 +38,8 @@ export function FileHistoryPanel({
   path: string
   state: GeneralProjectState
   draftFiles: GeneralDraftFile[]
+  /** The open file has unsaved edits: a restore or an undo closes it, so the dialog says they are dropped. */
+  dirty?: boolean
   /** After a restore or an undo lands. */
   onDone: () => void | Promise<void>
   onClose: () => void
@@ -238,6 +241,7 @@ export function FileHistoryPanel({
           replacesDraft={!toMain && draftFiles.some((f) => f.path === path) ? [path] : []}
           changedSince={asking.kind === 'undo' ? asking.changedSince : []}
           toMain={toMain}
+          dropsUnsaved={dirty}
           lead={
             asking.kind === 'restore'
               ? toMain

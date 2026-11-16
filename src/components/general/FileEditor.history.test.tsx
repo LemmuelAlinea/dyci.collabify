@@ -22,11 +22,13 @@ vi.mock('../../lib/api/general', () => ({
   saveDraftFile: vi.fn(),
 }))
 vi.mock('../../lib/api/workAi', () => ({ summarizeFile: vi.fn(), writeChangeMessage: vi.fn() }))
-vi.mock('./CodeEditor', () => ({ default: () => <div data-code-editor /> }))
+vi.mock('./CodeEditor', () => ({
+  default: (p: { onChange: (next: string) => void }) => <button onClick={() => p.onChange('edited')}>Type</button>,
+}))
 vi.mock('./WordVersionPanel', () => ({ WordVersionPanel: () => null }))
 vi.mock('./FileHistoryPanel', () => ({
-  FileHistoryPanel: (p: { path: string; onDone: () => void; onClose: () => void }) => (
-    <div data-history={p.path}>
+  FileHistoryPanel: (p: { path: string; dirty?: boolean; onDone: () => void; onClose: () => void }) => (
+    <div data-history={p.path} data-dirty={String(Boolean(p.dirty))}>
       <button onClick={p.onDone}>Restored</button>
       <button onClick={p.onClose}>Close the history</button>
     </div>
@@ -122,4 +124,12 @@ it('closes the file and reloads after a restore lands', async () => {
   await click('Restored')
   expect(onClose).toHaveBeenCalled()
   expect(onSaved).toHaveBeenCalled()
+})
+
+it("tells the history whether the open file has unsaved edits", async () => {
+  await open(notes)
+  await click("History")
+  expect(host!.querySelector("[data-history]")!.getAttribute("data-dirty")).toBe("false")
+  await click("Type")
+  expect(host!.querySelector("[data-history]")!.getAttribute("data-dirty")).toBe("true")
 })

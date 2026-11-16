@@ -578,6 +578,7 @@ function Body({
             path={file.path}
             state={state}
             draftFiles={fileHistory.draftFiles}
+            dirty={dirty}
             onDone={async () => {
               onClose()
               await onSaved()

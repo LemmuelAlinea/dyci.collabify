@@ -17,6 +17,7 @@ export function PutBackDialog({
   defaultMessage,
   changedSince = [],
   lead,
+  dropsUnsaved = false,
   onConfirm,
   onClose,
 }: {
@@ -30,6 +31,8 @@ export function PutBackDialog({
   changedSince?: string[]
   /** What putting it back does, when it is not 'back to how they were before it' (a restore to a version). */
   lead?: string
+  /** The open file has unsaved edits, which putting this back closes without saving. */
+  dropsUnsaved?: boolean
   onConfirm: (message: string) => Promise<void>
   onClose: () => void
 }) {
@@ -76,6 +79,11 @@ export function PutBackDialog({
                 <p>Your draft already has its own copy of these files. Putting this back replaces it.</p>
                 <PathList paths={replacesDraft} marker="data-replaces-draft" />
               </div>
+            )}
+            {dropsUnsaved && (
+              <p data-drops-unsaved="" className="text-warning-700 dark:text-warning-300">
+                Your unsaved changes in this file are dropped.
+              </p>
             )}
             {toMain && (
               <div className="space-y-1">

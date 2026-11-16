@@ -68,13 +68,13 @@ afterEach(async () => {
   vi.clearAllMocks()
 })
 
-async function show(state: GeneralProjectState, draftFiles: GeneralDraftFile[] = []) {
+async function show(state: GeneralProjectState, draftFiles: GeneralDraftFile[] = [], dirty = false) {
   host = document.createElement('div')
   document.body.append(host)
   root = createRoot(host)
   await act(async () =>
     root!.render(
-      <FileHistoryPanel repo={repo as never} path="a.md" state={state} draftFiles={draftFiles} onDone={onDone} onClose={onClose} />,
+      <FileHistoryPanel repo={repo as never} path="a.md" state={state} draftFiles={draftFiles} dirty={dirty} onDone={onDone} onClose={onClose} />,
     ),
   )
 }
@@ -206,4 +206,22 @@ it('closes from its own close button', async () => {
   await show(committer)
   await act(async () => host!.querySelector<HTMLButtonElement>('button[aria-label="Close the history"]')!.click())
   expect(onClose).toHaveBeenCalled()
+})
+
+it("warns that a restore drops the open file's unsaved edits, only when there are some", async () => {
+  await show(committer, [], true)
+  await expand(1)
+  await click("Restore this version")
+  expect(document.querySelector("[data-drops-unsaved]")?.textContent).toBe("Your unsaved changes in this file are dropped.")
+  await click("Cancel")
+  await expand(3)
+  await click("Undo this change")
+  expect(document.querySelector("[data-drops-unsaved]")).not.toBeNull()
+  await act(async () => root!.unmount())
+  host!.remove()
+  root = null
+  await show(committer)
+  await expand(1)
+  await click("Restore this version")
+  expect(document.querySelector("[data-drops-unsaved]")).toBeNull()
 })
