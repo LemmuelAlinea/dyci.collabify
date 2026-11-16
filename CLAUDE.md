@@ -361,9 +361,14 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - Word PDF previews (`supabase/word-previews.sql`, after `file-pulls.sql`, before `anon-lockdown.sql`): a Word file
   stays the uploaded file; Files shows a PDF the `word-pdf` Edge Function makes once with the Gotenberg converter on
   Azure Container Apps (`converter/Dockerfile`, image built on GitHub) and keeps in the private `file-previews` bucket at `<storage path>.pdf`. The
-  function signs the Word file with the caller's token first, so storage policies decide access. Uploads warm it
-  (`warmWordPdf`); `WordPdfPreview` shows it. Excel keeps Microsoft's viewer. Deploy and secrets:
-  `docs/word-pdf-previews.md`.
+  function signs the Word file with the caller's token first, so storage policies decide access, and answers the
+  PDF's `size` so `PdfPreview` reads it in 64 KB ranges (`PDFDataRangeTransport` through `fetchRange`; Storage does
+  not expose its range headers); `wordPdfUrl` reuses a link for 8 minutes. Images are saved at 150 dpi, quality 85.
+  Only versions in use keep a PDF (`word_preview_keep`: Main's current version, drafts, open requests, shares, no
+  expiry); the trigger `general_blobs_word_preview_drop` deletes the replaced version's PDF when a Word file's new
+  version lands in Main, and the hourly `collabify-preview-sweep` the rest (15-minute grace). Uploads, restores and
+  reverts warm the new PDF (`warmWordPdf`). Excel keeps Microsoft's viewer. Deploy and secrets:
+  `docs/word-pdf-previews.md`. Suite: `supabase/tests/word-previews.test.sql`.
 - File history (`supabase/file-history.sql`, after `word-previews.sql`, before `anon-lockdown.sql`): History can
   revert a whole commit or undo one file's change, and a file's History panel (`FileHistoryPanel`, from the History
   button in `FileEditor`) can restore an older version. Into Main for `commit_main` holders

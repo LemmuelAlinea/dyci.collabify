@@ -1020,9 +1020,12 @@ stale. A share or draft copy of an old Main object, committed or merged any othe
 Suite: `supabase/tests/file-history.test.sql`.
 
 `word-previews.sql` runs after `file-pulls.sql` and before `anon-lockdown.sql`. It creates the private
-`file-previews` bucket (no policies; only the `word-pdf` Edge Function's service role touches it) and the hourly
-`collabify-preview-sweep` job, which removes a Word file's PDF preview once the Word file is gone from storage. It
-redefines nothing another file owns. See `docs/word-pdf-previews.md`.
+`file-previews` bucket (no policies; only the `word-pdf` Edge Function's service role touches it), the keep rule
+(`word_preview_keep`: one PDF per Word version in use, so Main's current version, drafts, open requests and shares),
+the AFTER INSERT trigger `general_blobs_word_preview_drop` on `general_blobs`, which deletes the replaced version's
+PDF through pg_net when a Word file's new version lands in Main, and the hourly `collabify-preview-sweep` job for
+everything else (15-minute grace). It redefines nothing another file owns; its trigger sits beside the upload
+guard. Suite: `supabase/tests/word-previews.test.sql`. See `docs/word-pdf-previews.md`.
 
 ## Peer round delete
 

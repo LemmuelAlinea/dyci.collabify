@@ -12,8 +12,17 @@ the original Word file.
    see it), then looks for `file-previews/<storage path>.pdf`. If it is there it answers a 10-minute signed link.
 3. If not, it sends the file to the converter (Gotenberg, LibreOffice, on Azure Container Apps), keeps the PDF in
    `file-previews` and answers the link. New conversions are limited to 60 an hour and 300 a day per person.
-4. Uploaded objects never change, so a kept PDF never goes stale. `collabify-preview-sweep` (hourly) removes a
-   preview once its Word file is gone from storage.
+4. Uploaded objects never change, so a kept PDF never goes stale. Only versions in use keep one (below).
+
+Opening a kept PDF is quick: the function answers its link and size, and the viewer reads it in 64 KB ranges, so
+page 1 shows after a few hundred KB instead of the whole file. A link is reused for 8 minutes. The label reads
+"Opening the PDF preview…" and changes to "Making the PDF preview…" only after 5 seconds, when a conversion is
+running. Images are saved at 150 dpi, quality 85 (the 203-page thesis: 3.8 MB instead of 9.6 MB).
+
+Only versions in use keep a PDF, with no expiry: Main's current version of each Word file, files in a draft, an
+open review request or a share. When a commit, merge, revert or restore replaces a Word file's version in Main, the
+old version's PDF is deleted at once, and the app starts the new current version's PDF. The hourly sweep removes the
+rest.
 
 Excel files keep Microsoft's Office viewer (and the in-app sheet view on localhost).
 

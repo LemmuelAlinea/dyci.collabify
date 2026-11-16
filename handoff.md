@@ -5126,3 +5126,25 @@ accepted." from the setting; no failed requests.
 - Copy nits from review: the "Nothing to revert" line reads for a whole commit; the unsaved-edits warning also shows
   on a blocked dialog; "Current" can mark a removal row reached through a draft copy.
 - A draft restore reads Main's state from when the panel opened.
+
+## Faster Word previews, one PDF per current version (2026-11-17)
+
+- Opening a Word file looked like it converted every time; it did not (PDFs were already kept). The wait was the
+  whole PDF downloading before page 1 (the thesis: 9.6 MB, 8.7 MB of it full-quality screenshots), a new link on
+  every open, and a "Making the PDF preview…" label shown while only opening.
+- Now: `word-pdf` saves images at 150 dpi, quality 85 (thesis 3.8 MB) and answers the PDF's size; `PdfPreview`
+  reads a sized link in 64 KB ranges through `PDFDataRangeTransport` and `lib/general/pdfRange.ts` (Storage serves
+  ranges but hides the headers pdf.js looks for); `wordPdfUrl` reuses a link for 8 minutes; the label says
+  "Opening…" and "Making…" only after 5 seconds. Measured signed in on localhost: a kept thesis PDF draws page 1 in
+  about 3 s (1.1 s function, 12 ranges); jumping to page 146 draws within 3 s. A first conversion with a cold
+  converter took 39 s.
+- Storage, as the owner asked: only versions in use keep a PDF, with no expiry (Main's current version, drafts,
+  open requests, shares; `word_preview_keep`). `general_blobs_word_preview_drop` deletes the replaced version's PDF
+  through pg_net when a commit, merge, revert or restore lands; the hourly sweep takes the rest after 15 minutes.
+  Restores and reverts warm the new current version's PDF. `supabase/word-previews.sql` applied live; suite
+  `supabase/tests/word-previews.test.sql` (17 checks). Old full-size previews were deleted and remake on first open.
+- Spec: `docs/superpowers/specs/2026-11-17-word-preview-speed-design.md`.
+
+**Deferred**
+- A first conversion still takes up to about 40 s for a 200-page file when the converter has scaled to zero.
+- Page 1 needs about 12 range requests; a larger first chunk or a linearized PDF could cut that further.
