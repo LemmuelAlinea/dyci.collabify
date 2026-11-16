@@ -236,7 +236,7 @@ export function DraftPanel({
         await saveDraftFile({ repoId: repo.id, path: f.path, action, kind: 'binary', storagePath: storage })
       }
     } catch (err) {
-      throw new Error(authErrorMessage(err, 'Could not replace it. Try again in a moment.'))
+      throw new Error(authErrorMessage(err, 'Could not replace it. Try again in a moment.'), { cause: err })
     }
     await endPull(repo.id, f.path).catch(() => {})
     show('Your copy will replace it')
