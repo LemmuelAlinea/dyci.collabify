@@ -28,7 +28,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { editingLabel, pulledAgo } from '../../lib/general/newVersion'
 import { groupChanges } from '../../lib/general/review'
-import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isComparableExcel, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
+import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isComparableExcel, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles, wordPdfCompanion } from '../../lib/general/files'
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import { zipFolder } from '../../lib/general/zipFolder'
 import { downloadBlob } from '../../lib/general/office'
@@ -222,8 +222,17 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   )
 
   // The open file learns whether Main has its path, and since when, for Upload a new version.
-  const openFile = (file: OpenFile) =>
-    setOpen({ ...file, mainAt: file.mainAt !== undefined ? file.mainAt : tree.find((f) => f.path === file.path)?.created_at ?? null })
+  const openFile = (file: OpenFile) => {
+    const main = tree.find((f) => f.path === file.path)
+    const companion = main && !file.fromDraft && !file.sharedBy && file.storagePath === main.storage_path
+      ? wordPdfCompanion(main, tree) : null
+    setOpen({
+      ...file,
+      mainAt: file.mainAt !== undefined ? file.mainAt : main?.created_at ?? null,
+      pdfStoragePath: companion?.storage_path ?? null,
+      pdfCompanionExists: tree.some((f) => f.path === `${file.path}.pdf`),
+    })
+  }
 
   // Live pulls by other people, by path: the "Ana is editing" chip on a file row.
   const editingOf = (path: string) => {

@@ -114,6 +114,14 @@ export function isPreviewableWord(path: string) {
   return extensionOf(path) === 'docx'
 }
 
+export function wordPdfCompanion(word: GeneralTreeFile, tree: GeneralTreeFile[]) {
+  if (word.kind !== 'binary' || !isPreviewableWord(word.path)) return null
+  return tree.find((file) =>
+    file.path === `${word.path}.pdf` && file.kind === 'binary' &&
+    Boolean(file.storage_path) && file.seq >= word.seq,
+  ) ?? null
+}
+
 export function sameExtension(a: string, b: string) {
   return extensionOf(a) === extensionOf(b)
 }
