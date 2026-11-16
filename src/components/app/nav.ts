@@ -186,24 +186,22 @@ const TEACHING_MAIN: NavGroup = {
 }
 
 /**
- * The card at the top of a teacher's rail, the one a student has: their
- * classes, and All classes. Spaces stay in Work's own card.
+ * The card at the top of a teacher's rail with no work yet, the one a student
+ * has: their classes, and All classes. A teacher with work gets the joined
+ * Classes & spaces card instead.
  */
 const TEACHING_CLASSES = placesGroup(['classes'])
 
 /**
  * A teacher's work-side pages, only for one who has work or may make spaces:
- * their spaces, then Projects and My tasks. Empty spaces hide unless making
- * them is part of the job.
+ * Projects and My tasks. Once the teacher has work, their spaces sit in the
+ * Classes & spaces card (`joined`); until then a project manager's Work card
+ * lists them, and shows even when empty so they can make one.
  */
-function teachingWork(manager: boolean): NavGroup {
-  return {
-    title: 'Work',
-    picker: ['spaces'],
-    hideWhenEmpty: !manager,
-    withClasses: false,
-    items: [PROJECTS, { label: 'My tasks', icon: 'check', to: paths.tasks }],
-  }
+function teachingWork(manager: boolean, joined: boolean): NavGroup {
+  const items: NavItem[] = [PROJECTS, { label: 'My tasks', icon: 'check', to: paths.tasks }]
+  if (joined) return { title: 'Work', items }
+  return { title: 'Work', picker: ['spaces'], hideWhenEmpty: !manager, withClasses: false, items }
 }
 
 /**
@@ -321,10 +319,11 @@ const MEMBER_MAIN = [TEACHING_MAIN, STAKEHOLDER_MAIN, ADMIN_INVITED, OVERVIEW]
  * empty for anyone who cannot make one — students, faculty who do not teach,
  * admins.
  *
- * Teaching faculty's card lists their classes only, then Main (Home, Waiting
- * on you, Inbox, Calendar, Meetings), then Work — their spaces, Projects and
- * My tasks — only once they have work or the Project manager switch, then
- * Resources and Account. A class's projects live on its Projects tab.
+ * Teaching faculty with work get the Classes & spaces card, then Main (Home,
+ * Waiting on you, Inbox, Calendar, Meetings), then a plain Work group
+ * (Projects and My tasks), then Resources and Account. Without work they get
+ * the Classes card and, with the Project manager switch, a Work card that
+ * lists their spaces. A class's projects live on its Projects tab.
  *
  * An admin runs the program rather than sitting in it, so until someone
  * invites them into a class, space or project their rail is Organization
@@ -385,10 +384,11 @@ function railFor(profile: AccessProfile, admitted: boolean, membership?: Members
   }
   if (canTeach(profile)) {
     const manager = canManageProjects(profile)
+    const joined = membership?.hasWork === true
     return [
-      TEACHING_CLASSES,
+      joined ? placesGroup(['classes', 'spaces']) : TEACHING_CLASSES,
       TEACHING_MAIN,
-      ...(membership?.hasWork || manager ? [teachingWork(manager)] : []),
+      ...(joined || manager ? [teachingWork(manager, joined)] : []),
       resourcesGroup(role),
       ACCOUNT_WITH_ARCHIVE,
     ]

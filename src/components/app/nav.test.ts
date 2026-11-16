@@ -90,21 +90,38 @@ describe('navFor', () => {
       expect(classes.title).toBe('Classes')
       expect(classes.picker).toEqual(['classes'])
       expect(classes.items).toEqual([])
-      // Spaces stay in Work's own card, so the top card never lists them twice.
+      // With no work, spaces stay in Work's own card.
       expect(navFor(manager, true)[0].picker).toEqual(['classes'])
     })
 
-    it('adds Work between Main and Resources for work or the Project manager switch', () => {
-      for (const groups of [
-        navFor(teacher, true, { inClass: true, hasWork: true }),
-        navFor(manager, true),
-        navFor(manager, true, { inClass: false, hasWork: false }),
-      ]) {
+    it('joins classes and spaces in one card for a teacher with work', () => {
+      for (const who of [teacher, manager]) {
+        const groups = navFor(who, true, { inClass: true, hasWork: true })
+        expect(titles(groups)).toEqual(['Classes & spaces', 'Main', 'Work', 'Resources', 'Account'])
+        expect(groups[0].picker).toEqual(['classes', 'spaces'])
+        expect(groups[0].hideWhenEmpty).toBe(false)
+        expect(groups[0].withClasses).toBe(false)
+        const work = groups.find((g) => g.title === 'Work')!
+        expect(work.picker).toBeUndefined()
+        expect(work.items.map((i) => i.label)).toEqual(['Projects', 'My tasks'])
+        expect(groups.filter((g) => g.picker)).toHaveLength(1)
+      }
+    })
+
+    it('keeps the Work card for a project manager with no work yet', () => {
+      for (const groups of [navFor(manager, true), navFor(manager, true, { inClass: false, hasWork: false })]) {
         expect(titles(groups)).toEqual(['Classes', 'Main', 'Work', 'Resources', 'Account'])
         const work = groups.find((g) => g.title === 'Work')!
         expect(work.picker).toEqual(['spaces'])
+        expect(work.hideWhenEmpty).toBe(false)
         expect(work.items.map((i) => i.label)).toEqual(['Projects', 'My tasks'])
       }
+    })
+
+    it('adds My office to Main, not the card, for a teacher with work who heads an office', () => {
+      const groups = navFor(teacher, true, { inClass: true, hasWork: true }, true)
+      expect(section(groups, 'Main')?.at(-1)).toBe('My office')
+      expect(groups[0].items).toEqual([])
     })
 
     it('drops the old teaching pages, Groups and Quick access', () => {
@@ -213,10 +230,10 @@ describe('navFor', () => {
     expect(spaces(navFor(student, true, { inClass: true, hasWork: true }))?.withClasses).toBe(false)
   })
 
-  it('hides an empty Spaces only for accounts that cannot open a class', () => {
+  it('hides an empty Spaces only for accounts that cannot open a class or make a space', () => {
     expect(spaces(navFor(nonTeacher, true))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(account('member', 'active', true, true), true))?.hideWhenEmpty).toBe(false)
-    expect(spaces(navFor(teacher, true, { inClass: true, hasWork: true }))?.hideWhenEmpty).toBe(true)
+    expect(spaces(navFor(teacher, true, { inClass: true, hasWork: true }))?.hideWhenEmpty).toBe(false)
     expect(spaces(navFor(admin, true, { inClass: false, hasWork: true }))?.hideWhenEmpty).toBe(true)
   })
 
