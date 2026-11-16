@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const rpcCalls: { name: string; args: unknown }[] = []
 const eqs: [string, unknown][] = []
+const selects: string[] = []
 let result: { data: unknown; error: unknown } = { data: null, error: null }
 
 vi.mock('../supabase', () => {
   const chain = () => {
     const q: Record<string, unknown> = {}
-    q.select = () => q
+    q.select = (s: string) => (selects.push(s), q)
     q.eq = (c: string, v: unknown) => (eqs.push([c, v]), q)
     q.order = () => q
     q.then = (ok: (r: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve(result).then(ok, bad)
@@ -40,6 +41,7 @@ const ver = (over = {}) => ({
 beforeEach(() => {
   rpcCalls.length = 0
   eqs.length = 0
+  selects.length = 0
   result = { data: null, error: null }
   vi.clearAllMocks()
 })
@@ -118,5 +120,6 @@ describe('reads', () => {
     expect(o.c1.kind).toBe('revert')
     expect('general_commits' in o.c1).toBe(false)
     expect(eqs).toEqual([['general_commits.repo_id', 'r']])
+    expect(selects[0]).toContain('general_commit_origins_commit_id_fkey')
   })
 })

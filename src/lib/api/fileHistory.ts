@@ -25,7 +25,7 @@ export async function fileVersions(
 export async function commitOrigins(repoId: string): Promise<Record<string, GeneralCommitOrigin>> {
   const { data, error } = await supabase
     .from('general_commit_origins')
-    .select('*, general_commits!inner(repo_id)')
+    .select('*, general_commits!general_commit_origins_commit_id_fkey!inner(repo_id)')
     .eq('general_commits.repo_id', repoId)
   if (error) throw error
   const out: Record<string, GeneralCommitOrigin> = {}
