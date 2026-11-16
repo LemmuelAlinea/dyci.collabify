@@ -29,9 +29,15 @@
 -- write policy: only these functions write it.
 --
 -- The upload check: general_blobs_pull_guard gains one rule before its base
--- lookup. A binary blob whose storage_path already appears on an earlier blob
--- of the same repo and path passes: a version Main already had is not a stale
--- copy. An object Main had only under another path is still checked.
+-- lookup, for these two functions only. Each sets the transaction flag
+-- collabify.file_history_put_back to 'on' just around its commit_general_files
+-- call and back to 'off' right after. While it is on, a binary blob whose
+-- storage_path already appears on an earlier blob of the same repo and path
+-- passes: the function picked a version Main already had, not a stale copy.
+-- Every other way into Main (a direct commit, a draft or share copy, a merged
+-- change) keeps the base check, so an object Main once had at the path, from
+-- a base older than Main's newest version, is still held. An object Main had
+-- only under another path is checked even during a put-back.
 --
 -- Runs after word-previews.sql and before anon-lockdown.sql. It takes
 -- ownership of general_blobs_pull_guard from file-pulls.sql, so re-running
@@ -180,19 +186,24 @@ begin
       raise exception 'Nothing to revert. Every file in #% is already as it was before it.', c.seq
         using errcode = 'invalid_parameter_value';
     end if;
-    raise exception 'Nothing to revert. % is already as it was before #%.', v_path, c.seq
+    raise exception 'Nothing to undo. % is already as it was before #%.', v_path, c.seq
       using errcode = 'invalid_parameter_value';
   end if;
 
   if v_msg = '' then
     v_msg := case
-      when v_path is not null then format('Undo #%s on %s', c.seq, v_path)
+      when v_path is not null then left(format('Undo #%s on %s', c.seq, v_path), 2000)
       when btrim(c.message) = '' then format('Revert #%s', c.seq)
-      else format('Revert #%s: %s', c.seq, btrim(c.message))
+      else left(format('Revert #%s: %s', c.seq, btrim(c.message)), 2000)
     end;
   end if;
 
+  -- The flag lets the versions picked above past the upload check. A refusal
+  -- inside commit_general_files aborts the transaction (or the caller's
+  -- subtransaction, which rolls the setting back), so it never stays on.
+  perform set_config('collabify.file_history_put_back', 'on', true);
   v_new := public.commit_general_files(c.repo_id, v_msg, p_base_seq, v_items);
+  perform set_config('collabify.file_history_put_back', 'off', true);
 
   insert into public.general_commit_origins (commit_id, project_id, kind, source_commit_id, source_seq, path)
   values (v_new.id, v_new.project_id, 'revert', c.id, c.seq, v_path);
@@ -265,7 +276,10 @@ begin
     v_msg := format('Restore %s to #%s', v_path, p_seq);
   end if;
 
+  -- See revert_general_commit: on only for this one call.
+  perform set_config('collabify.file_history_put_back', 'on', true);
   v_new := public.commit_general_files(r.id, v_msg, p_base_seq, jsonb_build_array(v_item));
+  perform set_config('collabify.file_history_put_back', 'off', true);
 
   insert into public.general_commit_origins (commit_id, project_id, kind, source_commit_id, source_seq, path)
   values (v_new.id, v_new.project_id, 'restore', v_to.commit_id, p_seq, v_path);
@@ -277,7 +291,8 @@ $function$;
 /**
  * Holds a binary blob whose uploaded copy was made from an older version of
  * its path than Main now has. Every way into Main inserts its blobs here. A
- * version Main already had for this path (a revert or restore) passes.
+ * version Main already had for this path passes only while a revert or
+ * restore is putting it back (collabify.file_history_put_back is on).
  */
 create or replace function public.general_blobs_pull_guard()
  returns trigger
@@ -294,9 +309,11 @@ begin
     return new;
   end if;
 
-  -- An object Main already had at this path is a version of it, not a stale
-  -- copy: a revert or restore putting it back.
-  if exists (
+  -- During a revert or restore, an object Main already had at this path is a
+  -- version of it, not a stale copy. Anywhere else the same object is a copy
+  -- (a share keeps the sharer's object) and its base decides.
+  if coalesce(current_setting('collabify.file_history_put_back', true), 'off') = 'on'
+     and exists (
        select 1 from public.general_blobs b
         where b.repo_id = new.repo_id
           and b.path = new.path

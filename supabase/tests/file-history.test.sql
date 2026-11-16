@@ -1,8 +1,9 @@
 -- supabase/tests/file-history.test.sql
 -- Revert a commit, undo one file's change and restore a file to an earlier
 -- version: what each writes into Main, the origin rows, what each refuses, and
--- the upload check letting a version Main already had back in while a stale
--- copy stays held. Rolls back; nothing survives.
+-- the upload check letting a version Main already had back in during a revert
+-- or restore only, while a stale copy (that same old object pushed any other
+-- way included) stays held. Rolls back; nothing survives.
 --
 -- The file under test must already be applied:
 --   node scripts/db.mjs supabase/tests/file-history.test.sql
@@ -171,6 +172,21 @@ begin
   perform pg_temp.must_be('the history is #1 to #5',
     c1.seq = 1 and c2.seq = 2 and c3.seq = 3 and c4.seq = 4 and c5.seq = 5 and pg_temp.base(v_repo) = 5);
 
+  ------------------------------------------------------------ an old object outside a put-back
+  -- X was Main's c.docx at #4, from base 0; Main moved on to Y at #5. Pushing X
+  -- again by any other way is a stale copy (a share keeps the sharer's object),
+  -- so it is held even though Main once had it at this path.
+  perform pg_temp.must_refuse_with('a direct commit of X, an object Main once had at c.docx, is held',
+    format($q$select public.commit_general_files(%L, 'Zz old x', 5, %L::jsonb)$q$,
+           v_repo, jsonb_build_array(pg_temp.bin('c.docx', 'changed', v_x))),
+    'Main has a newer version of c.docx');
+  perform public.save_general_draft_file(v_repo, 'c.docx', 'changed', 'binary', '', v_x);
+  perform pg_temp.must_refuse_with('...and so is committing a draft carrying X, as a share copy would',
+    format($q$select public.commit_general_draft_path(%L, 'c.docx', false)$q$, v_repo),
+    'Main has a newer version of c.docx');
+  perform public.discard_general_draft_file(v_repo, 'c.docx');
+  perform pg_temp.must_be('...and nothing landed', pg_temp.base(v_repo) = 5);
+
   ------------------------------------------------------------ who may revert
   perform pg_temp.must_refuse_with('a stale base is refused',
     format($q$select public.revert_general_commit(%L, 4)$q$, c2.id), 'Somebody committed');
@@ -271,6 +287,14 @@ begin
   select * into o from public.general_commit_origins where commit_id = cr.id;
   perform pg_temp.must_be('...and an origin row: restore from #4, the path',
     o.kind = 'restore' and o.source_seq = 4 and o.source_commit_id = c4.id and o.path = 'c.docx');
+  perform pg_temp.must_be('...and the put-back flag is off again after it',
+    current_setting('collabify.file_history_put_back', true) = 'off');
+  perform pg_temp.push(v_repo, 'Zz change c once more', jsonb_build_array(
+    pg_temp.bin('c.docx', 'changed', pg_temp.upload(v_proj))));
+  perform pg_temp.must_refuse_with('...so a direct commit of X after the restore is held again',
+    format($q$select public.commit_general_files(%L, 'Zz old x again', %s, %L::jsonb)$q$,
+           v_repo, pg_temp.base(v_repo), jsonb_build_array(pg_temp.bin('c.docx', 'changed', v_x))),
+    'Main has a newer version of c.docx');
 
   v_w := pg_temp.upload(v_proj);
   perform public.record_general_file_base(v_repo, 'c.docx', v_w, 5);
@@ -321,7 +345,7 @@ begin
     and (pg_temp.blob(cr.id, 'f.md')).action = 'removed');
   perform pg_temp.must_refuse_with('...and is refused when no file is left',
     format($q$select public.revert_general_commit(%L, %s, 'a.md')$q$, cn.id, pg_temp.base(v_repo)),
-    'Nothing to revert');
+    'Nothing to undo. a.md is already as it was before');
 
   ------------------------------------------------------------ the origins table
   perform pg_temp.must_refuse_with('nobody writes an origin row directly',
