@@ -5163,3 +5163,6 @@ accepted." from the setting; no failed requests.
 - Follow-up: the drawing now takes the person's banner like No active sprint (`WorkGlance`): the clipboard and badge
   fill with `banner-tile`, every line, the glow and the dots use `banner-tile-glyph` (held to 3:1 on the tile by
   `lib/palette.ts`). Checked with the default banner in dark and light and with a custom green banner.
+- Follow-up: the clipboard is outline only now (the card shows through; its top edge stops at the clip). Off the
+  tile, its lines take `banner-end` (the accent held to 3:1 on the app's grounds, a darker step in light mode)
+  instead of `banner-tile-glyph`; the badge keeps the banner fill and glyph lines.
