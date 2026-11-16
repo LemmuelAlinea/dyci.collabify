@@ -17,7 +17,9 @@
 //   (WORD_PDF_URL is the Azure Container App's https address.)
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { strFromU8, strToU8, unzipSync, zipSync } from 'npm:fflate'
 import { cors, denied } from '../_shared/cors.ts'
+import { pageAlignedSections } from '../_shared/wordSections.ts'
 
 const SOURCE = 'general-files'
 const PREVIEWS = 'file-previews'
@@ -32,6 +34,27 @@ function json(headers: Record<string, string>, body: unknown, status = 200) {
     status,
     headers: { ...headers, 'Content-Type': 'application/json' },
   })
+}
+
+/**
+ * The copy sent to the converter: a .docx whose continuous section breaks start
+ * new headers at a page top gets those as page breaks (_shared/wordSections.ts),
+ * so LibreOffice switches the header where Word does. Anything it cannot read
+ * goes as it is.
+ */
+function forLibreOffice(bytes: Uint8Array, path: string): Uint8Array {
+  if (!/\.docx$/i.test(path)) return bytes
+  try {
+    const files = unzipSync(bytes)
+    const document = files['word/document.xml']
+    if (!document) return bytes
+    const fixed = pageAlignedSections(strFromU8(document))
+    if (fixed.changed === 0) return bytes
+    files['word/document.xml'] = strToU8(fixed.xml)
+    return zipSync(files)
+  } catch {
+    return bytes
+  }
 }
 
 function fail(headers: Record<string, string>, message: string, status = 400) {
@@ -89,7 +112,7 @@ Deno.serve(async (req) => {
 
     const source = await fetch(signed.data.signedUrl)
     if (!source.ok) return fail(CORS, 'Could not read the Word file. Reopen it and try again.', 502)
-    const bytes = await source.arrayBuffer()
+    const bytes = forLibreOffice(new Uint8Array(await source.arrayBuffer()), path)
 
     const name = path.slice(path.lastIndexOf('/') + 1).replace(/^[0-9a-f-]{36}-/i, '') || 'file.docx'
     const form = new FormData()

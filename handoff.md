@@ -5086,10 +5086,19 @@ accepted." from the setting; no failed requests.
   pages, with Try again and, for a `.docx`, Use the simple preview when it cannot be made. Old Word files convert on
   first view. The manual companion flow (`wordPdfCompanion`, Add PDF preview) is gone; committed `.docx.pdf` files
   stay ordinary PDFs.
-- Setup and secrets: `docs/word-pdf-previews.md`. 2,534 tests, build clean.
+- LibreOffice keeps the first section's header after a **continuous** section break, so the thesis (header with
+  the school box, logo, blue borders and boxed "Page N" from Chapter 1) came out with no header at all. Before
+  converting, `word-pdf` turns a continuous break into a next-page break when the new section changes the
+  header, footer or numbering and Word itself began a page there (`_shared/wordSections.ts`,
+  `pageAlignedSections`; only the copy sent to the converter). The thesis now shows the full header from Chapter 1,
+  numbered from 1, 203 pages against Word's saved 204.
+- Live: converter on Azure (`eastasia`; Azure for Students allows only some regions, the Cloud Shell script picks
+  one), secrets set, function deployed. Checked signed in on localhost with the real thesis.
+- Setup and secrets: `docs/word-pdf-previews.md`. 2,539 tests, build clean.
 
 **Deferred**
-- Until `WORD_PDF_URL`, `WORD_PDF_USER` and `WORD_PDF_PASSWORD` are set, every Word preview says the converter is not
-  set up (the simple preview still works for a `.docx`). Do not push the frontend before the converter is live.
+- A continuous break that changes the header in the middle of a page keeps the old header in the preview (Word
+  switches on the next page).
+- The first conversion of a long file takes about 30 seconds; the container scales to zero when idle.
 - Excel files could take the same path; LibreOffice's sheet-to-PDF page breaks are poorer than Microsoft's viewer.
 
