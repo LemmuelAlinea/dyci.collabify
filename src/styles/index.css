@@ -849,6 +849,89 @@
   .banner-cell {
     background: var(--banner-cell, color-mix(in oklab, var(--banner) 85%, transparent));
   }
+  /**
+   * An illustrated empty state that fills whatever room its tile has
+   * (`NoTasksEmpty`). A size container, so it adds no height of its own past
+   * the floor: on a wide desktop the tile is tall and the art grows into it;
+   * in a short two-column tile it turns into a row with a small figure.
+   */
+  .empty-art {
+    container-type: size;
+    flex: 1 1 auto;
+    min-height: 15rem;
+  }
+  @media (min-width: 48rem) {
+    .empty-art {
+      min-height: 5rem;
+    }
+  }
+  @media (min-width: 80rem) {
+    .empty-art {
+      min-height: 15rem;
+    }
+  }
+  .empty-art-body {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    text-align: center;
+  }
+  .empty-art-figure {
+    position: relative;
+    flex: none;
+    width: clamp(5rem, calc(100cqh - 6.5rem), 13rem);
+    max-width: 70cqw;
+    aspect-ratio: 1;
+  }
+  /* The soft glow, then a ring of dots fading out from the middle. */
+  .empty-art-figure::before,
+  .empty-art-figure::after {
+    content: '';
+    position: absolute;
+    inset: -18%;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+  .empty-art-figure::before {
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--color-amber-400) 16%, transparent),
+      transparent
+    );
+  }
+  .empty-art-figure::after {
+    background-image: radial-gradient(var(--line-strong) 1px, transparent 1.4px);
+    background-size: 11px 11px;
+    mask-image: radial-gradient(closest-side, black 25%, transparent);
+    opacity: 0.6;
+  }
+  .empty-art-figure > svg {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    width: 100%;
+  }
+  .empty-art-title {
+    font-size: 1.375rem;
+  }
+  @container (max-height: 11rem) {
+    .empty-art-body {
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 1rem;
+      padding-inline: 0.25rem;
+      text-align: left;
+    }
+    .empty-art-figure {
+      width: min(4.75rem, 100cqh);
+    }
+    .empty-art-title {
+      font-size: 1rem;
+    }
+  }
   .surface {
     background: var(--surface);
   }

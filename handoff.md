@@ -5148,3 +5148,15 @@ accepted." from the setting; no failed requests.
 **Deferred**
 - A first conversion still takes up to about 40 s for a 200-page file when the converter has scaled to zero.
 - Page 1 needs about 12 range requests; a larger first chunk or a linearized PDF could cut that further.
+
+## My tasks empty state on the work Home (2026-11-17)
+
+- The work Home's (`WorkOverview`) My tasks tile shows a drawing when nothing is assigned: a clipboard with one
+  checked row, a done badge, a soft amber glow and dots, then "No open tasks" and "New tasks assigned to you will
+  appear here." `NoTasksEmpty.tsx`, turned on by `MyTasksPanel`'s `illustrated` prop; the space home and My tasks
+  page keep the small panel.
+- `.empty-art` in `index.css` is a size container, so it adds no height past a floor: in the tall three-column tile
+  the art grows with the tile (up to 13rem), in the short two-column tablet tile it becomes a row with a 4.75rem
+  figure (container height under 11rem), and on a phone it stacks at a 15rem floor. Colors are tokens only.
+- Checked in the browser on a harness with sample tiles (the pane was not signed in): 1920, 1280, 1024, 820 and 390
+  wide, dark and light; no overflow, and the tablet tile matches Waiting on you's height.

@@ -45,6 +45,24 @@ it('shows the no-tasks panel in My tasks with the line the page passes', async (
   expect(panel()?.textContent).toContain('Tasks assigned to you show here.')
 })
 
+it('shows the drawing in My tasks when the page asks for it', async () => {
+  await show(
+    <MyTasksPanel
+      tasks={[]}
+      projectName={name}
+      now={0}
+      empty="New tasks assigned to you will appear here."
+      flat
+      illustrated
+    />,
+  )
+  const art = host.querySelector('[data-empty="art"]')
+  expect(panel()).toBeNull()
+  expect(art?.querySelector('svg')).not.toBeNull()
+  expect(art?.textContent).toContain('No open tasks')
+  expect(art?.textContent).toContain('New tasks assigned to you will appear here.')
+})
+
 it('says "in this space" in My tasks by default', async () => {
   await show(<MyTasksPanel tasks={[]} projectName={name} now={0} />)
   expect(panel()?.textContent).toContain('Tasks assigned to you in this space show here.')

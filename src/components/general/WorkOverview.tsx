@@ -277,8 +277,9 @@ export function WorkOverview({
                 tasks={mine}
                 projectName={projectName}
                 now={now}
-                empty="Tasks assigned to you show here."
+                empty="New tasks assigned to you will appear here."
                 flat
+                illustrated
               />
             </BentoTile>
           </Reveal>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { TilePanel } from '../dashboard/Bento'
+import { NoTasksEmpty } from './NoTasksEmpty'
 import { PriorityBadge } from './PriorityBadge'
 import { ProjectMark } from './ProjectMark'
 import { Icon } from '../ui/Icon'
@@ -158,6 +159,7 @@ export function MyTasksPanel({
   onOpen,
   partOf,
   flat = false,
+  illustrated = false,
 }: {
   tasks: GeneralTask[]
   projectName: (id: string) => string
@@ -170,8 +172,12 @@ export function MyTasksPanel({
   /** "Part of {parent}" for a subtask, else null. Left out where the parents are not known. */
   partOf?: (task: GeneralTask) => string | null
   flat?: boolean
+  /** The work Home's large drawing in place of the small panel, filling the tile. */
+  illustrated?: boolean
 }) {
-  if (tasks.length === 0) return <Quiet icon="checkCircle" title="No open tasks" body={empty} />
+  if (tasks.length === 0) {
+    return illustrated ? <NoTasksEmpty body={empty} /> : <Quiet icon="checkCircle" title="No open tasks" body={empty} />
+  }
   return (
     <ul className={listClass(flat)}>
       {tasks.slice(0, limit).map((t) => {
