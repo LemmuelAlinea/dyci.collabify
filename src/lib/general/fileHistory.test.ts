@@ -43,6 +43,11 @@ describe('putBack', () => {
     expect(putBack(a, b)).toBeNull()
     expect(putBack(a, { ...b, storage_path: 'p/b' })).toBe('changed')
   })
+  it('counts a removed version as absent', () => {
+    expect(putBack(v(1), v(2, { action: 'removed' }))).toBe('added')
+    expect(putBack(v(1, { action: 'removed' }), v(2))).toBe('removed')
+    expect(putBack(v(1, { action: 'removed' }), v(2, { action: 'removed' }))).toBeNull()
+  })
   it('treats a different kind as different', () => {
     expect(putBack(v(1), v(2, { content: 'c1', kind: 'rich' }))).toBe('changed')
   })

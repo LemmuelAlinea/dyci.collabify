@@ -568,6 +568,17 @@ export type GeneralBlob = {
   created_at: string
 }
 
+/** general_commit_origins: marks a commit made by a revert or a restore. */
+export type GeneralCommitOrigin = {
+  commit_id: string
+  project_id: string
+  kind: 'revert' | 'restore'
+  source_commit_id: string | null
+  source_seq: number
+  path: string | null
+  created_at: string
+}
+
 /** general_repo_tree: the newest row per path, minus the removed ones. */
 /** A folder in a project's Discussion tab. One level deep. */
 export type GeneralDiscussionFolder = {

@@ -20,6 +20,8 @@ export function stateBefore(versions: FileVersion[], seq: number): FileVersion |
 
 /** What putting `target` back over `current` does to the file, or null when nothing changes. */
 export function putBack(target: FileVersion | null, current: FileVersion | null): FileAction | null {
+  if (target?.action === 'removed') target = null
+  if (current?.action === 'removed') current = null
   if (!target && !current) return null
   if (!target) return 'removed'
   if (!current) return 'added'
