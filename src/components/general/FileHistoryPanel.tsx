@@ -98,26 +98,26 @@ export function FileHistoryPanel({
             projectId: version.project_id,
             path,
             target: version,
-            mainHas: current !== null && current.action !== 'removed',
+            current,
           })
           show(`Put ${path} from #${version.seq} in your draft`)
         }
       } else if (toMain) {
         await revertCommit(version.commit.id, repo.commit_count, path, message)
-        show(`Reverted #${version.seq}`)
+        show(`Undid #${version.seq} on ${path}`)
       } else {
         const target = stateBefore(versions, version.seq)
         if (putBack(target, current) === null) {
-          throw new Error(`Nothing to revert. ${path} is already as it was before #${version.seq}.`)
+          throw new Error(`Nothing to undo. ${path} is already as it was before #${version.seq}.`)
         }
         await restoreToDraft({
           repoId: repo.id,
           projectId: version.project_id,
           path,
           target,
-          mainHas: current !== null && current.action !== 'removed',
+          current,
         })
-        show(`Put #${version.seq} back in your draft`)
+        show(`Undid #${version.seq} on ${path} in your draft`)
       }
     } catch (err) {
       // A later commit means this list is behind: reload it under the error.

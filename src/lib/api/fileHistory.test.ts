@@ -50,7 +50,7 @@ describe('restoreToDraft', () => {
   it('copies a binary and records Main seq', async () => {
     vi.mocked(copyProjectFile).mockResolvedValue('p/files/new-a.bin')
     vi.mocked(mainSeq).mockResolvedValue(9)
-    await restoreToDraft({ ...base, target: ver(), mainHas: true })
+    await restoreToDraft({ ...base, target: ver(), current: ver({ seq: 5, storage_path: 'p/files/y-a.bin' }) })
     expect(copyProjectFile).toHaveBeenCalledWith('p', 'p/files/x-a.bin')
     expect(saveDraftFile).toHaveBeenCalledWith({
       repoId: 'r',
@@ -66,7 +66,7 @@ describe('restoreToDraft', () => {
       ...base,
       path: 'a.md',
       target: ver({ kind: 'text', content: 'hi', storage_path: null }),
-      mainHas: false,
+      current: ver({ action: 'removed', kind: 'text', storage_path: null }),
     })
     expect(copyProjectFile).not.toHaveBeenCalled()
     expect(saveDraftFile).toHaveBeenCalledWith({
@@ -78,9 +78,28 @@ describe('restoreToDraft', () => {
     })
     expect(recordBase).not.toHaveBeenCalled()
   })
-  it('saves removed for a null target', async () => {
-    await restoreToDraft({ ...base, target: null, mainHas: true })
-    expect(saveDraftFile).toHaveBeenCalledWith(expect.objectContaining({ action: 'removed' }))
+  it('saves a text removal for a null target over a text file', async () => {
+    await restoreToDraft({ ...base, path: 'a.md', target: null, current: ver({ kind: 'text', content: 'hi', storage_path: null }) })
+    expect(saveDraftFile).toHaveBeenCalledWith({
+      repoId: 'r',
+      path: 'a.md',
+      action: 'removed',
+      kind: 'text',
+      content: '',
+      storagePath: null,
+    })
+  })
+  it('carries the kind and object of an uploaded file it removes', async () => {
+    await restoreToDraft({ ...base, target: ver({ action: 'removed' }), current: ver({ seq: 5, storage_path: 'p/files/y-a.bin' }) })
+    expect(saveDraftFile).toHaveBeenCalledWith({
+      repoId: 'r',
+      path: 'a.bin',
+      action: 'removed',
+      kind: 'binary',
+      content: '',
+      storagePath: 'p/files/y-a.bin',
+    })
+    expect(copyProjectFile).not.toHaveBeenCalled()
   })
 })
 

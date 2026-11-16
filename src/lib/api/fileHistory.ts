@@ -70,21 +70,33 @@ export async function restoreFile(
   return data as GeneralCommit
 }
 
-/** Puts an old version into the person's draft; nothing reaches Main until they commit. */
+/**
+ * Puts an old version into the person's draft; nothing reaches Main until they commit.
+ * `current` is Main's newest version of the path (null or a removal when Main has no
+ * such file): a removal carries its kind and object, so an uploaded file reads as one.
+ */
 export async function restoreToDraft(input: {
   repoId: string
   projectId: string
   path: string
   target: FileVersion | null
-  mainHas: boolean
+  current: FileVersion | null
 }): Promise<void> {
   const { repoId, projectId, path } = input
   const target = input.target?.action === 'removed' ? null : input.target
+  const current = input.current?.action === 'removed' ? null : input.current
   if (!target) {
-    await saveDraftFile({ repoId, path, action: 'removed', kind: 'text', content: '' })
+    await saveDraftFile({
+      repoId,
+      path,
+      action: 'removed',
+      kind: current?.kind ?? 'text',
+      content: '',
+      storagePath: current?.kind === 'binary' ? current.storage_path : null,
+    })
     return
   }
-  const action: FileAction = input.mainHas ? 'changed' : 'added'
+  const action: FileAction = current ? 'changed' : 'added'
   if (target.kind === 'binary') {
     const copy = await copyProjectFile(projectId, target.storage_path ?? '')
     await saveDraftFile({ repoId, path, action, kind: 'binary', storagePath: copy })

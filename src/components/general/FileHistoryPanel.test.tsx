@@ -10,7 +10,8 @@ import type { GeneralProjectState } from './useGeneralProject'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: vi.fn() }) }))
+const toast = vi.hoisted(() => vi.fn())
+vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: toast }) }))
 vi.mock('./WordDiff', () => ({ WordDiff: () => null }))
 vi.mock('./ExcelDiff', () => ({ ExcelDiff: () => null }))
 vi.mock('../../lib/api/general', () => ({
@@ -170,7 +171,7 @@ it('restores a version into the draft, naming the draft copy it replaces', async
     projectId: 'p',
     path: 'a.md',
     target: expect.objectContaining({ seq: 1, content: 'v1' }),
-    mainHas: true,
+    current: expect.objectContaining({ seq: 3, action: 'added' }),
   })
   expect(onDone).toHaveBeenCalled()
 })
@@ -182,6 +183,7 @@ it('undoes the newest version in Main with the path', async () => {
   expect((document.getElementById('put-back-message') as HTMLInputElement).value).toBe('Undo #3 on a.md')
   await click('Put back in Main')
   expect(revertCommit).toHaveBeenCalledWith('c3', 3, 'a.md', 'Undo #3 on a.md')
+  expect(toast).toHaveBeenLastCalledWith('Undid #3 on a.md')
   expect(onDone).toHaveBeenCalled()
 })
 

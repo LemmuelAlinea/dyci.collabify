@@ -382,7 +382,6 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           origins={origins}
           repo={repo}
           draftFiles={draftFiles}
-          mainHas={(p) => tree.some((f) => f.path === p)}
           putBackTo={putBackTarget(state)}
           state={state}
           query={query}
@@ -990,7 +989,6 @@ function ChangeSection({
 type HistoryProps = {
   repo: GeneralRepoSummary
   draftFiles: GeneralDraftFile[]
-  mainHas: (path: string) => boolean
   putBackTo: PutBackTo
   state: GeneralProjectState
   onDone: () => Promise<void>
@@ -1094,7 +1092,6 @@ function CommitFiles({
   commit,
   repo,
   draftFiles,
-  mainHas,
   putBackTo,
   onDone,
 }: HistoryProps & { commit: GeneralCommit }) {
@@ -1133,13 +1130,19 @@ function CommitFiles({
     try {
       if (toMain) {
         await revertCommit(commit.id, repo.commit_count, asking.path, message)
-        show(`Reverted #${commit.seq}`)
+        show(asking.path ? `Undid #${commit.seq} on ${shownPath(asking.path)}` : `Reverted #${commit.seq}`)
       } else {
         const todo = asking.paths.filter((p) => {
           const versions = asking.versions[p] ?? []
           return putBack(stateBefore(versions, commit.seq), versions[0] ?? null) !== null
         })
-        if (todo.length === 0) throw new Error(`Nothing to revert. Every file in #${commit.seq} is already as it was before it.`)
+        if (todo.length === 0) {
+          throw new Error(
+            asking.path
+              ? `Nothing to undo. ${shownPath(asking.path)} is already as it was before #${commit.seq}.`
+              : `Nothing to revert. Every file in #${commit.seq} is already as it was before it.`,
+          )
+        }
         // Files already put back while this dialog is open are skipped, so a retry makes no second copy.
         for (const p of todo.filter((p) => !landed.current.has(p))) {
           try {
@@ -1148,7 +1151,7 @@ function CommitFiles({
               projectId: commit.project_id,
               path: p,
               target: stateBefore(asking.versions[p] ?? [], commit.seq),
-              mainHas: mainHas(p),
+              current: asking.versions[p]?.[0] ?? null,
             })
           } catch (err) {
             if (landed.current.size === 0) throw err
@@ -1156,7 +1159,11 @@ function CommitFiles({
           }
           landed.current.add(p)
         }
-        show(`Put #${commit.seq} back in your draft`)
+        show(
+          asking.path
+            ? `Undid #${commit.seq} on ${shownPath(asking.path)} in your draft`
+            : `Put #${commit.seq} back in your draft`,
+        )
       }
     } catch (err) {
       // A stale base or a later commit means the loaded files are behind: reload them under the error.
@@ -1245,7 +1252,11 @@ function CommitFiles({
           replacesDraft={toMain ? [] : asking.paths.filter((p) => draftFiles.some((f) => f.path === p)).map(shownPath)}
           changedSince={asking.changedSince.map(shownPath)}
           toMain={toMain}
-          defaultMessage={asking.path ? `Undo #${commit.seq} on ${asking.path}` : `Revert #${commit.seq}: ${commit.message}`}
+          defaultMessage={
+            asking.path
+              ? `Undo #${commit.seq} on ${asking.path}`.slice(0, 2000)
+              : `Revert #${commit.seq}: ${commit.message}`.slice(0, 2000)
+          }
           onConfirm={confirm}
           onClose={() => setAsking(null)}
         />

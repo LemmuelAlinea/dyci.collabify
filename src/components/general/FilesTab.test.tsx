@@ -12,7 +12,8 @@ import type { GeneralProjectState } from './useGeneralProject'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: vi.fn() }) }))
+const toast = vi.hoisted(() => vi.fn())
+vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: toast }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
 vi.mock('./SharedTab', () => ({ SharedTab: () => null }))
@@ -263,6 +264,27 @@ it('reverts into Main with the repo base and the edited message', async () => {
   expect((document.getElementById('put-back-message') as HTMLInputElement).value).toBe('Revert #2: Second pass')
   await click('Put back in Main')
   expect(revertCommit).toHaveBeenCalledWith('c2', 2, undefined, 'Revert #2: Second pass')
+  expect(toast).toHaveBeenLastCalledWith('Reverted #2')
+})
+
+it('undoes one file in Main and says which file', async () => {
+  historyFixture()
+  await showHistory(committer)
+  await expand('Second pass')
+  await click('Undo this change', host!)
+  expect((document.getElementById('put-back-message') as HTMLInputElement).value).toBe('Undo #2 on a.md')
+  await click('Put back in Main')
+  expect(revertCommit).toHaveBeenCalledWith('c2', 2, 'a.md', 'Undo #2 on a.md')
+  expect(toast).toHaveBeenLastCalledWith('Undid #2 on a.md')
+})
+
+it('keeps the default revert message within the commit message limit', async () => {
+  historyFixture()
+  vi.mocked(listCommits).mockResolvedValue([commit(2, 'x'.repeat(2000)), commit(1, 'First draft')] as never)
+  await showHistory(committer)
+  await expand('x'.repeat(2000))
+  await click('Revert commit', host!)
+  expect((document.getElementById('put-back-message') as HTMLInputElement).value).toHaveLength(2000)
 })
 
 it('offers a member without commit_main the draft actions', async () => {
@@ -286,8 +308,9 @@ it('puts the version before the commit into the draft', async () => {
     projectId: 'p',
     path: 'a.md',
     target: expect.objectContaining({ seq: 1, content: 'v1' }),
-    mainHas: true,
+    current: expect.objectContaining({ seq: 2 }),
   })
+  expect(toast).toHaveBeenLastCalledWith('Undid #2 on a.md in your draft')
 })
 
 it('offers a stakeholder, a class teacher and a read-only viewer no revert', async () => {
@@ -326,6 +349,20 @@ it('keeps History when the origins fail to load', async () => {
   vi.mocked(commitOrigins).mockRejectedValue(new Error('no'))
   await showHistory(committer)
   expect(host!.textContent).toContain('Second pass')
+})
+
+it('says a one-file undo in the draft has nothing to undo, naming the file', async () => {
+  historyFixture()
+  vi.mocked(fileVersions).mockResolvedValue([
+    { ...blob(2, 'a.md', 'changed', 'v1'), commit: commit(2, 'Second pass') },
+    { ...blob(1, 'a.md', 'added'), commit: commit(1, 'First draft') },
+  ] as never)
+  await showHistory(drafter)
+  await expand('Second pass')
+  await click('Undo in my draft', host!)
+  await click('Put back in my draft')
+  expect(restoreToDraft).not.toHaveBeenCalled()
+  expect(document.body.textContent).toContain('Nothing to undo. a.md is already as it was before #2.')
 })
 
 it('asks before replacing a draft copy', async () => {
