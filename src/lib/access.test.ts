@@ -161,10 +161,13 @@ describe('membershipOf', () => {
   it('counts a live work space or a live project as work', () => {
     expect(membershipOf([space('work')], [])?.hasWork).toBe(true)
     expect(membershipOf([], [project('member')])?.hasWork).toBe(true)
+    expect(membershipOf([space('work')], [])?.inSpace).toBe(true)
+    expect(membershipOf([], [project('member')])?.inSpace).toBe(false)
     expect(membershipOf([space('work', '2026-01-01')], [project('member', '2026-01-01')])?.hasWork).toBe(false)
     expect(membershipOf([space('education')], [])).toEqual({
       inClass: true,
       hasWork: false,
+      inSpace: false,
       allStakeholder: false,
     })
   })

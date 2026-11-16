@@ -55,6 +55,8 @@ export function inAnyClass(spaces: Pick<GeneralSpaceSummary, 'kind' | 'my_level'
 export type Membership = {
   inClass: boolean
   hasWork: boolean
+  /** In a live work space of their own, not only on a project in one. */
+  inSpace?: boolean
   /** An invitation is waiting for an answer. Filled in by the rail, which counts them. */
   invited?: boolean
   /**
@@ -71,11 +73,11 @@ export function membershipOf(
 ): Membership | undefined {
   if (spaces === null || projects === null) return undefined
   const mine = projects.filter((p) => p.my_level && !p.archived_at)
+  const inSpace = spaces.some((s) => s.kind === 'work' && s.my_level && !s.archived_at)
   return {
     inClass: inAnyClass(spaces),
-    hasWork:
-      spaces.some((s) => s.kind === 'work' && s.my_level && !s.archived_at) ||
-      mine.length > 0,
+    hasWork: inSpace || mine.length > 0,
+    inSpace,
     allStakeholder: mine.length > 0 && mine.every((p) => p.my_role === 'stakeholder'),
   }
 }

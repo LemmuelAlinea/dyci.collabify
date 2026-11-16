@@ -187,20 +187,20 @@ const TEACHING_MAIN: NavGroup = {
 
 /**
  * The card at the top of a teacher's rail with no work yet, the one a student
- * has: their classes, and All classes. A teacher with work gets the joined
- * Classes & spaces card instead.
+ * has: their classes, and All classes. A teacher in a work space gets the
+ * joined Classes & spaces card instead.
  */
 const TEACHING_CLASSES = placesGroup(['classes'])
 
 /**
  * A teacher's work-side pages, only for one who has work or may make spaces:
- * Projects and My tasks. Once the teacher has work, their spaces sit in the
+ * Projects and My tasks. Once the teacher is in a work space, their spaces sit in the
  * Classes & spaces card (`joined`); until then a project manager's Work card
  * lists them, and shows even when empty so they can make one.
  */
 function teachingWork(manager: boolean, joined: boolean): NavGroup {
   const items: NavItem[] = [PROJECTS, { label: 'My tasks', icon: 'check', to: paths.tasks }]
-  if (joined) return { title: 'Work', items }
+  if (joined) return { title: 'Work', collapsible: true, items }
   return { title: 'Work', picker: ['spaces'], hideWhenEmpty: !manager, withClasses: false, items }
 }
 
@@ -319,9 +319,9 @@ const MEMBER_MAIN = [TEACHING_MAIN, STAKEHOLDER_MAIN, ADMIN_INVITED, OVERVIEW]
  * empty for anyone who cannot make one — students, faculty who do not teach,
  * admins.
  *
- * Teaching faculty with work get the Classes & spaces card, then Main (Home,
+ * Teaching faculty in a work space get the Classes & spaces card, then Main (Home,
  * Waiting on you, Inbox, Calendar, Meetings), then a plain Work group
- * (Projects and My tasks), then Resources and Account. Without work they get
+ * (Projects and My tasks), then Resources and Account. Without a space they get
  * the Classes card and, with the Project manager switch, a Work card that
  * lists their spaces. A class's projects live on its Projects tab.
  *
@@ -384,11 +384,11 @@ function railFor(profile: AccessProfile, admitted: boolean, membership?: Members
   }
   if (canTeach(profile)) {
     const manager = canManageProjects(profile)
-    const joined = membership?.hasWork === true
+    const joined = membership?.inSpace === true
     return [
       joined ? placesGroup(['classes', 'spaces']) : TEACHING_CLASSES,
       TEACHING_MAIN,
-      ...(joined || manager ? [teachingWork(manager, joined)] : []),
+      ...(joined || membership?.hasWork || manager ? [teachingWork(manager, joined)] : []),
       resourcesGroup(role),
       ACCOUNT_WITH_ARCHIVE,
     ]
