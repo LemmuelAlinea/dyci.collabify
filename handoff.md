@@ -5102,3 +5102,25 @@ accepted." from the setting; no failed requests.
 - The first conversion of a long file takes about 30 seconds; the container scales to zero when idle.
 - Excel files could take the same path; LibreOffice's sheet-to-PDF page breaks are poorer than Microsoft's viewer.
 
+
+## File history, revert and restore (2026-11-16)
+
+- History can now put things back. On the History tab a commit has Revert and a file row has Undo; a file's History
+  panel (the History button in the file editor) lists its versions with a diff and Restore. Into Main for people with
+  `commit_main`; a member without it gets Restore to my draft. A deleted file comes back through Undo.
+- `supabase/file-history.sql` (run after `word-previews.sql`): `general_commit_origins`, `revert_general_commit`,
+  `restore_general_file`, and final ownership of `general_blobs_pull_guard`, which now lets through a blob whose
+  storage path already appears on an earlier blob of the same repo and path (an old version put back is not "stale").
+  Suite `supabase/tests/file-history.test.sql`.
+- A later commit on a path blocks the revert and names the files. Binary versions restored to a draft are copied with
+  `copyProjectFile` and based on Main's current seq. `PutBackDialog` warns before a restore drops unsaved edits.
+  Stakeholders, read-only viewers and the class teacher see history only.
+- Design: `docs/superpowers/specs/2026-11-16-file-history-revert-design.md`. Walked signed in by the controller.
+
+**Deferred**
+- A whole-commit revert into a draft saves file by file; a part-way failure names what landed, and reopening the
+  dialog re-copies binaries.
+- File history opens only for files Main has or had; a deleted file comes back through Undo on the History tab.
+- Copy nits from review: the "Nothing to revert" line reads for a whole commit; the unsaved-edits warning also shows
+  on a blocked dialog; "Current" can mark a removal row reached through a draft copy.
+- A draft restore reads Main's state from when the panel opened.

@@ -364,6 +364,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   function signs the Word file with the caller's token first, so storage policies decide access. Uploads warm it
   (`warmWordPdf`); `WordPdfPreview` shows it. Excel keeps Microsoft's viewer. Deploy and secrets:
   `docs/word-pdf-previews.md`.
+- File history (`supabase/file-history.sql`, after `word-previews.sql`, before `anon-lockdown.sql`): History can
+  revert a whole commit or undo one file's change, and a file's History panel (`FileHistoryPanel`, from the History
+  button in `FileEditor`) can restore an older version. Into Main for `commit_main` holders
+  (`revert_general_commit`, `restore_general_file`); everyone else with a draft gets Restore to my draft (binary
+  versions copied with `copyProjectFile`, base recorded as Main's current seq). A later commit on a path blocks a
+  revert and names the files. Stakeholders, read-only viewers and the class teacher see history only. It owns
+  `general_commit_origins` and takes final ownership of `general_blobs_pull_guard` from `file-pulls.sql`, adding one
+  rule: a blob whose `storage_path` already appears on an earlier blob of the same repo and path passes. Re-running
+  `file-pulls.sql` means re-running it afterwards. Code: `lib/general/fileHistory.ts`, `lib/api/fileHistory.ts`,
+  `PutBackDialog`, `VersionDiff`. Suite: `supabase/tests/file-history.test.sql`.
 
 ## First-run walkthroughs
 
