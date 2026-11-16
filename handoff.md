@@ -5169,3 +5169,20 @@ accepted." from the setting; no failed requests.
 - Follow-up: back to the first drawing's look, in the banner's accent: muted outlines with no fill, the check, the
   first line and the badge ring in `banner-end`, and the badge a thin ring with a faint tint (its middle the card's
   colour). The glow and dots keep `banner-tile-glyph`.
+
+## Joined Classes & spaces card for teachers in a work space (2026-11-17)
+
+- A member with Can teach who is in a live work space (`membership.inSpace`, new on `Membership` from
+  `membershipOf`) gets one Classes & spaces card at the top of the rail, the same card a student with work has,
+  and Work below Main becomes a plain, foldable heading with Projects and My tasks. `railFor` / `teachingWork` in
+  `components/app/nav.ts`.
+- Unchanged: teaching only; a teacher with Project manager in no space (keeps Work's spaces card, which leads to New
+  space); a teacher only on a project and in no space, such as a stakeholder (Classes card, Work with the empty
+  spaces card hidden); everyone who does not teach.
+- Tests: `nav.test.ts`, `SideNav.teaching.test.tsx`, `lib/access.test.ts`. Checked on the dev server signed in: the
+  card and its Classes · Spaces switch show the space.
+- Spec `docs/superpowers/specs/2026-11-17-teacher-places-card-design.md`, plan
+  `docs/superpowers/plans/2026-11-17-teacher-places-card.md`.
+
+**Deferred**
+- On first load the rail shows the Classes card until spaces and projects load, then swaps to the joined card.
