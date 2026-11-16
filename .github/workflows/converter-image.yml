@@ -1,0 +1,29 @@
+name: converter image
+
+# Builds the Word → PDF converter (converter/Dockerfile) into a public image that
+# Azure Container Apps pulls. Free on GitHub; Azure's own registry is not.
+on:
+  push:
+    branches: [main, converter-image]
+    paths: ['converter/**', '.github/workflows/converter-image.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: converter
+          push: true
+          tags: ghcr.io/lemmuelalinea/collabify-word-pdf:latest

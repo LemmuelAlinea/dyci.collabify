@@ -5076,7 +5076,8 @@ accepted." from the setting; no failed requests.
   Word-exported `<file>.docx.pdf` to Main) asked people for a second file. Both are replaced for Word files: the file
   stays the uploaded `.docx` (or `.doc`, `.odt`, `.rtf`, which now preview too), and Files shows a PDF the server
   makes of it. Download gets the original. Excel keeps Microsoft's viewer.
-- Converter: Gotenberg (LibreOffice) on Google Cloud Run, `converter/Dockerfile`, with Microsoft's core fonts baked
+- Converter: Gotenberg (LibreOffice) on Azure Container Apps (Azure for Students, no card), `converter/Dockerfile`,
+  built to `ghcr.io/lemmuelalinea/collabify-word-pdf` by `.github/workflows/converter-image.yml`, with Microsoft's core fonts baked
   in (Calibri/Cambria fall to the same-width Carlito/Caladea). Behind Gotenberg basic auth.
 - `word-pdf` Edge Function (deployed): signs the Word file with the caller's token, answers a 10-minute link to
   `file-previews/<storage path>.pdf`, converting once if it is missing (60 an hour / 300 a day per person).

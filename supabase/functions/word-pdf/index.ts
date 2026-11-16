@@ -4,7 +4,7 @@
 //
 // The Word file itself is never changed. Its PDF lives in the private
 // file-previews bucket at `<storage_path>.pdf` (supabase/word-previews.sql), made
-// by the Gotenberg converter on Cloud Run (converter/Dockerfile) the first time
+// by the Gotenberg converter on Azure Container Apps (converter/Dockerfile) the first time
 // anyone asks. Uploaded objects never change, so a kept PDF never goes stale.
 //
 // Access: the caller's own token signs the Word file first, so the storage
@@ -12,8 +12,9 @@
 // preview bucket. Nobody can plant a PDF: the bucket has no policies.
 //
 // Deploy:  supabase functions deploy word-pdf
-// Secrets: supabase secrets set WORD_PDF_URL=https://<service>.run.app \
+// Secrets: supabase secrets set WORD_PDF_URL=https://<app>.azurecontainerapps.io \
 //            WORD_PDF_USER=collabify WORD_PDF_PASSWORD=<the converter's password>
+//   (WORD_PDF_URL is the Azure Container App's https address.)
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { cors, denied } from '../_shared/cors.ts'
@@ -23,7 +24,7 @@ const PREVIEWS = 'file-previews'
 /** `<project uuid>/files/<object name>.<word extension>`, as uploadProjectFile names them. */
 const WORD_PATH = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/files\/[^/]+\.(docx|doc|odt|rtf)$/i
 const LINK_SECONDS = 600
-/** Long theses take a while in LibreOffice; Cloud Run's cold start adds more. */
+/** Long theses take a while in LibreOffice; starting a scaled-to-zero container adds more. */
 const CONVERT_MS = 140_000
 
 function json(headers: Record<string, string>, body: unknown, status = 200) {

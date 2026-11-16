@@ -360,7 +360,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   Commit); `general_file_push_state` gives a pull next to Main's newest version. Excel files (`xlsx`, `xlsm`, `xls`) follow the same rules as Word files. Suite: `supabase/tests/file-pulls.test.sql`.
 - Word PDF previews (`supabase/word-previews.sql`, after `file-pulls.sql`, before `anon-lockdown.sql`): a Word file
   stays the uploaded file; Files shows a PDF the `word-pdf` Edge Function makes once with the Gotenberg converter on
-  Cloud Run (`converter/Dockerfile`) and keeps in the private `file-previews` bucket at `<storage path>.pdf`. The
+  Azure Container Apps (`converter/Dockerfile`, image built on GitHub) and keeps in the private `file-previews` bucket at `<storage path>.pdf`. The
   function signs the Word file with the caller's token first, so storage policies decide access. Uploads warm it
   (`warmWordPdf`); `WordPdfPreview` shows it. Excel keeps Microsoft's viewer. Deploy and secrets:
   `docs/word-pdf-previews.md`.
