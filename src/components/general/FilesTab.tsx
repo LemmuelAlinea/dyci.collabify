@@ -24,10 +24,13 @@ import {
   saveDraftFile,
 } from '../../lib/api/general'
 import { listPulls } from '../../lib/api/filePulls'
+import { commitOrigins, fileVersions, restoreToDraft, revertCommit } from '../../lib/api/fileHistory'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { editingLabel, pulledAgo } from '../../lib/general/newVersion'
 import { groupChanges } from '../../lib/general/review'
+import { laterEdits, originLabel, putBack, stateBefore } from '../../lib/general/fileHistory'
+import type { FileVersion } from '../../lib/general/fileHistory'
 import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, isComparableExcel, isKeep, isPreviewableWord, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import { zipFolder } from '../../lib/general/zipFolder'
@@ -41,6 +44,7 @@ import type {
   DraftConflict,
   GeneralBlob,
   GeneralCommit,
+  GeneralCommitOrigin,
   GeneralDraft,
   GeneralDraftFile,
   FilePull,
@@ -58,6 +62,7 @@ import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
 import { PropertiesDialog } from './PropertiesDialog'
 import type { PropertyTarget } from './PropertiesDialog'
+import { PutBackDialog } from './PutBackDialog'
 import { NewItemDialog } from './NewItemDialog'
 import { RenameFolderDialog } from './RenameFolderDialog'
 import { SharedTab } from './SharedTab'
@@ -83,6 +88,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   const [repo, setRepo] = useState<GeneralRepoSummary | null>(null)
   const [tree, setTree] = useState<GeneralTreeFile[]>([])
   const [commits, setCommits] = useState<GeneralCommit[]>([])
+  const [origins, setOrigins] = useState<Record<string, GeneralCommitOrigin>>({})
   const [changes, setChanges] = useState<GeneralRepoChange[]>([])
   const [draft, setDraft] = useState<GeneralDraft | null>(null)
   const [draftFiles, setDraftFiles] = useState<GeneralDraftFile[]>([])
@@ -123,6 +129,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       if (!r) {
         setTree([])
         setCommits([])
+        setOrigins({})
         setChanges([])
         setDraft(null)
         setDraftFiles([])
@@ -131,6 +138,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       } else {
         // Who is editing what is a heads-up: the files never wait for it or fail without it.
         void listPulls(r.id).then(setPulls, () => setPulls([]))
+        // Where a revert came from is a label: History never waits for it or fails without it.
+        void commitOrigins(r.id).then(setOrigins, () => setOrigins({}))
         const [t, c, ch] = await Promise.all([listTree(r.id), listCommits(r.id), listRepoChanges(r.id)])
         setTree(t)
         setCommits(c)
@@ -374,8 +383,14 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       {view === 'history' && (
         <HistoryView
           commits={commits.filter((c) => matches(query, c.message, c.author_id ? state.nameOf(c.author_id) : ''))}
+          origins={origins}
+          repo={repo}
+          draftFiles={draftFiles}
+          mainHas={(p) => tree.some((f) => f.path === p)}
+          putBackTo={noDraft || state.readOnly ? null : state.can('commit_main') ? 'main' : 'draft'}
           state={state}
           query={query}
+          onDone={load}
         />
       )}
 
@@ -969,16 +984,35 @@ function ChangeSection({
 
 /* ----------------------------------------------------------------- history */
 
+/** Where a revert or an undo lands: Main as a new commit, the person's draft, or nowhere (no action shown). */
+type PutBackTo = 'main' | 'draft' | null
+
+type HistoryProps = {
+  repo: GeneralRepoSummary
+  draftFiles: GeneralDraftFile[]
+  mainHas: (path: string) => boolean
+  putBackTo: PutBackTo
+  state: GeneralProjectState
+  onDone: () => Promise<void>
+}
+
 function HistoryView({
   commits,
-  state,
+  origins,
   query,
-}: {
+  ...rest
+}: HistoryProps & {
   commits: GeneralCommit[]
-  state: GeneralProjectState
+  origins: Record<string, GeneralCommitOrigin>
   query?: string
 }) {
+  const { state } = rest
   const [open, setOpen] = useState<string | null>(null)
+
+  function openCommit(id: string) {
+    setOpen(id)
+    document.getElementById(`commit-${id}`)?.scrollIntoView?.({ block: 'nearest' })
+  }
 
   if (commits.length === 0) {
     return (
@@ -990,8 +1024,11 @@ function HistoryView({
 
   return (
     <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
-      {commits.map((c) => (
-        <li key={c.id}>
+      {commits.map((c) => {
+        const origin = origins[c.id]
+        const source = origin?.source_commit_id ? commits.find((s) => s.id === origin.source_commit_id) : undefined
+        return (
+        <li key={c.id} id={`commit-${c.id}`}>
           <button
             type="button"
             onClick={() => setOpen(open === c.id ? null : c.id)}
@@ -1013,16 +1050,105 @@ function HistoryView({
               className="shrink-0 text-faint"
             />
           </button>
-          {open === c.id && <CommitFiles commit={c} />}
+          {origin && (
+            <p className="-mt-1.5 pb-2 pl-[4.25rem] pr-4 text-[12px] text-muted">
+              {source ? (
+                <button
+                  type="button"
+                  onClick={() => openCommit(source.id)}
+                  className="font-medium text-navy-600 hover:underline dark:text-navy-200"
+                >
+                  {originLabel(origin)}
+                </button>
+              ) : (
+                originLabel(origin)
+              )}
+            </p>
+          )}
+          {open === c.id && <CommitFiles commit={c} {...rest} />}
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }
 
-function CommitFiles({ commit }: { commit: GeneralCommit }) {
+/** A `.keep` row stands for its folder in what a dialog lists. */
+const shownPath = (path: string) => (isKeep(path) ? `${folderOf(path)}/` : path)
+
+type Asking = {
+  /** Set for an undo of one file; unset for the whole commit. */
+  path?: string
+  paths: string[]
+  versions: Record<string, FileVersion[]>
+  changedSince: string[]
+}
+
+function CommitFiles({
+  commit,
+  repo,
+  draftFiles,
+  mainHas,
+  putBackTo,
+  onDone,
+}: HistoryProps & { commit: GeneralCommit }) {
+  const { show } = useToast()
   const [files, setFiles] = useState<GeneralBlob[] | null>(null)
   const [before, setBefore] = useState<Record<string, string | null>>({})
+  const [asking, setAsking] = useState<Asking | null>(null)
+  const [checking, setChecking] = useState<string | null>(null)
+  const toMain = putBackTo === 'main'
+
+  // Later edits are checked here first so the dialog can name them; the database refuses the same case.
+  async function ask(path?: string) {
+    if (!files) return
+    const paths = path ? [path] : [...new Set(files.map((f) => f.path))]
+    setChecking(path ?? '')
+    try {
+      const lists = await Promise.all(paths.map((p) => fileVersions(repo.id, p)))
+      setAsking({
+        path,
+        paths,
+        versions: Object.fromEntries(paths.map((p, i) => [p, lists[i]])),
+        changedSince: laterEdits(lists.flat(), commit.seq),
+      })
+    } catch (err) {
+      show(authErrorMessage(err, 'The file history did not load. Try again in a moment.'), 'error')
+    } finally {
+      setChecking(null)
+    }
+  }
+
+  async function confirm(message: string) {
+    if (!asking) return
+    try {
+      if (toMain) {
+        await revertCommit(commit.id, repo.commit_count, asking.path, message)
+        show(`Reverted #${commit.seq}`)
+      } else {
+        const todo = asking.paths.filter((p) => {
+          const versions = asking.versions[p] ?? []
+          return putBack(stateBefore(versions, commit.seq), versions[0] ?? null) !== null
+        })
+        if (todo.length === 0) throw new Error(`Nothing to revert. Every file in #${commit.seq} is already as it was before it.`)
+        for (const p of todo) {
+          await restoreToDraft({
+            repoId: repo.id,
+            projectId: commit.project_id,
+            path: p,
+            target: stateBefore(asking.versions[p] ?? [], commit.seq),
+            mainHas: mainHas(p),
+          })
+        }
+        show(`Put #${commit.seq} back in your draft`)
+      }
+    } catch (err) {
+      // A stale base or a later commit means the loaded files are behind: reload them under the error.
+      void onDone()
+      throw err
+    }
+    await onDone()
+  }
 
   useEffect(() => {
     let alive = true
@@ -1050,9 +1176,18 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
   }
 
   const { shown, folders } = shownFiles(files)
+  const undoLabel = toMain ? 'Undo this change' : 'Undo in my draft'
 
   return (
     <div className="space-y-3 px-4 pb-4">
+      {putBackTo && files.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" loading={checking === ''} disabled={checking !== null} onClick={() => void ask()}>
+            <Icon name="refresh" size={14} />
+            {toMain ? 'Revert commit' : 'Revert in my draft'}
+          </Button>
+        </div>
+      )}
       {folders.map((path) => (
         <p key={path} className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-ink">
           {path}
@@ -1066,6 +1201,19 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
             <span className="rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">
               {FILE_ACTION_LABEL[f.action]}
             </span>
+            {putBackTo && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="font-sans"
+                aria-label={`${undoLabel}: ${f.path}`}
+                loading={checking === f.path}
+                disabled={checking !== null}
+                onClick={() => void ask(f.path)}
+              >
+                {undoLabel}
+              </Button>
+            )}
           </p>
           {f.kind === 'binary' && isPreviewableWord(f.path) ? (
             <WordDiff
@@ -1094,6 +1242,22 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
           )}
         </section>
       ))}
+      {asking && (
+        <PutBackDialog
+          title={
+            asking.path
+              ? `Undo #${commit.seq} on ${asking.path}${toMain ? '' : ' in your draft'}?`
+              : `Revert #${commit.seq}${toMain ? '' : ' in your draft'}?`
+          }
+          files={asking.paths.map(shownPath)}
+          replacesDraft={toMain ? [] : asking.paths.filter((p) => draftFiles.some((f) => f.path === p)).map(shownPath)}
+          changedSince={asking.changedSince.map(shownPath)}
+          toMain={toMain}
+          defaultMessage={asking.path ? `Undo #${commit.seq} on ${asking.path}` : `Revert #${commit.seq}: ${commit.message}`}
+          onConfirm={confirm}
+          onClose={() => setAsking(null)}
+        />
+      )}
     </div>
   )
 }

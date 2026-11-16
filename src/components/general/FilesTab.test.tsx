@@ -5,7 +5,8 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import { FilesTab } from './FilesTab'
-import { commitFiles, getRepo, listTree } from '../../lib/api/general'
+import { commitFiles, getRepo, listCommitFiles, listCommits, listDraftFiles, listTree } from '../../lib/api/general'
+import { commitOrigins, fileVersions, restoreToDraft, revertCommit } from '../../lib/api/fileHistory'
 import { listPulls } from '../../lib/api/filePulls'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -25,12 +26,21 @@ vi.mock('../../lib/api/general', async importOriginal => ({
   ...await importOriginal<object>(),
   getRepo: vi.fn(),
   listTree: vi.fn(async () => []),
-  listCommits: async () => [],
+  listCommits: vi.fn(async () => []),
+  listCommitFiles: vi.fn(async () => []),
+  contentAt: vi.fn(async () => ''),
   listRepoChanges: async () => [],
   myDraft: async () => ({ id: 'draft' }),
-  listDraftFiles: async () => [],
+  listDraftFiles: vi.fn(async () => []),
   draftConflicts: async () => [],
   commitFiles: vi.fn(async () => ({ seq: 2 })),
+}))
+vi.mock('../../lib/api/fileHistory', () => ({
+  fileVersions: vi.fn(async () => []),
+  commitOrigins: vi.fn(async () => ({})),
+  revertCommit: vi.fn(async () => ({ seq: 3 })),
+  restoreFile: vi.fn(),
+  restoreToDraft: vi.fn(async () => {}),
 }))
 
 const repo = { id: 'repo', name: 'Files', file_count: 0, commit_count: 0, last_author: null, last_commit_at: null }
@@ -187,4 +197,159 @@ it('shows folder properties with the total size of its files', async () => {
   expect(document.body.querySelector('dl')?.textContent).toContain('docs')
   expect(document.body.querySelector('dl')?.textContent).toContain('5 B')
   vi.mocked(listTree).mockResolvedValue([])
+})
+
+/* ----------------------------------------------------------------- history */
+
+const commit = (seq: number, message: string) => ({ id: `c${seq}`, repo_id: 'repo', project_id: 'p', seq, message, author_id: 'Ana', change_id: null, created_at: '2026-11-14T00:00:00Z' })
+const blob = (seq: number, path: string, action = 'changed', content = `v${seq}`) => ({ id: `${path}@${seq}`, commit_id: `c${seq}`, repo_id: 'repo', project_id: 'p', seq, path, action, kind: 'text', content, storage_path: null, created_at: '2026-11-14T00:00:00Z' })
+
+async function showHistory(state: GeneralProjectState) {
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+  await act(async () => root!.render(<MemoryRouter initialEntries={['/?tab=files&view=history']}><FilesTab state={state} /></MemoryRouter>))
+}
+
+async function expand(message: string) {
+  const row = [...host!.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')].find((b) => b.textContent?.includes(message))!
+  await act(async () => row.click())
+}
+
+const click = async (label: string, within: ParentNode = document) =>
+  act(async () => [...within.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === label)!.click())
+
+function historyFixture() {
+  vi.mocked(getRepo).mockResolvedValue({ ...repo, file_count: 1, commit_count: 2 } as never)
+  vi.mocked(listTree).mockResolvedValue([{ ...blob(2, 'a.md'), size: 2 }] as never)
+  vi.mocked(listCommits).mockResolvedValue([commit(2, 'Second pass'), commit(1, 'First draft')] as never)
+  vi.mocked(listCommitFiles).mockResolvedValue([blob(2, 'a.md')] as never)
+  vi.mocked(fileVersions).mockResolvedValue([
+    { ...blob(2, 'a.md'), commit: commit(2, 'Second pass') },
+    { ...blob(1, 'a.md', 'added'), commit: commit(1, 'First draft') },
+  ] as never)
+}
+
+afterEach(() => {
+  vi.mocked(listTree).mockResolvedValue([])
+  vi.mocked(listCommits).mockResolvedValue([])
+  vi.mocked(listCommitFiles).mockResolvedValue([])
+  vi.mocked(listDraftFiles).mockResolvedValue([])
+  vi.mocked(commitOrigins).mockResolvedValue({})
+  vi.mocked(fileVersions).mockResolvedValue([])
+  vi.mocked(restoreToDraft).mockClear()
+  vi.mocked(revertCommit).mockClear()
+})
+
+const committer = { ...viewer, myRole: 'member', readOnly: false, can: (p: string) => p === 'commit_main' } as unknown as GeneralProjectState
+const drafter = { ...viewer, myRole: 'member', readOnly: false } as unknown as GeneralProjectState
+
+it('offers a committer Revert commit on an expanded commit and Undo this change per file', async () => {
+  historyFixture()
+  await showHistory(committer)
+  await expand('Second pass')
+  expect(buttons()).toContain('Revert commit')
+  expect(buttons()).toContain('Undo this change')
+  expect(host!.querySelector('button[aria-label="Undo this change: a.md"]')).not.toBeNull()
+  expect(buttons()).not.toContain('Revert in my draft')
+})
+
+it('reverts into Main with the repo base and the edited message', async () => {
+  historyFixture()
+  await showHistory(committer)
+  await expand('Second pass')
+  await click('Revert commit', host!)
+  expect(document.body.textContent).toContain('Revert #2?')
+  expect((document.getElementById('put-back-message') as HTMLInputElement).value).toBe('Revert #2: Second pass')
+  await click('Put back in Main')
+  expect(revertCommit).toHaveBeenCalledWith('c2', 2, undefined, 'Revert #2: Second pass')
+})
+
+it('offers a member without commit_main the draft actions', async () => {
+  historyFixture()
+  await showHistory(drafter)
+  await expand('Second pass')
+  expect(buttons()).toContain('Revert in my draft')
+  expect(buttons()).toContain('Undo in my draft')
+  expect(buttons()).not.toContain('Revert commit')
+  expect(buttons()).not.toContain('Undo this change')
+})
+
+it('puts the version before the commit into the draft', async () => {
+  historyFixture()
+  await showHistory(drafter)
+  await expand('Second pass')
+  await click('Undo in my draft', host!)
+  await click('Put back in my draft')
+  expect(restoreToDraft).toHaveBeenCalledWith({
+    repoId: 'repo',
+    projectId: 'p',
+    path: 'a.md',
+    target: expect.objectContaining({ seq: 1, content: 'v1' }),
+    mainHas: true,
+  })
+})
+
+it('offers a stakeholder, a class teacher and a read-only viewer no revert', async () => {
+  for (const state of [
+    { ...viewer, myRole: 'stakeholder', readOnly: false },
+    { ...viewer, myRole: null, readOnly: true, classTeacher: true },
+    viewer,
+  ] as unknown as GeneralProjectState[]) {
+    historyFixture()
+    await showHistory(state)
+    await expand('Second pass')
+    expect(host!.textContent).toContain('a.md')
+    for (const label of ['Revert commit', 'Undo this change', 'Revert in my draft', 'Undo in my draft']) {
+      expect(buttons()).not.toContain(label)
+    }
+    await act(async () => root!.unmount())
+    host!.remove()
+    root = null
+  }
+})
+
+it('shows where a revert came from', async () => {
+  historyFixture()
+  vi.mocked(listCommits).mockResolvedValue([commit(3, 'Revert #2: Second pass'), commit(2, 'Second pass')] as never)
+  vi.mocked(commitOrigins).mockResolvedValue({
+    c3: { commit_id: 'c3', project_id: 'p', kind: 'revert', source_commit_id: 'c2', source_seq: 2, path: null, created_at: '2026-11-15T00:00:00Z' },
+  })
+  await showHistory(committer)
+  expect(host!.textContent).toContain('Reverts #2')
+  await click('Reverts #2', host!)
+  expect(host!.querySelector('button[aria-expanded="true"]')?.textContent).toContain('Second pass')
+})
+
+it('keeps History when the origins fail to load', async () => {
+  historyFixture()
+  vi.mocked(commitOrigins).mockRejectedValue(new Error('no'))
+  await showHistory(committer)
+  expect(host!.textContent).toContain('Second pass')
+})
+
+it('asks before replacing a draft copy', async () => {
+  historyFixture()
+  vi.mocked(listDraftFiles).mockResolvedValue([{ id: 'd', draft_id: 'draft', path: 'a.md', action: 'changed', kind: 'text', content: 'mine', storage_path: null }] as never)
+  await showHistory(drafter)
+  await expand('Second pass')
+  await click('Undo in my draft', host!)
+  expect(document.querySelector('[data-replaces-draft]')?.textContent).toContain('a.md')
+  await click('Cancel')
+  expect(restoreToDraft).not.toHaveBeenCalled()
+  expect(document.querySelector('[data-replaces-draft]')).toBeNull()
+})
+
+it('names the files a later commit changed and offers only Close', async () => {
+  historyFixture()
+  vi.mocked(fileVersions).mockResolvedValue([
+    { ...blob(3, 'a.md'), commit: commit(3, 'Third pass') },
+    { ...blob(2, 'a.md'), commit: commit(2, 'Second pass') },
+  ] as never)
+  await showHistory(committer)
+  await expand('Second pass')
+  await click('Revert commit', host!)
+  expect(document.querySelector('[data-changed-since]')?.textContent).toContain('a.md')
+  expect([...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Put back in Main')).toBe(false)
+  expect(revertCommit).not.toHaveBeenCalled()
 })
