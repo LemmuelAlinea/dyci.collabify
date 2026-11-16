@@ -10,11 +10,10 @@ import {
   discardDraftFile,
   projectFileUrl,
   saveDraftFile,
-  uploadProjectFile,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { summarizeFile, writeChangeMessage } from '../../lib/api/workAi'
-import { extensionOf, fileName, isComparableExcel, isEditable, isPreviewableWord, looksLikeMisreadOfficeFile, pathProblem } from '../../lib/general/files'
+import { extensionOf, fileName, isComparableExcel, isEditable, isPreviewableWord, looksLikeMisreadOfficeFile } from '../../lib/general/files'
 import { stalePushMessage } from '../../lib/general/newVersion'
 import { officePreviewable } from '../../lib/general/officeViewer'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
@@ -57,8 +56,6 @@ export type OpenFile = {
   sharedBy?: string
   /** When Main's version of the path was committed; null when Main does not have it. */
   mainAt?: string | null
-  pdfStoragePath?: string | null
-  pdfCompanionExists?: boolean
 }
 
 /**
@@ -205,9 +202,6 @@ function Body({
   const [points, setPoints] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pdfStoragePath, setPdfStoragePath] = useState(file.pdfStoragePath ?? null)
-  const [pdfCompanionExists, setPdfCompanionExists] = useState(file.pdfCompanionExists ?? false)
-  const pdfPicker = useRef<HTMLInputElement>(null)
 
   // What was last saved: the file as opened, until Ctrl+S saves it in place.
   // A sheet is compared in its canonical form, so opening one never reads as a change.
@@ -308,36 +302,6 @@ function Body({
       }
     } catch (err) {
       show(authErrorMessage(err, 'Could not prepare that download.'), 'error')
-    }
-  }
-
-  async function attachPdf(picked: File) {
-    if (!state.project || !file.storagePath || busy) return
-    const path = `${file.path}.pdf`
-    setError(null)
-    const problem = pathProblem(path)
-    if (problem) return setError(problem)
-    if (extensionOf(picked.name) !== 'pdf' || await picked.slice(0, 5).text() !== '%PDF-') {
-      return setError('Choose a PDF exported from this Word file.')
-    }
-    setBusy(true)
-    try {
-      const storagePath = await uploadProjectFile(state.project.id, picked)
-      await commitFiles({
-        repoId: repo.id,
-        message: `${pdfCompanionExists ? 'Updated' : 'Added'} PDF preview for ${file.path}`,
-        baseSeq: repo.commit_count,
-        files: [{ path, action: pdfCompanionExists ? 'changed' : 'added', kind: 'binary', content: '', storage_path: storagePath }],
-      })
-      setPdfCompanionExists(true)
-      setPdfStoragePath(storagePath)
-      show('PDF preview added')
-      await onSaved()
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not add the PDF preview. Reopen the file and try again.'))
-    } finally {
-      setBusy(false)
-      if (pdfPicker.current) pdfPicker.current.value = ''
     }
   }
 
@@ -455,26 +419,7 @@ function Body({
         file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} fill={full} /> : null
       )}
 
-      {isDocx && !inDraft && file.sharedBy === undefined && (
-        <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
-          <span>{pdfStoragePath ? 'Showing the PDF exported from Word.' : 'A Word-exported PDF preserves the page layout.'}</span>
-          {mayCommit && (
-            <>
-              <input ref={pdfPicker} type="file" accept=".pdf,application/pdf" className="hidden" aria-label="Choose Word PDF preview" onChange={(event) => {
-                const picked = event.target.files?.[0]
-                if (picked) void attachPdf(picked)
-              }} />
-              <Button size="sm" variant="outline" loading={busy} onClick={() => pdfPicker.current?.click()}>
-                {pdfStoragePath ? 'Update PDF preview' : 'Add PDF preview'}
-              </Button>
-            </>
-          )}
-        </div>
-      )}
-
-      {isDocx && pdfStoragePath && <PdfPreview storagePath={pdfStoragePath} label={name} fill={full} />}
-
-      {isOfficePreview && !(isDocx && pdfStoragePath) && (
+      {isOfficePreview && (
         file.storagePath ? <DocxPreview storagePath={file.storagePath} label={name} fill={full} /> : null
       )}
 

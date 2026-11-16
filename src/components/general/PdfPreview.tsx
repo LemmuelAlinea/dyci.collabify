@@ -9,6 +9,12 @@ import { authErrorMessage } from '../../lib/authError'
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
 
+async function fetchPdf(url: string) {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error('Could not load the PDF preview. Reopen the file and try again.')
+  return response.blob()
+}
+
 type LoadedPdf = {
   document: pdfjs.PDFDocumentProxy
   pages: number[]
@@ -17,10 +23,14 @@ type LoadedPdf = {
 
 export function PdfPreview({
   storagePath,
+  url,
   label,
   fill = false,
 }: {
-  storagePath: string
+  /** A PDF in the project's files. */
+  storagePath?: string
+  /** Or a signed link to one (a Word file's PDF preview). */
+  url?: string
   label: string
   /** Full screen: take the window's height instead of stopping at 70%. */
   fill?: boolean
@@ -36,7 +46,7 @@ export function PdfPreview({
     setError(null)
     void (async () => {
       try {
-        const blob = await projectFileBlob(storagePath)
+        const blob = url ? await fetchPdf(url) : await projectFileBlob(storagePath ?? '')
         const bytes = new Uint8Array(await blob.arrayBuffer())
         task = pdfjs.getDocument({ data: bytes })
         const document = await task.promise
@@ -64,7 +74,7 @@ export function PdfPreview({
         return null
       })
     }
-  }, [storagePath])
+  }, [storagePath, url])
 
   if (error) return <Alert tone="error">{error}</Alert>
 

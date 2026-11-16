@@ -1,4 +1,4 @@
-import { isComparableExcel, isExcelPath, isPreviewableWord } from './files'
+import { isComparableExcel, isExcelPath, isWordPath } from './files'
 
 const OFFICE_EMBED = 'https://view.officeapps.live.com/op/embed.aspx'
 
@@ -16,9 +16,10 @@ export function officeViewerReachable(hostname: string) {
 }
 
 /**
- * Whether a binary file gets a preview: a .docx, .xlsx or .xlsm always (Microsoft's
- * viewer, else the in-app simple preview), a .xls only where Microsoft's viewer reaches it.
+ * Whether a binary file gets a preview: any Word file (.docx, .doc, .odt, .rtf, as
+ * a PDF the server makes), a .xlsx or .xlsm always (Microsoft's viewer, else the
+ * in-app sheet view), a .xls only where Microsoft's viewer reaches it.
  */
 export function officePreviewable(path: string, hostname: string) {
-  return isPreviewableWord(path) || isComparableExcel(path) || (isExcelPath(path) && officeViewerReachable(hostname))
+  return isWordPath(path) || isComparableExcel(path) || (isExcelPath(path) && officeViewerReachable(hostname))
 }

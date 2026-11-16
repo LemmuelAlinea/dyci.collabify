@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
 import { endPull, mainSeq, pullFile, pushState, recordBase } from '../../lib/api/filePulls'
 import { projectFileUrl, saveDraftFile, storagePathAt, uploadProjectFile } from '../../lib/api/general'
+import { warmWordPdf } from '../../lib/api/wordPdf'
 import { authErrorMessage } from '../../lib/authError'
-import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isOfficePath, joinPath, kindForPath, mergeStep, nodesAt, officeAppName, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
+import { KEEP, actionFor, buildTree, fileName, folderNameProblem, isOfficePath, isWordPath, joinPath, kindForPath, mergeStep, nodesAt, officeAppName, pathProblem, pathWithPickedExtension } from '../../lib/general/files'
 import { OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
 import { newVersionProblem, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
@@ -109,6 +110,8 @@ export function NewItemDialog({
     else {
       storagePath = await uploadProjectFile(repo.project_id, file)
       if (base !== undefined) await recordBase(repo.id, target, storagePath, base)
+      // The PDF preview starts now, so it is ready when someone opens the file.
+      if (isWordPath(file.name)) warmWordPdf(storagePath)
     }
     await saveDraftFile({ repoId: repo.id, path: target, action: actionFor(target, tree), kind: k, content, storagePath })
   }

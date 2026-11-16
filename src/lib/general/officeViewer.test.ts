@@ -23,7 +23,7 @@ describe("Microsoft's Office viewer", () => {
       expect(officePreviewable('a/Budget.xlsx', host)).toBe(true)
       expect(officePreviewable('a/Macros.XLSM', host)).toBe(true)
       expect(officePreviewable('a/Consent.pdf', host)).toBe(false)
-      expect(officePreviewable('a/Old.doc', host)).toBe(false)
+      expect(officePreviewable('a/Old.doc', host)).toBe(true)
     }
     expect(officePreviewable('a/Old.xls', 'dyci-collabify.vercel.app')).toBe(true)
     expect(officePreviewable('a/Old.xls', 'localhost')).toBe(false)

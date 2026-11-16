@@ -15,7 +15,8 @@ import {
 } from '../../lib/api/general'
 import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { extensionOf, fileName, isOfficePath, mergeStep, officeAppName } from '../../lib/general/files'
+import { extensionOf, fileName, isOfficePath, isWordPath, mergeStep, officeAppName } from '../../lib/general/files'
+import { warmWordPdf } from '../../lib/api/wordPdf'
 import { newVersionProblem, pulledAgo, stalePushMessage, unknownCopyMessage } from '../../lib/general/newVersion'
 import { openTabFor } from '../../lib/general/openTab'
 import { pushVerdict } from '../../lib/general/pushCheck'
@@ -150,6 +151,7 @@ export function WordVersionPanel({
     try {
       const storagePath = await uploadProjectFile(state.project.id, picked)
       if (base !== null) await recordBase(repo.id, file.path, storagePath, base)
+      if (isWordPath(picked.name)) warmWordPdf(storagePath)
       setStage({ step: 'ready', picked, storagePath, action, endPull: endAfter })
     } catch (err) {
       setStage({ step: 'idle' })

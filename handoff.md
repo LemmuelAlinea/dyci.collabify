@@ -5069,3 +5069,26 @@ accepted." from the setting; no failed requests.
 - No committed unit test for `xlsxText` (the Deno function has no test harness); its bounds were checked with
   throwaway scripts.
 - A zip that lies about an entry's declared size is not covered by the unzip caps (one failed AI call at worst).
+
+## Word files shown as PDFs (2026-11-16)
+
+- Microsoft's Office viewer kept failing in ways neither side controls, and the manual "Add PDF preview" (commit a
+  Word-exported `<file>.docx.pdf` to Main) asked people for a second file. Both are replaced for Word files: the file
+  stays the uploaded `.docx` (or `.doc`, `.odt`, `.rtf`, which now preview too), and Files shows a PDF the server
+  makes of it. Download gets the original. Excel keeps Microsoft's viewer.
+- Converter: Gotenberg (LibreOffice) on Google Cloud Run, `converter/Dockerfile`, with Microsoft's core fonts baked
+  in (Calibri/Cambria fall to the same-width Carlito/Caladea). Behind Gotenberg basic auth.
+- `word-pdf` Edge Function (deployed): signs the Word file with the caller's token, answers a 10-minute link to
+  `file-previews/<storage path>.pdf`, converting once if it is missing (60 an hour / 300 a day per person).
+  `supabase/word-previews.sql` (applied live): the private bucket and the hourly `collabify-preview-sweep`.
+- Uploads start the conversion at once (`warmWordPdf`); `WordPdfPreview` shows "Making the PDF preview…", then the
+  pages, with Try again and, for a `.docx`, Use the simple preview when it cannot be made. Old Word files convert on
+  first view. The manual companion flow (`wordPdfCompanion`, Add PDF preview) is gone; committed `.docx.pdf` files
+  stay ordinary PDFs.
+- Setup and secrets: `docs/word-pdf-previews.md`. 2,534 tests, build clean.
+
+**Deferred**
+- Until `WORD_PDF_URL`, `WORD_PDF_USER` and `WORD_PDF_PASSWORD` are set, every Word preview says the converter is not
+  set up (the simple preview still works for a `.docx`). Do not push the frontend before the converter is live.
+- Excel files could take the same path; LibreOffice's sheet-to-PDF page breaks are poorer than Microsoft's viewer.
+

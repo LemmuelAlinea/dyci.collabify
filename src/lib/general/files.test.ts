@@ -28,7 +28,6 @@ import {
   pathWithPickedExtension,
   pathProblem,
   shownFiles,
-  wordPdfCompanion,
 } from './files'
 import type { GeneralTreeFile } from './types'
 
@@ -54,16 +53,6 @@ function file(path: string): GeneralTreeFile {
     created_at: '2026-09-19T00:00:00Z',
   }
 }
-
-describe('wordPdfCompanion', () => {
-  it('uses only a PDF committed for the current Word version', () => {
-    const word = { ...file('Thesis.docx'), kind: 'binary' as const, seq: 7, storage_path: 'word-7' }
-    const pdf = { ...file('Thesis.docx.pdf'), kind: 'binary' as const, seq: 8, storage_path: 'pdf-8' }
-    expect(wordPdfCompanion(word, [word, pdf])?.storage_path).toBe('pdf-8')
-    expect(wordPdfCompanion({ ...word, seq: 9, storage_path: 'word-9' }, [pdf])).toBeNull()
-    expect(wordPdfCompanion(word, [{ ...pdf, kind: 'text' }])).toBeNull()
-  })
-})
 
 describe('pathProblem', () => {
   it('accepts an ordinary path', () => {
