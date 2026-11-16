@@ -886,7 +886,8 @@
     max-width: 70cqw;
     aspect-ratio: 1;
   }
-  /* The soft glow, then a ring of dots fading out from the middle. */
+  /* The soft glow, then a ring of dots fading out from the middle, both in the
+     person's banner glyph colour like No active sprint. */
   .empty-art-figure::before,
   .empty-art-figure::after {
     content: '';
@@ -898,15 +899,15 @@
   .empty-art-figure::before {
     background: radial-gradient(
       closest-side,
-      color-mix(in oklab, var(--color-amber-400) 16%, transparent),
+      color-mix(in oklab, var(--banner-tile-glyph) 16%, transparent),
       transparent
     );
   }
   .empty-art-figure::after {
-    background-image: radial-gradient(var(--line-strong) 1px, transparent 1.4px);
+    background-image: radial-gradient(var(--banner-tile-glyph) 1px, transparent 1.4px);
     background-size: 11px 11px;
     mask-image: radial-gradient(closest-side, black 25%, transparent);
-    opacity: 0.6;
+    opacity: 0.25;
   }
   .empty-art-figure > svg {
     position: relative;

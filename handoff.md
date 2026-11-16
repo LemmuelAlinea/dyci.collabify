@@ -5160,3 +5160,6 @@ accepted." from the setting; no failed requests.
   figure (container height under 11rem), and on a phone it stacks at a 15rem floor. Colors are tokens only.
 - Checked in the browser on a harness with sample tiles (the pane was not signed in): 1920, 1280, 1024, 820 and 390
   wide, dark and light; no overflow, and the tablet tile matches Waiting on you's height.
+- Follow-up: the drawing now takes the person's banner like No active sprint (`WorkGlance`): the clipboard and badge
+  fill with `banner-tile`, every line, the glow and the dots use `banner-tile-glyph` (held to 3:1 on the tile by
+  `lib/palette.ts`). Checked with the default banner in dark and light and with a custom green banner.
