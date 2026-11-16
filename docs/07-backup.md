@@ -1012,8 +1012,10 @@ after it, and re-running those files' owners leaves it in place. Excel files (`x
 `file-history.sql` runs after `word-previews.sql` and before `anon-lockdown.sql`. It creates
 `general_commit_origins` (which commit a revert or undo came from) and the `revert_general_commit` and
 `restore_general_file` functions, and takes final ownership of `general_blobs_pull_guard` from `file-pulls.sql`,
-adding one rule: a blob whose storage path already appears on an earlier blob of the same repo and path passes,
-so putting an old version back is not held as stale. Re-running `file-pulls.sql` means re-running
+adding one rule: while `revert_general_commit` or `restore_general_file` runs (they set the transaction flag
+`collabify.file_history_put_back` on only around their `commit_general_files` call), a blob whose storage path
+already appears on an earlier blob of the same repo and path passes, so putting an old version back is not held as
+stale. A share or draft copy of an old Main object, committed or merged any other way, is still held by its base. Re-running `file-pulls.sql` means re-running
 `file-history.sql` afterwards, then `anon-lockdown.sql`; otherwise a revert of a Word or Excel file is held.
 Suite: `supabase/tests/file-history.test.sql`.
 

@@ -27,7 +27,8 @@ It serves both work projects and a class group's hidden Files project (the same 
 
 - Losing later work silently. A revert that would overwrite a later commit's edit refuses and names the files.
 - A second way past the Word/Excel upload check for copies made from an old version. Only a version Main
-  itself already had passes.
+  itself already had passes, and only while a revert or restore puts it back; a share or draft copy of that same
+  object is still held.
 
 ## Decisions (the user's)
 
@@ -64,9 +65,12 @@ It serves both work projects and a class group's hidden Files project (the same 
   returns `general_commits`**. Puts `p_path` back to its state at version `p_seq` (a blob with that seq and
   path, not a removal). `changed` if live, `added` if gone; refuses when it is already that content.
   Default message: `Restore <path> to #<seq>`. Writes one origin row.
-- **Upload check**: `general_blobs_pull_guard` gains one rule before its base check: a blob whose
+- **Upload check**: `general_blobs_pull_guard` gains one rule before its base check: while
+  `revert_general_commit` or `restore_general_file` runs (each sets the transaction flag
+  `collabify.file_history_put_back` on only around its `commit_general_files` call), a blob whose
   `storage_path` already appears on an earlier blob of the same repo and path passes (a version Main already
-  had is not a stale copy). This file takes ownership of the guard from `file-pulls.sql`, so re-running
+  had is not a stale copy). A share or draft copy of an old Main object, committed or merged any other way, is
+  still held by its base. This file takes ownership of the guard from `file-pulls.sql`, so re-running
   `file-pulls.sql` means re-running this file afterwards. Its pull-end trigger is unchanged.
 - `.keep` rows are reverted like any file, so a folder a commit added goes with it.
 - Suite `supabase/tests/file-history.test.sql`: revert of change, add and remove; one-path undo; the later-edit

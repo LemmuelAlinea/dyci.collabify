@@ -5110,7 +5110,9 @@ accepted." from the setting; no failed requests.
   `commit_main`; a member without it gets Restore to my draft. A deleted file comes back through Undo.
 - `supabase/file-history.sql` (run after `word-previews.sql`): `general_commit_origins`, `revert_general_commit`,
   `restore_general_file`, and final ownership of `general_blobs_pull_guard`, which now lets through a blob whose
-  storage path already appears on an earlier blob of the same repo and path (an old version put back is not "stale").
+  storage path already appears on an earlier blob of the same repo and path, but only while `revert_general_commit`
+  or `restore_general_file` runs (the `collabify.file_history_put_back` flag, on only around their commit). A share
+  or draft copy of an old Main object, committed or merged any other way, is still held by its base.
   Suite `supabase/tests/file-history.test.sql`.
 - A later commit on a path blocks the revert and names the files. Binary versions restored to a draft are copied with
   `copyProjectFile` and based on Main's current seq. `PutBackDialog` warns before a restore drops unsaved edits.

@@ -371,7 +371,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   versions copied with `copyProjectFile`, base recorded as Main's current seq). A later commit on a path blocks a
   revert and names the files. Stakeholders, read-only viewers and the class teacher see history only. It owns
   `general_commit_origins` and takes final ownership of `general_blobs_pull_guard` from `file-pulls.sql`, adding one
-  rule: a blob whose `storage_path` already appears on an earlier blob of the same repo and path passes. Re-running
+  rule: while `revert_general_commit` or `restore_general_file` runs (the transaction flag
+  `collabify.file_history_put_back`, on only around their `commit_general_files` call), a blob whose `storage_path`
+  already appears on an earlier blob of the same repo and path passes. A share or draft copy of an old Main object,
+  committed or merged any other way, is still held by its base. Re-running
   `file-pulls.sql` means re-running it afterwards. Code: `lib/general/fileHistory.ts`, `lib/api/fileHistory.ts`,
   `PutBackDialog`, `VersionDiff`. Suite: `supabase/tests/file-history.test.sql`.
 
