@@ -5166,3 +5166,6 @@ accepted." from the setting; no failed requests.
 - Follow-up: the clipboard is outline only now (the card shows through; its top edge stops at the clip). Off the
   tile, its lines take `banner-end` (the accent held to 3:1 on the app's grounds, a darker step in light mode)
   instead of `banner-tile-glyph`; the badge keeps the banner fill and glyph lines.
+- Follow-up: back to the first drawing's look, in the banner's accent: muted outlines with no fill, the check, the
+  first line and the badge ring in `banner-end`, and the badge a thin ring with a faint tint (its middle the card's
+  colour). The glow and dots keep `banner-tile-glyph`.
