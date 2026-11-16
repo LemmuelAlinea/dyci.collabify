@@ -15,6 +15,7 @@ const who = vi.hoisted(() => ({
     unknown
   >,
 }))
+const nav = vi.hoisted(() => ({ work: false }))
 const waiting = vi.hoisted(() => vi.fn(async () => 4))
 const headed = vi.hoisted(() =>
   vi.fn<() => Promise<{ office_id: string; office_name: string } | null>>(async () => null),
@@ -37,7 +38,13 @@ const project = (id: string, title: string, class_id: string, updated_at: string
 })
 vi.mock('../../context/generalNavigation', () => ({
   useGeneralNavigation: () => ({
-    spaces: [space('s1', 'IT 301 · BSIT 3A', 'k1'), space('s2', 'IT 302 · BSIT 3B', 'k2')],
+    spaces: [
+      space('s1', 'IT 301 · BSIT 3A', 'k1'),
+      space('s2', 'IT 302 · BSIT 3B', 'k2'),
+      ...(nav.work
+        ? [{ id: 'w1', name: 'Capstone 2', class_id: null, kind: 'work', my_level: 'owner', archived_at: null, project_count: 1 }]
+        : []),
+    ],
     invitations: [],
     currentSpaceId: null,
     myProjects: [],
@@ -54,6 +61,7 @@ vi.mock('../../context/generalNavigation', () => ({
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
 beforeEach(() => {
+  nav.work = false
   try {
     localStorage.clear()
   } catch {
@@ -90,6 +98,38 @@ it('opens the rail on the class card, as a student has it, with All classes', as
   // The card comes before Main's Home row.
   const order = hrefs()
   expect(order.indexOf('/classes/k1')).toBeLessThan(order.indexOf('/home', 1))
+})
+
+it('shows one Classes & spaces card and a plain Work list for a teacher with work', async () => {
+  nav.work = true
+  await show('/home')
+  const cards = [...host.querySelectorAll('section.place-card')]
+  expect(cards.map((c) => c.getAttribute('aria-label'))).toEqual(['Classes & spaces'])
+  expect(hrefs()).toContain('/classes/k1')
+  expect(links()).toContain('All classes')
+  const tasks = host.querySelector('[data-walkthrough="nav-tasks"]')
+  expect(tasks?.getAttribute('href')).toBe('/tasks')
+  expect(links()).toContain('Projects')
+})
+
+it('opens the card on Spaces on a space page', async () => {
+  nav.work = true
+  await show('/spaces/w1')
+  expect(links()).toContain('All spaces')
+  expect(hrefs()).toContain('/spaces/w1')
+})
+
+it('gives a teacher with work Classes and Spaces rows on the collapsed rail', async () => {
+  nav.work = true
+  await show('/home', true)
+  const labels = [...host.querySelectorAll('a')].map((a) => a.getAttribute('aria-label'))
+  expect(labels).toEqual(expect.arrayContaining(['Classes', 'Spaces', 'My tasks']))
+})
+
+it('keeps the single Classes card for a teacher with no work', async () => {
+  await show('/home')
+  const cards = [...host.querySelectorAll('section.place-card')]
+  expect(cards.map((c) => c.getAttribute('aria-label'))).toEqual(['Classes'])
 })
 
 it('lists no projects under a class, in a class or on one of its projects', async () => {
