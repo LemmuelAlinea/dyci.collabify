@@ -353,3 +353,23 @@ it('names the files a later commit changed and offers only Close', async () => {
   expect([...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Put back in Main')).toBe(false)
   expect(revertCommit).not.toHaveBeenCalled()
 })
+
+it('says which files reached the draft when a revert stops part-way, and retries only the rest', async () => {
+  historyFixture()
+  vi.mocked(listTree).mockResolvedValue([{ ...blob(2, 'a.md'), size: 2 }, { ...blob(2, 'b.md'), size: 2 }] as never)
+  vi.mocked(listCommitFiles).mockResolvedValue([blob(2, 'a.md'), blob(2, 'b.md')] as never)
+  vi.mocked(fileVersions).mockImplementation(async (_repo, path) => [
+    { ...blob(2, path), commit: commit(2, 'Second pass') },
+    { ...blob(1, path, 'added'), commit: commit(1, 'First draft') },
+  ] as never)
+  vi.mocked(restoreToDraft).mockResolvedValueOnce(undefined).mockRejectedValueOnce({ message: 'Storage is full.' })
+  await showHistory(drafter)
+  await expand('Second pass')
+  await click('Revert in my draft', host!)
+  await click('Put back in my draft')
+  expect(document.body.textContent).toContain(
+    'a.md is back in your draft. b.md did not go through: Storage is full. Try again to put back the rest.',
+  )
+  await click('Put back in my draft')
+  expect(vi.mocked(restoreToDraft).mock.calls.map(([input]) => input.path)).toEqual(['a.md', 'b.md', 'b.md'])
+})

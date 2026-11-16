@@ -1076,6 +1076,12 @@ function HistoryView({
 /** A `.keep` row stands for its folder in what a dialog lists. */
 const shownPath = (path: string) => (isKeep(path) ? `${folderOf(path)}/` : path)
 
+/** What a whole-commit draft revert says when one file fails after others already landed. */
+function stoppedPartWay(landed: string[], failed: string, err: unknown) {
+  const reason = authErrorMessage(err, 'Something went wrong.')
+  return `${landed.join(', ')} ${landed.length === 1 ? 'is' : 'are'} back in your draft. ${failed} did not go through: ${reason} Try again to put back the rest.`
+}
+
 type Asking = {
   /** Set for an undo of one file; unset for the whole commit. */
   path?: string
@@ -1097,6 +1103,8 @@ function CommitFiles({
   const [before, setBefore] = useState<Record<string, string | null>>({})
   const [asking, setAsking] = useState<Asking | null>(null)
   const [checking, setChecking] = useState<string | null>(null)
+  /** Paths put back in the draft while the open dialog is up. */
+  const landed = useRef<Set<string>>(new Set())
   const toMain = putBackTo === 'main'
 
   // Later edits are checked here first so the dialog can name them; the database refuses the same case.
@@ -1106,6 +1114,7 @@ function CommitFiles({
     setChecking(path ?? '')
     try {
       const lists = await Promise.all(paths.map((p) => fileVersions(repo.id, p)))
+      landed.current = new Set()
       setAsking({
         path,
         paths,
@@ -1131,14 +1140,21 @@ function CommitFiles({
           return putBack(stateBefore(versions, commit.seq), versions[0] ?? null) !== null
         })
         if (todo.length === 0) throw new Error(`Nothing to revert. Every file in #${commit.seq} is already as it was before it.`)
-        for (const p of todo) {
-          await restoreToDraft({
-            repoId: repo.id,
-            projectId: commit.project_id,
-            path: p,
-            target: stateBefore(asking.versions[p] ?? [], commit.seq),
-            mainHas: mainHas(p),
-          })
+        // Files already put back while this dialog is open are skipped, so a retry makes no second copy.
+        for (const p of todo.filter((p) => !landed.current.has(p))) {
+          try {
+            await restoreToDraft({
+              repoId: repo.id,
+              projectId: commit.project_id,
+              path: p,
+              target: stateBefore(asking.versions[p] ?? [], commit.seq),
+              mainHas: mainHas(p),
+            })
+          } catch (err) {
+            if (landed.current.size === 0) throw err
+            throw new Error(stoppedPartWay([...landed.current].map(shownPath), shownPath(p), err), { cause: err })
+          }
+          landed.current.add(p)
         }
         show(`Put #${commit.seq} back in your draft`)
       }
