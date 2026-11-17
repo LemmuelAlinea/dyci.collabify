@@ -220,6 +220,23 @@ it('still opens, and sets up, a student group files as before', async () => {
   expect(buttons()).toContain('New')
 })
 
+it('shows a student the files of a handed-in board they never opened a draft on', async () => {
+  vi.mocked(ensureClassBoardRepo).mockResolvedValue('p')
+  const member = { ...loaded, me: { user_id: 's1' }, myRole: 'pm' } as unknown as GeneralProjectState
+  vi.mocked(useGeneralProject).mockImplementation((id) => (id ? member : ({ ...member, project: null } as never)))
+  // What my_general_draft raises when it would have to start a draft on a frozen board.
+  vi.mocked(myDraft).mockRejectedValue({
+    code: '23514',
+    message: 'This project is handed in or closed, so its files cannot change.',
+  })
+  const handedIn = { id: 'b1', submitted_at: '2026-11-10T00:00:00Z' }
+  await show({ viewerId: 's1', t: { ...t, boards: [handedIn], active: handedIn } as unknown as ProjectTasks })
+  expect(page()).toContain('This project is handed in')
+  expect(page()).not.toContain('did not load')
+  expect(page()).toContain('report')
+  expect(listDraftFiles).not.toHaveBeenCalled()
+})
+
 it('tells a viewer who does not teach the class why the files stay shut', async () => {
   // What class_board_repo_id raises for someone who does not teach the class.
   vi.mocked(classBoardRepoId).mockRejectedValue({

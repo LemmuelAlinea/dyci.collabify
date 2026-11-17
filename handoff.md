@@ -5186,3 +5186,15 @@ accepted." from the setting; no failed requests.
 
 **Deferred**
 - On first load the rail shows the Classes card until spaces and projects load, then swaps to the joined card.
+
+## Files on a handed-in board load for a student with no draft (2026-11-17)
+
+- Bug: a student who never opened My workspace on a class board got "The files did not load"
+  once the board was handed in. `my_general_draft` tries to start their draft, and
+  `guard_class_board_files` refuses any draft write on a frozen board (an archived work
+  project's `guard_general_draft` does the same for a member with no draft).
+- Fix, frontend only (`FilesTab.tsx`): when the view is archived (an archived project, or
+  `ClassFilesTab` passing a handed-in or closed board as archived), a refused `myDraft`
+  means no draft: Main shows and My workspace is empty. On a live project the error still
+  shows. No SQL changed. Test: `ClassFilesTab.test.tsx`, "shows a student the files of a
+  handed-in board they never opened a draft on".

@@ -81,6 +81,7 @@ const VIEWS: View[] = ['main', 'draft', 'changes', 'history']
  */
 export function FilesTab({ state }: { state: GeneralProjectState }) {
   const projectId = state.project?.id
+  const archived = state.archived
   const [repo, setRepo] = useState<GeneralRepoSummary | null>(null)
   const [tree, setTree] = useState<GeneralTreeFile[]>([])
   const [commits, setCommits] = useState<GeneralCommit[]>([])
@@ -145,9 +146,14 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           setDraftFiles([])
           setConflicts([])
         } else {
-          const d = await myDraft(r.id)
+          // An archived project or a handed-in board refuses to start a draft, so
+          // someone who never had one there sees Main with an empty workspace.
+          const d = await myDraft(r.id).catch((err: unknown) => {
+            if (archived) return null
+            throw err
+          })
           setDraft(d)
-          const [df, cf] = await Promise.all([listDraftFiles(d.id), draftConflicts(r.id)])
+          const [df, cf] = d ? await Promise.all([listDraftFiles(d.id), draftConflicts(r.id)]) : [[], []]
           setDraftFiles(df)
           setConflicts(cf)
         }
@@ -158,7 +164,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     } finally {
       setLoaded(true)
     }
-  }, [projectId, noDraft])
+  }, [projectId, noDraft, archived])
 
   useEffect(() => {
     void load()
