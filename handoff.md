@@ -5194,7 +5194,8 @@ accepted." from the setting; no failed requests.
   `guard_class_board_files` refuses any draft write on a frozen board (an archived work
   project's `guard_general_draft` does the same for a member with no draft).
 - Fix, frontend only (`FilesTab.tsx`): when the view is archived (an archived project, or
-  `ClassFilesTab` passing a handed-in or closed board as archived), a refused `myDraft`
-  means no draft: Main shows and My workspace is empty. On a live project the error still
-  shows. No SQL changed. Test: `ClassFilesTab.test.tsx`, "shows a student the files of a
-  handed-in board they never opened a draft on".
+  `ClassFilesTab` passing a handed-in or closed board as archived), FilesTab reads an existing
+  draft with `findMyDraft` (a plain select under `general_drafts_select`) instead of calling
+  `my_general_draft`, so nothing is refused and no 400 shows in the console. With no draft, Main
+  shows and My workspace is empty. The New button hides on an archived view too. No SQL changed.
+  Tests: `ClassFilesTab.test.tsx`, the two handed-in board tests.

@@ -1806,6 +1806,18 @@ export async function myDraft(repoId: string) {
   return data as GeneralDraft
 }
 
+/** Your working copy if you already have one, without starting it (an archived or handed-in project refuses that). */
+export async function findMyDraft(repoId: string, userId: string) {
+  const { data, error } = await supabase
+    .from('general_drafts')
+    .select('*')
+    .eq('repo_id', repoId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return data as GeneralDraft | null
+}
+
 export async function listDraftFiles(draftId: string) {
   const { data, error } = await supabase
     .from('general_draft_files')

@@ -19,6 +19,7 @@ import {
   listRepoChanges,
   listTree,
   myDraft,
+  findMyDraft,
   saveDraftFile,
 } from '../../lib/api/general'
 import { listPulls } from '../../lib/api/filePulls'
@@ -82,6 +83,7 @@ const VIEWS: View[] = ['main', 'draft', 'changes', 'history']
 export function FilesTab({ state }: { state: GeneralProjectState }) {
   const projectId = state.project?.id
   const archived = state.archived
+  const viewerId = state.viewerId
   const [repo, setRepo] = useState<GeneralRepoSummary | null>(null)
   const [tree, setTree] = useState<GeneralTreeFile[]>([])
   const [commits, setCommits] = useState<GeneralCommit[]>([])
@@ -147,11 +149,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           setConflicts([])
         } else {
           // An archived project or a handed-in board refuses to start a draft, so
-          // someone who never had one there sees Main with an empty workspace.
-          const d = await myDraft(r.id).catch((err: unknown) => {
-            if (archived) return null
-            throw err
-          })
+          // there only an existing one is read; without one the workspace is empty.
+          const d = !archived ? await myDraft(r.id) : viewerId ? await findMyDraft(r.id, viewerId) : null
           setDraft(d)
           const [df, cf] = d ? await Promise.all([listDraftFiles(d.id), draftConflicts(r.id)]) : [[], []]
           setDraftFiles(df)
@@ -164,7 +163,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     } finally {
       setLoaded(true)
     }
-  }, [projectId, noDraft, archived])
+  }, [projectId, noDraft, archived, viewerId])
 
   useEffect(() => {
     void load()
@@ -284,7 +283,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
             <RequestAccessButton state={state} permission="commit_main" />
           )}
           {state.commitRights.board && state.commitRights.grant && <CommitAccessButton state={state} />}
-          {!state.readOnly && (
+          {!state.readOnly && !archived && (
             <Button size="sm" onClick={() => setAdding(true)}>
               <Icon name="plus" size={14} />
               New

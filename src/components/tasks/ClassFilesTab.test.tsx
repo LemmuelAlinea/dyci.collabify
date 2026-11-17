@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ClassFilesTab } from './ClassFilesTab'
 import { classBoardRepoId, ensureClassBoardRepo } from '../../lib/api/tasks'
-import { draftConflicts, getRepo, listDraftFiles, listShares, myDraft } from '../../lib/api/general'
+import { draftConflicts, findMyDraft, getRepo, listDraftFiles, listShares, myDraft } from '../../lib/api/general'
 import { useGeneralProject } from '../general/useGeneralProject'
 import type { GeneralProjectState } from '../general/useGeneralProject'
 import type { ProjectTasks } from './useProjectTasks'
@@ -54,6 +54,7 @@ vi.mock('../../lib/api/general', async (importOriginal) => ({
   ],
   contentAt: async () => null,
   // What these refuse a teacher with: the read-only view must never ask.
+  findMyDraft: vi.fn(async () => null),
   myDraft: vi.fn(async () => {
     throw new Error('You are not on this project.')
   }),
@@ -222,19 +223,31 @@ it('still opens, and sets up, a student group files as before', async () => {
 
 it('shows a student the files of a handed-in board they never opened a draft on', async () => {
   vi.mocked(ensureClassBoardRepo).mockResolvedValue('p')
-  const member = { ...loaded, me: { user_id: 's1' }, myRole: 'pm' } as unknown as GeneralProjectState
+  const member = { ...loaded, me: { user_id: 's1' }, myRole: 'pm', viewerId: 's1' } as unknown as GeneralProjectState
   vi.mocked(useGeneralProject).mockImplementation((id) => (id ? member : ({ ...member, project: null } as never)))
-  // What my_general_draft raises when it would have to start a draft on a frozen board.
-  vi.mocked(myDraft).mockRejectedValue({
-    code: '23514',
-    message: 'This project is handed in or closed, so its files cannot change.',
-  })
+  // my_general_draft would try to start a draft, which a frozen board refuses (a 400 in the console).
+  vi.mocked(findMyDraft).mockResolvedValue(null)
   const handedIn = { id: 'b1', submitted_at: '2026-11-10T00:00:00Z' }
   await show({ viewerId: 's1', t: { ...t, boards: [handedIn], active: handedIn } as unknown as ProjectTasks })
   expect(page()).toContain('This project is handed in')
   expect(page()).not.toContain('did not load')
   expect(page()).toContain('report')
+  expect(myDraft).not.toHaveBeenCalled()
+  expect(findMyDraft).toHaveBeenCalledWith('repo', 's1')
   expect(listDraftFiles).not.toHaveBeenCalled()
+  expect(buttons()).not.toContain('New')
+})
+
+it('still shows the draft a student kept on a handed-in board', async () => {
+  vi.mocked(ensureClassBoardRepo).mockResolvedValue('p')
+  const member = { ...loaded, me: { user_id: 's1' }, myRole: 'pm', viewerId: 's1' } as unknown as GeneralProjectState
+  vi.mocked(useGeneralProject).mockImplementation((id) => (id ? member : ({ ...member, project: null } as never)))
+  vi.mocked(findMyDraft).mockResolvedValue({ id: 'kept' } as never)
+  const handedIn = { id: 'b1', submitted_at: '2026-11-10T00:00:00Z' }
+  await show({ viewerId: 's1', t: { ...t, boards: [handedIn], active: handedIn } as unknown as ProjectTasks })
+  expect(myDraft).not.toHaveBeenCalled()
+  expect(listDraftFiles).toHaveBeenCalledWith('kept')
+  expect(page()).not.toContain('did not load')
 })
 
 it('tells a viewer who does not teach the class why the files stay shut', async () => {
