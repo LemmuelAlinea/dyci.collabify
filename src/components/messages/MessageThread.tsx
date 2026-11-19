@@ -258,6 +258,7 @@ export function MessageThread({
         disabledReason="This class is archived, so the chat is read-only."
         onSend={onSend}
         onCreatePoll={() => setPollOpen(true)}
+        conversationId={conversation.id}
       />
 
       <CreatePollDialog

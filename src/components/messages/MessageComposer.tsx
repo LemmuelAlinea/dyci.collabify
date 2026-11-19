@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Icon, Spinner } from '../ui/Icon'
 import { formatBytes } from '../../lib/formatBytes'
@@ -7,6 +7,9 @@ import { canRecordVoice, voiceFileName } from '../../lib/voice'
 import { VoiceRecorder } from '../general/VoiceRecorder'
 import { ActionMenu } from '../ui/ActionMenu'
 import { useAutoGrow } from '../../hooks/useAutoGrow'
+import { MentionPicker } from './MentionPicker'
+import { mentionBlindSpots, searchMentionables, type BlindSpot, type Mentionable } from '../../lib/api/mentions'
+import { encodeMentions, mentionQueryAt, type Picked } from '../../lib/mentions'
 
 const MAX_MB = 10
 
@@ -15,7 +18,9 @@ export function MessageComposer({
   disabledReason,
   onSend,
   onCreatePoll,
+  conversationId,
 }: {
+  conversationId: string
   disabled?: boolean
   disabledReason?: string
   onSend: (body: string, files: File[]) => Promise<void>
@@ -29,6 +34,80 @@ export function MessageComposer({
   const fileRef = useRef<HTMLInputElement>(null)
   const boxRef = useRef<HTMLTextAreaElement>(null)
   useAutoGrow(boxRef, body)
+
+  // ---- # mentions: the query at the caret, its results, and what was picked
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null)
+  const [dismissed, setDismissed] = useState<number | null>(null)
+  const [items, setItems] = useState<Mentionable[]>([])
+  const [active, setActive] = useState(0)
+  const [searching, setSearching] = useState(false)
+  const [picked, setPicked] = useState<Picked[]>([])
+  const [spots, setSpots] = useState<BlindSpot[]>([])
+  const open = mention !== null && mention.start !== dismissed
+  // Only the text after # drives the search; a caret move that keeps it does not.
+  const query = open ? mention.query : null
+
+  useEffect(() => {
+    if (query === null) {
+      setItems([])
+      setSearching(false)
+      return
+    }
+    let live = true
+    setSearching(true)
+    const timer = setTimeout(() => {
+      searchMentionables(query, conversationId)
+        .then((found) => {
+          if (!live) return
+          setItems(found)
+          setActive(0)
+        })
+        .catch(() => live && setItems([]))
+        .finally(() => live && setSearching(false))
+    }, 200)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [query, conversationId])
+
+  // The writer's note: who in this chat would see a mention locked.
+  useEffect(() => {
+    if (picked.length === 0) {
+      setSpots([])
+      return
+    }
+    let live = true
+    mentionBlindSpots(conversationId, picked.map((p) => p.ref))
+      .then((found) => live && setSpots(found))
+      .catch(() => live && setSpots([]))
+    return () => {
+      live = false
+    }
+  }, [picked, conversationId])
+
+  function trackCaret(text: string, caret: number | null) {
+    const q = caret === null ? null : mentionQueryAt(text, caret)
+    setMention(q)
+    if (!q) setDismissed(null)
+  }
+
+  function pickMention(m: Mentionable) {
+    if (!mention) return
+    const end = mention.start + 1 + mention.query.length
+    const insert = `#${m.title} `
+    const next = body.slice(0, mention.start) + insert + body.slice(end)
+    setBody(next)
+    setPicked((list) =>
+      list.some((p) => p.label === m.title && p.ref.id === m.id) ? list : [...list, { label: m.title, ref: { kind: m.kind, id: m.id } }],
+    )
+    setMention(null)
+    const caret = mention.start + insert.length
+    requestAnimationFrame(() => {
+      boxRef.current?.focus()
+      boxRef.current?.setSelectionRange(caret, caret)
+    })
+  }
 
   function pick(list: FileList | null) {
     if (!list) return
@@ -51,9 +130,11 @@ export function MessageComposer({
     setBusy(true)
     setError(null)
     try {
-      await onSend(body, files)
+      await onSend(encodeMentions(body, picked, window.location.origin), files)
       setBody('')
       setFiles([])
+      setPicked([])
+      setMention(null)
       boxRef.current?.focus()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That did not send. Try again.')
@@ -63,6 +144,26 @@ export function MessageComposer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (open && mention) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setDismissed(mention.start)
+        return
+      }
+      if (items.length > 0) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          const step = e.key === 'ArrowDown' ? 1 : -1
+          setActive((i) => (i + step + items.length) % items.length)
+          return
+        }
+        if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+          e.preventDefault()
+          pickMention(items[Math.min(active, items.length - 1)])
+          return
+        }
+      }
+    }
     // Enter sends; Shift+Enter is a newline, the convention everywhere else.
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -99,8 +200,38 @@ export function MessageComposer({
   }
 
   return (
-    <div className="border-t border-line bg-[var(--surface)] px-3 py-3 md:px-5 md:py-4">
+    <div className="relative border-t border-line bg-[var(--surface)] px-3 py-3 md:px-5 md:py-4">
+      {open && (
+        <MentionPicker
+          items={items}
+          active={active}
+          loading={searching}
+          onPick={pickMention}
+          onHover={setActive}
+        />
+      )}
       {error && <p className="mb-2 text-[12px] text-danger-600 dark:text-danger-400">{error}</p>}
+
+      {spots
+        .filter((s) => s.members_without > 0 || s.private_task)
+        .filter((s) => picked.some((p) => p.ref.id === s.id && body.includes(`#${p.label}`)))
+        .map((s) => {
+          const label = picked.find((p) => p.ref.id === s.id)?.label ?? ''
+          return (
+            <p key={`${s.kind}:${s.id}`} className="mb-2 flex items-start gap-1.5 text-[12px] text-muted">
+              <Icon name="lock" size={12} className="mt-0.5 shrink-0" />
+              <span>
+                {s.members_without > 0 &&
+                  (s.members_without === 1
+                    ? `1 person in this chat isn't on ${s.project_title}. They'll see a locked chip.`
+                    : `${s.members_without} people in this chat aren't on ${s.project_title}. They'll see a locked chip.`)}
+                {s.members_without > 0 && s.private_task && ' '}
+                {s.private_task &&
+                  `Only the project manager and coordinators can open #${label} until it's sent.`}
+              </span>
+            </p>
+          )
+        })}
 
       {files.length > 0 && (
         <ul className="mb-2 flex flex-wrap gap-2">
@@ -182,8 +313,15 @@ export function MessageComposer({
           rows={1}
           maxLength={LIMIT.messageBody}
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value)
+            trackCaret(e.target.value, e.target.selectionStart)
+          }}
+          onSelect={(e) => trackCaret(e.currentTarget.value, e.currentTarget.selectionStart)}
+          onBlur={() => setMention(null)}
           onKeyDown={onKeyDown}
+          aria-expanded={open}
+          aria-haspopup="listbox"
           placeholder="Write a message"
           className="min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-4 py-3 text-[14px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
         />
