@@ -134,17 +134,20 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
       })}
     </div>}
     {/* Pinned to the bottom of the dialog, edge to edge over its padding, so a long queue never hides it. */}
-    {rows.length > 0 && <div className="surface sticky -bottom-5 z-10 -mx-6 -mb-5 flex flex-wrap items-center gap-3 border-t border-line px-6 py-4">
-      <span className="text-[13px] text-muted">{picks.length} selected</span>
-      <Button size="sm" disabled={!editable || !ready} onClick={() => { if (queue === 'released') { setReason(''); setRerouting(true) } else void send() }}>Send to team</Button>
-      {direct && <>
-        <div className="w-full sm:w-56"><Select aria-label="Person" value={person} disabled={!editable} placeholder="Choose a person" options={people} onChange={e => setHolder(e.target.value)} className="!h-10 !text-[13px]" /></div>
-        <Button size="sm" variant="outline" disabled={!editable || !picks.length || !person} onClick={() => void sendToPerson()}>Send to person</Button>
-      </>}
-      {queue === 'planning' && state.myRole === 'pm' && <>
-        <div className="w-full sm:w-56"><Select aria-label="Coordinator" value={coordinator} disabled={!editable} placeholder="Choose a coordinator" options={state.members.filter(m => m.role === 'coordinator' && m.profile?.status === 'active').map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) }))} onChange={e => setCoordinator(e.target.value)} className="!h-10 !text-[13px]" /></div>
-        <Button size="sm" variant="outline" disabled={!editable || !picks.length || !coordinator} onClick={() => void act(() => sendTasksToCoordinator(project.id, picks.map(t => ({ id: t.id, updated_at: t.updated_at })), coordinator))}>Send for review</Button>
-      </>}
+    {/* On a phone each picker shares a row with its button, so the footer stays three rows at most. */}
+    {rows.length > 0 && <div className="surface sticky -bottom-5 z-10 -mx-6 -mb-5 flex flex-wrap items-center gap-2 border-t border-line px-6 py-3 sm:gap-3 sm:py-4">
+      <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
+        <span className="text-[13px] text-muted">{picks.length} selected</span>
+        <Button size="sm" className="shrink-0" disabled={!editable || !ready} onClick={() => { if (queue === 'released') { setReason(''); setRerouting(true) } else void send() }}>Send to team</Button>
+      </div>
+      {direct && <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="min-w-0 flex-1 sm:w-56 sm:flex-none"><Select aria-label="Person" value={person} disabled={!editable} placeholder="Choose a person" options={people} onChange={e => setHolder(e.target.value)} className="!h-10 !text-[13px]" /></div>
+        <Button size="sm" variant="outline" className="shrink-0" disabled={!editable || !picks.length || !person} onClick={() => void sendToPerson()}>Send to person</Button>
+      </div>}
+      {queue === 'planning' && state.myRole === 'pm' && <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="min-w-0 flex-1 sm:w-56 sm:flex-none"><Select aria-label="Coordinator" value={coordinator} disabled={!editable} placeholder="Choose a coordinator" options={state.members.filter(m => m.role === 'coordinator' && m.profile?.status === 'active').map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) }))} onChange={e => setCoordinator(e.target.value)} className="!h-10 !text-[13px]" /></div>
+        <Button size="sm" variant="outline" className="shrink-0" disabled={!editable || !picks.length || !coordinator} onClick={() => void act(() => sendTasksToCoordinator(project.id, picks.map(t => ({ id: t.id, updated_at: t.updated_at })), coordinator))}>Send for review</Button>
+      </div>}
     </div>}
     <Modal open={Boolean(returning) || rerouting} title={rerouting ? 'Reroute released work' : 'Return to planning'} onClose={() => { if (!busy) { setReturning(null); setRerouting(false) } }} footer={<Button disabled={!editable || !reason.trim()} onClick={() => { if (rerouting) void send(); else if (returning) void act(() => returnWorkTask(returning, reason.trim())) }}>{rerouting ? 'Confirm reroute' : 'Confirm return'}</Button>}>
       <div className="space-y-4">

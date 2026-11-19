@@ -5219,9 +5219,9 @@ accepted." from the setting; no failed requests.
   and phone width. Nothing was sent on the live project; the SQL suite covers the send.
 - Spec `docs/superpowers/specs/2026-11-19-send-to-planner-design.md`, plan
   `docs/superpowers/plans/2026-11-19-send-to-planner.md`.
+- Follow-up: on a phone the footer pairs each picker with its button (selected count and Send to team, then person and Send to person, then coordinator and Send for review), three rows instead of six; desktop keeps one row. Checked at 390 and 1280 wide.
 
 **Deferred**
-- On a phone the pinned footer now stacks five controls and covers much of the task list.
 - History shows two lines per direct send ("took it on" or "sent it to", then the assignee row's "took this task" or "assigned it to"); fold them like `foldRuleCompanions`.
 - A subtask that follows its parent on a direct send with no team still reads "sent it to a team".
 - The PM's wider team list (leadless teams, No team) also shows in Coordinator review and Reroute, where it only disables Send to team.
