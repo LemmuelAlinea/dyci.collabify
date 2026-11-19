@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat'
 import { GeneralNavigationProvider } from '../../context/GeneralNavigationContext'
 import { useFocusTrap } from '../../lib/focus'
 import { paths } from '../../lib/paths'
@@ -62,6 +63,8 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(initialCollapsed)
   const drawerPanel = useRef<HTMLDivElement>(null)
   const location = useLocation()
+  // The server also checks the account is admitted before it records anything.
+  usePresenceHeartbeat(Boolean(profile && profile.status === 'active'))
 
   useEffect(() => setDrawer(false), [location.pathname, location.search])
   // Ties this device to the account so its notifications can reach it (live site only).
