@@ -28,6 +28,8 @@ export function ConversationList({
   linkBase,
   search,
   action,
+  lead,
+  activeIds,
 }: {
   conversations: ConversationCard[]
   activeId?: string
@@ -36,6 +38,10 @@ export function ConversationList({
   search?: string
   /** "New message" button for professors. */
   action?: React.ReactNode
+  /** Shown between the search and the list (the Active now strip). */
+  lead?: React.ReactNode
+  /** People active now: their direct chats get the presence dot. */
+  activeIds?: ReadonlySet<string>
 }) {
   const [query, setQuery] = useState('')
 
@@ -81,6 +87,8 @@ export function ConversationList({
         </div>
       </div>
 
+      {lead}
+
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <p className="px-4 py-10 text-center text-[13px] text-muted">
@@ -111,7 +119,16 @@ export function ConversationList({
                           }`}
                         >
                           {c.counterpart ? (
-                            <Avatar profile={c.counterpart} size={38} />
+                            <span className="relative shrink-0">
+                              <Avatar profile={c.counterpart} size={38} />
+                              {c.kind === 'direct' && activeIds?.has(c.counterpart.id) && (
+                                <span
+                                  role="img"
+                                  aria-label="Active now"
+                                  className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full bg-presence ring-2 ring-[var(--surface)]"
+                                />
+                              )}
+                            </span>
                           ) : (
                             <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 dark:bg-navy-500">
                               <Icon name={kind === 'class' ? 'board' : kind === 'project' ? 'kanban' : 'users'} size={18} />

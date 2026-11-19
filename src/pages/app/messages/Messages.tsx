@@ -12,6 +12,11 @@ import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useConversations } from '../../../hooks/useConversations'
+import { useActiveContacts } from '../../../hooks/useActiveContacts'
+import { useNow } from '../../../hooks/useNow'
+import { ActiveNowStrip } from '../../../components/messages/ActiveNowStrip'
+import { startContactConversation } from '../../../lib/api/presence'
+import { isActiveNow } from '../../../lib/presence'
 import { canTeach, isMember, membershipOf, showsClassScope } from '../../../lib/access'
 import { paths } from '../../../lib/paths'
 import { conversationScope, readScope, writeScope } from '../../../lib/scope'
@@ -29,6 +34,33 @@ export default function Messages() {
   const scope = classScope ? readScope(params) : 'all'
   const { conversations, error, reload } = useConversations(profile?.id, 'all')
   const [newOpen, setNewOpen] = useState(false)
+  const contacts = useActiveContacts(Boolean(profile))
+  const now = useNow()
+  const [openingId, setOpeningId] = useState<string | null>(null)
+  const [openError, setOpenError] = useState<string | null>(null)
+  const activeIds = useMemo(
+    () => new Set((contacts ?? []).filter((c) => isActiveNow(c.last_seen_at, now)).map((c) => c.id)),
+    [contacts, now],
+  )
+
+  async function openContact(personId: string) {
+    if (openingId) return
+    setOpeningId(personId)
+    setOpenError(null)
+    try {
+      const res = await startContactConversation(personId)
+      if (res.result === 'ok' && res.conversation_id) {
+        await reload()
+        navigate(`${paths.conversation(res.conversation_id)}${location.search}`)
+      } else {
+        setOpenError("You no longer share a class, space or project with this person, so you can't message them.")
+      }
+    } catch {
+      setOpenError("We couldn't open that chat. Check your connection and try again.")
+    } finally {
+      setOpeningId(null)
+    }
+  }
 
   const canModerateHere = isMember(profile) || profile?.role === 'admin'
   // Starting a direct thread is a teaching act — an admin who does not teach
@@ -90,6 +122,8 @@ export default function Messages() {
         </div>
       )}
 
+      {openError && <Alert tone="error">{openError}</Alert>}
+
       <div
         className={`surface flex min-h-0 overflow-hidden rounded-panel border border-line ${
           conversationId ? 'h-[max(420px,calc((100dvh/var(--zoom,1))-8.5rem))]' : 'h-[clamp(480px,calc((100dvh/var(--zoom,1))-458px),760px)]'
@@ -111,6 +145,12 @@ export default function Messages() {
               activeId={conversationId}
               linkBase={paths.inbox}
               search={location.search}
+              activeIds={activeIds}
+              lead={
+                contacts && contacts.length > 0 ? (
+                  <ActiveNowStrip contacts={contacts} onOpen={(id) => void openContact(id)} busyId={openingId} />
+                ) : undefined
+              }
             />
           )}
         </aside>
