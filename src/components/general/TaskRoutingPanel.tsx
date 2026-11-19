@@ -1,6 +1,6 @@
 import { AssignByPosition } from './AssignByPosition'
 import { useState } from 'react'
-import { sendTasksToCoordinator, sendTasksToTeams, returnWorkTask } from '../../lib/api/general'
+import { sendTasksToCoordinator, sendTasksToPlanner, sendTasksToTeams, returnWorkTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import type { GeneralTask } from '../../lib/general/types'
 import { stageIndex, stagesOf } from '../../lib/stages'
@@ -13,6 +13,8 @@ import type { GeneralProjectState } from './useGeneralProject'
 
 type Queue = 'planning' | 'coordinator_review' | 'released'
 const LABEL = { planning: 'Planning', coordinator_review: 'Coordinator review', released: 'Reroute released work' }
+/** The row team choice for a task sent straight to a person with no team. */
+const NO_TEAM = 'none'
 
 export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: GeneralProjectState; onOpenTask?: (id: string) => void; onViewBoard?: () => void }) {
   const [byPosition, setByPosition] = useState(false)
@@ -22,6 +24,9 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const [coordinator, setCoordinator] = useState('')
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState<'ready' | 'stale' | null>(null)
+  // The receipt line: the team send, or who a direct send went to.
+  const [receipt, setReceipt] = useState('Tasks sent to team.')
+  const [holder, setHolder] = useState('')
   const [reloadRequired, setReloadRequired] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [returning, setReturning] = useState<string | null>(null)
@@ -37,8 +42,21 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const selectableRows = rows.filter(t => !isBlocked(t) && canUseRow(t))
   const selectedCount = selectableRows.filter(t => selected[t.id]).length
   const picks = Object.values(selected)
-  const ready = picks.length > 0 && picks.every(t => teams[t.id] ?? t.team_id)
   const destinations = state.teams.filter(t => t.leader_id).map(t => ({ value: t.id, label: t.name }))
+  const chosenTeam = (t: GeneralTask) => teams[t.id] ?? t.team_id ?? ''
+  const ready = picks.length > 0 && picks.every(t => destinations.some(d => d.value === chosenTeam(t)))
+  // Only the project manager sends Planning work straight to a person: themselves or an active coordinator.
+  const direct = state.myRole === 'pm' && queue === 'planning'
+  const people = [
+    ...(state.viewerId ? [{ value: state.viewerId, label: 'Me' }] : []),
+    ...state.members
+      .filter(m => m.role === 'coordinator' && m.profile?.status === 'active' && m.user_id !== state.viewerId)
+      .map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) })),
+  ]
+  // The PM also sees leadless teams (for a direct send) and No team; Send to team still needs a lead.
+  const teamOptions = state.myRole === 'pm'
+    ? [...state.teams.map(t => ({ value: t.id, label: t.leader_id ? t.name : `${t.name} (no lead)` })), { value: NO_TEAM, label: 'No team' }]
+    : destinations
   const editable = !state.readOnly && !busy && !reloadRequired && (queue !== 'coordinator_review' || canReview)
 
   async function act(action: () => Promise<unknown>, sentToTeam = false) {
@@ -69,19 +87,28 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
       setError(authErrorMessage(err, 'Could not reload tasks. Try again.'))
     } finally { setBusy(false) }
   }
+  function sendToPerson() {
+    if (!direct || !holder || !picks.length) return
+    setReceipt(holder === state.viewerId ? 'Tasks assigned to you.' : `Tasks sent to ${state.nameOf(holder)}.`)
+    return act(() => sendTasksToPlanner(project!.id, picks.map(t => {
+      const team = chosenTeam(t)
+      return { id: t.id, team_id: team && team !== NO_TEAM ? team : null, updated_at: t.updated_at }
+    }), holder), true)
+  }
   function send() {
     if (!ready) return
+    setReceipt('Tasks sent to team.')
     return act(() => sendTasksToTeams(project!.id, picks.map(t => ({ id: t.id, team_id: teams[t.id] ?? t.team_id!, updated_at: t.updated_at })), rerouting ? reason.trim() : undefined), true)
   }
 
   return <section aria-label="Task handoff" className="space-y-4">
     <div className="flex flex-wrap gap-2" aria-label="Routing queues">
-      {(Object.keys(LABEL) as Queue[]).map(q => <Button key={q} size="sm" variant={queue === q ? 'primary' : 'outline'} disabled={busy} aria-pressed={queue === q} onClick={() => { setQueue(q); setSelected({}); setTeams({}); if (!reloadRequired) setError(null) }}>{LABEL[q]}</Button>)}
+      {(Object.keys(LABEL) as Queue[]).map(q => <Button key={q} size="sm" variant={queue === q ? 'primary' : 'outline'} disabled={busy} aria-pressed={queue === q} onClick={() => { setQueue(q); setSelected({}); setTeams({}); setHolder(''); if (!reloadRequired) setError(null) }}>{LABEL[q]}</Button>)}
     </div>
     <p className="text-[13px] text-muted">Planning and review stay private to planners. Choosing a team does not send work.</p>
     {queue !== 'released' && <Button size="sm" variant="outline" disabled={!editable || (queue === 'coordinator_review' && !selectableRows.length)} onClick={() => setByPosition(true)}>Assign by position</Button>}
     {byPosition && <AssignByPosition state={state} open onClose={() => setByPosition(false)} />}
-    {sent && <Alert tone="success" onClose={() => setSent(null)}>Tasks sent to team. {sent === 'ready' && onViewBoard && <Button size="sm" variant="outline" onClick={onViewBoard}>View on board</Button>}</Alert>}
+    {sent && <Alert tone="success" onClose={() => setSent(null)}>{receipt} {sent === 'ready' && onViewBoard && <Button size="sm" variant="outline" onClick={onViewBoard}>View on board</Button>}</Alert>}
     {error && <Alert tone="error">{error} <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></Alert>}
     {rows.length === 0 ? <p className="py-4 text-[13px] text-faint">No tasks in this queue.</p> : <div className="divide-y divide-line">
       <label className="flex items-center gap-3 py-3 text-[13px] text-muted">
@@ -99,7 +126,7 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
               {blocked && <p className="text-[12px] text-muted">{t.parent_id ? 'Moves with its parent task.' : 'Reopen work in QA or Done before rerouting.'}</p>}
             </div>
           </div>
-          <Select aria-label={`Team for ${t.title}`} value={teams[t.id] ?? t.team_id ?? ''} disabled={!editable || blocked || !canUseRow(t)} placeholder="Choose a team with a lead" options={destinations} onChange={e => setTeams(previous => ({ ...previous, [t.id]: e.target.value }))} className="!h-10 !text-[13px]" />
+          <Select aria-label={`Team for ${t.title}`} value={teams[t.id] ?? t.team_id ?? ''} disabled={!editable || blocked || !canUseRow(t)} placeholder={state.myRole === 'pm' ? 'Choose a team' : 'Choose a team with a lead'} options={teamOptions} onChange={e => setTeams(previous => ({ ...previous, [t.id]: e.target.value }))} className="!h-10 !text-[13px]" />
           {queue === 'coordinator_review' && canReview && !t.parent_id && (t.reviewer_id === state.viewerId || state.myRole === 'pm') && <Button size="sm" variant="outline" disabled={!editable} onClick={() => { setReason(''); setReturning(t.id) }}>Return to planning</Button>}
         </div>
       })}
@@ -108,6 +135,10 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
     {rows.length > 0 && <div className="surface sticky -bottom-5 z-10 -mx-6 -mb-5 flex flex-wrap items-center gap-3 border-t border-line px-6 py-4">
       <span className="text-[13px] text-muted">{picks.length} selected</span>
       <Button size="sm" disabled={!editable || !ready} onClick={() => { if (queue === 'released') { setReason(''); setRerouting(true) } else void send() }}>Send to team</Button>
+      {direct && <>
+        <div className="w-full sm:w-56"><Select aria-label="Person" value={holder} disabled={!editable} placeholder="Choose a person" options={people} onChange={e => setHolder(e.target.value)} className="!h-10 !text-[13px]" /></div>
+        <Button size="sm" variant="outline" disabled={!editable || !picks.length || !holder} onClick={() => void sendToPerson()}>Send to person</Button>
+      </>}
       {queue === 'planning' && state.myRole === 'pm' && <>
         <div className="w-full sm:w-56"><Select aria-label="Coordinator" value={coordinator} disabled={!editable} placeholder="Choose a coordinator" options={state.members.filter(m => m.role === 'coordinator' && m.profile?.status === 'active').map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) }))} onChange={e => setCoordinator(e.target.value)} className="!h-10 !text-[13px]" /></div>
         <Button size="sm" variant="outline" disabled={!editable || !picks.length || !coordinator} onClick={() => void act(() => sendTasksToCoordinator(project.id, picks.map(t => ({ id: t.id, updated_at: t.updated_at })), coordinator))}>Send for review</Button>

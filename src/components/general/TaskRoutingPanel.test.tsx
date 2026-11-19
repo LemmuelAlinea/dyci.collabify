@@ -4,9 +4,9 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { TaskRoutingPanel } from './TaskRoutingPanel'
-import { sendTasksToTeams, sendTasksToCoordinator, returnWorkTask } from '../../lib/api/general'
+import { sendTasksToTeams, sendTasksToCoordinator, sendTasksToPlanner, returnWorkTask } from '../../lib/api/general'
 import type { GeneralProjectState } from './useGeneralProject'
-vi.mock('../../lib/api/general', () => ({ sendTasksToTeams: vi.fn(), sendTasksToCoordinator: vi.fn(), returnWorkTask: vi.fn() }))
+vi.mock('../../lib/api/general', () => ({ sendTasksToTeams: vi.fn(), sendTasksToCoordinator: vi.fn(), sendTasksToPlanner: vi.fn(), returnWorkTask: vi.fn() }))
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 let root: Root
@@ -179,4 +179,50 @@ it('keeps a subtask out of sends, returns and reroutes', async () => {
   expect(document.querySelector<HTMLSelectElement>('[aria-label="Team for Login form"]')!.disabled).toBe(true)
   await act(async () => document.querySelector<HTMLInputElement>('[aria-label="Select all tasks"]')!.click())
   expect(document.body.textContent).toContain('1 selected')
+})
+
+const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find(b => b.textContent === text)!
+const optionLabels = (label: string) => [...document.querySelectorAll<HTMLOptionElement>(`[aria-label="${label}"] option`)].map(o => o.textContent)
+it("sends planning tasks to the PM with no team", async () => {
+  const s = state(); await render(s); await selectRows(); await change("Person", "pm"); await click("Send to person")
+  expect(sendTasksToPlanner).toHaveBeenCalledExactlyOnceWith("project", [{ id: "one", team_id: null, updated_at: "stamp-one" }, { id: "two", team_id: null, updated_at: "stamp-two" }], "pm")
+  expect(s.reload).toHaveBeenCalledOnce()
+  expect(document.body.textContent).toContain("Tasks assigned to you.")
+})
+it("sends to a coordinator with a team", async () => {
+  await render(state()); await selectRows(); await change("Team for Design", "design"); await change("Team for Build", "none"); await change("Person", "reviewer"); await click("Send to person")
+  expect(sendTasksToPlanner).toHaveBeenCalledExactlyOnceWith("project", [{ id: "one", team_id: "design", updated_at: "stamp-one" }, { id: "two", team_id: null, updated_at: "stamp-two" }], "reviewer")
+  expect(document.body.textContent).toContain("Tasks sent to reviewer.")
+})
+it("send to team stays off for no team", async () => {
+  await render(state({ tasks: [{ ...task, team_id: "design" }] })); await selectRows()
+  expect(button("Send to team").disabled).toBe(false)
+  await change("Team for Design", "none")
+  expect((document.querySelector("[aria-label=\"Team for Design\"]") as HTMLSelectElement).value).toBe("none")
+  expect(button("Send to team").disabled).toBe(true)
+})
+it("lists leadless teams for the PM only", async () => {
+  const teams = [{ id: "design", name: "Design team", leader_id: "lead" }, { id: "ops", name: "Ops", leader_id: null }]
+  await render(state({ teams }))
+  expect(optionLabels("Team for Design")).toEqual(expect.arrayContaining(["Ops (no lead)", "No team"]))
+  await act(async () => root.render(<TaskRoutingPanel state={state({ teams, myRole: "coordinator", viewerId: "reviewer" })} />))
+  expect(optionLabels("Team for Design")).not.toContain("Ops (no lead)")
+  expect(optionLabels("Team for Design")).not.toContain("No team")
+  expect(document.querySelector("[aria-label=\"Person\"]")).toBeNull()
+})
+it("no person picker outside planning", async () => {
+  await render(state({ tasks: [task, { ...task, id: "rev", title: "Reviewed", routing_state: "coordinator_review", reviewer_id: "reviewer" }, { ...task, id: "rel", title: "Released", routing_state: "released", team_id: "design" }] }))
+  expect(document.querySelector("[aria-label=\"Person\"]")).not.toBeNull()
+  await click("Coordinator review"); expect(document.querySelector("[aria-label=\"Person\"]")).toBeNull()
+  await click("Reroute released work"); expect(document.querySelector("[aria-label=\"Person\"]")).toBeNull()
+})
+it("Send to person needs a person and a selection", async () => {
+  await render(state())
+  expect(button("Send to person").disabled).toBe(true)
+  await change("Person", "pm"); expect(button("Send to person").disabled).toBe(true)
+  await selectRows(); expect(button("Send to person").disabled).toBe(false)
+})
+it("lists Me and active coordinators as people", async () => {
+  await render(state({ members: [{ user_id: "reviewer", role: "coordinator", profile: { status: "active" } }, { user_id: "away", role: "coordinator", profile: { status: "pending" } }, { user_id: "dev", role: "member", profile: { status: "active" } }] }))
+  expect(optionLabels("Person")).toEqual(["Choose a person", "Me", "reviewer"])
 })
