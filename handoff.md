@@ -5265,3 +5265,22 @@ accepted." from the setting; no failed requests.
   no `created_by` check), but cannot update its row. Either split `projects_write` into insert (keeps `created_by =
   auth.uid()`) and update/delete (`is_class_professor` only), and revisit `restore`'s creator check in
   `archive-page.sql`, or add `created_by = auth.uid()` to the delete side. The lock note goes away with the first.
+
+## Class tasks from a file, with a fit check (2026-11-19)
+
+- A teacher's class project Tasks tab has **From a file** beside Draft with AI: upload a PDF, Word, Excel, CSV or text
+  task list, review, and add the tasks for every group or one group (`ClassTasksFromFileModal`, `createProfessorTask`
+  with `aiGenerated`). Each row shows Fits, Doesn't fit (with the reason) or Already set; the last two start unticked
+  and can be ticked back on. Already set counts only a set task that already reaches the chosen groups, and a target
+  change unticks only rows that newly become Already set (`lib/classFileTasks.ts`).
+- Students' **From notes** on a class board gets the same check: a task that doesn't fit starts unticked with its
+  reason; with no verdict (older function, no brief) rows look as before.
+- Functions: `supabase/functions/_shared/classBrief.ts` builds the brief both use; `generate-tasks` gains a file mode
+  (`text`, `file_name`, up to 100 tasks, streamed with `keepAliveJson`); `work-ai` `tasks` adds the brief and verdict
+  on class boards. Draft with AI's prompt is unchanged (pinned by `src/lib/work/classBrief.test.ts`). No SQL.
+- **Not deployed.** Deploy `generate-tasks` and `work-ai` together with the frontend. The function entry files were not
+  Deno type-checked locally (no Deno here); the shared helper is checked through Vitest/tsc.
+- Checked in the browser with the real dialog on a scratch page and the function's answer stubbed: labels, reasons,
+  count, desktop 1280, phone 390 dark (no overflow). Not run against the live AI.
+- Spec `docs/superpowers/specs/2026-11-19-class-tasks-from-file-design.md`, plan
+  `docs/superpowers/plans/2026-11-19-class-tasks-from-file.md`.

@@ -611,12 +611,14 @@ export function TasksFromNotes({
                       <KeepBox checked={r.keep} label={`Keep ${r.title}`} onToggle={() => patch(i, { keep: !r.keep })} />
                       <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <Input
-                            value={r.title}
-                            onChange={(e) => patch(i, { title: e.target.value })}
-                            aria-label={`Task ${i + 1} name`}
-                            className="!h-10 font-medium"
-                          />
+                          <div className="min-w-0 flex-1">
+                            <Input
+                              value={r.title}
+                              onChange={(e) => patch(i, { title: e.target.value })}
+                              aria-label={`Task ${i + 1} name`}
+                              className="!h-10 font-medium"
+                            />
+                          </div>
                           <FitLabel label={noteFitDefaults(r, classBoard).label} />
                         </div>
                         {r.description && (

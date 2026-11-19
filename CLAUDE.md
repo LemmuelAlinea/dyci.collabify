@@ -386,6 +386,13 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   work the project manager (only) sends Planning tasks straight to themselves or an active coordinator through
   `send_work_tasks_to_planner`, which releases and assigns in one call; the team is optional and needs no lead. It
   redefines nothing; history reuses `sent_to_team` with `holder_id`. Suite: `supabase/tests/send-to-planner.test.sql`.
+- Class tasks from a file (no SQL): a teacher's Tasks tab has From a file (`ClassTasksFromFileModal`), which sends the
+  browser-read text to `generate-tasks` (`text`, `file_name`); students' From notes on a class board goes through
+  `work-ai` `tasks`. Both judge each task against the class project brief (`supabase/functions/_shared/classBrief.ts`:
+  `buildClassBrief`, `FIT_RULES`, `normalizeFit`); a task that doesn't fit starts unticked with its reason, never
+  dropped. A brief with no guidelines, rubric or week detail skips the check. Already set (`lib/classFileTasks.ts`)
+  counts only a set task that reaches the chosen groups. Draft with AI's prompt is pinned by `classBrief.test.ts`.
+  Deploy `generate-tasks` and `work-ai` with the frontend.
 
 ## First-run walkthroughs
 
