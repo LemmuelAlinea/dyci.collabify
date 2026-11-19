@@ -64,20 +64,24 @@ Then, under `collabify.work_task_handoff` (restored afterwards), for each task i
 - History reuses the `sent_to_team` kind, with `holder_id` added to its detail, because the kinds check is
   redefined in four files and a new kind would make this file a fifth owner. `new_team_id` may be null. The app
   reads it as "sent it to <holder>", or "took it on" when the holder is the actor.
-- A coordinator recipient gets a `work_task_handoff` notice, "Incoming: <title>", when their `task_assignments`
-  preference is on. The PM gets nothing for their own task.
+- No new notice. The assignee insert already fires `notify_general_assignment`, which sends a coordinator
+  recipient the usual `general_task_assigned` notice (honoring the project's `task_assignment_notices` and their
+  `task_assignments` preference) and skips the PM's own task. The assignee history trigger also writes its usual
+  "assigned" row.
 - Subtasks follow their parent's release state the same way they do for Send to team.
 
 Suite: `supabase/tests/send-to-planner.test.sql` covers PM success with and without a team, coordinator refused,
 member or QA as holder refused, an inactive coordinator refused, a held, stale, released or subtask row refused,
-the history detail, the notice, and a subtask that follows its parent.
+the history detail, the coordinator's assignment notice (none for the PM's own task), and a subtask that follows
+its parent.
 
 ### App: `TaskRoutingPanel.tsx`
 
 - On the Planning queue only, and only for `myRole === 'pm'`, the pinned footer gets a "Send to person" picker
   (Me first, then each active coordinator by name) and a Send button.
-- Each row's team picker gains a "No team" option, used only by this path. Send to team still needs a team with a
-  lead and stays disabled for rows on No team.
+- For the PM, each row's team picker lists every team (a leadless one marked "(no lead)") plus "No team". Send to
+  team still needs a team with a lead and stays disabled while any picked row has No team or a leadless team.
+  Coordinators keep today's list of teams with a lead.
 - On success, the alert reads "Tasks sent to <name>." ("Tasks assigned to you." for Me) with the same View on board
   button. Errors use the existing reload pattern.
 - `lib/api/general.ts` gets `sendTasksToPlanner`. `lib/general/history.ts` and the task dialog's handoff line learn
