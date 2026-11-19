@@ -6,7 +6,7 @@
 
 **Architecture:** Each open tab calls `touch_presence()` about once a minute, which stamps `user_presence.last_seen_at`. The Inbox polls `my_active_contacts()`, a security-definer function that returns only the caller's contacts (people who share a live class, work space or work project) who have not hidden their status. `start_contact_conversation()` opens or creates the direct chat under the same contact rule. No realtime channels are used.
 
-**Tech Stack:** Postgres/Supabase SQL (security-definer RPCs, RLS), React 19 + TypeScript, Vitest + Testing Library, Tailwind tokens.
+**Tech Stack:** Postgres/Supabase SQL (security-definer RPCs, RLS), React 19 + TypeScript, Vitest with happy-dom (component and hook tests render with `createRoot` + `act`, as `src/components/messages/InboxInvitations.test.tsx` does; there is no Testing Library), Tailwind tokens.
 
 **Spec:** `docs/superpowers/specs/2026-11-20-active-now-design.md`
 
@@ -209,7 +209,7 @@ git commit -m "Stamp presence from every open tab"
   - `shows a dot for active now and a minute label otherwise` — one contact at now-30 s (dot present, no label), one at now-12 min (shows `12m`)
   - `calls onOpen with the person's id`
   - `disables the busy person's button`
-  - `names each person with their status` — `getByRole('button', { name: /Ana Cruz, active now/ })`
+  - `names each person with their status` — a button whose `aria-label` is `Ana Cruz, active now`
 
 - [ ] **Step 2: Run** `npx vitest run src/components/messages/ActiveNowStrip.test.tsx`. Expected: FAIL.
 
