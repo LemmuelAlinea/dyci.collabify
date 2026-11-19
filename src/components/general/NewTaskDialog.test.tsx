@@ -1,0 +1,153 @@
+// @vitest-environment happy-dom
+import * as React from 'react'
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
+import { MemoryRouter } from 'react-router-dom'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { NewTaskDialog } from './TasksTab'
+import type { GeneralProjectState } from './useGeneralProject'
+import { createMemberTask, createOpenTask, createTask } from '../../lib/api/general'
+import { DEFAULT_TASK_RULES } from '../../lib/general/taskRules'
+
+vi.stubGlobal('React', React)
+vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+
+const toast = vi.hoisted(() => vi.fn())
+vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: toast }) }))
+vi.mock('../../lib/api/general', () => ({
+  createTask: vi.fn(async () => 'new-task'),
+  createMemberTask: vi.fn(async () => 'member-task'),
+  createOpenTask: vi.fn(async () => 'open-task'),
+  updateTask: vi.fn(async () => {}),
+}))
+
+const reload = vi.fn(async () => {})
+const onCreated = vi.fn()
+const ROLES: Record<string, string> = { me: 'member', b: 'member', c: 'coordinator', q: 'qa', s: 'stakeholder' }
+
+function makeState(role: string, project: Record<string, unknown> = {}) {
+  return {
+    project: {
+      id: 'p1', class_board_id: null, taskFlow: 'open',
+      taskRules: { ...DEFAULT_TASK_RULES, defaultPriority: 'high', allowMultipleAssignees: true },
+      memberRules: { manageMilestones: false, createTasks: true },
+      ...project,
+    },
+    myRole: role,
+    viewerId: 'me',
+    readOnly: false,
+    teams: [],
+    members: Object.keys(ROLES).map((id) => ({ user_id: id, profile: { status: 'active' } })),
+    roleOf: (id: string) => ROLES[id] ?? null,
+    nameOf: (id: string) => `Person ${id}`,
+    can: () => true,
+    reload,
+  } as unknown as GeneralProjectState
+}
+
+let host: HTMLDivElement
+let root: ReturnType<typeof createRoot>
+beforeEach(() => {
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+})
+afterEach(async () => {
+  await act(async () => root.unmount())
+  host.remove()
+  document.body.innerHTML = ''
+  vi.clearAllMocks()
+})
+
+const open = (state: GeneralProjectState) =>
+  act(async () =>
+    root.render(
+      <MemoryRouter>
+        <NewTaskDialog open onClose={() => {}} state={state} sprintId={null} onCreated={onCreated} />
+      </MemoryRouter>,
+    ),
+  )
+const label = (text: string) =>
+  [...document.body.querySelectorAll('label')].find((l) => l.textContent?.trim().startsWith(text))
+const control = (text: string) => {
+  const l = label(text)
+  return l ? (document.getElementById(l.htmlFor) as HTMLInputElement | HTMLSelectElement | null) : null
+}
+const holderBoxes = () => [...document.body.querySelectorAll<HTMLInputElement>('fieldset input[type="checkbox"]')]
+const button = (text: string) => [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
+function type(el: HTMLInputElement | HTMLSelectElement, value: string) {
+  const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype
+  Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(el, value)
+  el.dispatchEvent(new Event(el instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }))
+}
+
+it('lets a Member in an open project add a live task with holders and a priority', async () => {
+  await open(makeState('member'))
+  expect(document.body.textContent).not.toContain('goes to the project manager')
+  expect((control('Priority') as HTMLSelectElement).value).toBe('high')
+  expect(control('Type')).not.toBeNull()
+  const people = holderBoxes().map((b) => b.closest('label')?.textContent?.trim())
+  expect(people).toEqual(['Person me', 'Person b', 'Person c'])
+  await act(async () => type(control('Title')!, 'Fix login'))
+  await act(async () => type(control('Priority')!, 'urgent'))
+  await act(async () => holderBoxes()[1].click())
+  await act(async () => button('Add task')!.click())
+  expect(createOpenTask).toHaveBeenCalledWith({
+    projectId: 'p1', title: 'Fix login', description: '', startsAt: null, dueAt: null, teamId: null,
+    priority: 'urgent', kind: 'task', holderIds: ['b'],
+  })
+  expect(createTask).not.toHaveBeenCalled()
+  expect(toast).toHaveBeenCalledWith('Task added')
+  expect(onCreated).toHaveBeenCalledWith('open-task')
+})
+
+it('offers one holder when the project allows only one', async () => {
+  await open(makeState('member', { taskRules: { ...DEFAULT_TASK_RULES, allowMultipleAssignees: false } }))
+  expect(holderBoxes()).toHaveLength(0)
+  const holder = control('Holder') as HTMLSelectElement
+  expect([...holder.options].map((o) => o.textContent)).toEqual(['Nobody yet', 'Person me', 'Person b', 'Person c'])
+  await act(async () => type(control('Title')!, 'One'))
+  await act(async () => type(holder, 'c'))
+  await act(async () => button('Add task')!.click())
+  expect(vi.mocked(createOpenTask).mock.calls[0][0].holderIds).toEqual(['c'])
+})
+
+it('gives QA a bug with a priority and no holder in an open project', async () => {
+  await open(makeState('qa'))
+  expect(control('Holder')).toBeNull()
+  expect(holderBoxes()).toHaveLength(0)
+  expect((control('Type') as HTMLSelectElement).disabled).toBe(true)
+  await act(async () => type(control('Title')!, 'Crash'))
+  await act(async () => button('Add task')!.click())
+  expect(vi.mocked(createOpenTask).mock.calls[0][0]).toMatchObject({ kind: 'bug', holderIds: [], priority: 'high' })
+})
+
+it('gives the project manager a priority but no holder in a planned project', async () => {
+  await open(makeState('pm', { taskFlow: 'planned' }))
+  expect(control('Priority')).not.toBeNull()
+  expect(control('Holder')).toBeNull()
+  expect(holderBoxes()).toHaveLength(0)
+  await act(async () => type(control('Title')!, 'Plan it'))
+  await act(async () => type(control('Priority')!, 'low'))
+  await act(async () => button('Add task')!.click())
+  expect(createTask).toHaveBeenCalledWith(expect.objectContaining({ title: 'Plan it', priority: 'low' }))
+  expect(createOpenTask).not.toHaveBeenCalled()
+})
+
+it('keeps a Member in a planned project on the review path, with no priority or holder', async () => {
+  await open(makeState('member', { taskFlow: 'planned' }))
+  expect(control('Priority')).toBeNull()
+  expect(holderBoxes()).toHaveLength(0)
+  expect(document.body.textContent).toContain('goes to the project manager and coordinators for review')
+  await act(async () => type(control('Title')!, 'Idea'))
+  await act(async () => button('Add task')!.click())
+  expect(createMemberTask).toHaveBeenCalled()
+  expect(toast).toHaveBeenCalledWith('Sent to planners for review')
+})
+
+it('lets a Member add tasks in an open project without the create-tasks switch', async () => {
+  await open(makeState('member', { memberRules: { manageMilestones: false, createTasks: false } }))
+  await act(async () => type(control('Title')!, 'Allowed'))
+  await act(async () => button('Add task')!.click())
+  expect(createOpenTask).toHaveBeenCalled()
+})

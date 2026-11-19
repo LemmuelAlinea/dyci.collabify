@@ -7,6 +7,7 @@ import { useBoardDrag } from '../tasks/useBoardDrag'
 import type { BoardDrag } from '../tasks/useBoardDrag'
 import { TaskViewMenu } from '../tasks/TaskViewSwitch'
 import { Alert } from '../ui/Alert'
+import { CheckboxList } from '../ui/CheckboxList'
 import { Button } from '../ui/Button'
 import { BoardScroller } from './BoardScroller'
 import { TaskRoutingPanel } from './TaskRoutingPanel'
@@ -18,10 +19,10 @@ import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
-import { createMemberTask, createTask, updateTask } from '../../lib/api/general'
+import { createMemberTask, createOpenTask, createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
-import { DEFAULT_MEMBER_RULES, canCreateWorkTask, canCreateWorkTaskWith, canEditTask } from '../../lib/general/permissions'
+import { DEFAULT_MEMBER_RULES, canCreateWorkTask, canCreateWorkTaskWith, canEditTask, holderCandidates } from '../../lib/general/permissions'
 import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary, sortByPriority } from '../../lib/general/taskFilters'
 import { DEFAULT_TASK_RULES, blockersOf, subtasksOf, taskMarkIndex } from '../../lib/general/taskRules'
 import type { TaskMarkData } from '../../lib/general/taskRules'
@@ -29,7 +30,8 @@ import { projectProgress } from '../../lib/general/progress'
 import { routingViewer, routingWaitingCount } from '../../lib/general/routing'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
-import type { GeneralTask, TaskKind } from '../../lib/general/types'
+import { PRIORITIES } from '../../lib/general/types'
+import type { GeneralTask, TaskKind, TaskPriority } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { landingIndex, workDropRefusal } from '../../lib/work/boardDrop'
@@ -129,7 +131,7 @@ export function TasksTab({
   const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
   // QA raises bugs and passes tasks; it does not draft task lists from notes.
   const mayDraft = project.class_board_id ? state.myRole !== 'qa' : canCreateWorkTask(state.myRole, 'task')
-  const mayCreate = project.class_board_id || canCreateWorkTaskWith(state.myRole, state.myRole === 'qa' ? 'bug' : 'task', project.memberRules ?? DEFAULT_MEMBER_RULES)
+  const mayCreate = project.class_board_id || canCreateWorkTaskWith(state.myRole, state.myRole === 'qa' ? 'bug' : 'task', project.memberRules ?? DEFAULT_MEMBER_RULES, project.taskFlow)
   const assigneeOptions = [
     ...(state.viewerId ? [{ value: state.viewerId, label: 'Me' }] : []),
     { value: 'nobody', label: 'Nobody yet' },
@@ -815,7 +817,8 @@ function TaskTable({
   )
 }
 
-function NewTaskDialog({
+/** Adds a task: planned work goes to planning, open work is live with its holders. */
+export function NewTaskDialog({
   open,
   onClose,
   state,
@@ -835,18 +838,28 @@ function NewTaskDialog({
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
   const [pickedKind, setPickedKind] = useState<TaskKind>('task')
+  const [pickedPriority, setPickedPriority] = useState<TaskPriority | ''>('')
+  const [holders, setHolders] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const project = state.project
   // QA creates bug tasks only, so the type is fixed for them.
   const isQa = state.myRole === 'qa'
   const kind: TaskKind = isQa ? 'bug' : pickedKind
-  // A work project's Member sends a plain task to the planners; it starts in planning and they cannot read it back.
-  const isMember = !project?.class_board_id && state.myRole === 'member'
+  const work = Boolean(project && !project.class_board_id)
+  // An open project's tasks are live at once, with holders anyone picks; QA assigns nobody.
+  const isOpen = work && project?.taskFlow === 'open'
+  // A planned project's Member sends a plain task to the planners; it starts in planning and they cannot read it back.
+  const isMember = work && !isOpen && state.myRole === 'member'
+  const showPriority = work && !isMember
+  const showHolders = isOpen && !isQa
+  const rules = project?.taskRules ?? DEFAULT_TASK_RULES
+  const priority: TaskPriority = pickedPriority || rules.defaultPriority
+  const candidates = showHolders ? holderCandidates(state.members, state.roleOf) : []
 
   async function create() {
     if (!project) return
-    if (state.readOnly || (!project.class_board_id && !canCreateWorkTaskWith(state.myRole, kind, project.memberRules ?? DEFAULT_MEMBER_RULES))) return
+    if (state.readOnly || (!project.class_board_id && !canCreateWorkTaskWith(state.myRole, kind, project.memberRules ?? DEFAULT_MEMBER_RULES, project.taskFlow))) return
     setError(null)
     if (!title.trim()) return setError('A task needs a title.')
     const startsAt = fromLocalInput(starts)
@@ -866,16 +879,29 @@ function NewTaskDialog({
         await state.reload()
         return
       }
-      const id = await createTask({
-        projectId: project.id,
-        title,
-        description,
-        dueAt,
-        startsAt,
-        teamId: team || null,
-        sprintId,
-        kind,
-      })
+      const id = isOpen
+        ? await createOpenTask({
+            projectId: project.id,
+            title,
+            description,
+            startsAt,
+            dueAt,
+            teamId: team || null,
+            priority,
+            kind,
+            holderIds: showHolders ? holders : [],
+          })
+        : await createTask({
+            projectId: project.id,
+            title,
+            description,
+            dueAt,
+            startsAt,
+            teamId: team || null,
+            sprintId,
+            kind,
+            ...(showPriority ? { priority } : {}),
+          })
       show('Task added')
       setTitle('')
       setDescription('')
@@ -883,6 +909,8 @@ function NewTaskDialog({
       setStarts('')
       setTeam('')
       setPickedKind('task')
+      setPickedPriority('')
+      setHolders([])
       onClose()
       await state.reload()
       onCreated(id)
@@ -945,6 +973,31 @@ function NewTaskDialog({
           <Field label="Due" optional>
             {(id) => <Input id={id} type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />}
           </Field>
+          {showPriority && (
+            <Field label="Priority">
+              {(id) => (
+                <Select
+                  id={id}
+                  value={priority}
+                  onChange={(e) => setPickedPriority(e.target.value as TaskPriority)}
+                  options={PRIORITIES.map((x) => ({ value: x.value, label: x.label }))}
+                />
+              )}
+            </Field>
+          )}
+          {showHolders && !rules.allowMultipleAssignees && (
+            <Field label="Holder" optional>
+              {(id) => (
+                <Select
+                  id={id}
+                  value={holders[0] ?? ''}
+                  onChange={(e) => setHolders(e.target.value ? [e.target.value] : [])}
+                  placeholder="Nobody yet"
+                  options={candidates.map((uid) => ({ value: uid, label: state.nameOf(uid) }))}
+                />
+              )}
+            </Field>
+          )}
           {state.teams.length > 0 && (
             <Field label="Team" optional>
               {(id) => (
@@ -959,6 +1012,22 @@ function NewTaskDialog({
             </Field>
           )}
         </div>
+        {showHolders && rules.allowMultipleAssignees && (
+          <div className="space-y-2">
+            <p className="text-[13px] font-medium text-ink">
+              Holders<span className="ml-1.5 text-[12px] text-faint">optional</span>
+            </p>
+            <CheckboxList
+              label="Holders"
+              items={candidates.map((uid) => ({ id: uid, label: state.nameOf(uid) }))}
+              selected={holders}
+              onChange={setHolders}
+              searchable
+              empty="Nobody on this project can hold tasks yet."
+              maxHeight={160}
+            />
+          </div>
+        )}
         <Field label="Description" optional>
           {(id) => (
             <Textarea
