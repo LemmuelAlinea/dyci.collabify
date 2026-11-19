@@ -11,6 +11,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { cors, corsMode, denied } from '../_shared/cors.ts'
+import { buildClassBrief, readClassBrief } from '../_shared/classBrief.ts'
 
 
 const MODEL = 'claude-opus-5'
@@ -140,32 +141,10 @@ Deno.serve(async (req) => {
     const boardId = body.board_id ? String(body.board_id) : ''
     if (!projectId) return json(CORS, { result: 'failed', message: 'No project given.' }, 400)
 
-    const { data: project } = await caller
-      .from('project_overview')
-      .select(
-        'id, title, type, type_label, guidelines, total_points, due_at, audience, start_week, end_week, class_id, week_assessments',
-      )
-      .eq('id', projectId)
-      .maybeSingle()
-
-    if (!project) {
+    const data = await readClassBrief(caller, projectId)
+    if (!data) {
       return json(CORS, { result: 'failed', message: 'That project is not available to you.' }, 403)
     }
-
-    const [{ data: criteria }, { data: weeks }] = await Promise.all([
-      caller
-        .from('project_criteria')
-        .select('label, description, max_points')
-        .eq('project_id', projectId)
-        .order('position'),
-      caller
-        .from('class_week_map')
-        .select('week_no, title, topics, outcomes, assessments')
-        .eq('class_id', project.class_id)
-        .gte('week_no', project.start_week)
-        .lte('week_no', project.end_week)
-        .order('week_no'),
-    ])
 
     let existing: { title: string }[] = []
     let teamSize = 0
@@ -182,55 +161,7 @@ Deno.serve(async (req) => {
       teamSize = board?.member_count ?? 0
     }
 
-    const brief = [
-      `Project: ${project.title}`,
-      `Type: ${project.type_label || project.type}`,
-      `Done by: ${project.audience === 'group' ? 'a group together' : 'each student alone'}`,
-      teamSize > 0 ? `Team size: ${teamSize}` : '',
-      `Worth: ${project.total_points} points`,
-      project.due_at ? `Due: ${new Date(project.due_at).toDateString()}` : 'No deadline set',
-      '',
-      'Guidelines from the professor:',
-      project.guidelines?.trim() || '(none written)',
-      '',
-      'Rubric:',
-      (criteria ?? []).length > 0
-        ? (criteria ?? [])
-            .map(
-              (c: { label: string; description: string; max_points: number }) =>
-                `- ${c.label} (${c.max_points} pts)${c.description ? `: ${c.description}` : ''}`,
-            )
-            .join('\n')
-        : '(none set — mark on the total)',
-      '',
-      `Syllabus weeks ${project.start_week}–${project.end_week} it is built on:`,
-      (weeks ?? [])
-        .map(
-          (w: {
-            week_no: number
-            title: string
-            topics: string
-            outcomes: string
-            assessments: string
-          }) =>
-            [
-              `Week ${w.week_no}: ${w.title}`,
-              w.topics ? `  Topics: ${w.topics}` : '',
-              w.outcomes ? `  Outcomes: ${w.outcomes}` : '',
-              w.assessments ? `  Expected: ${w.assessments}` : '',
-            ]
-              .filter(Boolean)
-              .join('\n'),
-        )
-        .join('\n') || '(no week detail)',
-      existing.length > 0
-        ? `\nTasks the team already has, do not repeat them:\n${existing
-            .map((t) => `- ${t.title}`)
-            .join('\n')}`
-        : '',
-    ]
-      .filter((line) => line !== '')
-      .join('\n')
+    const brief = buildClassBrief(data, { teamSize, existing: existing.map((t) => t.title) }).text
 
     const anthropic = new Anthropic({ apiKey })
     const message = await anthropic.messages.create({
