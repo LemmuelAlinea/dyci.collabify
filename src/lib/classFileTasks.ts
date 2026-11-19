@@ -7,7 +7,8 @@
 import type { ProjectTask } from './types'
 
 export type FileTask = { title: string; details: string; weight: number; due: string; fit: 'fits' | 'off'; fit_reason: string }
-export type FileRow = FileTask & { keep: boolean; already: boolean }
+/** `touched`: the person ticked or unticked it, so a target change leaves the tick alone. */
+export type FileRow = FileTask & { keep: boolean; already: boolean; touched?: boolean }
 
 const key = (title: string) => title.trim().toLowerCase()
 
@@ -15,34 +16,43 @@ const key = (title: string) => title.trim().toLowerCase()
  * Titles of set tasks that already reach the target: for every group (''), a
  * task on every board; for one group, a task on that board. A task set for
  * only some groups does not count for every group, so none silently misses it.
+ * Every copy's title counts, since a group may reword its copy.
  */
 export function alreadySetTitles(rows: ProjectTask[], boardCount: number, target: string): Set<string> {
-  const boardsOf = new Map<string, { title: string; boards: Set<string> }>()
+  const byOrigin = new Map<string, { titles: Set<string>; boards: Set<string> }>()
   for (const r of rows) {
     if (!r.origin_id) continue
-    const entry = boardsOf.get(r.origin_id) ?? { title: r.title, boards: new Set<string>() }
+    const entry = byOrigin.get(r.origin_id) ?? { titles: new Set<string>(), boards: new Set<string>() }
+    entry.titles.add(key(r.title))
     entry.boards.add(r.board_id)
-    boardsOf.set(r.origin_id, entry)
+    byOrigin.set(r.origin_id, entry)
   }
   const out = new Set<string>()
-  for (const { title, boards } of boardsOf.values()) {
-    if (target ? boards.has(target) : boardCount > 0 && boards.size >= boardCount) out.add(key(title))
+  for (const { titles, boards } of byOrigin.values()) {
+    if (target ? boards.has(target) : boardCount > 0 && boards.size >= boardCount) titles.forEach((t) => out.add(t))
   }
   return out
 }
 
+const startsTicked = (t: FileTask, already: boolean) => t.fit !== 'off' && !already
+
 export function fileRows(tasks: FileTask[], already: Set<string>): FileRow[] {
   return tasks.map((t) => {
     const isAlready = already.has(key(t.title))
-    return { ...t, already: isAlready, keep: t.fit !== 'off' && !isAlready }
+    return { ...t, due: t.due ?? '', already: isAlready, keep: startsTicked(t, isAlready), touched: false }
   })
 }
 
-/** After a target change: a row that newly becomes already set unticks; every other tick stays as the person left it. */
+/**
+ * After a target change (or a refresh of what is set): a row nobody ticked takes
+ * its default again; a row the person ticked keeps the tick, unless it newly
+ * becomes already set.
+ */
 export function retarget(rows: FileRow[], already: Set<string>): FileRow[] {
   return rows.map((r) => {
     const isAlready = already.has(key(r.title))
-    return { ...r, already: isAlready, keep: isAlready && !r.already ? false : r.keep }
+    const keep = !r.touched ? startsTicked(r, isAlready) : isAlready && !r.already ? false : r.keep
+    return { ...r, already: isAlready, keep }
   })
 }
 

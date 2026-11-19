@@ -43,6 +43,9 @@ export function ClassTasksFromFileModal({
 }) {
   const [rows, setRowsState] = useState<FileRow[] | null>(null)
   const [note, setNote] = useState('')
+  const [cut, setCut] = useState(false)
+  /** The project had too little written to check against, so no row claims Fits. */
+  const [thin, setThin] = useState(false)
   const [target, setTarget] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -54,25 +57,38 @@ export function ClassTasksFromFileModal({
     generation.current++
     setRowsState(null)
     setNote('')
+    setCut(false)
+    setThin(false)
     setTarget('')
     setError(null)
     setBusy(false)
   }, [open])
+
+  // What is set changed (a save, even one cut short): recheck Already set.
+  useEffect(() => {
+    setRowsState((list) => (list ? retarget(list, alreadySetTitles(setRows, boards.length, target)) : list))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a target change runs retarget itself
+  }, [setRows, boards.length])
 
   async function upload(file: File) {
     const token = ++generation.current
     setError(null)
     setRowsState(null)
     setNote('')
+    setCut(false)
     setBusy(true)
     try {
-      const { text } = await readNotesFile(file)
+      const { text, cut: wasCut } = await readNotesFile(file)
       if (token !== generation.current) return
       const res = await generateTasksFromFile(project.id, text, file.name)
       if (token !== generation.current) return
       if (res.result !== 'ok') return setError(res.message)
+      // An older generate-tasks ignores the file and drafts from the brief; never show that as the file's tasks.
+      if (typeof res.thin !== 'boolean') return setError('The file reader is not updated on the server yet. Try again later.')
       setRowsState(fileRows(res.tasks, alreadySetTitles(setRows, boards.length, target)))
       setNote(res.note)
+      setCut(wasCut)
+      setThin(res.thin)
     } catch (err) {
       if (token !== generation.current) return
       setError(err instanceof NotesFileError ? err.message : authErrorMessage(err, 'The file could not be drafted. Try again.'))
@@ -87,7 +103,7 @@ export function ClassTasksFromFileModal({
   }
 
   function patch(i: number, next: Partial<FileRow>) {
-    setRowsState((list) => (list ?? []).map((r, n) => (n === i ? { ...r, ...next } : r)))
+    setRowsState((list) => (list ?? []).map((r, n) => (n === i ? { ...r, ...next, touched: r.touched || 'keep' in next } : r)))
   }
 
   const keep = (rows ?? []).filter((r) => r.keep && r.title.trim())
@@ -99,7 +115,7 @@ export function ClassTasksFromFileModal({
     let added = 0
     try {
       for (const row of keep) {
-        await createProfessorTask({
+        const res = await createProfessorTask({
           projectId: project.id,
           title: row.title.trim(),
           details: row.details,
@@ -108,6 +124,9 @@ export function ClassTasksFromFileModal({
           boardId: target || null,
           aiGenerated: true,
         })
+        if (res.result !== 'created') {
+          throw new Error(res.result === 'no_title' ? 'Give the task a name.' : 'That task could not be created.')
+        }
         added++
       }
       await onSaved(`${added} ${added === 1 ? 'task' : 'tasks'} added`)
@@ -115,7 +134,7 @@ export function ClassTasksFromFileModal({
     } catch (err) {
       setError(
         authErrorMessage(err, 'Those tasks could not be saved.') +
-          (added > 0 ? ` ${added} ${added === 1 ? 'was' : 'were'} added before it stopped; untick ${added === 1 ? 'it' : 'them'} before trying again.` : ''),
+          (added > 0 ? ` ${added} ${added === 1 ? 'was' : 'were'} added before it stopped and ${added === 1 ? 'is' : 'are'} now marked Already set.` : ''),
       )
       if (added > 0) await onSaved(`${added} ${added === 1 ? 'task' : 'tasks'} added`)
     } finally {
@@ -175,16 +194,17 @@ export function ClassTasksFromFileModal({
           <p className="py-4 text-[14px] text-muted">{note || 'No tasks were found in that file. Upload the one with the tasks in it.'}</p>
         ) : (
           <>
-            {note && (
+            {(note || cut) && (
               <p className="flex items-start gap-2 rounded-xl border border-line surface-sunken px-3.5 py-3 text-[13px] text-muted">
                 <Icon name="info" size={15} className="mt-px shrink-0" />
-                {note}
+                {[cut ? 'The file is long, so only its first part is read.' : '', note].filter(Boolean).join(' ')}
               </p>
             )}
 
             <ul className="space-y-3">
               {rows.map((r, i) => {
-                const label = fitLabel(r)
+                // With nothing to check against, only Already set is a fact worth a label.
+                const label = thin && !r.already ? null : fitLabel(r)
                 return (
                   <li key={i} data-file-task className={`rounded-xl border border-line p-3 transition-colors ${r.keep ? '' : 'opacity-70'}`}>
                     <div className="flex items-start gap-3">
@@ -212,9 +232,11 @@ export function ClassTasksFromFileModal({
                               className="!h-10 font-medium"
                             />
                           </div>
-                          <span data-fit-label className="shrink-0 self-start sm:self-center">
-                            <Badge tone={LABEL_TONE[label]}>{label}</Badge>
-                          </span>
+                          {label && (
+                            <span data-fit-label className="shrink-0 self-start sm:self-center">
+                              <Badge tone={LABEL_TONE[label]}>{label}</Badge>
+                            </span>
+                          )}
                         </div>
                         {r.fit === 'off' && r.fit_reason && <p className="text-[12px] text-muted">{r.fit_reason}</p>}
                         <Textarea

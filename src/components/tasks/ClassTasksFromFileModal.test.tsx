@@ -27,7 +27,7 @@ const onClose = vi.fn()
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(readNotesFile).mockResolvedValue({ text: 'the task list', cut: false })
-  vi.mocked(createProfessorTask).mockResolvedValue({} as never)
+  vi.mocked(createProfessorTask).mockResolvedValue({ result: 'created', origin_id: 'o9', boards: 2 })
 })
 
 async function mounted(rows: ProjectTask[], run: (host: HTMLElement) => Promise<void>) {
@@ -124,4 +124,62 @@ it('shows the function refusal', async () => {
     await upload(host)
     expect(host.querySelector('[role=alert]')?.textContent).toContain('Upload the one with the tasks in it.')
   })
+})
+
+it('refuses a reply from a generate-tasks deploy that cannot read files', async () => {
+  vi.mocked(generateTasksFromFile).mockResolvedValue({ result: 'ok', note: '', tasks: [{ title: 'Plan the work', details: '', weight: 2 }] } as never)
+  await mounted([], async (host) => {
+    await upload(host)
+    expect(host.querySelector('[role=alert]')?.textContent).toContain('The file reader is not updated on the server yet.')
+    expect(items(host)).toHaveLength(0)
+  })
+})
+
+it('says when a long file was cut', async () => {
+  vi.mocked(readNotesFile).mockResolvedValue({ text: 'the task list', cut: true })
+  vi.mocked(generateTasksFromFile).mockResolvedValue({ result: 'ok', note: '', thin: false, tasks: [task('Build the loop')] })
+  await mounted([], async (host) => {
+    await upload(host)
+    expect(host.textContent).toContain('The file is long, so only its first part is read.')
+  })
+})
+
+it('shows no Fits label when the project had too little to check against', async () => {
+  vi.mocked(generateTasksFromFile).mockResolvedValue({ result: 'ok', note: 'This project has too little written to check the tasks against.', thin: true, tasks: [task('Build the loop'), task('Write the proposal')] })
+  await mounted([set('o1', 'b1', 'Write the proposal'), set('o1', 'b2', 'Write the proposal')], async (host) => {
+    await upload(host)
+    expect(items(host).map((li) => li.querySelector('[data-fit-label]')?.textContent ?? null)).toEqual([null, 'Already set'])
+  })
+})
+
+it('reports a task the database refused instead of counting it as added', async () => {
+  vi.mocked(generateTasksFromFile).mockResolvedValue({ result: 'ok', note: '', thin: false, tasks: [task('Build the loop'), task('Test it')] })
+  vi.mocked(createProfessorTask).mockResolvedValueOnce({ result: 'created', origin_id: 'o9', boards: 2 }).mockResolvedValueOnce({ result: 'not_allowed' })
+  await mounted([], async (host) => {
+    await upload(host)
+    await act(async () => addButton(host).click())
+    expect(host.querySelector('[role=alert]')?.textContent).toContain('That task could not be created.')
+    expect(host.querySelector('[role=alert]')?.textContent).toContain('1 was added before it stopped')
+    expect(onSaved).toHaveBeenCalledWith('1 task added')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+it('marks rows added before a failure as already set once the tasks refresh', async () => {
+  vi.mocked(generateTasksFromFile).mockResolvedValue({ result: 'ok', note: '', thin: false, tasks: [task('Build the loop'), task('Test it')] })
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  const render = (rows: ProjectTask[]) => act(async () => root.render(<ClassTasksFromFileModal open onClose={onClose} project={project} boards={boards} rows={rows} onSaved={onSaved} />))
+  try {
+    await render([])
+    await upload(document.body)
+    expect(ticked(document.body)).toEqual([true, true])
+    await render([set('o9', 'b1', 'Build the loop'), set('o9', 'b2', 'Build the loop')])
+    expect(ticked(document.body)).toEqual([false, true])
+    expect(items(document.body)[0].querySelector('[data-fit-label]')!.textContent).toBe('Already set')
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+  }
 })

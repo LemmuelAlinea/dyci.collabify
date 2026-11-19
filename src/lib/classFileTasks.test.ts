@@ -35,18 +35,18 @@ describe('fileRows', () => {
 describe('retarget', () => {
   it('unticks only rows that newly become already set', () => {
     const start = fileRows([t('Make a TikTok page', 'off'), t('Build the model')], new Set())
-    start[0].keep = true // ticked back on by hand
+    Object.assign(start[0], { keep: true, touched: true }) // ticked back on by hand
     const next = retarget(start, new Set(['build the model']))
     expect(next.map((x) => [x.keep, x.already])).toEqual([[true, false], [false, true]])
   })
   it('leaves a row the person ticked while already set alone when it stays already set', () => {
     const start = fileRows([t('Build the model')], new Set(['build the model']))
-    start[0].keep = true
+    Object.assign(start[0], { keep: true, touched: true })
     expect(retarget(start, new Set(['build the model']))[0].keep).toBe(true)
   })
-  it('clears already when the new target lacks the task, without ticking it', () => {
+  it('ticks an untouched row again when the new target lacks the task', () => {
     const start = fileRows([t('Build the model')], new Set(['build the model']))
-    expect(retarget(start, new Set())[0]).toMatchObject({ already: false, keep: false })
+    expect(retarget(start, new Set())[0]).toMatchObject({ already: false, keep: true })
   })
 })
 
@@ -72,5 +72,28 @@ describe('noteFitDefaults', () => {
   })
   it('changes nothing on a work project', () => {
     expect(noteFitDefaults({ fit: 'off', fit_reason: 'x' }, false)).toEqual({ keep: true, why: undefined, label: null })
+  })
+})
+
+describe('review fixes', () => {
+  it('matches any copy of a set task, even one a group reworded', () => {
+    const rows = [r('o1', 'b1', 'Write the proposal (ours)'), r('o1', 'b2', 'Write the proposal')]
+    expect(alreadySetTitles(rows, 2, '').has('write the proposal')).toBe(true)
+    expect(alreadySetTitles(rows, 2, 'b1').has('write the proposal')).toBe(true)
+  })
+  it('gives a task with no due date an empty one', () => {
+    const [row] = fileRows([{ title: 'Build', details: '', weight: 1 } as FileTask], new Set())
+    expect(row.due).toBe('')
+  })
+  it('re-derives a row nobody ticked when the target changes, and keeps a ticked one', () => {
+    const start = fileRows([t('Write the proposal'), t('Make a TikTok page', 'off')], new Set(['write the proposal']))
+    expect(start[0].keep).toBe(false)
+    const back = retarget(start, new Set())
+    expect(back[0]).toMatchObject({ already: false, keep: true })
+    expect(back[1].keep).toBe(false)
+    const touched = retarget([{ ...start[0], keep: true, touched: true }], new Set())
+    expect(touched[0].keep).toBe(true)
+    const untick = retarget([{ ...back[0], keep: false, touched: true }], new Set())
+    expect(untick[0].keep).toBe(false)
   })
 })

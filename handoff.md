@@ -5278,7 +5278,7 @@ accepted." from the setting; no failed requests.
 - Functions: `supabase/functions/_shared/classBrief.ts` builds the brief both use; `generate-tasks` gains a file mode
   (`text`, `file_name`, up to 100 tasks, streamed with `keepAliveJson`); `work-ai` `tasks` adds the brief and verdict
   on class boards. Draft with AI's prompt is unchanged (pinned by `src/lib/work/classBrief.test.ts`). No SQL.
-- **Not deployed.** Deploy `generate-tasks` and `work-ai` together with the frontend. The function entry files were not
+- **Not deployed.** Deploy `generate-tasks` and `work-ai` before pushing the frontend: both still answer the current frontend as before, and the new dialog refuses an older `generate-tasks` reply ("The file reader is not updated on the server yet."). The function entry files were not
   Deno type-checked locally (no Deno here); the shared helper is checked through Vitest/tsc.
 - Checked in the browser with the real dialog on a scratch page and the function's answer stubbed: labels, reasons,
   count, desktop 1280, phone 390 dark (no overflow). Not run against the live AI.
