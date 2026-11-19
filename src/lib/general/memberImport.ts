@@ -102,6 +102,14 @@ export type ImportPreview = {
   blockers: string[]
 }
 
+/** New positions grouped by team for the review summary: Project-wide (team '') first, then teams in file order. */
+export function groupImportPositions(positions: ImportPosition[]): { team: string; names: string[] }[] {
+  const groups = new Map<string, string[]>()
+  if (positions.some(p => !p.team)) groups.set('', [])
+  for (const p of positions) groups.set(p.team, [...(groups.get(p.team) ?? []), p.name])
+  return [...groups].map(([team, names]) => ({ team, names }))
+}
+
 const scopedKey = (position: ImportPosition) => JSON.stringify([key(position.team), key(position.name)])
 const sortId = <T extends { id: string }>(values: T[]) => [...values].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 

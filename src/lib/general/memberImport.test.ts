@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RosterRow } from './memberImportFile'
-import { previewMemberImport, resolveMemberImport } from './memberImport'
+import { groupImportPositions, previewMemberImport, resolveMemberImport } from './memberImport'
 import type { ImportCurrent } from './memberImport'
 
 function row(patch: Partial<RosterRow> = {}): RosterRow {
@@ -176,5 +176,23 @@ describe('previewMemberImport', () => {
     const result = previewMemberImport('add', resolved, state, new Set())
     expect(result.expected.members.map(m => [m.user_id, m.team_ids])).toEqual([['a', ['dev', 'ops']], ['b', []]])
     expect(state.teamMembers.map(m => m.team_id)).toEqual(['ops', 'dev'])
+  })
+})
+
+describe('groupImportPositions', () => {
+  it('puts Project-wide first, then teams in file order with their positions', () => {
+    expect(groupImportPositions([
+      { team: 'Backend', name: 'API Engineer' },
+      { team: 'QA', name: 'Tester' },
+      { team: '', name: 'Coordinator' },
+      { team: 'Backend', name: 'Lead' },
+    ])).toEqual([
+      { team: '', names: ['Coordinator'] },
+      { team: 'Backend', names: ['API Engineer', 'Lead'] },
+      { team: 'QA', names: ['Tester'] },
+    ])
+  })
+  it('returns no groups for no positions', () => {
+    expect(groupImportPositions([])).toEqual([])
   })
 })

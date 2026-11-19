@@ -5227,3 +5227,15 @@ accepted." from the setting; no failed requests.
 - The PM's wider team list (leadless teams, No team) also shows in Coordinator review and Reroute, where it only disables Send to team.
 - The footer has Choose a person and Choose a coordinator side by side, which read alike.
 - `gp` in `send_work_tasks_to_planner` is selected but never read.
+
+## Roster import summary, grouped (2026-11-19)
+
+- The grey summary box in Settings → Members → Set up members from file is now scannable: three stat cells (Changed
+  members, Additions, Removals), New teams as chips with a count, and New positions grouped under their team in cards
+  (Project-wide first, then teams in file order; `groupImportPositions` in `lib/general/memberImport.ts`). More than
+  six groups show the first six with "Show all N groups" / "Show fewer". Excluded stays one line. Tokens only; no SQL
+  changed. `MemberImportDialog.tsx`.
+- Tests: `memberImport.test.ts` (grouping), `MemberImportDialog.test.tsx` (structure, stat values, the cap toggle).
+- Checked with the screenshot's data (8 teams, 27 positions) in a scratch page on the dev server: desktop light and
+  dark, and 390 px wide with every group open (no horizontal overflow). Not run through a real upload, which would
+  send a roster to the AI service.

@@ -7,7 +7,7 @@ import { Select } from '../../ui/Select'
 import { applyMemberImport, listArchivedTeams, listGeneralMembers, listMemberSkills, listPositionHolders, listPositions, listTeamMembers, listTeams } from '../../../lib/api/general'
 import { extractMemberRoster } from '../../../lib/api/workAi'
 import { authErrorMessage } from '../../../lib/authError'
-import { previewMemberImport, resolveMemberImport, type ImportCurrent, type ImportPreview } from '../../../lib/general/memberImport'
+import { groupImportPositions, previewMemberImport, resolveMemberImport, type ImportCurrent, type ImportPreview } from '../../../lib/general/memberImport'
 import { readMemberImportFile, type RosterRow } from '../../../lib/general/memberImportFile'
 import { fullName } from '../../../lib/types'
 import { ROLE_LABEL } from '../../../lib/general/permissions'
@@ -27,6 +27,40 @@ async function loadCurrent(projectId: string): Promise<Current> {
 const rosterOf = (current: Current) => current.members.filter(m => m.profile).map(m => ({ userId: m.user_id, name: fullName(m.profile!) }))
 const positionNames = (positions: ImportPreview['newPositions']) => positions.map(p => `${p.team || 'Project-wide'} / ${p.name}`).join(', ') || 'None'
 const countValues = (values: ImportPreview['members'][number]['current']) => values.teams.length + values.positions.length + values.skills.length
+
+const GROUP_LIMIT = 6
+
+function ImportSummary({ preview, changed, additions, removals, excluded }: { preview: ImportPreview; changed: number; additions: number; removals: number; excluded: string[] }) {
+  const [showAll, setShowAll] = useState(false)
+  const groups = groupImportPositions(preview.newPositions)
+  const shown = showAll ? groups : groups.slice(0, GROUP_LIMIT)
+  const stats = [['Changed members', changed], ['Additions', additions], ['Removals', removals]] as const
+  return <div className="space-y-4 rounded-xl border border-line bg-[var(--surface-sunken)] p-4 text-[13px]">
+    <dl className="grid grid-cols-3 gap-2">
+      {stats.map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-line bg-[var(--surface)] px-3 py-2">
+        <dt className="text-[12px] text-muted">{label}</dt>
+        <dd className="font-mono text-[20px] font-semibold leading-tight text-ink" data-stat={label}>{value}</dd>
+      </div>)}
+    </dl>
+    <section className="space-y-2" aria-label="New teams">
+      <h3 className="font-medium text-ink">New teams <span className="font-mono text-faint">{preview.newTeams.length}</span></h3>
+      {preview.newTeams.length
+        ? <ul className="flex flex-wrap gap-1.5">{preview.newTeams.map(team => <li key={team} className="max-w-full break-words rounded-full border border-line bg-[var(--surface)] px-2.5 py-0.5 text-ink">{team}</li>)}</ul>
+        : <p className="text-muted">None</p>}
+    </section>
+    <section className="space-y-2" aria-label="New positions">
+      <h3 className="font-medium text-ink">New positions <span className="font-mono text-faint">{preview.newPositions.length}</span></h3>
+      {groups.length
+        ? <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{shown.map(group => <li key={group.team} className="min-w-0 rounded-lg border border-line bg-[var(--surface)] p-3">
+          <p className="break-words text-[12px] font-medium text-muted">{group.team || 'Project-wide'}</p>
+          <ul className="mt-1.5 flex flex-wrap gap-1">{group.names.map(name => <li key={name} className="max-w-full break-words rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[12px] text-ink">{name}</li>)}</ul>
+        </li>)}</ul>
+        : <p className="text-muted">None</p>}
+      {groups.length > GROUP_LIMIT && <Button type="button" size="sm" variant="ghost" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show fewer' : `Show all ${groups.length} groups`}</Button>}
+    </section>
+    <p className="break-words"><span className="text-muted">Excluded: </span>{excluded.join(', ') || 'None'}</p>
+  </div>
+}
 
 function Values({ values }: { values: ImportPreview['members'][number]['current'] }) {
   return <dl className="space-y-1 break-words text-[13px]">
@@ -138,12 +172,7 @@ export function MemberImportDialog({ state, onClose }: { state: GeneralProjectSt
           <p className="text-[13px] text-muted">Add keeps current values and adds the file's values. Replace sets each stated field to the file's values. Blank fields stay unchanged. People absent from the file stay unchanged. Team leaders, roles, grants and tasks stay unchanged.</p>
         </div>
         {preview.blockers.map(message => <Alert tone="error" key={message}>{message}</Alert>)}
-        <div className="rounded-xl border border-line bg-[var(--surface-sunken)] p-4 text-[13px] space-y-1">
-          <p>{changed} changed member{changed === 1 ? '' : 's'} · {additions} addition{additions === 1 ? '' : 's'} · {removals} removal{removals === 1 ? '' : 's'}</p>
-          <p>New teams: {preview.newTeams.join(', ') || 'None'}</p>
-          <p>New positions: {positionNames(preview.newPositions)}</p>
-          <p>Excluded: {resolution!.resolved.filter(row => excluded.has(row.userId)).map(row => row.name).join(', ') || 'None'}</p>
-        </div>
+        <ImportSummary preview={preview} changed={changed} additions={additions} removals={removals} excluded={resolution!.resolved.filter(row => excluded.has(row.userId)).map(row => row.name)} />
         <div className="space-y-4">
           {resolution!.resolved.map(row => {
             const member = preview.members.find(m => m.userId === row.userId)

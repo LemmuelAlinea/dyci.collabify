@@ -46,6 +46,7 @@ async function upload(host: HTMLElement) {
   Object.defineProperty(input, 'files', { configurable: true, value: [new File(['roster'], 'roster.xlsx')] })
   await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
 }
+const stat = (host: HTMLElement, label: string) => host.querySelector(`[data-stat="${label}"]`)?.textContent
 async function confirm(host: HTMLElement) { await act(async () => host.querySelector<HTMLInputElement>('input[aria-label="I reviewed these changes"]')!.click()) }
 
 it('discloses AI processing and refuses unknown people before any assignment draft', async () => {
@@ -87,20 +88,36 @@ it('reviews Add and Replace, creations, preservation, counts and exclusions befo
     await render(); await upload(host)
     expect(host.textContent).toContain('Current')
     expect(host.textContent).toContain('Old team')
-    expect(host.textContent).toContain('New teams: Design')
-    expect(host.textContent).toContain('New positions: Design / Designer')
+    expect(host.querySelector('[aria-label="New teams"] li')?.textContent).toBe('Design')
+    const group = host.querySelector('[aria-label="New positions"] > ul > li')!
+    expect(group.querySelector('p')?.textContent).toBe('Design')
+    expect(group.querySelector('ul')?.textContent).toBe('Designer')
     expect(host.textContent).toContain('CSS')
     expect(host.textContent).toContain('Blank fields stay unchanged')
     expect(button(host, 'Apply').disabled).toBe(true)
     const mode = host.querySelector<HTMLSelectElement>('select[aria-label="Import mode"]')!
     await act(async () => { mode.value = 'replace'; mode.dispatchEvent(new Event('change', { bubbles: true })) })
-    expect(host.textContent).toContain('1 changed member')
-    expect(host.textContent).toContain('1 removal')
+    expect(stat(host, 'Changed members')).toBe('1')
+    expect(stat(host, 'Removals')).toBe('1')
     await confirm(host)
     expect(button(host, 'Apply').disabled).toBe(false)
     await act(async () => host.querySelector<HTMLInputElement>('input[aria-label="Include Ana Cruz"]')!.click())
     expect(host.textContent).toContain('Excluded: Ana Cruz')
     expect(button(host, 'Apply').disabled).toBe(true)
+  })
+})
+
+it('groups new positions under their team, Project-wide first, and caps long lists', async () => {
+  const teams = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+  vi.mocked(extractMemberRoster).mockResolvedValue({ result: 'ok', rows: [row({ teams, positions: [{ name: 'Coordinator', team: '', scope: 'project' }, ...teams.map(team => ({ name: `${team} lead`, team, scope: 'team' as const }))] })] })
+  await mounted(async (host, render) => {
+    await render(); await upload(host)
+    const heads = () => [...host.querySelectorAll('[aria-label="New positions"] > ul > li > p')].map(p => p.textContent)
+    expect(heads()).toEqual(['Project-wide', 'A', 'B', 'C', 'D', 'E'])
+    await act(async () => button(host, 'Show all 8 groups').click())
+    expect(heads()).toEqual(['Project-wide', ...teams])
+    await act(async () => button(host, 'Show fewer').click())
+    expect(heads()).toHaveLength(6)
   })
 })
 
