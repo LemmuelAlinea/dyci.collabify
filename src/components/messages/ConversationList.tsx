@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { Badge } from '../ui/Badge'
 import { Icon } from '../ui/Icon'
+import { previewText } from '../../lib/mentions'
 import type { ConversationCard, ConversationKind } from '../../lib/types'
 
 const SECTIONS: { kind: ConversationKind; label: string }[] = [
@@ -52,7 +53,7 @@ export function ConversationList({
       (c) =>
         c.title.toLowerCase().includes(q) ||
         c.subtitle.toLowerCase().includes(q) ||
-        (c.last_body ?? '').toLowerCase().includes(q),
+        previewText(c.last_body ?? '').toLowerCase().includes(q),
     )
   }, [conversations, query])
 
@@ -148,7 +149,7 @@ export function ConversationList({
                             </span>
                             <span className="mt-0.5 flex items-center justify-between gap-2">
                               <span className="truncate text-[12px] text-muted">
-                                {c.last_body || c.subtitle}
+                                {(c.last_body && previewText(c.last_body)) || c.subtitle}
                               </span>
                               {c.unread_count > 0 && (
                                 <Badge tone="accent" numeric className="shrink-0">

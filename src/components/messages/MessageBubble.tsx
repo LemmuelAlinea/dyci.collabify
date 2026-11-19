@@ -4,7 +4,9 @@ import { Avatar } from '../app/Avatar'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
-import { Linkify } from '../ui/Linkify'
+import { MessageText } from './MessageText'
+import type { ResolvedMention } from '../../lib/api/mentions'
+import { decodeForEdit, encodeMentions, type Picked } from '../../lib/mentions'
 import { DriveLinkCards } from '../ui/DriveLinkCards'
 import { formatBytes } from '../../lib/formatBytes'
 import { Textarea } from '../ui/Select'
@@ -112,6 +114,15 @@ type Props = {
   onDeleteForMe: (id: string) => void
   onDeleteForEveryone: (id: string) => void
   onTogglePin: (message: ChatMessage) => void
+  /** What each mention in the thread is for this reader. */
+  titles: Map<string, ResolvedMention>
+}
+
+/** The titles of mentions the reader can open, for turning codes back into `#Title` while editing. */
+function openTitles(titles: Map<string, ResolvedMention>) {
+  const out = new Map<string, string>()
+  for (const [key, m] of titles) if (m.state === 'open') out.set(key, m.title)
+  return out
 }
 
 export function MessageBubble({
@@ -126,9 +137,11 @@ export function MessageBubble({
   onDeleteForMe,
   onDeleteForEveryone,
   onTogglePin,
+  titles,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(message.body)
+  const [picked, setPicked] = useState<Picked[]>([])
   const [busy, setBusy] = useState(false)
 
   const deleted = Boolean(message.deleted_at)
@@ -211,7 +224,7 @@ export function MessageBubble({
                     onClick={async () => {
                       setBusy(true)
                       try {
-                        await onEdit(message.id, draft)
+                        await onEdit(message.id, encodeMentions(draft, picked, window.location.origin))
                         setEditing(false)
                       } finally {
                         setBusy(false)
@@ -234,7 +247,7 @@ export function MessageBubble({
                 )}
                 {message.body && (
                   <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-                    <Linkify text={message.body} tone="inherit" />
+                    <MessageText body={message.body} titles={titles} onDark={mine && !poll} />
                   </p>
                 )}
                 {message.body && (
@@ -267,7 +280,9 @@ export function MessageBubble({
                   label: 'Edit',
                   icon: 'edit',
                   onSelect: () => {
-                    setDraft(message.body)
+                    const decoded = decodeForEdit(message.body, openTitles(titles))
+                    setDraft(decoded.text)
+                    setPicked(decoded.picked)
                     setEditing(true)
                   },
                 },

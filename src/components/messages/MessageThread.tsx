@@ -10,6 +10,8 @@ import { CreatePollDialog } from './CreatePollDialog'
 import { MessageBubble } from './MessageBubble'
 import { MessageComposer } from './MessageComposer'
 import { useProjectRoles } from './useProjectRoles'
+import { useMentionTitles } from '../../hooks/useMentionTitles'
+import { mentionRefs, previewText } from '../../lib/mentions'
 import { PersonBadge } from '../general/RoleBadge'
 import {
   deleteForEveryone,
@@ -98,6 +100,9 @@ export function MessageThread({
     if (atBottomRef.current) bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [messages])
 
+  const mentionList = useMemo(() => (messages ?? []).flatMap((m) => mentionRefs(m.body ?? '')), [messages])
+  const titles = useMentionTitles(mentionList)
+
   const pinned = useMemo(
     () => (messages ?? []).filter((m) => m.pinned && !m.deleted_at),
     [messages],
@@ -147,7 +152,7 @@ export function MessageThread({
             />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] text-ink">
-                {pinned[pinned.length - 1].body || 'Attachment'}
+                {previewText(pinned[pinned.length - 1].body) || 'Attachment'}
               </span>
               {pinned.length > 1 && (
                 <span className="text-[12px] text-muted">
@@ -167,7 +172,7 @@ export function MessageThread({
             <ul className="mt-2 space-y-2 border-t border-amber-400/25 pt-2">
               {pinned.slice(0, -1).map((m) => (
                 <li key={m.id} className="truncate text-[12px] text-muted">
-                  {m.body || 'Attachment'}
+                  {previewText(m.body) || 'Attachment'}
                 </li>
               ))}
             </ul>
@@ -220,6 +225,7 @@ export function MessageThread({
                     viewerId={viewerId}
                     badge={roles && <PersonBadge userId={m.sender_id} roles={roles} />}
                     onPollChanged={load}
+                    titles={titles}
                     onEdit={async (id, body) => {
                       try {
                         await editMessage(id, body)
