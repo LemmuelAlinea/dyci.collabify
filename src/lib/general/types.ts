@@ -452,6 +452,8 @@ export type GeneralTaskEvent = {
     /** What QA asked to have fixed, on a qa_sent_back event. */
     note?: string
     reason?: string
+    /** On a sent_to_team event from Send to person: who the project manager handed it to. */
+    holder_id?: string
     /** The sprint an open task left when its team changed, in Multiple sprint streams. */
     sprint_from?: string
     /** On a rule_applied event: the rule, what it did, and what changed. Written by the rule runner, with no actor. */

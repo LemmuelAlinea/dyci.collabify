@@ -32,6 +32,17 @@ describe('describeEvent', () => {
       expect(describeActivity({ kind, actor_name: 'Ana Reyes', subject_name: null, task_title: 'Report', detail: { reason: 'Capacity changed' } })).toBe(`Ana Reyes ${words.replace('it', '"Report"')}: Capacity changed`)
     }
   })
+  it('names a direct send', () => {
+    expect(describeEvent(event({ kind: 'sent_to_team', detail: { holder_id: 'b' } }), nameOf)).toBe('Ana Reyes sent it to Ben Cruz')
+  })
+  it('took it on', () => {
+    expect(describeEvent(event({ kind: 'sent_to_team', detail: { holder_id: 'a' } }), nameOf)).toBe('Ana Reyes took it on')
+  })
+  it('activity names a direct send', () => {
+    const row = (holder: string): ActivityEvent => ({ kind: 'sent_to_team', actor_name: 'Ana Reyes', subject_name: null, task_title: 'Design', detail: { actor_id: 'a', holder_id: holder } })
+    expect(describeActivity(row('b'))).toBe('Ana Reyes sent "Design" to a planner')
+    expect(describeActivity(row('a'))).toBe('Ana Reyes took on "Design"')
+  })
   it('names who created the task', () => {
     expect(describeEvent(event({}), nameOf)).toBe('Ana Reyes created this task')
   })

@@ -1142,6 +1142,13 @@ export async function sendTasksToTeams(projectId: string, rows: { id: string; te
   return data as number
 }
 
+/** The project manager sends planning tasks straight to themselves or a coordinator; the team is optional. */
+export async function sendTasksToPlanner(projectId: string, rows: { id: string; team_id: string | null; updated_at: string }[], holderId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('send_work_tasks_to_planner', { p_project: projectId, p_rows: rows, p_holder: holderId })
+  if (error) throw error
+  return data as number
+}
+
 export async function returnWorkTask(taskId: string, reason: string): Promise<void> {
   const { error } = await supabase.rpc('return_work_task', { p_task: taskId, p_reason: reason.trim() })
   if (error) throw error

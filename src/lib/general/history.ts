@@ -80,6 +80,9 @@ function ruleLine(detail: GeneralTaskEvent['detail'], task: string, assignee: st
 export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => string) {
   const actor = event.actor_id ? nameOf(event.actor_id) : 'Somebody'
   const subject = event.detail.user_id
+  if (event.kind === 'sent_to_team' && event.detail.holder_id) {
+    return event.detail.holder_id === event.actor_id ? `${actor} took it on` : `${actor} sent it to ${nameOf(event.detail.holder_id)}`
+  }
   switch (event.kind) {
     case 'sent_to_coordinator':
     case 'sent_to_team':
@@ -253,6 +256,9 @@ export function describeActivity(e: ActivityEvent) {
   const subject = e.subject_name ?? 'somebody'
   const task = e.task_title ? `"${shorten(e.task_title)}"` : 'a task'
   const d = e.detail
+  if (e.kind === 'sent_to_team' && str(d.holder_id)) {
+    return str(d.holder_id) === str(d.actor_id) ? `${actor} took on ${task}` : `${actor} sent ${task} to a planner`
+  }
   switch (e.kind) {
     case 'sent_to_coordinator':
     case 'sent_to_team':
