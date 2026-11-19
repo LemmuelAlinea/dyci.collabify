@@ -63,9 +63,9 @@ import type {
   SeriesMember,
 } from '../../../lib/types'
 
-type TabId = 'brief' | 'discussion' | 'work' | 'groups' | 'files' | 'shared'
+type TabId = 'brief' | 'discussion' | 'work' | 'groups' | 'files'
 
-const LINKED_TABS: TabId[] = ['discussion', 'work', 'groups', 'files', 'shared']
+const LINKED_TABS: TabId[] = ['discussion', 'work', 'groups', 'files']
 
 /** Which scoped action the professor opened, when the project runs in several. */
 type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
@@ -125,6 +125,9 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     const raw = params.get('tab')
     // Work replaced Tasks and Progress; links written before it still name them.
     if (raw === 'tasks' || raw === 'progress') return 'work'
+    // Shared with me sits beside My workspace in Files; FilesTab reads the
+    // old tab=shared and scrolls to it.
+    if (raw === 'shared') return 'files'
     const named = raw as TabId | null
     if (named && LINKED_TABS.includes(named)) return named
     return params.has('board') || params.has('task') || params.has('work') || params.has('layout')
@@ -481,7 +484,6 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                 // Planning, progress and the board itself.
                 { id: 'work', label: 'Work', icon: 'kanban' },
                 { id: 'files', label: 'Files', icon: 'folder' },
-                { id: 'shared', label: 'Shared with me', icon: 'users' },
               ]}
               active={tab}
               onChange={changeTab}
@@ -494,7 +496,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
             </div>
           )}
-          {(tab === 'files' || tab === 'shared' || tab === 'discussion') && (
+          {(tab === 'files' || tab === 'discussion') && (
             <div className="mt-6">
               {isReleased(project) ? (
                 <ClassFilesTab t={t} viewerId={profile?.id} show={tab} />
