@@ -5302,3 +5302,24 @@ accepted." from the setting; no failed requests.
   `LeadInbox.test.tsx`. Checked on the dev server signed in as the PM on "Collabify PROJECT.": badge 2, matching the
   two Planning rows the panel lists, at 1280 and 390 wide with no overflow; the live coordinator also reads both
   Planning rows under RLS and the member none (rolled-back check). Nothing was routed on the live project.
+
+## Active now in the Inbox (2026-11-20)
+
+- The Inbox list shows an **Active now** strip: people who share a live class (classmates, the teacher, co-teachers),
+  work space or work project with the viewer, seen in the last hour, newest first. A green `presence` dot means seen
+  in the last 2 minutes; otherwise a "12m" label. Direct chats in the list get the same dot.
+- Tapping a person opens or creates the direct chat (`start_contact_conversation`), so anyone can now message a
+  contact, not only a teacher their students. Same `direct_key` as `start_direct_conversation`: one thread per pair.
+- Heartbeat: `usePresenceHeartbeat` in `AppShell` calls `touch_presence` on mount, every 60 s while the tab is visible,
+  and on focus; the server skips a write under 45 s old and checks `am_i_admitted`. The Inbox polls
+  `my_active_contacts` every 60 s through `useLive`; no realtime channels.
+- Settings → Profile → **Show when you're active** (`ActiveStatusSetting`). Off stores no stamp, hides the person from
+  everyone, and hides everyone from them. They can still be messaged.
+- SQL `supabase/active-status.sql` (after `send-to-planner.sql`, before `anon-lockdown.sql`), applied to the live
+  database with `anon-lockdown.sql` after it. Suite `supabase/tests/active-status.test.sql` (27 checks). Joining a
+  project also adds you to its space, so an archived project still links its people while the space is live.
+- Spec `docs/superpowers/specs/2026-11-20-active-now-design.md`, plan `docs/superpowers/plans/2026-11-20-active-now.md`.
+
+**Deferred**
+- No block or report in direct chats; teachers cannot see or moderate student-to-student direct chats.
+- Presence shows only in the Inbox (not on member lists or task pages).
