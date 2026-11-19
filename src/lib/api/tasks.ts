@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { invokeFunction } from './functions'
+import type { FileTask } from '../classFileTasks'
 import { byLastName } from '../types'
 import type {
   BoardSummary,
@@ -622,4 +623,15 @@ export async function classBoardRepoId(boardId: string) {
   const { data, error } = await supabase.rpc('class_board_repo_id', { p_board: boardId })
   if (error) throw error
   return (data ?? null) as string | null
+}
+
+/**
+ * A professor's task file, read in the browser, drafted into tasks with a fit
+ * verdict against the project's guidelines, rubric and weeks. Nothing is saved.
+ */
+export async function generateTasksFromFile(projectId: string, text: string, fileName: string) {
+  return invokeFunction<
+    | { result: 'ok'; tasks: FileTask[]; note: string; thin: boolean }
+    | { result: 'failed'; message: string }
+  >('generate-tasks', { project_id: projectId, text, file_name: fileName })
 }
