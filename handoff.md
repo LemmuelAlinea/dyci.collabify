@@ -5367,3 +5367,27 @@ accepted." from the setting; no failed requests.
   `#Label` inside a URL fragment and a Collabify link inside another URL's query are converted; the encoded body can
   pass the 5000-character limit (database error on send); the picker has no `role="combobox"` /
   `aria-activedescendant`; an IME-confirming Enter picks; the search builds every candidate before `ilike`.
+
+## Open task flow (2026-11-20)
+
+- Settings → Tasks → **Task flow**: Planned handoff (default, unchanged) or Open. Only the project manager changes it
+  (`set_general_task_flow`); switching to Open shows how many waiting tasks go live and releases every live top-level
+  planning and review task, keeping its team. Switching back moves nothing.
+- Open: the project manager, coordinators and Members add live tasks (`create_general_open_task`) with Priority and
+  Holder(s) in the New task dialog; QA adds bugs with a priority and no holder. In the task dialog they set anyone
+  who can hold tasks as holder, or take holders off (`set_general_task_holders`), except on work in an active QA stage
+  or Done ("Reopen it before changing who holds it."). Edit rights don't widen: a Member who neither holds nor created
+  a task still can't edit or move it. A task created with a holder starts at the project's default stage; "When a
+  task is sent" workflow rules run for it. Open-created tasks keep `sent_at` null, so the creator keeps the creator rule.
+- Settings → Members hides "Members can create tasks" in an Open project (it keeps its value). Plan & route shows in
+  an Open project only while something waits in planning or review (From notes still starts there).
+- New task dialog: Priority also shows in Planned mode for the project manager and coordinators.
+- SQL `supabase/project-open-tasks.sql` (after `message-mentions.sql`, before `anon-lockdown.sql`), applied live with
+  `anon-lockdown.sql` after it; it redefines nothing. Suite `supabase/tests/project-open-tasks.test.sql` (35 checks).
+- Spec `docs/superpowers/specs/2026-11-20-open-task-flow-design.md`, plan
+  `docs/superpowers/plans/2026-11-20-open-task-flow.md`.
+
+**Deferred**
+- The "What each role can do" table doesn't reflect Open mode.
+- From notes and AI drafts still create planning tasks in an Open project; they need Plan & route to go live.
+- No bulk reassign; holders change one task at a time.

@@ -386,6 +386,15 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   work the project manager (only) sends Planning tasks straight to themselves or an active coordinator through
   `send_work_tasks_to_planner`, which releases and assigns in one call; the team is optional and needs no lead. It
   redefines nothing; history reuses `sent_to_team` with `holder_id`. Suite: `supabase/tests/send-to-planner.test.sql`.
+- Open task flow (`supabase/project-open-tasks.sql`, after `message-mentions.sql`, before `anon-lockdown.sql`):
+  `general_projects.task_flow` is `planned` (default, the handoff above) or `open`, switched only by the project
+  manager through `set_general_task_flow` (Settings → Tasks); a switch to open releases live top-level planning and
+  review tasks (`sent_to_team` rows), a switch back moves nothing. In an open project the project manager,
+  coordinators and Members add live tasks with `create_general_open_task` (priority, holders; QA bugs only, no
+  holders) and set any live task's holders with `set_general_task_holders` (not in an active QA stage or Done). Both
+  write with claims cleared and redefine no guard, so edit rights don't widen. Open-created tasks keep `sent_at` null,
+  so their creator keeps the creator rule. Plan & route shows in an open project only while work waits in planning
+  (`showsRouting`). Suite: `supabase/tests/project-open-tasks.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone
