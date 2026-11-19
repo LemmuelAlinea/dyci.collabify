@@ -15,6 +15,8 @@ import {
   canAs,
   canCreateWorkTask,
   canCreateWorkTaskWith,
+  canSetHolders,
+  holderCandidates,
   canManageMilestones,
   roleMark,
   canAssignIncoming,
@@ -569,5 +571,41 @@ describe('space roles', () => {
     expect(defaultInviteRole('pm', ['member', 'coordinator'])).toBe('coordinator')
     expect(defaultInviteRole('coordinator', ['member', 'qa'])).toBe('member')
     expect(defaultInviteRole(undefined, ['member'])).toBe('member')
+  })
+})
+
+describe('open task flow', () => {
+  const off = { manageMilestones: false, createTasks: false }
+  const roles = ['pm', 'coordinator', 'member', 'qa', 'stakeholder', null] as const
+
+  it('lets the project manager, coordinators and Members add tasks or bugs, and QA bugs, in an open project', () => {
+    for (const role of roles) {
+      const writer = role === 'pm' || role === 'coordinator' || role === 'member'
+      expect(canCreateWorkTaskWith(role, 'task', off, 'open')).toBe(writer)
+      expect(canCreateWorkTaskWith(role, 'bug', off, 'open')).toBe(writer || role === 'qa')
+      expect(canCreateWorkTaskWith(role, 'task', off, 'planned')).toBe(canCreateWorkTask(role, 'task'))
+    }
+  })
+
+  it('lets writers who can hold tasks set holders, only in an open project', () => {
+    expect(canSetHolders('member', 'open', false)).toBe(true)
+    expect(canSetHolders('pm', 'open', false)).toBe(true)
+    expect(canSetHolders('coordinator', 'open', false)).toBe(true)
+    expect(canSetHolders('qa', 'open', false)).toBe(false)
+    expect(canSetHolders('stakeholder', 'open', false)).toBe(false)
+    expect(canSetHolders('member', 'planned', false)).toBe(false)
+    expect(canSetHolders('member', 'open', true)).toBe(false)
+  })
+
+  it('offers active members who can hold tasks as holders', () => {
+    const roleOf = (id: string) => ({ a: 'member', b: 'qa', c: 'stakeholder', d: 'member', e: 'pm' } as const)[id as 'a'] ?? null
+    const members = [
+      { user_id: 'a', profile: { status: 'active' } },
+      { user_id: 'b', profile: { status: 'active' } },
+      { user_id: 'c', profile: { status: 'active' } },
+      { user_id: 'd', profile: { status: 'pending' } },
+      { user_id: 'e', profile: { status: 'active' } },
+    ]
+    expect(holderCandidates(members, roleOf)).toEqual(['a', 'e'])
   })
 })

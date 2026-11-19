@@ -18,7 +18,7 @@ import { GENERAL_FILE_LIMIT } from '../general/files'
 import type { ImportPreview } from '../general/memberImport'
 import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
-import type { GeneralPermission, ProjectRole } from '../general/permissions'
+import type { GeneralPermission, ProjectRole, TaskFlow } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
 import { DEFAULT_MEMBER_RULES } from '../general/permissions'
 import { DEFAULT_MILESTONE_RULES } from '../general/milestoneRules'
@@ -180,7 +180,7 @@ function taskRulesOf(row: TaskRuleRow): TaskRules {
 
 export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
-  const [{ data, error }, stages, look, rules, memberOptions, milestoneOptions, notificationOptions] = await Promise.all([
+  const [{ data, error }, stages, look, rules, memberOptions, milestoneOptions, notificationOptions, flowOption] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
     // Its own query, so the stages still load before project-settings-general.sql adds these columns.
@@ -192,6 +192,8 @@ export async function getGeneralProject(projectId: string) {
     supabase.from('general_projects').select(MILESTONE_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
     // Its own query, so the project still loads before project-notification-rules.sql adds these columns.
     supabase.from('general_projects').select(NOTIFICATION_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
+    // Its own query, so the project still loads before project-open-tasks.sql adds the column.
+    supabase.from('general_projects').select('task_flow').eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
@@ -211,6 +213,9 @@ export async function getGeneralProject(projectId: string) {
   // Until project-notification-rules.sql is live the columns are missing, so the project reads the defaults. Remove this fallback once it is.
   if (notificationOptions.error && !isMissingColumn(notificationOptions.error)) throw notificationOptions.error
   const notificationRow = notificationOptions.error ? null : (notificationOptions.data as NotificationRuleRow | null)
+  // Until project-open-tasks.sql is live the column is missing, so the project reads planned. Remove this fallback once it is.
+  if (flowOption.error && !isMissingColumn(flowOption.error)) throw flowOption.error
+  const taskFlow: TaskFlow = flowOption.error ? 'planned' : ((flowOption.data?.task_flow as TaskFlow | undefined) ?? 'planned')
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
@@ -221,6 +226,7 @@ export async function getGeneralProject(projectId: string) {
     default_view: (fields?.default_view as ProjectView | undefined) ?? 'overview',
     visibility: (fields?.visibility as ProjectVisibility | undefined) ?? 'private',
     taskRules: ruleRow ? taskRulesOf(ruleRow) : DEFAULT_TASK_RULES,
+    taskFlow,
     memberRules: memberRow
       ? { manageMilestones: memberRow.members_manage_milestones, createTasks: memberRow.members_create_tasks }
       : DEFAULT_MEMBER_RULES,
@@ -1207,6 +1213,8 @@ export async function createTask(input: {
   sprintId?: string | null
   /** 'bug' for a task QA raised; left out, a plain task. */
   kind?: TaskKind
+  /** Left out, the project's default priority. */
+  priority?: TaskPriority
 }) {
   const { data: project, error: projectError } = await supabase
     .from('general_projects').select('class_board_id').eq('id', input.projectId).single()
@@ -1223,6 +1231,7 @@ export async function createTask(input: {
       sprint_id: input.sprintId ?? null,
       ...(project.class_board_id === null ? { routing_state: 'planning' } : {}),
       ...(input.kind ? { kind: input.kind } : {}),
+      ...(input.priority ? { priority: input.priority } : {}),
     })
     .select('id')
     .single()
@@ -1251,6 +1260,58 @@ export async function createMemberTask(
   })
   if (error) throw error
   return data as string
+}
+
+/**
+ * Adds a live task to an open project with its holders, in one step. Returns
+ * the new task's id. QA passes kind 'bug' and no holders.
+ */
+export async function createOpenTask(input: {
+  projectId: string
+  title: string
+  description: string
+  startsAt: string | null
+  dueAt: string | null
+  teamId: string | null
+  /** Null: the project's default priority. */
+  priority: TaskPriority | null
+  kind: TaskKind
+  holderIds: string[]
+}) {
+  const { data, error } = await supabase.rpc('create_general_open_task', {
+    p_project: input.projectId,
+    p_title: input.title.trim(),
+    p_description: input.description,
+    p_starts_at: input.startsAt,
+    p_due_at: input.dueAt,
+    p_team: input.teamId,
+    p_priority: input.priority,
+    p_kind: input.kind,
+    p_holders: input.holderIds,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** Replaces a live task's holders in an open project; an empty list clears them. */
+export async function setTaskHolders(taskId: string, holderIds: string[]) {
+  const { error } = await supabase.rpc('set_general_task_holders', { p_task: taskId, p_holders: holderIds })
+  if (error) throw error
+}
+
+/** Switches the project's task flow (project manager only). Returns how many waiting tasks went live. */
+export async function setTaskFlow(projectId: string, flow: TaskFlow) {
+  const { data, error } = await supabase.rpc('set_general_task_flow', { p_project: projectId, p_flow: flow })
+  if (error) throw error
+  return (data as number | null) ?? 0
+}
+
+/** How many top-level tasks wait in planning and in review, which a switch to open releases. */
+export async function previewTaskFlow(projectId: string) {
+  const { data, error } = await supabase.rpc('preview_general_task_flow', { p_project: projectId })
+  if (error) throw error
+  const row = (Array.isArray(data) ? data[0] : data) as { planning: number; review: number } | undefined
+  return { planning: row?.planning ?? 0, review: row?.review ?? 0 }
 }
 
 /** Adds a subtask under a parent task. Returns the new task's id. */

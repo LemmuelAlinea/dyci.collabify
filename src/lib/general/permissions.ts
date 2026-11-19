@@ -261,12 +261,42 @@ export function canManageMilestones(
 }
 
 /**
+ * A work project's task flow, general_projects.task_flow
+ * (supabase/project-open-tasks.sql). Planned: new tasks start in planning for a
+ * planner to send. Open: the project manager, coordinators and Members add live
+ * tasks and set anyone as holder; QA adds bugs.
+ */
+export type TaskFlow = 'planned' | 'open'
+
+/**
  * canCreateWorkTask, plus a Member's regular tasks while the project lets
  * Members create tasks. Those go through createMemberTask and start in
- * planning. Members never raise bug tasks.
+ * planning. Members never raise bug tasks, except in an open project, where
+ * they add tasks and bugs through createOpenTask.
  */
-export function canCreateWorkTaskWith(role: ProjectRole | null, kind: TaskKind, rules: MemberRules = DEFAULT_MEMBER_RULES): boolean {
+export function canCreateWorkTaskWith(
+  role: ProjectRole | null,
+  kind: TaskKind,
+  rules: MemberRules = DEFAULT_MEMBER_RULES,
+  flow: TaskFlow = 'planned',
+): boolean {
+  if (flow === 'open') return role === 'member' || canCreateWorkTask(role, kind)
   return canCreateWorkTask(role, kind) || (role === 'member' && kind === 'task' && rules.createTasks)
+}
+
+/** Whether the viewer may set any live task's holders. Mirrors set_general_task_holders. */
+export function canSetHolders(role: ProjectRole | null, flow: TaskFlow, readOnly: boolean): boolean {
+  return flow === 'open' && !readOnly && (role === 'pm' || role === 'coordinator' || role === 'member')
+}
+
+/** Active project members who can hold tasks (not QA, not stakeholders), in member order. */
+export function holderCandidates(
+  members: readonly { user_id: string; profile?: { status?: string | null } | null }[],
+  roleOf: (userId: string) => ProjectRole | null,
+): string[] {
+  return members
+    .filter((m) => m.profile?.status === 'active' && roleOf(m.user_id) !== 'qa' && roleOf(m.user_id) !== 'stakeholder')
+    .map((m) => m.user_id)
 }
 
 export function canAssignIncoming(viewerTeamIds: readonly string[], task: GeneralTask): boolean {

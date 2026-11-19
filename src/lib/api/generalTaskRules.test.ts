@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addDependency,
   createMemberTask,
+  createOpenTask,
   createSubtask,
   getGeneralProject,
   listArchivedTasks,
@@ -9,7 +10,10 @@ import {
   listMyArchivedTasks,
   listSpaceOpenTasks,
   listTasks,
+  previewTaskFlow,
   removeDependency,
+  setTaskFlow,
+  setTaskHolders,
   updateGeneralProject,
 } from './general'
 
@@ -62,12 +66,14 @@ const MILESTONE_RULES =
   'general_projects:milestone_completion, require_milestone_due, allow_milestone_dependencies, milestone_overdue_alerts'
 const NOTIFICATION_RULES =
   'general_projects:sprint_end_reminder_days, task_overdue_alerts, milestone_due_reminder_days, task_assignment_notices, sprint_completion_notices'
+const TASK_FLOW = 'general_projects:task_flow'
 const TASKS = 'general_task_overview:*'
 const EXTRAS = 'general_tasks:id, priority, parent_id'
 const DEPS = 'general_task_dependencies:task_id, depends_on_id'
 
 beforeEach(() => {
   results.clear()
+  results.set(TASK_FLOW, { data: { task_flow: 'planned' }, error: null })
   results.set(MILESTONE_RULES, {
     data: { milestone_completion: 'automatic', require_milestone_due: true, allow_milestone_dependencies: true, milestone_overdue_alerts: true },
     error: null,
@@ -379,5 +385,57 @@ describe('dependencies and subtasks', () => {
     await expect(addDependency('a', 'b')).rejects.toBe(err)
     results.set('rpc:create_general_subtask', { data: null, error: err })
     await expect(createSubtask('a', 't')).rejects.toBe(err)
+  })
+})
+
+describe('open task flow', () => {
+  beforeEach(() => {
+    results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
+    results.set(STAGES, { data: { stages: null, qa_stage: null, class_board_id: null }, error: null })
+    results.set(LOOK, { data: { color: null, icon: null, default_view: 'overview', visibility: 'private' }, error: null })
+    results.set(RULES, { data: null, error: null })
+    results.set(MEMBER_RULES, { data: { members_manage_milestones: false, members_create_tasks: false }, error: null })
+  })
+
+  it('reads the task flow from the project row', async () => {
+    results.set(TASK_FLOW, { data: { task_flow: 'open' }, error: null })
+    expect((await getGeneralProject('p1'))?.taskFlow).toBe('open')
+  })
+
+  it('reads planned while the column is missing', async () => {
+    results.set(TASK_FLOW, { data: null, error: missingColumn })
+    expect((await getGeneralProject('p1'))?.taskFlow).toBe('planned')
+  })
+
+  it('adds an open task through create_general_open_task with a trimmed title', async () => {
+    results.set('rpc:create_general_open_task', { data: 't1', error: null })
+    const id = await createOpenTask({
+      projectId: 'p1', title: '  Fix login  ', description: 'Body', startsAt: null, dueAt: '2026-12-01T00:00:00Z',
+      teamId: 'g1', priority: 'high', kind: 'task', holderIds: ['u2'],
+    })
+    expect(id).toBe('t1')
+    expect(rpcCalls).toEqual([{ name: 'create_general_open_task', args: {
+      p_project: 'p1', p_title: 'Fix login', p_description: 'Body', p_starts_at: null, p_due_at: '2026-12-01T00:00:00Z',
+      p_team: 'g1', p_priority: 'high', p_kind: 'task', p_holders: ['u2'],
+    } }])
+  })
+
+  it('sets holders, switches the flow and previews the release', async () => {
+    results.set('rpc:set_general_task_flow', { data: 3, error: null })
+    results.set('rpc:preview_general_task_flow', { data: [{ planning: 2, review: 1 }], error: null })
+    await setTaskHolders('t1', ['u2', 'u3'])
+    expect(await setTaskFlow('p1', 'open')).toBe(3)
+    expect(await previewTaskFlow('p1')).toEqual({ planning: 2, review: 1 })
+    expect(rpcCalls).toEqual([
+      { name: 'set_general_task_holders', args: { p_task: 't1', p_holders: ['u2', 'u3'] } },
+      { name: 'set_general_task_flow', args: { p_project: 'p1', p_flow: 'open' } },
+      { name: 'preview_general_task_flow', args: { p_project: 'p1' } },
+    ])
+  })
+
+  it('surfaces a refusal from the database', async () => {
+    const refused = { code: '42501', message: "QA can't assign tasks." }
+    results.set('rpc:set_general_task_holders', { data: null, error: refused })
+    await expect(setTaskHolders('t1', ['u2'])).rejects.toBe(refused)
   })
 })

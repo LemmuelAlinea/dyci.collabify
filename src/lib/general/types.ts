@@ -5,7 +5,7 @@
  */
 import type { AccountStatus, Profile, Role } from '../types'
 import type { FieldType, FieldValue } from './fields'
-import type { GeneralLevel, GeneralPermission, MemberRules, ProjectRole } from './permissions'
+import type { GeneralLevel, GeneralPermission, MemberRules, ProjectRole, TaskFlow } from './permissions'
 import type { GeneralTaskStatus } from './progress'
 import type { MilestoneRules } from './milestoneRules'
 import type { NotificationRules } from './notificationRules'
@@ -61,6 +61,8 @@ export type GeneralProject = {
   taskRules?: TaskRules
   /** Whether Members manage milestones and create tasks here. Read by getGeneralProject only. */
   memberRules?: MemberRules
+  /** Planned handoff or open. Read by getGeneralProject only. */
+  taskFlow?: TaskFlow
   /** How milestones are reached, whether they need a due date, may wait for each other and alert when overdue. Read by getGeneralProject only. */
   milestoneRules?: MilestoneRules
   /** What the project sends: sprint, task and milestone reminders and the assignment and completion notices. Read by getGeneralProject only. */
