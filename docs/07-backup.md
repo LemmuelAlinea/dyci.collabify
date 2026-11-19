@@ -1042,7 +1042,8 @@ Suite: `supabase/tests/send-to-planner.test.sql`.
 per person: `last_seen_at`, `show_active`; RLS on, no policies, no direct grants), the internal `contacts_of(user)`
 (people who share a live class, work space or work project; never callable by a client), `touch_presence`,
 `set_active_status`, `my_active_status`, `my_active_contacts` and `start_contact_conversation` (the same `direct_key`
-as `start_direct_conversation`). It redefines nothing another file owns; re-run `anon-lockdown.sql` after it.
+as `start_direct_conversation`), plus the profile policy `profiles_select_direct_peer` (`shares_direct_chat_with`), so
+people who share a direct chat read each other's name and face. It redefines nothing another file owns; re-run `anon-lockdown.sql` after it.
 Suite: `supabase/tests/active-status.test.sql`.
 
 ## Peer round delete

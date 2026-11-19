@@ -17,6 +17,7 @@ import { useNow } from '../../../hooks/useNow'
 import { ActiveNowStrip } from '../../../components/messages/ActiveNowStrip'
 import { startContactConversation } from '../../../lib/api/presence'
 import { isActiveNow } from '../../../lib/presence'
+import { listedConversations } from '../../../lib/conversationList'
 import { canTeach, isMember, membershipOf, showsClassScope } from '../../../lib/access'
 import { paths } from '../../../lib/paths'
 import { conversationScope, readScope, writeScope } from '../../../lib/scope'
@@ -53,7 +54,7 @@ export default function Messages() {
         await reload()
         navigate(`${paths.conversation(res.conversation_id)}${location.search}`)
       } else {
-        setOpenError("You no longer share a class, space or project with this person, so you can't message them.")
+        setOpenError("You no longer share a class, space or project with this person, so you can't start a new chat.")
       }
     } catch {
       setOpenError("We couldn't open that chat. Check your connection and try again.")
@@ -72,15 +73,19 @@ export default function Messages() {
     document.title = 'Inbox · Collabify'
   }, [])
 
-  const classesCount = conversations?.filter((c) => conversationScope(c.kind) === 'classes').length ?? 0
-  const workCount = conversations?.filter((c) => conversationScope(c.kind) === 'work').length ?? 0
+  const listed = useMemo(
+    () => (conversations ? listedConversations(conversations, conversationId) : conversations),
+    [conversations, conversationId],
+  )
+  const classesCount = listed?.filter((c) => conversationScope(c.kind) === 'classes').length ?? 0
+  const workCount = listed?.filter((c) => conversationScope(c.kind) === 'work').length ?? 0
   const visible = useMemo(() => {
-    if (!conversations) return conversations
+    if (!listed) return listed
     if (scope === 'classes' || scope === 'work') {
-      return conversations.filter((c) => conversationScope(c.kind) === scope)
+      return listed.filter((c) => conversationScope(c.kind) === scope)
     }
-    return conversations
-  }, [conversations, scope])
+    return listed
+  }, [listed, scope])
 
   const active = conversations?.find((c) => c.id === conversationId)
   const canModerate = canModerateHere && (active?.kind === 'class' || active?.kind === 'group')
@@ -116,7 +121,7 @@ export default function Messages() {
             value={scope}
             onChange={(next) => setParams(writeScope(params, next), { replace: true })}
             counts={
-              conversations ? { all: conversations.length, classes: classesCount, work: workCount } : undefined
+              listed ? { all: listed.length, classes: classesCount, work: workCount } : undefined
             }
           />
         </div>

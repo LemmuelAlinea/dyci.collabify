@@ -36,30 +36,34 @@ revoke all on public.user_presence from anon, authenticated;
 /** Everyone who shares a live class, work space or work project with p_user. Internal. */
 create or replace function public.contacts_of(p_user uuid)
 returns setof uuid language sql stable security definer set search_path = public as $$
-  with class_people (class_id, person) as (
-    select c.id, m.student_id
+  -- Only the caller's own live classes are expanded, never the whole school.
+  with my_classes (id, space_id, professor_id) as (
+    select c.id, c.space_id, c.professor_id
       from public.classes c
+     where c.archived_at is null
+       and (c.professor_id = p_user
+            or exists (select 1 from public.class_members m
+                        where m.class_id = c.id and m.student_id = p_user and m.status = 'active')
+            or exists (select 1 from public.general_space_members sm
+                         join public.profiles t
+                           on t.id = sm.user_id and t.role = 'member' and t.can_teach
+                        where sm.space_id = c.space_id and sm.user_id = p_user
+                          and sm.level in ('owner', 'manager')))
+  ),
+  shared (person) as (
+    select m.student_id
+      from my_classes c
       join public.class_members m on m.class_id = c.id and m.status = 'active'
-     where c.archived_at is null
     union
-    select c.id, c.professor_id
-      from public.classes c
-     where c.archived_at is null
+    select c.professor_id from my_classes c
     union
     -- co-teachers: the same test teaches_in_space uses
-    select c.id, sm.user_id
-      from public.classes c
+    select sm.user_id
+      from my_classes c
       join public.general_space_members sm
         on sm.space_id = c.space_id and sm.level in ('owner', 'manager')
       join public.profiles t
         on t.id = sm.user_id and t.role = 'member' and t.can_teach
-     where c.archived_at is null
-  ),
-  shared (person) as (
-    select o.person
-      from class_people mine
-      join class_people o on o.class_id = mine.class_id
-     where mine.person = p_user
     union
     select o.user_id
       from public.general_space_members mine
@@ -186,7 +190,33 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- names in a chat
+
+/**
+ * Whether the caller shares a direct chat with p_user. Space-only contacts have
+ * no other profile policy (class and project peers do), so without this their
+ * chat would show no name, face or sender.
+ */
+create or replace function public.shares_direct_chat_with(p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select p_user <> auth.uid() and exists (
+    select 1
+      from public.conversation_members mine
+      join public.conversations c on c.id = mine.conversation_id and c.kind = 'direct'
+      join public.conversation_members other on other.conversation_id = mine.conversation_id
+     where mine.user_id = auth.uid()
+       and other.user_id = p_user
+  );
+$$;
+
+drop policy if exists profiles_select_direct_peer on public.profiles;
+create policy profiles_select_direct_peer on public.profiles
+  for select to authenticated using (public.shares_direct_chat_with(id));
+
 -- ---------------------------------------------------------------- grants
+
+revoke all on function public.shares_direct_chat_with(uuid) from public, anon;
+grant execute on function public.shares_direct_chat_with(uuid) to authenticated;
 
 revoke all on function public.touch_presence() from public, anon;
 revoke all on function public.set_active_status(boolean) from public, anon;

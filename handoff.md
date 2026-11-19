@@ -5310,6 +5310,9 @@ accepted." from the setting; no failed requests.
   in the last 2 minutes; otherwise a "12m" label. Direct chats in the list get the same dot.
 - Tapping a person opens or creates the direct chat (`start_contact_conversation`), so anyone can now message a
   contact, not only a teacher their students. Same `direct_key` as `start_direct_conversation`: one thread per pair.
+  `profiles_select_direct_peer` lets two people who share a direct chat read each other's profile, since space-only
+  contacts had no profile policy and their chat showed no name. A direct chat is listed only once it has a message
+  (`listedConversations`), so a tap that goes nowhere leaves nothing in the other person's Inbox.
 - Heartbeat: `usePresenceHeartbeat` in `AppShell` calls `touch_presence` on mount, every 60 s while the tab is visible,
   and on focus; the server skips a write under 45 s old and checks `am_i_admitted`. The Inbox polls
   `my_active_contacts` every 60 s through `useLive`; no realtime channels.
@@ -5323,3 +5326,9 @@ accepted." from the setting; no failed requests.
 **Deferred**
 - No block or report in direct chats; teachers cannot see or moderate student-to-student direct chats.
 - Presence shows only in the Inbox (not on member lists or task pages).
+- A direct thread stays writable after the two people stop sharing a place (only starting a new one is refused);
+  making it read-only would redefine `conversation_is_writable` (`general-notify.sql`).
+- Review minors: the unused `user_presence_seen_idx` blocks HOT updates (drop it); dots use the viewer's clock
+  (return seconds-ago from the server); member-to-member direct chats are filed under Classes by `conversationScope`;
+  the switch shows On if loading it fails; the suite lacks a deactivated contact, a space archived alone and a
+  co-teacher-sees-student check; focus and visibilitychange both beat on return (the server skips the second).

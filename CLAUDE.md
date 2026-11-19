@@ -390,7 +390,9 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone
   opens a direct chat with a contact through `start_contact_conversation` (same `direct_key` as
-  `start_direct_conversation`). `user_presence` is read and written only through those functions. Hiding your status
+  `start_direct_conversation`); `profiles_select_direct_peer` lets two people who share a direct chat read each
+  other's profile (space-only contacts have no other profile policy). The Inbox lists a direct chat only once it has a
+  message (`listedConversations`). `user_presence` is read and written only through those functions. Hiding your status
   (Settings → Profile) stores no stamp and also hides everyone else from you. Suite:
   `supabase/tests/active-status.test.sql`.
 - Class tasks from a file (no SQL): a teacher's Tasks tab has From a file (`ClassTasksFromFileModal`), which sends the

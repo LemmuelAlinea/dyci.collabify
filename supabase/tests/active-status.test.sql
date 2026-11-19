@@ -183,6 +183,22 @@ begin
      and direct_key = least(v_x::text, v_s1::text) || '|' || greatest(v_x::text, v_s1::text);
   perform pg_temp.must_be('dm: a stranger is refused', a->>'result' = 'not_contact' and n = 0);
 
+  ------------------------------------------------------------ names in a chat
+  -- M1 and M2 share only a work space, which no profile policy covered.
+  perform pg_temp.act_as(v_m1);
+  select count(*) into n from public.profiles where id = v_m2;
+  perform pg_temp.must_be('names: no chat yet, no profile read for a space-only contact', n = 0);
+  a := public.start_contact_conversation(v_m2);
+  select count(*) into n from public.profiles where id = v_m2 and first_name = 'Zz';
+  perform pg_temp.must_be('names: a space-only contact''s name reads once you share a chat', n = 1);
+  perform pg_temp.act_as(v_m2);
+  select count(*) into n from public.profiles where id = v_m1;
+  perform pg_temp.must_be('names: ...from both sides', n = 1);
+  perform pg_temp.act_as(v_x);
+  select count(*) into n from public.profiles where id in (v_m1, v_m2, v_s1);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('names: a stranger still reads no one', n = 0);
+
   ------------------------------------------------------------ hiding
   perform pg_temp.act_as(v_s2);
   perform public.set_active_status(false);
