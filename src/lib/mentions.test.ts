@@ -118,8 +118,20 @@ describe('mentionQueryAt', () => {
     expect(mentionQueryAt('a.com/#top', 10)).toBeNull()
   })
 
-  it('mentionQueryAt stops at whitespace', () => {
-    expect(mentionQueryAt('#login page', 11)).toBeNull()
+  it('mentionQueryAt keeps spaces in a multi-word query', () => {
+    expect(mentionQueryAt('Test: #sample t', 15)).toEqual({ start: 6, query: 'sample t' })
+  })
+
+  it('mentionQueryAt stops at a new line, a code, or 40 characters', () => {
+    expect(mentionQueryAt('#login\npage', 11)).toBeNull()
     expect(mentionQueryAt(`#[t:${A}]`, 5)).toBeNull()
+    expect(mentionQueryAt(`#${'a'.repeat(41)}`, 42)).toBeNull()
+  })
+
+  it('mentionQueryAt leaves text after a picked mention alone', () => {
+    const picked = [{ label: 'Sample Task', ref: { kind: 't' as const, id: A } }]
+    expect(mentionQueryAt('#Sample Task', 12, picked)).toBeNull()
+    expect(mentionQueryAt('#Sample Task is done', 20, picked)).toBeNull()
+    expect(mentionQueryAt('#Sample Ta', 10, picked)).toEqual({ start: 0, query: 'Sample Ta' })
   })
 })

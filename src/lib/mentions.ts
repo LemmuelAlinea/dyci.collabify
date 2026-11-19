@@ -121,15 +121,28 @@ export function decodeForEdit(body: string, titles: Map<string, string>): { text
   return { text, picked }
 }
 
-/** The `#query` being typed at the caret, when the `#` starts a word. */
-export function mentionQueryAt(text: string, caret: number): { start: number; query: string } | null {
-  for (let i = caret - 1; i >= 0; i -= 1) {
+/** The longest `#query` the picker follows; titles are matched in part, so this is plenty. */
+export const MAX_QUERY = 40
+
+/**
+ * The `#query` being typed at the caret, when the `#` starts a word. Spaces
+ * are allowed, so a multi-word title can be narrowed down, but a new line, a
+ * code, a query past 40 characters, or the text after a mention already
+ * picked (`#Sample Task is done`) is not a query.
+ */
+export function mentionQueryAt(
+  text: string,
+  caret: number,
+  picked: Picked[] = [],
+): { start: number; query: string } | null {
+  for (let i = caret - 1; i >= 0 && caret - i <= MAX_QUERY + 1; i -= 1) {
     const ch = text[i]
-    if (/\s/.test(ch)) return null
+    if (ch === '\n' || ch === '\r') return null
     if (ch === '#') {
       if (i > 0 && !/\s/.test(text[i - 1])) return null
       const query = text.slice(i + 1, caret)
-      if (query.includes('[') || query.includes('#')) return null
+      if (query.includes('[') || /^\s/.test(query)) return null
+      if (picked.some((p) => query === p.label || query.startsWith(`${p.label} `))) return null
       return { start: i, query }
     }
   }

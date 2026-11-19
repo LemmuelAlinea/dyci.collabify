@@ -87,7 +87,7 @@ export function MessageComposer({
   }, [picked, conversationId])
 
   function trackCaret(text: string, caret: number | null) {
-    const q = caret === null ? null : mentionQueryAt(text, caret)
+    const q = caret === null ? null : mentionQueryAt(text, caret, picked)
     setMention(q)
     if (!q) setDismissed(null)
   }
@@ -148,6 +148,11 @@ export function MessageComposer({
       if (e.key === 'Escape') {
         e.preventDefault()
         setDismissed(mention.start)
+        return
+      }
+      // Enter while results are still on their way waits for them rather than sending "#que".
+      if (searching && items.length === 0 && e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
         return
       }
       if (items.length > 0) {

@@ -5332,3 +5332,32 @@ accepted." from the setting; no failed requests.
   (return seconds-ago from the server); member-to-member direct chats are filed under Classes by `conversationScope`;
   the switch shows On if loading it fails; the suite lacks a deactivated contact, a space archived alone and a
   co-teacher-sees-student check; focus and visibilitychange both beat on return (the server skips the second).
+
+## Task and project mentions in the Inbox (2026-11-20)
+
+- Typing `#` in any Inbox composer opens a list above the box: tasks and projects the writer is on (work projects
+  they are a member of, classes they are in or teach, and the tasks inside those), the chat's own project or class
+  first. The query may span words (`#sample t`) and stops at a new line, a code or 40 characters. ↑/↓ move,
+  Enter or Tab pick, Esc closes; Enter waits while results are still loading. Picking inserts `#Title`; pasted
+  Collabify task and project links also become mentions on send.
+- On send the body stores a code, never a title: `#[t|p|ct|co|cp:<uuid>]` (`lib/mentions.ts`). `co` is a class set
+  task keyed by `project_tasks.origin_id`: each reader opens their own group's copy (a teacher lands on the Tasks
+  tab). Messages show a chip (`MessageText`) that opens the task or project; a reader who can't open it, or a
+  mention not looked up yet, sees "Task you can't open" / "Project you can't open" with no name. The chat list and
+  the pinned bar show "#task" / "#project". Editing a message shows `#Title` and keeps codes the editor can't read.
+- Under the box, a note says when people in the chat would see a lock ("2 people in this chat aren't on X…"), or
+  that a planning task opens only for the project manager and coordinators until it's sent. It never blocks sending.
+- SQL `supabase/message-mentions.sql` (after `active-status.sql`, before `anon-lockdown.sql`), applied live with
+  `anon-lockdown.sql` after it: `search_mentionables` (invoker, so row security applies) and `mention_blind_spots`
+  (definer, counts only). Suite `supabase/tests/message-mentions.test.sql` (20 checks).
+- Checked live in the Collabify project chat: the list (chat's project first), multi-word search, the planning-task
+  note, send (stored as `#[t:…]`), the chip on the sender's bubble, tap opens the task dialog, edit keeps the code,
+  the list preview "#task", phone 375. The two test messages were deleted for everyone.
+- Spec `docs/superpowers/specs/2026-11-20-message-mentions-design.md`, plan
+  `docs/superpowers/plans/2026-11-20-message-mentions.md`.
+
+**Deferred**
+- No notification for being mentioned, and no `@person` mentions.
+- A deleted task shows as locked, like one you can't open (row security can't tell them apart without a definer read).
+- An app version older than this one shows raw codes until it reloads.
+- The composer's key and caret wiring has no component test; the picker and the code helpers do.
