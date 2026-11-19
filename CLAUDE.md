@@ -395,6 +395,12 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   message (`listedConversations`). `user_presence` is read and written only through those functions. Hiding your status
   (Settings → Profile) stores no stamp and also hides everyone else from you. Suite:
   `supabase/tests/active-status.test.sql`.
+- Mentions (`supabase/message-mentions.sql`, after `active-status.sql`, before `anon-lockdown.sql`): `#` in an Inbox
+  composer searches `search_mentionables` (invoker; only projects you are on and their tasks, work and class) and
+  inserts a code in the body: `#[t|p|ct|co|cp:<uuid>]` (`lib/mentions.ts`). `co` is a class set task (`origin_id`):
+  each reader opens their own copy. Readers resolve titles under row security; anything empty is a locked chip with
+  no name. Never store a title in the body. `mention_blind_spots` gives the writer counts only. Suite:
+  `supabase/tests/message-mentions.test.sql`.
 - Class tasks from a file (no SQL): a teacher's Tasks tab has From a file (`ClassTasksFromFileModal`), which sends the
   browser-read text to `generate-tasks` (`text`, `file_name`); students' From notes on a class board goes through
   `work-ai` `tasks`. Both judge each task against the class project brief (`supabase/functions/_shared/classBrief.ts`:
