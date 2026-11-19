@@ -110,17 +110,11 @@ $$;
 
 -- ---------------------------------------------------------------- who is on what (internal)
 
-/** Whether p_user teaches p_class: its professor, or a co-teacher on its space. */
+/** Whether p_user teaches p_class: an active professor or co-teacher (class_teacher_ids). */
 create or replace function public.mention_teaches(p_class uuid, p_user uuid)
 returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.classes c where c.id = p_class and c.professor_id = p_user)
-      or exists (
-        select 1
-          from public.classes c
-          join public.general_space_members sm
-            on sm.space_id = c.space_id and sm.user_id = p_user and sm.level in ('owner', 'manager')
-          join public.profiles t on t.id = p_user and t.role = 'member' and t.can_teach
-         where c.id = p_class);
+  select p_user in (select public.class_teacher_ids(p_class))
+     and exists (select 1 from public.profiles p where p.id = p_user and p.status = 'active');
 $$;
 
 /** Whether p_user is in p_class as an active student or teaches it. */
@@ -129,6 +123,26 @@ returns boolean language sql stable security definer set search_path = public as
   select exists (select 1 from public.class_members m
                   where m.class_id = p_class and m.student_id = p_user and m.status = 'active')
       or public.mention_teaches(p_class, p_user);
+$$;
+
+/**
+ * Whether p_user can read class project p_project: projects_select, for any
+ * person. Teachers read it; a student reads it only while it is live and
+ * released, and a group project only when they are in its group set.
+ */
+create or replace function public.mention_reads_class_project(p_project uuid, p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.projects p
+     where p.id = p_project
+       and (public.mention_teaches(p.class_id, p_user)
+            or (exists (select 1 from public.class_members m
+                         where m.class_id = p.class_id and m.student_id = p_user and m.status = 'active')
+                and p.archived_at is null
+                and (p.release_at is null or p.release_at <= now())
+                and (p.group_set_id is null
+                     or exists (select 1 from public.group_members gm
+                                 where gm.set_id = p.group_set_id and gm.student_id = p_user)))));
 $$;
 
 /** Whether p_user works on p_board: its student, or a member of its group. */
@@ -145,17 +159,24 @@ $$;
 revoke all on function public.mention_teaches(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.mention_in_class(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.mention_on_board(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.mention_reads_class_project(uuid, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- the writer's note
 
-create or replace function public.mention_blind_spots(p_conversation uuid, p_refs jsonb)
-returns table (kind text, id uuid, project_title text, members_without int, private_task boolean)
+/**
+ * For each ref the caller can reach, how many other people in the chat could
+ * not open it, by the same read rules the app uses (projects_select and
+ * can_see_board for class work). Counts only: no title is returned, so a uuid
+ * from someone else's mention tells the caller nothing they can't already read.
+ */
+drop function if exists public.mention_blind_spots(uuid, jsonb);
+create function public.mention_blind_spots(p_conversation uuid, p_refs jsonb)
+returns table (kind text, id uuid, members_without int, private_task boolean)
 language plpgsql stable security definer set search_path = public as $$
 declare
   me        uuid := auth.uid();
   ref       record;
   v_project uuid;
-  v_title   text;
   v_class   uuid;
   v_board   uuid;
   v_state   text;
@@ -172,10 +193,10 @@ begin
   for ref in
     select distinct e->>'kind' as k, (e->>'id')::uuid as rid from jsonb_array_elements(p_refs) e
   loop
-    v_project := null; v_title := null; v_class := null; v_board := null; v_state := null; reach := false;
+    v_project := null; v_class := null; v_board := null; v_state := null; reach := false;
 
     if ref.k = 't' then
-      select t.project_id, p.name, t.routing_state into v_project, v_title, v_state
+      select t.project_id, t.routing_state into v_project, v_state
         from public.general_tasks t
         join public.general_projects p on p.id = t.project_id and p.class_board_id is null
        where t.id = ref.rid and t.archived_at is null and p.archived_at is null;
@@ -183,27 +204,28 @@ begin
            and exists (select 1 from public.general_members m where m.project_id = v_project and m.user_id = me)
            and public.general_task_child_readable(ref.rid);
     elsif ref.k = 'p' then
-      select p.id, p.name into v_project, v_title
+      select p.id into v_project
         from public.general_projects p
        where p.id = ref.rid and p.class_board_id is null and p.archived_at is null;
       reach := v_project is not null
            and exists (select 1 from public.general_members m where m.project_id = v_project and m.user_id = me);
     elsif ref.k = 'cp' then
-      select p.id, p.title, p.class_id into v_project, v_title, v_class
+      select p.id, p.class_id into v_project, v_class
         from public.projects p join public.classes c on c.id = p.class_id
        where p.id = ref.rid and p.archived_at is null and c.archived_at is null;
-      reach := v_class is not null and public.mention_in_class(v_class, me);
+      reach := v_project is not null and public.mention_reads_class_project(v_project, me);
     elsif ref.k = 'ct' then
-      select p.id, p.title, p.class_id, b.id into v_project, v_title, v_class, v_board
+      select p.id, p.class_id, b.id into v_project, v_class, v_board
         from public.project_tasks pt
         join public.project_boards b on b.id = pt.board_id
         join public.projects p on p.id = b.project_id
         join public.classes c on c.id = p.class_id
        where pt.id = ref.rid and pt.archived_at is null and p.archived_at is null and c.archived_at is null;
       reach := v_board is not null
-           and (public.mention_on_board(v_board, me) or public.mention_teaches(v_class, me));
+           and (public.mention_teaches(v_class, me)
+                or (public.mention_on_board(v_board, me) and public.project_is_live(v_project)));
     elsif ref.k = 'co' then
-      select p.id, p.title, p.class_id into v_project, v_title, v_class
+      select p.id, p.class_id into v_project, v_class
         from public.project_tasks pt
         join public.project_boards b on b.id = pt.board_id
         join public.projects p on p.id = b.project_id
@@ -212,8 +234,10 @@ begin
        limit 1;
       reach := v_class is not null
            and (public.mention_teaches(v_class, me)
-                or exists (select 1 from public.project_tasks pt
-                            where pt.origin_id = ref.rid and public.mention_on_board(pt.board_id, me)));
+                or (public.project_is_live(v_project)
+                    and exists (select 1 from public.project_tasks pt
+                                 where pt.origin_id = ref.rid and pt.archived_at is null
+                                   and public.mention_on_board(pt.board_id, me))));
     end if;
 
     if not reach then
@@ -223,7 +247,6 @@ begin
 
     kind := ref.k;
     id := ref.rid;
-    project_title := v_title;
     private_task := ref.k = 't' and v_state <> 'released';
     select count(*)::int into members_without
       from public.conversation_members cm
@@ -232,8 +255,14 @@ begin
        and not case ref.k
          when 't' then exists (select 1 from public.general_members m where m.project_id = v_project and m.user_id = cm.user_id)
          when 'p' then exists (select 1 from public.general_members m where m.project_id = v_project and m.user_id = cm.user_id)
-         when 'ct' then public.mention_on_board(v_board, cm.user_id) or public.mention_teaches(v_class, cm.user_id)
-         else public.mention_in_class(v_class, cm.user_id)
+         when 'cp' then public.mention_reads_class_project(v_project, cm.user_id)
+         when 'ct' then public.mention_teaches(v_class, cm.user_id)
+                        or (public.mention_on_board(v_board, cm.user_id) and public.project_is_live(v_project))
+         else public.mention_teaches(v_class, cm.user_id)
+              or (public.project_is_live(v_project)
+                  and exists (select 1 from public.project_tasks pt
+                               where pt.origin_id = ref.rid and pt.archived_at is null
+                                 and public.mention_on_board(pt.board_id, cm.user_id)))
        end;
     return next;
   end loop;

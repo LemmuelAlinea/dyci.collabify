@@ -50,10 +50,13 @@ it('locked chip shows no title', () => {
   expect(host.textContent).not.toContain(B)
 })
 
-it('unresolved shows as locked', () => {
-  draw(`see #[ct:${A}]`, new Map())
-  expect(host.textContent).toContain("Task you can't open")
+it('a mention not looked up yet shows as a plain task chip, not locked', () => {
+  draw(`see #[ct:${A}] and #[p:${B}]`, new Map())
+  expect(host.textContent).not.toContain("can't open")
+  expect(host.textContent).toContain('Task')
+  expect(host.textContent).toContain('Project')
   expect(host.textContent).not.toContain('#[')
+  expect(host.querySelector('a')).toBeNull()
 })
 
 it('keeps links in the text clickable', () => {

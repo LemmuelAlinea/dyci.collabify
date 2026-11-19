@@ -11,11 +11,10 @@ export type Mentionable = {
   project_title: string
 }
 
-/** How many people in the chat would see a mention locked (mention_blind_spots). */
+/** How many people in the chat would see a mention locked (mention_blind_spots). Counts only, never a title. */
 export type BlindSpot = {
   kind: MentionKind
   id: string
-  project_title: string
   members_without: number
   private_task: boolean
 }

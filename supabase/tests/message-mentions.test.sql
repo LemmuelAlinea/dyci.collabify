@@ -71,6 +71,7 @@ declare
   t_login uuid; t_secret uuid; t_old uuid; t_other uuid; origin uuid := gen_random_uuid(); ct_solo uuid;
   chat_j uuid; chat_dm uuid; chat_k uuid;
   n int; r record; refused boolean; res uuid;
+  kp_later uuid; kp_group uuid; gset uuid; grp uuid;
 begin
   perform pg_temp.act_as_service();
 
@@ -191,7 +192,7 @@ begin
   perform pg_temp.act_as(v_m);
   select * into r from public.mention_blind_spots(chat_dm, jsonb_build_array(jsonb_build_object('kind', 't', 'id', t_login)));
   perform pg_temp.must_be('blind spots: counts work members outside the project',
-    r.members_without = 1 and not r.private_task and r.project_title = 'Zz Mention J');
+    r.members_without = 1 and not r.private_task);
 
   perform pg_temp.act_as(v_c);
   select * into r from public.mention_blind_spots(chat_j, jsonb_build_array(jsonb_build_object('kind', 't', 'id', t_secret)));
@@ -229,6 +230,51 @@ begin
   end;
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('blind spots: refuses a non-member of the conversation', refused);
+
+  ------------------------------------------------------------ blind spots follow what students can read
+  -- A scheduled project, and a group project for a set only S1 is in.
+  insert into public.projects (class_id, created_by, title, type, audience, start_week, end_week, release_at)
+  values (k, v_t, 'Zz Mention scheduled', 'activity', 'individual', 1, 2, now() + interval '7 days')
+  returning id into kp_later;
+  insert into public.group_sets (class_id, name, mode) values (k, 'Zz Mention set', 'manual') returning id into gset;
+  insert into public.groups (set_id, name, position) values (gset, 'Zz Mention group', 1) returning id into grp;
+  insert into public.group_members (group_id, set_id, student_id, added_by) values (grp, gset, v_s1, v_t);
+  insert into public.projects (class_id, created_by, title, type, audience, group_set_id, start_week, end_week)
+  values (k, v_t, 'Zz Mention group project', 'activity', 'group', gset, 1, 2) returning id into kp_group;
+
+  perform pg_temp.act_as(v_s1);
+  refused := false;
+  begin
+    perform * from public.mention_blind_spots(chat_k, jsonb_build_array(jsonb_build_object('kind', 'cp', 'id', kp_later)));
+  exception when insufficient_privilege then refused := true;
+  end;
+  perform pg_temp.must_be('blind spots: a student can''t reach a scheduled project', refused);
+  perform pg_temp.act_as(v_s2);
+  refused := false;
+  begin
+    perform * from public.mention_blind_spots(chat_k, jsonb_build_array(jsonb_build_object('kind', 'cp', 'id', kp_group)));
+  exception when insufficient_privilege then refused := true;
+  end;
+  perform pg_temp.must_be('blind spots: a student can''t reach another set''s group project', refused);
+
+  perform pg_temp.act_as(v_t);
+  select * into r from public.mention_blind_spots(chat_k, jsonb_build_array(jsonb_build_object('kind', 'cp', 'id', kp_later)));
+  perform pg_temp.must_be('blind spots: a scheduled project counts its students as without', r.members_without = 2);
+  select * into r from public.mention_blind_spots(chat_k, jsonb_build_array(jsonb_build_object('kind', 'cp', 'id', kp_group)));
+  perform pg_temp.must_be('blind spots: a group project counts students outside the set as without', r.members_without = 1);
+  perform pg_temp.must_be('blind spots: returns no titles', not (to_jsonb(r) ? 'project_title'));
+
+  -- A deactivated co-teacher can't open anything, so counts as without.
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, level)
+  values ((select space_id from public.classes where id = k), v_c, 'manager')
+  on conflict (space_id, user_id) do update set level = 'manager';
+  update public.profiles set can_teach = true, status = 'rejected' where id = v_c;
+  insert into public.conversation_members (conversation_id, user_id) values (chat_k, v_c) on conflict do nothing;
+  perform pg_temp.act_as(v_t);
+  select * into r from public.mention_blind_spots(chat_k, jsonb_build_array(jsonb_build_object('kind', 'co', 'id', origin)));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('blind spots: an inactive co-teacher counts as without', r.members_without = 1);
 end;
 $$;
 

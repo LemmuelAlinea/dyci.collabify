@@ -1051,8 +1051,9 @@ Suite: `supabase/tests/active-status.test.sql`.
 `message-mentions.sql` runs after `active-status.sql` and before `anon-lockdown.sql`. It creates `search_mentionables`
 (security invoker, so row security decides what the writer can read; it offers only work projects they are a member
 of, classes they are in or teach, and the tasks inside those) and `mention_blind_spots` (security definer; counts of
-chat members not on a mentioned project or board, never names), plus the internal `mention_teaches`,
-`mention_in_class` and `mention_on_board`. A mention is a code in `messages.body`; no title is stored. It redefines
+chat members who could not open a mention, by the same read rules as `projects_select` and `can_see_board`; never
+a title or a name), plus the internal `mention_teaches` (active `class_teacher_ids`), `mention_in_class`,
+`mention_on_board` and `mention_reads_class_project`. A mention is a code in `messages.body`; no title is stored. It redefines
 nothing another file owns; re-run `anon-lockdown.sql` after it. Suite: `supabase/tests/message-mentions.test.sql`.
 
 ## Peer round delete

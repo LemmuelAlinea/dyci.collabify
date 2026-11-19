@@ -9,7 +9,7 @@ import { ActionMenu } from '../ui/ActionMenu'
 import { useAutoGrow } from '../../hooks/useAutoGrow'
 import { MentionPicker } from './MentionPicker'
 import { mentionBlindSpots, searchMentionables, type BlindSpot, type Mentionable } from '../../lib/api/mentions'
-import { encodeMentions, mentionQueryAt, type Picked } from '../../lib/mentions'
+import { encodeMentions, mentionQueryAt, uniqueLabel, type Picked } from '../../lib/mentions'
 
 const MAX_MB = 10
 
@@ -54,6 +54,8 @@ export function MessageComposer({
       return
     }
     let live = true
+    // A new query drops the old results, so Enter can't pick one meant for an earlier search.
+    setItems([])
     setSearching(true)
     const timer = setTimeout(() => {
       searchMentionables(query, conversationId)
@@ -95,11 +97,16 @@ export function MessageComposer({
   function pickMention(m: Mentionable) {
     if (!mention) return
     const end = mention.start + 1 + mention.query.length
-    const insert = `#${m.title} `
+    const ref = { kind: m.kind, id: m.id }
+    // Two mentions never share a label, so each `#label` sends its own target.
+    const label = uniqueLabel(m.title, m.project_title, picked, ref)
+    const insert = `#${label} `
     const next = body.slice(0, mention.start) + insert + body.slice(end)
     setBody(next)
     setPicked((list) =>
-      list.some((p) => p.label === m.title && p.ref.id === m.id) ? list : [...list, { label: m.title, ref: { kind: m.kind, id: m.id } }],
+      list.some((p) => p.ref.kind === ref.kind && p.ref.id === ref.id)
+        ? list
+        : [...list, { label, ref, project: m.project_title }],
     )
     setMention(null)
     const caret = mention.start + insert.length
@@ -221,15 +228,17 @@ export function MessageComposer({
         .filter((s) => s.members_without > 0 || s.private_task)
         .filter((s) => picked.some((p) => p.ref.id === s.id && body.includes(`#${p.label}`)))
         .map((s) => {
-          const label = picked.find((p) => p.ref.id === s.id)?.label ?? ''
+          const pick = picked.find((p) => p.ref.id === s.id)
+          const label = pick?.label ?? ''
+          const project = pick?.project ?? 'this project'
           return (
             <p key={`${s.kind}:${s.id}`} className="mb-2 flex items-start gap-1.5 text-[12px] text-muted">
               <Icon name="lock" size={12} className="mt-0.5 shrink-0" />
               <span>
                 {s.members_without > 0 &&
                   (s.members_without === 1
-                    ? `1 person in this chat isn't on ${s.project_title}. They'll see a locked chip.`
-                    : `${s.members_without} people in this chat aren't on ${s.project_title}. They'll see a locked chip.`)}
+                    ? `1 person in this chat isn't on ${project}. They'll see a locked chip.`
+                    : `${s.members_without} people in this chat aren't on ${project}. They'll see a locked chip.`)}
                 {s.members_without > 0 && s.private_task && ' '}
                 {s.private_task &&
                   `Only the project manager and coordinators can open #${label} until it's sent.`}

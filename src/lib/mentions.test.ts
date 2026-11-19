@@ -8,6 +8,7 @@ import {
   mentionRefs,
   parseMentions,
   previewText,
+  uniqueLabel,
 } from './mentions'
 
 const A = '11111111-1111-4111-8111-111111111111'
@@ -90,7 +91,45 @@ describe('encodeMentions', () => {
   })
 })
 
+describe('uniqueLabel', () => {
+  it('uniqueLabel keeps a free title', () => {
+    expect(uniqueLabel('Docs', 'Web', [], { kind: 't', id: A })).toBe('Docs')
+  })
+
+  it('uniqueLabel adds the project when another mention has the title', () => {
+    const picked = [{ label: 'Docs', ref: { kind: 't' as const, id: A } }]
+    expect(uniqueLabel('Docs', 'Mobile', picked, { kind: 't', id: B })).toBe('Docs (Mobile)')
+    expect(uniqueLabel('Docs', 'Web', picked, { kind: 't', id: A })).toBe('Docs')
+  })
+
+  it('uniqueLabel numbers it when the project is taken too', () => {
+    const picked = [
+      { label: 'Docs', ref: { kind: 't' as const, id: A } },
+      { label: 'Docs (Web)', ref: { kind: 't' as const, id: B } },
+    ]
+    expect(uniqueLabel('Docs', 'Web', picked, { kind: 'ct', id: A })).toBe('Docs (Web) (2)')
+  })
+
+  it('two mentions with the same title keep their own targets', () => {
+    const picked = [
+      { label: 'Docs', ref: { kind: 't' as const, id: A } },
+      { label: uniqueLabel('Docs', 'Mobile', [{ label: 'Docs', ref: { kind: 't', id: A } }], { kind: 't', id: B }), ref: { kind: 't' as const, id: B } },
+    ]
+    expect(encodeMentions('#Docs and #Docs (Mobile)', picked, ORIGIN)).toBe(`#[t:${A}] and #[t:${B}]`)
+  })
+})
+
 describe('decodeForEdit', () => {
+  it('decodeForEdit keeps same-title mentions apart', () => {
+    const titles = new Map([
+      [`t:${A}`, 'Docs'],
+      [`t:${B}`, 'Docs'],
+    ])
+    const out = decodeForEdit(`#[t:${A}] #[t:${B}]`, titles)
+    expect(out.text).toBe('#Docs #Docs (2)')
+    expect(encodeMentions(out.text, out.picked, ORIGIN)).toBe(`#[t:${A}] #[t:${B}]`)
+  })
+
   it('decodeForEdit shows titles', () => {
     const titles = new Map([[`t:${A}`, 'Login page']])
     expect(decodeForEdit(`fix #[t:${A}]`, titles)).toEqual({

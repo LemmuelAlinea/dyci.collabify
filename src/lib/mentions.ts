@@ -12,7 +12,8 @@
 export type MentionKind = 't' | 'p' | 'ct' | 'co' | 'cp'
 export type MentionRef = { kind: MentionKind; id: string }
 export type Segment = { type: 'text'; text: string } | { type: 'mention'; ref: MentionRef }
-export type Picked = { label: string; ref: MentionRef }
+/** A mention in a draft: its `#label`, its target and, from the pick, its project's name for the writer's note. */
+export type Picked = { label: string; ref: MentionRef; project?: string }
 
 export const MAX_MENTIONS = 10
 
@@ -108,6 +109,21 @@ export function encodeMentions(text: string, picked: Picked[], origin: string): 
   return out
 }
 
+/**
+ * A label no other mention uses, so each `#Label` maps to one target: the
+ * title, else "Title (Project)", else "Title (Project) (2)" and on. Two tasks
+ * called "Docs" never collapse into one chip.
+ */
+export function uniqueLabel(title: string, project: string, picked: Picked[], ref: MentionRef): string {
+  const mine = picked.find((p) => mentionKey(p.ref) === mentionKey(ref))
+  if (mine) return mine.label
+  const taken = (label: string) => picked.some((p) => p.label === label)
+  if (!taken(title)) return title
+  const base = project ? `${title} (${project})` : title
+  if (!taken(base)) return base
+  for (let n = 2; ; n += 1) if (!taken(`${base} (${n})`)) return `${base} (${n})`
+}
+
 /** A sent body back into an editable draft: codes with a known title become `#Title`; the rest stay as codes. */
 export function decodeForEdit(body: string, titles: Map<string, string>): { text: string; picked: Picked[] } {
   const picked: Picked[] = []
@@ -115,8 +131,9 @@ export function decodeForEdit(body: string, titles: Map<string, string>): { text
     const ref = { kind, id }
     const title = titles.get(mentionKey(ref))
     if (!title) return m
-    if (!picked.some((p) => p.label === title && mentionKey(p.ref) === mentionKey(ref))) picked.push({ label: title, ref })
-    return `#${title}`
+    const label = uniqueLabel(title, '', picked, ref)
+    if (!picked.some((p) => mentionKey(p.ref) === mentionKey(ref))) picked.push({ label, ref })
+    return `#${label}`
   })
   return { text, picked }
 }

@@ -5345,6 +5345,8 @@ accepted." from the setting; no failed requests.
   tab). Messages show a chip (`MessageText`) that opens the task or project; a reader who can't open it, or a
   mention not looked up yet, sees "Task you can't open" / "Project you can't open" with no name. The chat list and
   the pinned bar show "#task" / "#project". Editing a message shows `#Title` and keeps codes the editor can't read.
+- Two mentions never share a label (`uniqueLabel`: "Docs", then "Docs (Mobile)", then "(2)"), so same-title tasks
+  keep their own targets when sending and editing. A mention not looked up yet is a plain "Task"/"Project" chip.
 - Under the box, a note says when people in the chat would see a lock ("2 people in this chat aren't on X…"), or
   that a planning task opens only for the project manager and coordinators until it's sent. It never blocks sending.
 - SQL `supabase/message-mentions.sql` (after `active-status.sql`, before `anon-lockdown.sql`), applied live with
@@ -5360,4 +5362,8 @@ accepted." from the setting; no failed requests.
 - No notification for being mentioned, and no `@person` mentions.
 - A deleted task shows as locked, like one you can't open (row security can't tell them apart without a definer read).
 - An app version older than this one shows raw codes until it reloads.
-- The composer's key and caret wiring has no component test; the picker and the code helpers do.
+- Review minors: a locked answer is cached until the Inbox reloads (a task released later stays locked till then);
+  the writer's note sends every pick, even ones deleted from the text, so one refusal or an 11th pick hides it; a
+  `#Label` inside a URL fragment and a Collabify link inside another URL's query are converted; the encoded body can
+  pass the 5000-character limit (database error on send); the picker has no `role="combobox"` /
+  `aria-activedescendant`; an IME-confirming Enter picks; the search builds every candidate before `ilike`.
