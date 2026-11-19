@@ -62,6 +62,8 @@ it('reveals a sent backlog task on the board only when the notice action is chos
     await click('Filter tasks' )
     const selects = document.querySelector('[role="dialog"][aria-label="Filter tasks"]')!.querySelectorAll('select')
     await act(async () => { ['other', 'nobody', '1', 'bug'].forEach((value, i) => { selects[i].value = value; selects[i].dispatchEvent(new Event('change', { bubbles: true })) }); const input = document.querySelector('input[type="search"]')!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'missing'); input.dispatchEvent(new Event('input', { bubbles: true })) })
+    expect(document.querySelector('[aria-label="Plan & route work, 1 waiting"]')).not.toBeNull()
+    expect(document.querySelector('[data-testid="routing-waiting"]')!.textContent).toBe('1')
     await click('Plan & route work')
     expect(document.querySelector('[role="dialog"][aria-label="Plan & route work"]')).not.toBeNull()
     await act(async () => document.querySelector<HTMLInputElement>('[aria-label="Select Sent task"]')!.click())
@@ -75,5 +77,8 @@ it('reveals a sent backlog task on the board only when the notice action is chos
     expect(container.querySelector('output')!.textContent).toContain('keep=yes')
     expect(container.querySelector('[aria-label="Open Sent task"]')).not.toBeNull()
     expect(container.querySelector('[aria-label="Filter tasks"]')).not.toBeNull()
+    // Sent, so nothing waits any more: the badge and its label go.
+    expect(document.querySelector('[data-testid="routing-waiting"]')).toBeNull()
+    expect([...document.querySelectorAll('button')].find(b => b.textContent === 'Plan & route work')!.getAttribute('aria-label')).toBeNull()
   } finally { await act(async () => root.unmount()); container.remove() }
 })

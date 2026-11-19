@@ -5284,3 +5284,21 @@ accepted." from the setting; no failed requests.
   count, desktop 1280, phone 390 dark (no overflow). Not run against the live AI.
 - Spec `docs/superpowers/specs/2026-11-19-class-tasks-from-file-design.md`, plan
   `docs/superpowers/plans/2026-11-19-class-tasks-from-file.md`.
+
+## Waiting counts on Plan & route work and Incoming tasks (2026-11-19)
+
+- A work project's Tasks tab badges **Plan & route work** with what waits for the viewer: Planning tasks plus the
+  Coordinator review rows they act on (a coordinator's own review rows; the project manager's only while no
+  coordinator is active), subtasks never counted. Nothing shows at 0, on a read-only project, or for anyone but the
+  project manager and coordinators. The button reads "Plan & route work, N waiting".
+- A team lead's **Incoming tasks** button (above the Tasks tab, `LeadInbox`) now uses the same badge in place of
+  "(N)" and the glowing dot: "Incoming tasks, N waiting". A project manager who also leads a team sees both, each
+  counting its own dialog's rows.
+- One rule: `lib/general/routing.ts` (`routingViewer`, `routingRows`, `canReviewQueue`, `canUseRoutingRow`,
+  `routingWaitingCount`, `incomingTasks`). `TaskRoutingPanel` and `LeadInbox` now read their rows through it, so the
+  badges and the queues can't drift. Counts come from `state.tasks`, so they change on the reload after a send,
+  review, return or assignment. No SQL.
+- Tests: `routing.test.ts`, plus badge checks in `TasksTab.test.tsx` (clears after Send to team) and
+  `LeadInbox.test.tsx`. Checked on the dev server signed in as the PM on "Collabify PROJECT.": badge 2, matching the
+  two Planning rows the panel lists, at 1280 and 390 wide with no overflow; the live coordinator also reads both
+  Planning rows under RLS and the member none (rolled-back check). Nothing was routed on the live project.

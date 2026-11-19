@@ -26,6 +26,7 @@ import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary,
 import { DEFAULT_TASK_RULES, blockersOf, subtasksOf, taskMarkIndex } from '../../lib/general/taskRules'
 import type { TaskMarkData } from '../../lib/general/taskRules'
 import { projectProgress } from '../../lib/general/progress'
+import { routingViewer, routingWaitingCount } from '../../lib/general/routing'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask, TaskKind } from '../../lib/general/types'
@@ -123,6 +124,8 @@ export function TasksTab({
   // Subtasks and waiting are a work project's; a class board's tasks have neither.
   const marksOf = (t: GeneralTask): TaskMarkData | null =>
     project.class_board_id ? null : marksFor(t)
+  // What waits in Plan & route work for this viewer, by the panel's own rules.
+  const waiting = routingWaitingCount(routingViewer(state), state.tasks)
   const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
   // QA raises bugs and passes tasks; it does not draft task lists from notes.
   const mayDraft = project.class_board_id ? state.myRole !== 'qa' : canCreateWorkTask(state.myRole, 'task')
@@ -189,7 +192,14 @@ export function TasksTab({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-[14px] font-semibold text-ink">Released work</h3>
           {(state.myRole === 'pm' || state.myRole === 'coordinator') && (
-            <Button size="sm" variant="outline" onClick={() => setRoutingOpen(true)}>Plan & route work</Button>
+            <Button size="sm" variant="outline" aria-label={waiting > 0 ? `Plan & route work, ${waiting} waiting` : undefined} onClick={() => setRoutingOpen(true)}>
+              Plan & route work
+              {waiting > 0 && (
+                <span aria-hidden="true" data-testid="routing-waiting" className="grid h-5 min-w-5 place-items-center rounded-full bg-badge px-1.5 font-mono text-[11px] font-bold text-badge-ink">
+                  {waiting}
+                </span>
+              )}
+            </Button>
           )}
         </div>
       )}

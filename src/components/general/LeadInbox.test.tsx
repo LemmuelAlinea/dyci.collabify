@@ -22,8 +22,8 @@ it('scopes Incoming to released unassigned work for the led team and keeps own r
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
   try {
     await act(async () => root.render(<LeadInbox state={state} />))
-    expect(container.textContent).toContain('Incoming tasks (1)')
-    expect(container.querySelector('button [aria-hidden="true"]')).not.toBeNull()
+    expect(container.querySelector('button')!.getAttribute('aria-label')).toBe('Incoming tasks, 1 waiting')
+    expect(container.querySelector('[data-testid="incoming-waiting"]')!.textContent).toBe('1')
     expect(document.body.textContent).not.toContain('Team A incoming')
     await act(async () => container.querySelector('button')!.click())
     const dialog = document.querySelector('[role="dialog"][aria-label="Incoming tasks"]')!

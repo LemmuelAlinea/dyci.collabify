@@ -5,7 +5,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { stageIndex, stagesOf } from '../../lib/stages'
 import { qaStageIndex } from '../../lib/work/qa'
 import { formatDue } from '../../lib/general/dates'
-import { canAssignIncoming } from '../../lib/general/permissions'
+import { incomingTasks } from '../../lib/general/routing'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -34,7 +34,9 @@ export function LeadInbox({ state }: { state: GeneralProjectState }) {
     return () => { current = false }
   }, [visible, projectId, state.tasks])
   if (!visible) return null
-  const incoming = state.tasks.filter(t => canAssignIncoming(teams.map(team => team.id), t))
+  const incoming = incomingTasks(state.viewerId, teams, state.tasks)
+  // The badge counts only what the lead can act on; an archived project shows none.
+  const waiting = state.readOnly ? 0 : incoming.length
   async function sendBack() {
     if (!returning || !reason.trim() || busy || state.readOnly) return
     setBusy(true); setError(null)
@@ -47,7 +49,7 @@ export function LeadInbox({ state }: { state: GeneralProjectState }) {
     finally { setBusy(false) }
   }
   return <>
-    <div className="flex justify-end"><Button size="sm" variant="outline" onClick={() => setOpen(true)}>Incoming tasks{incoming.length > 0 ? ` (${incoming.length})` : ''}{incoming.length > 0 && <span aria-hidden="true" className="ml-1 size-3.5 rounded-full bg-badge shadow-[0_0_10px_2px_var(--badge)]" />}</Button></div>
+    <div className="flex justify-end"><Button size="sm" variant="outline" aria-label={waiting > 0 ? `Incoming tasks, ${waiting} waiting` : undefined} onClick={() => setOpen(true)}>Incoming tasks{waiting > 0 && <span aria-hidden="true" data-testid="incoming-waiting" className="grid h-5 min-w-5 place-items-center rounded-full bg-badge px-1.5 font-mono text-[11px] font-bold text-badge-ink">{waiting}</span>}</Button></div>
     <Modal open={open} onClose={() => setOpen(false)} title="Incoming tasks" size="lg">
       <section aria-label="Team incoming" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-[13px] text-muted">Assign work sent to your teams, or return it with a reason.</p>{state.myRole !== 'qa' && <Button size="sm" variant="outline" disabled={state.readOnly || !incoming.length} onClick={() => setByPosition(true)}>Assign by position</Button>}</div>

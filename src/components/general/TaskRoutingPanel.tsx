@@ -2,6 +2,7 @@ import { AssignByPosition } from './AssignByPosition'
 import { useState } from 'react'
 import { sendTasksToCoordinator, sendTasksToPlanner, sendTasksToTeams, returnWorkTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { canReviewQueue, canUseRoutingRow, routingRows, routingViewer, type RoutingQueue } from '../../lib/general/routing'
 import type { GeneralTask } from '../../lib/general/types'
 import { stageIndex, stagesOf } from '../../lib/stages'
 import { qaStageIndex } from '../../lib/work/qa'
@@ -11,7 +12,7 @@ import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import type { GeneralProjectState } from './useGeneralProject'
 
-type Queue = 'planning' | 'coordinator_review' | 'released'
+type Queue = RoutingQueue
 const LABEL = { planning: 'Planning', coordinator_review: 'Coordinator review', released: 'Reroute released work' }
 /** The row team choice for a task sent straight to a person with no team. */
 const NO_TEAM = 'none'
@@ -34,9 +35,10 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const [reason, setReason] = useState('')
   const project = state.project
   if (!project || project.class_board_id || (state.myRole !== 'pm' && state.myRole !== 'coordinator')) return null
-  const rows = state.tasks.filter(t => (t.routing_state ?? 'released') === queue)
-  const canReview = state.myRole === 'coordinator' || !state.members.some(m => m.role === 'coordinator' && m.profile?.status === 'active')
-  const canUseRow = (t: GeneralTask) => queue !== 'coordinator_review' || (state.myRole === 'coordinator' ? t.reviewer_id === state.viewerId : canReview)
+  const rows = routingRows(state.tasks, queue)
+  const viewer = routingViewer(state)
+  const canReview = canReviewQueue(viewer)
+  const canUseRow = (t: GeneralTask) => canUseRoutingRow(viewer, queue, t)
   // A subtask moves with its parent, so it is never sent, returned or rerouted on its own.
   const isBlocked = (t: GeneralTask) => Boolean(t.parent_id) || (queue === 'released' && (t.status === 'done' || (project.has_qa && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage))))
   const selectableRows = rows.filter(t => !isBlocked(t) && canUseRow(t))
