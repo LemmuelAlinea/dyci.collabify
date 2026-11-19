@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildClassBrief, normalizeFit, type ClassBriefData } from '../../../supabase/functions/_shared/classBrief'
+import { buildClassBrief, normalizeFit, shapeFileTasks, type ClassBriefData } from '../../../supabase/functions/_shared/classBrief'
 
 const sample: ClassBriefData = {
   project: {
@@ -67,5 +67,29 @@ describe('normalizeFit', () => {
   })
   it('cuts a long reason to 200 characters', () => {
     expect(normalizeFit('off', 'a'.repeat(300), false).fit_reason).toHaveLength(200)
+  })
+})
+
+describe('shapeFileTasks', () => {
+  const task = (over: Record<string, unknown> = {}) => ({ title: 'Build the loop', details: 'Runs end to end.', weight: 5, due: '2026-12-01', fit: 'fits', fit_reason: '', ...over })
+  it('keeps order, drops empty titles and caps at 100', () => {
+    const rows = shapeFileTasks({ tasks: [task({ title: ' ' }), ...Array.from({ length: 101 }, (_, i) => task({ title: `Task ${i}` }))] }, false)
+    expect(rows).toHaveLength(100)
+    expect(rows[0].title).toBe('Task 0')
+  })
+  it('clamps weight, keeps only real days and cuts long text', () => {
+    const [row] = shapeFileTasks({ tasks: [task({ weight: 50, due: 'next week', title: 'x'.repeat(200), details: 'y'.repeat(700) })] }, false)
+    expect(row).toMatchObject({ weight: 20, due: '' })
+    expect(row.title).toHaveLength(140)
+    expect(row.details).toHaveLength(600)
+    expect(shapeFileTasks({ tasks: [task({ weight: 0 })] }, false)[0].weight).toBe(1)
+  })
+  it('carries the verdict, and never marks off on a thin brief', () => {
+    expect(shapeFileTasks({ tasks: [task({ fit: 'off', fit_reason: 'Not in weeks 5–8.' })] }, false)[0]).toMatchObject({ fit: 'off', fit_reason: 'Not in weeks 5–8.' })
+    expect(shapeFileTasks({ tasks: [task({ fit: 'off', fit_reason: 'x' })] }, true)[0]).toMatchObject({ fit: 'fits', fit_reason: '' })
+  })
+  it('returns nothing for a reply with no task list', () => {
+    expect(shapeFileTasks({}, false)).toEqual([])
+    expect(shapeFileTasks(null, false)).toEqual([])
   })
 })

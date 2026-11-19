@@ -11,7 +11,8 @@
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { cors, corsMode, denied } from '../_shared/cors.ts'
-import { buildClassBrief, readClassBrief } from '../_shared/classBrief.ts'
+import { buildClassBrief, FILE_TASK_LIMIT, FIT_RULES, FIT_SCHEMA_FIELDS, readClassBrief, shapeFileTasks, THIN_NOTE } from '../_shared/classBrief.ts'
+import { keepAliveJson } from '../_shared/keepAlive.ts'
 
 
 const MODEL = 'claude-opus-5'
@@ -63,6 +64,40 @@ Rules:
   unclear. Never advice, never encouragement.
 - If the brief is too thin to draft anything honest, return an empty list and
   say so in note.`
+
+const FILE_SYSTEM = `You turn a professor's task list or plan document for a BSIT
+class project into the tasks a student team has to carry out.
+- Take every task the text lists, in the order it gives them, up to
+  ${FILE_TASK_LIMIT}. Not headings, background or instructions about the file.
+- title: what to do, starting with a verb, at most about ten words.
+- details: what the text says about the task; if it says nothing, one sentence
+  saying what finishing it means. No restating the title.
+- weight: how big this task is next to the others, 1 to 20, relative only.
+- due: YYYY-MM-DD only when the text states or clearly implies the date, else
+  empty. Never invent a date.
+- note: one short sentence on what you read, or what was unclear. Never advice.
+Write in plain, direct English (or Filipino if the source is in Filipino).
+Sentence case. No exclamation marks, no "please".`
+
+/** The file reply's shape; the verdict fields only when the brief can judge. */
+function fileSchema(thin: boolean) {
+  const item: Record<string, unknown> = {
+    title: { type: 'string' },
+    details: { type: 'string' },
+    weight: { type: 'integer' },
+    due: { type: 'string' },
+    ...(thin ? {} : FIT_SCHEMA_FIELDS),
+  }
+  return {
+    type: 'object',
+    properties: {
+      tasks: { type: 'array', items: { type: 'object', properties: item, required: Object.keys(item), additionalProperties: false } },
+      note: { type: 'string' },
+    },
+    required: ['tasks', 'note'],
+    additionalProperties: false,
+  }
+}
 
 /**
  * `headers` is passed in rather than read from a module constant: the
@@ -144,6 +179,47 @@ Deno.serve(async (req) => {
     const data = await readClassBrief(caller, projectId)
     if (!data) {
       return json(CORS, { result: 'failed', message: 'That project is not available to you.' }, 403)
+    }
+
+    // From a file: the browser read the file and sends its text. Every task the
+    // file lists comes back, each judged against the brief.
+    if (typeof body.text === 'string' && body.text.trim()) {
+      const text = body.text.trim()
+      if (text.length < 20) {
+        return json(CORS, { result: 'failed', message: 'That file is empty or nearly so. Upload the one with the tasks in it.' })
+      }
+      const fileName = String(body.file_name ?? '').slice(0, 200)
+      const { text: projectBrief, thin } = buildClassBrief(data)
+      const anthropic = new Anthropic({ apiKey })
+      // A long task list can take minutes; spaces keep the gateway waiting.
+      return keepAliveJson(CORS, async () => {
+        const message = await anthropic.messages.stream({
+          model: MODEL,
+          max_tokens: 32000,
+          system: thin ? FILE_SYSTEM : `${FILE_SYSTEM}\n\n${FIT_RULES}`,
+          output_config: { effort: 'medium', format: { type: 'json_schema', schema: fileSchema(thin) } },
+          messages: [{
+            role: 'user',
+            content: [
+              'Class project brief:',
+              projectBrief,
+              '',
+              fileName ? `Text (read from the uploaded file "${fileName}"):` : 'Text:',
+              text.slice(0, 60000),
+            ].join('\n'),
+          }],
+        }).finalMessage()
+        if (message.stop_reason === 'refusal') throw new Error('No draft could be produced from that file.')
+        if (message.stop_reason === 'max_tokens') throw new Error('That file was too long to finish in one go. Split it into smaller files and try again.')
+        const block = message.content.find((b) => b.type === 'text')
+        const parsed = JSON.parse(block && 'text' in block ? block.text : '{}')
+        const note = String(parsed.note ?? '').slice(0, 300)
+        return {
+          tasks: shapeFileTasks(parsed, thin),
+          note: thin ? `${THIN_NOTE}${note ? ` ${note}` : ''}` : note,
+          thin,
+        }
+      })
     }
 
     let existing: { title: string }[] = []

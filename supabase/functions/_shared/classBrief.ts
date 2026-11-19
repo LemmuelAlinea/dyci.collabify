@@ -4,6 +4,8 @@
 // same way. Pure apart from readClassBrief, which reads through the caller's
 // token so RLS decides what the brief may hold.
 
+import { validDay } from './notesSchedule.ts'
+
 export type ClassBriefData = {
   project: {
     title: string
@@ -116,4 +118,25 @@ export const FIT_SCHEMA_FIELDS = {
 export function normalizeFit(raw: unknown, reason: unknown, thin: boolean): { fit: 'fits' | 'off'; fit_reason: string } {
   if (thin || raw !== 'off') return { fit: 'fits', fit_reason: '' }
   return { fit: 'off', fit_reason: String(reason ?? '').trim().slice(0, 200) }
+}
+
+/** The most tasks one file can draft. */
+export const FILE_TASK_LIMIT = 100
+
+export type FileTask = { title: string; details: string; weight: number; due: string; fit: 'fits' | 'off'; fit_reason: string }
+
+/** The model's reply as rows the app can show: in order, cleaned, capped, each with its verdict. */
+export function shapeFileTasks(parsed: unknown, thin: boolean): FileTask[] {
+  const list = (parsed as { tasks?: unknown } | null)?.tasks
+  if (!Array.isArray(list)) return []
+  return list
+    .map((t: Record<string, unknown>) => ({
+      title: String(t?.title ?? '').trim().slice(0, 140),
+      details: String(t?.details ?? '').trim().slice(0, 600),
+      weight: Math.max(1, Math.min(20, Math.round(Number(t?.weight)) || 1)),
+      due: validDay(t?.due),
+      ...normalizeFit(t?.fit, t?.fit_reason, thin),
+    }))
+    .filter((t) => t.title.length > 0)
+    .slice(0, FILE_TASK_LIMIT)
 }
