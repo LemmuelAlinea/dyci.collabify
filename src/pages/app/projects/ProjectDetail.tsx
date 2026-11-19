@@ -28,6 +28,7 @@ import {
   deleteAttachment,
   deleteProject,
   getProject,
+  getProjectSetterName,
   listAttachments,
   listCriteria,
   listSeriesMembers,
@@ -45,6 +46,7 @@ import { classWeekMap } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
 import { legacyProfessorTarget, projectBackLink } from '../../../lib/classProjectNav'
 import { paths } from '../../../lib/paths'
+import { projectOwnerLock } from '../../../lib/projectOwner'
 import {
   hasPassed,
   isReleased,
@@ -211,6 +213,20 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     if (project) document.title = `${project.title} · Collabify`
   }, [project])
 
+  // A co-teacher's lock note names whoever set the project.
+  const setterId = project?.created_by
+  const [setterName, setSetterName] = useState<string | null>(null)
+  useEffect(() => {
+    if (!canManage || !setterId || !profile || setterId === profile.id) return
+    let live = true
+    void getProjectSetterName(setterId)
+      .then((name) => live && setSetterName(name))
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [canManage, setterId, profile])
+
   if (loading) {
     return (
       <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
@@ -233,6 +249,8 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   // series id at all, and there is nothing to scope.
   const inSeries = members.length > 1
   const others = members.filter((m) => m.project_id !== project.id)
+  // A co-teacher can open the project, but its own row is the setter's to change.
+  const ownerLock = canManage ? projectOwnerLock(project, profile?.id, setterName) : null
   // Closed by hand, or simply past its deadline: the same rule the projects list uses.
   const closed = Boolean(project.locked_at) || Boolean(project.due_at && hasPassed(project.due_at))
   const brief = (
@@ -329,7 +347,14 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               </div>
             )}
 
-            {canManage && (
+            {canManage && ownerLock && (
+              <p className="flex max-w-[360px] items-start gap-2 text-[12px] text-banner-muted">
+                <Icon name="lock" size={13} className="mt-0.5 shrink-0" />
+                <span>{ownerLock}</span>
+              </p>
+            )}
+
+            {canManage && !ownerLock && (
               <div className="flex flex-wrap items-center gap-1.5">
                 <IconAction icon="edit" label="Edit project" onClick={() => setEditOpen(true)} />
                 {project.scheduled && (
@@ -483,7 +508,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </>
       )}
 
-      {canManage && profile && (
+      {canManage && profile && !ownerLock && (
         <ProjectWizard
           open={editOpen}
           onClose={() => setEditOpen(false)}

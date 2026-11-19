@@ -88,6 +88,11 @@ const KNOWN: [RegExp, string][] = [
     'Another sprint is already running. Finish it before starting this one.',
   ],
   [
+    // projects_write: a class project's own row is its setter's to change.
+    /row-level security policy for table "projects"/i,
+    'Only the teacher who set this project can change it. Ask them to make the change.',
+  ],
+  [
     /database error saving new user/i,
     'Your account could not be created. This is a setup problem on our side, not something you did.',
   ],

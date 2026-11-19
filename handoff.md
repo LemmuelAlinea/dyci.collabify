@@ -5239,3 +5239,29 @@ accepted." from the setting; no failed requests.
 - Checked with the screenshot's data (8 teams, 27 positions) in a scratch page on the dev server: desktop light and
   dark, and 390 px wide with every group open (no horizontal overflow). Not run through a real upload, which would
   send a roster to the AI service.
+
+## Class project edits by a co-teacher (2026-11-19)
+
+- Report: a teacher pressed Save changes in Edit project on "Project Prototype" (QME BSIT-4A) after changing the
+  Progress stages, got a 400 from `update_project_series`, and the dialog said nothing they could see.
+- Cause, checked against the live database (rolled-back calls with `request.jwt.claims`): not the stages and not
+  group progress. Stages have no started-work guard; `task-stages.sql` keeps tasks in step when they change. The
+  teacher co-teaches through the class's space (`teaches_in_space`), so `is_class_professor` lets them in, but
+  `projects_write` (`supabase/projects.sql`) checks `created_by = auth.uid()` on every write and the project was set
+  by the class's professor. The RPC returns "QME · BSIT-4A — new row violates row-level security policy for table
+  "projects"". The same call as the setter succeeds. The error did show in the dialog, but at the top of a long
+  form while the teacher was scrolled down to the stages.
+- Fix, frontend only: a co-teacher's project header shows "{Setter} set this project, so only they can edit,
+  publish, close or archive it." in place of Edit, Publish now, Change deadline, Close, Archive and Delete
+  (`projectOwnerLock` in `lib/projectOwner.ts`, the name from `getProjectSetterName`), and the wizard is not
+  mounted for them. The wizard scrolls a save error into view, and `authErrorMessage` reads the RLS refusal on
+  `projects` as "Only the teacher who set this project can change it. Ask them to make the change." No SQL changed.
+- Tests: `projectOwner.test.ts`, `authError.test.ts`, `ProjectWizard.groups.test.tsx` (a refused save). Checked on
+  the dev server signed in as the co-teacher: the note names the setter at desktop and 375 px, no Edit button.
+
+**Deferred**
+- Decide whether co-teachers should edit class projects. The rule is uneven today: they can write the rubric
+  (`project_criteria_write`), attachments and boards, and can even delete the project (`projects_write`'s USING has
+  no `created_by` check), but cannot update its row. Either split `projects_write` into insert (keeps `created_by =
+  auth.uid()`) and update/delete (`is_class_professor` only), and revisit `restore`'s creator check in
+  `archive-page.sql`, or add `created_by = auth.uid()` to the delete side. The lock note goes away with the first.

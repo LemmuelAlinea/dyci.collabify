@@ -18,3 +18,21 @@ describe('authErrorMessage', () => {
     )
   })
 })
+
+describe('a refused class project write', () => {
+  it('says only the setter can change it, with or without the section prefix', () => {
+    const plain = 'Only the teacher who set this project can change it. Ask them to make the change.'
+    expect(authErrorMessage({ message: 'new row violates row-level security policy for table "projects"' })).toBe(plain)
+    expect(
+      authErrorMessage({
+        message: 'QME  ·  BSIT-4A — new row violates row-level security policy for table "projects"',
+      }),
+    ).toBe(plain)
+  })
+
+  it('leaves another table refusal alone', () => {
+    expect(
+      authErrorMessage({ message: 'new row violates row-level security policy for table "project_tasks"' }),
+    ).toContain('project_tasks')
+  })
+})

@@ -83,6 +83,12 @@ export function ProjectWizard({
   const [sets, setSets] = useState<LiveGroupSet[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The Save button sits below a long form, so a refusal shown at the top was
+  // easy to miss. Each new error scrolls into view.
+  const errorRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  }, [error])
 
   // Every class this professor teaches, so a project can be given to the other
   // sections of the same course. The `classes` prop cannot serve: the class
@@ -311,7 +317,11 @@ export function ProjectWizard({
       }
     >
       <div className="space-y-6">
-        {error && <Alert tone="error">{error}</Alert>}
+        {error && (
+          <div ref={errorRef}>
+            <Alert tone="error">{error}</Alert>
+          </div>
+        )}
 
         {!fixedClassId && !editing && (
           <label className="block space-y-2">

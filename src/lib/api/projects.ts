@@ -380,3 +380,17 @@ export async function getProjectStages(projectId: string) {
   if (error) throw error
   return (data?.stages as string[] | null | undefined) ?? null
 }
+
+/**
+ * The name of whoever set a class project, for a co-teacher's lock note. Null
+ * when it cannot be read; the note then says "Another teacher".
+ */
+export async function getProjectSetterName(userId: string) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('first_name, middle_name, last_name')
+    .eq('id', userId)
+    .maybeSingle()
+  if (!data) return null
+  return [data.first_name, data.middle_name, data.last_name].filter(Boolean).join(' ').trim() || null
+}

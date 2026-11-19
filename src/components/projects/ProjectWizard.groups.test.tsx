@@ -354,3 +354,24 @@ it('removes nothing and says nothing when no groups were made', async () => {
   expect(m.projectsUsingSet).not.toHaveBeenCalled()
   expect(m.show).not.toHaveBeenCalled()
 })
+
+it('shows the refusal in plain words when the save is refused', async () => {
+  m.sets = [live('s-old', 'c1')]
+  m.updateProjectSeries.mockRejectedValueOnce({
+    code: 'P0001',
+    message: 'QME  ·  BSIT-4A — new row violates row-level security policy for table "projects"',
+  })
+  await render(editing)
+
+  const form = host.querySelector('form')!
+  await act(async () => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  await flush()
+
+  expect(onSaved).not.toHaveBeenCalled()
+  expect(onClose).not.toHaveBeenCalled()
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe(
+    'Only the teacher who set this project can change it. Ask them to make the change.',
+  )
+})
