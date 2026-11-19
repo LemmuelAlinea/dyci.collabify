@@ -6,7 +6,9 @@
 --
 -- Owns send_work_tasks_to_planner only and redefines nothing. History reuses
 -- the sent_to_team kind with holder_id in its detail; the assignee insert fires
--- the usual assignment notice and "assigned" history row.
+-- the usual assignment notice and "assigned" history row. The "sent" workflow
+-- rules (project-workflow-rules.sql) are held back during the release with
+-- collabify.workflow_rule_run and run by hand after the holder insert.
 --
 -- Runs after file-history.sql and before anon-lockdown.sql. Idempotent.
 begin;
@@ -19,6 +21,7 @@ declare
   destination uuid;
   n int := 0;
   prior_flag text := coalesce(current_setting('collabify.work_task_handoff', true), 'off');
+  prior_rule_run text;
 begin
   if public.general_role_of(p_project, auth.uid()) is distinct from 'pm' then
     raise exception 'Only the project manager sends work straight to a person.' using errcode = 'insufficient_privilege';
@@ -78,14 +81,21 @@ begin
     join jsonb_to_recordset(p_rows) r(id uuid) on r.id = gt.id order by gt.id
   loop
     select r.team_id into destination from jsonb_to_recordset(p_rows) r(id uuid, team_id uuid) where r.id = t.id;
+    -- Hold the "sent" workflow rules back during the release, so they run once
+    -- the holder is in place (an assign rule then sees them; notify holders
+    -- reaches them) instead of racing the holder insert below.
+    prior_rule_run := coalesce(current_setting('collabify.workflow_rule_run', true), 'off');
+    perform set_config('collabify.workflow_rule_run', 'on', true);
     update public.general_tasks set routing_state = 'released', team_id = destination, reviewer_id = null,
       sent_at = clock_timestamp() where id = t.id;
+    perform set_config('collabify.workflow_rule_run', prior_rule_run, true);
     insert into public.general_task_events(task_id, project_id, actor_id, kind, detail)
       values(t.id, p_project, auth.uid(), 'sent_to_team',
         jsonb_build_object('actor_id', auth.uid(), 'old_team_id', t.team_id, 'new_team_id', destination,
           'holder_id', p_holder, 'reviewer_id', t.reviewer_id, 'reason', null,
           'former_holder_ids', '[]'::jsonb));
     insert into public.general_task_assignees(task_id, project_id, user_id) values(t.id, p_project, p_holder);
+    perform public.run_general_workflow_rules(t.id, 'task_released', auth.uid());
   end loop;
   perform set_config('collabify.work_task_handoff', prior_flag, true);
   return n;

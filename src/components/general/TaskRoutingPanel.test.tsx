@@ -226,3 +226,9 @@ it("lists Me and active coordinators as people", async () => {
   await render(state({ members: [{ user_id: "reviewer", role: "coordinator", profile: { status: "active" } }, { user_id: "away", role: "coordinator", profile: { status: "pending" } }, { user_id: "dev", role: "member", profile: { status: "active" } }] }))
   expect(optionLabels("Person")).toEqual(["Choose a person", "Me", "reviewer"])
 })
+it("drops a picked person who is no longer an active coordinator", async () => {
+  await render(state()); await selectRows(); await change("Person", "reviewer")
+  expect(button("Send to person").disabled).toBe(false)
+  await act(async () => root.render(<TaskRoutingPanel state={state({ members: [{ user_id: "reviewer", role: "coordinator", profile: { status: "pending" } }] })} />))
+  expect(button("Send to person").disabled).toBe(true)
+})

@@ -5212,8 +5212,8 @@ accepted." from the setting; no failed requests.
   (pm caller, live work project, holder is the caller or an active coordinator, Planning rows only, no subtasks, no
   holders, not stale, team live if given) and then releases each task and assigns the holder in one call. It
   redefines nothing. History reuses `sent_to_team` with `holder_id` ("Ana sent it to Ben", "Ana took it on"); the
-  assignee insert sends the usual assigned notice (none to the PM for their own task). Applied live with
-  `anon-lockdown.sql` after it; suite `supabase/tests/send-to-planner.test.sql` (22 checks), and the handoff,
+  assignee insert sends the usual assigned notice (none to the PM for their own task). The "sent" workflow rules are held back during the release (`collabify.workflow_rule_run`) and run by hand after the holder insert, so an assign rule never breaks the send: in a one-holder project it is skipped and recorded on the rule, and a rule naming the same person does nothing. Applied live with
+  `anon-lockdown.sql` after it; suite `supabase/tests/send-to-planner.test.sql` (25 checks), and the handoff,
   task-rules and anon-lockdown suites still pass.
 - Checked on the dev server signed in as a PM: the picker, No team and Send to person show in the modal at desktop
   and phone width. Nothing was sent on the live project; the SQL suite covers the send.
@@ -5222,3 +5222,8 @@ accepted." from the setting; no failed requests.
 
 **Deferred**
 - On a phone the pinned footer now stacks five controls and covers much of the task list.
+- History shows two lines per direct send ("took it on" or "sent it to", then the assignee row's "took this task" or "assigned it to"); fold them like `foldRuleCompanions`.
+- A subtask that follows its parent on a direct send with no team still reads "sent it to a team".
+- The PM's wider team list (leadless teams, No team) also shows in Coordinator review and Reroute, where it only disables Send to team.
+- The footer has Choose a person and Choose a coordinator side by side, which read alike.
+- `gp` in `send_work_tasks_to_planner` is selected but never read.

@@ -46,7 +46,7 @@ declare
   -- 1 pm, 2 active coordinator, 3 pending coordinator, 4 member (lead), 5 qa
   p uuid; led uuid; leadless uuid; old_team uuid;
   t_self uuid; t_coord uuid; t_held uuid; t_released uuid; t_parent uuid; t_sub uuid;
-  t_one uuid; t_stale uuid; t_keep uuid; t_arch uuid; t_dup uuid;
+  t_one uuid; t_stale uuid; t_keep uuid; t_arch uuid; t_dup uuid; t_rule uuid; t_rule2 uuid; r_one uuid;
   stamp timestamptz; k int; n int;
 begin
   for k in 1..5 loop
@@ -143,6 +143,39 @@ begin
     exists(select 1 from public.general_task_assignees where task_id = t_one and user_id = u[2]));
   perform pg_temp.service();
   update public.general_projects set allow_multiple_assignees = true where id = p;
+
+  -- A "when sent" assign rule runs after the holder is in place, so it never
+  -- blocks the send: one holder per task skips the rule, and a rule naming the
+  -- same person does nothing.
+  perform pg_temp.act_as(u[1]);
+  insert into public.general_tasks(project_id, title) values(p, 'Zz rule one holder') returning id into t_rule;
+  insert into public.general_tasks(project_id, title) values(p, 'Zz rule same person') returning id into t_rule2;
+  insert into public.general_workflow_rules(project_id, trigger_kind, action_kind, person_id)
+    values(p, 'task_released', 'assign', u[4]) returning id into r_one;
+  perform pg_temp.service();
+  update public.general_projects set allow_multiple_assignees = false where id = p;
+  perform pg_temp.act_as(u[1]);
+  perform public.send_work_tasks_to_planner(p,
+    jsonb_build_array(jsonb_build_object('id', t_rule, 'team_id', led,
+      'updated_at', (select updated_at from public.general_tasks where id = t_rule))), u[1]);
+  perform pg_temp.service();
+  perform pg_temp.check('sent rule in a one-holder project: the pm holds it alone',
+    (select array_agg(user_id) = array[u[1]] from public.general_task_assignees where task_id = t_rule));
+  perform pg_temp.check('sent rule in a one-holder project: the rule records its skip',
+    (select last_skip_reason is not null from public.general_workflow_rules where id = r_one));
+  update public.general_projects set allow_multiple_assignees = true where id = p;
+  update public.general_workflow_rules set enabled = false where id = r_one;
+  insert into public.general_team_members(project_id, team_id, user_id) values(p, led, u[2]);
+  perform pg_temp.act_as(u[1]);
+  insert into public.general_workflow_rules(project_id, trigger_kind, action_kind, person_id)
+    values(p, 'task_released', 'assign', u[2]);
+  perform public.send_work_tasks_to_planner(p,
+    jsonb_build_array(jsonb_build_object('id', t_rule2, 'team_id', led,
+      'updated_at', (select updated_at from public.general_tasks where id = t_rule2))), u[2]);
+  perform pg_temp.service();
+  perform pg_temp.check('sent rule naming the same person: one holder row',
+    (select array_agg(user_id) = array[u[2]] from public.general_task_assignees where task_id = t_rule2));
+  delete from public.general_workflow_rules where project_id = p;
 
   -- Refusals.
   select updated_at into stamp from public.general_tasks where id = t_keep;

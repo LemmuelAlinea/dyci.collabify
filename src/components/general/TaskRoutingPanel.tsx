@@ -53,6 +53,8 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
       .filter(m => m.role === 'coordinator' && m.profile?.status === 'active' && m.user_id !== state.viewerId)
       .map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) })),
   ]
+  // A pick that left the list (the coordinator left or was deactivated, then a reload) no longer counts.
+  const person = people.some(p => p.value === holder) ? holder : ''
   // The PM also sees leadless teams (for a direct send) and No team; Send to team still needs a lead.
   const teamOptions = state.myRole === 'pm'
     ? [...state.teams.map(t => ({ value: t.id, label: t.leader_id ? t.name : `${t.name} (no lead)` })), { value: NO_TEAM, label: 'No team' }]
@@ -88,12 +90,12 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
     } finally { setBusy(false) }
   }
   function sendToPerson() {
-    if (!direct || !holder || !picks.length) return
-    setReceipt(holder === state.viewerId ? 'Tasks assigned to you.' : `Tasks sent to ${state.nameOf(holder)}.`)
+    if (!direct || !person || !picks.length) return
+    setReceipt(person === state.viewerId ? 'Tasks assigned to you.' : `Tasks sent to ${state.nameOf(person)}.`)
     return act(() => sendTasksToPlanner(project!.id, picks.map(t => {
       const team = chosenTeam(t)
       return { id: t.id, team_id: team && team !== NO_TEAM ? team : null, updated_at: t.updated_at }
-    }), holder), true)
+    }), person), true)
   }
   function send() {
     if (!ready) return
@@ -136,8 +138,8 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
       <span className="text-[13px] text-muted">{picks.length} selected</span>
       <Button size="sm" disabled={!editable || !ready} onClick={() => { if (queue === 'released') { setReason(''); setRerouting(true) } else void send() }}>Send to team</Button>
       {direct && <>
-        <div className="w-full sm:w-56"><Select aria-label="Person" value={holder} disabled={!editable} placeholder="Choose a person" options={people} onChange={e => setHolder(e.target.value)} className="!h-10 !text-[13px]" /></div>
-        <Button size="sm" variant="outline" disabled={!editable || !picks.length || !holder} onClick={() => void sendToPerson()}>Send to person</Button>
+        <div className="w-full sm:w-56"><Select aria-label="Person" value={person} disabled={!editable} placeholder="Choose a person" options={people} onChange={e => setHolder(e.target.value)} className="!h-10 !text-[13px]" /></div>
+        <Button size="sm" variant="outline" disabled={!editable || !picks.length || !person} onClick={() => void sendToPerson()}>Send to person</Button>
       </>}
       {queue === 'planning' && state.myRole === 'pm' && <>
         <div className="w-full sm:w-56"><Select aria-label="Coordinator" value={coordinator} disabled={!editable} placeholder="Choose a coordinator" options={state.members.filter(m => m.role === 'coordinator' && m.profile?.status === 'active').map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) }))} onChange={e => setCoordinator(e.target.value)} className="!h-10 !text-[13px]" /></div>

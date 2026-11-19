@@ -4,7 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 import { TaskDialog } from './TaskDialog'
-import { updateTask } from '../../lib/api/general'
+import { listTaskEvents, updateTask } from '../../lib/api/general'
 import type { GeneralProjectState } from './useGeneralProject'
 
 vi.stubGlobal('React', React)
@@ -14,7 +14,7 @@ vi.mock('../ui/Toast', () => ({ useToast: () => ({ show }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RoleBadge', () => ({ PersonBadge: () => null }))
 vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
-vi.mock('../../lib/api/general', async importOriginal => ({ ...await importOriginal<object>(), listComments: async () => [], listFiles: async () => [], listLogs: async () => [], listTaskEvents: async () => [], updateTask: vi.fn() }))
+vi.mock('../../lib/api/general', async importOriginal => ({ ...await importOriginal<object>(), listComments: async () => [], listFiles: async () => [], listLogs: async () => [], listTaskEvents: vi.fn(async () => []), updateTask: vi.fn() }))
 
 it('locks dates and description for a holder but lets the receiving lead edit them before assignment', async () => {
   const task = { id: 'task', title: 'Build page', project_id: 'p', created_by: 'pm', team_id: 'a', routing_state: 'released', assignee_ids: ['worker'], status: 'todo', stage: 0, description: 'Original', starts_at: null, due_at: null, archived_at: null }
@@ -213,5 +213,15 @@ it('collapses attachments without hiding the section heading', async () => {
     await act(async () => toggle.click())
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(document.body.textContent).not.toContain('No attachments.')
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('names the holder on a direct send in the history', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  vi.mocked(listTaskEvents).mockResolvedValueOnce([{ id: 'e', task_id: 'main', project_id: 'p', actor_id: 'pm', kind: 'sent_to_team', detail: { holder_id: 'ana', new_team_id: null }, created_at: '2026-11-19T00:00:00Z' }] as never)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'History')!.click())
+    expect(document.body.textContent).toContain('No team to No team · Holder: ana')
   } finally { await act(async () => root.unmount()); container.remove() }
 })

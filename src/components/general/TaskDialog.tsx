@@ -517,9 +517,9 @@ function TaskBody({
               <li key={e.id} className="py-3 text-[13px] leading-snug text-ink">
                 <p>{text}</p>
                 {(['sent_to_coordinator', 'sent_to_team', 'rerouted', 'returned'].includes(e.kind)) && (() => {
-                  const detail = e.detail as typeof e.detail & { old_team_id?: string | null; new_team_id?: string | null; former_holder_ids?: string[]; reviewer_id?: string | null }
+                  const detail = e.detail as typeof e.detail & { old_team_id?: string | null; new_team_id?: string | null; former_holder_ids?: string[]; reviewer_id?: string | null; holder_id?: string }
                   const teamName = (id: string | null | undefined) => state.teams.find(t => t.id === id)?.name ?? (id ? 'Former team' : 'No team')
-                  return <p className="mt-1 text-[12px] text-muted">{teamName(detail.old_team_id)} to {teamName(detail.new_team_id)}{detail.reviewer_id ? ` · Reviewer: ${state.nameOf(detail.reviewer_id)}` : ''}{detail.former_holder_ids?.length ? ` · Former holders: ${detail.former_holder_ids.map(state.nameOf).join(', ')}` : ''}</p>
+                  return <p className="mt-1 text-[12px] text-muted">{teamName(detail.old_team_id)} to {teamName(detail.new_team_id)}{detail.holder_id ? ` · Holder: ${state.nameOf(detail.holder_id)}` : ''}{detail.reviewer_id ? ` · Reviewer: ${state.nameOf(detail.reviewer_id)}` : ''}{detail.former_holder_ids?.length ? ` · Former holders: ${detail.former_holder_ids.map(state.nameOf).join(', ')}` : ''}</p>
                 })()}
                 <time dateTime={e.created_at} className="mt-1 block text-[11px] text-faint">{formatDue(e.created_at)}</time>
               </li>
