@@ -3,11 +3,13 @@ import { useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Alert } from '../../ui/Alert'
 import { Button } from '../../ui/Button'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Toggle } from '../../ui/Field'
 import { Select } from '../../ui/Select'
 import { useToast } from '../../ui/Toast'
-import { updateGeneralProject } from '../../../lib/api/general'
+import { previewTaskFlow, setTaskFlow, updateGeneralProject } from '../../../lib/api/general'
 import { authErrorMessage } from '../../../lib/authError'
+import type { TaskFlow } from '../../../lib/general/permissions'
 import { DEFAULT_TASK_RULES } from '../../../lib/general/taskRules'
 import type { TaskRules } from '../../../lib/general/taskRules'
 import { PRIORITIES } from '../../../lib/general/types'
@@ -22,9 +24,126 @@ import { EditButton } from './GeneralSection'
 export function TasksSection({ state }: { state: GeneralProjectState }) {
   return (
     <div className="space-y-6">
+      {state.project && !state.project.class_board_id && <TaskFlowPanel state={state} />}
       <StagesPanel state={state} />
       <TaskRulesPanel state={state} />
     </div>
+  )
+}
+
+const FLOWS: { value: TaskFlow; label: string; help: string }[] = [
+  {
+    value: 'planned',
+    label: 'Planned handoff',
+    help: 'Tasks start in planning. The project manager or a coordinator sends them to a team.',
+  },
+  { value: 'open', label: 'Open', help: 'Anyone on the project adds live tasks and assigns them to anyone.' },
+]
+
+/** How new work reaches people: planned handoff or open. Only the project manager changes it. */
+function TaskFlowPanel({ state }: { state: GeneralProjectState }) {
+  const { show } = useToast()
+  const p = state.project
+  const saved: TaskFlow = p?.taskFlow ?? 'planned'
+  const editable = state.myRole === 'pm' && !state.readOnly
+  const [flow, setFlow] = useState<TaskFlow>(saved)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [waiting, setWaiting] = useState<number | null>(null)
+
+  const projectId = p?.id
+  useEffect(() => {
+    setFlow(saved)
+  }, [saved, projectId])
+
+  if (!p) return null
+
+  async function apply(next: TaskFlow) {
+    if (!p) return
+    const released = await setTaskFlow(p.id, next)
+    await state.reload()
+    if (next === 'planned') show('Task flow is planned handoff.')
+    else show(released > 0 ? `Task flow is open. ${released} ${released === 1 ? 'task is' : 'tasks are'} live.` : 'Task flow is open.')
+  }
+
+  async function save() {
+    if (!p) return
+    setError(null)
+    setBusy(true)
+    try {
+      if (flow === 'open') {
+        const counts = await previewTaskFlow(p.id)
+        setWaiting(counts.planning + counts.review)
+      } else {
+        await apply('planned')
+      }
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not change the task flow.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card p-4 shadow-card sm:p-5">
+      <header className="mb-4">
+        <h2>Task flow</h2>
+        <p className="mt-0.5 text-[12px] text-muted">
+          How new tasks reach people.{!editable && ' Only the project manager changes this.'}
+        </p>
+      </header>
+      {error && (
+        <div className="mb-3">
+          <Alert tone="error">{error}</Alert>
+        </div>
+      )}
+      <div role="radiogroup" aria-label="Task flow" className="grid gap-2 sm:grid-cols-2">
+        {FLOWS.map((f) => {
+          const selected = flow === f.value
+          return (
+            <button
+              key={f.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              disabled={!editable || busy}
+              onClick={() => setFlow(f.value)}
+              className={`rounded-xl border p-3 text-left transition-colors disabled:cursor-default ${
+                selected ? 'border-navy-600 bg-navy-500/12 dark:border-amber-400' : 'border-line-strong hover:border-navy-400'
+              }`}
+            >
+              <span className="block text-[13px] font-medium text-ink">{f.label}</span>
+              <span className="mt-0.5 block text-[12px] text-muted">{f.help}</span>
+            </button>
+          )
+        })}
+      </div>
+      {editable && flow !== saved && (
+        <div className="mt-5 flex justify-end border-t border-line pt-4">
+          <Button onClick={() => void save()} loading={busy}>
+            Save task flow
+          </Button>
+        </div>
+      )}
+      <ConfirmDialog
+        open={waiting !== null}
+        onClose={() => setWaiting(null)}
+        onConfirm={() => apply('open')}
+        title="Open the task flow?"
+        tone="primary"
+        confirmLabel="Open the task flow"
+        body={
+          <div className="space-y-2 text-[13px] text-muted">
+            <p>Anyone on the project can add live tasks and assign them to anyone. Nobody reviews them first.</p>
+            <p>
+              {waiting
+                ? `${waiting} ${waiting === 1 ? 'task waiting in planning or review goes' : 'tasks waiting in planning or review go'} live now.`
+                : 'Nothing is waiting in planning.'}
+            </p>
+          </div>
+        }
+      />
+    </section>
   )
 }
 

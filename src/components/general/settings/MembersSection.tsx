@@ -120,7 +120,8 @@ function MemberOptionsPanel({ state }: { state: GeneralProjectState }) {
       )}
 
       <div className="divide-y divide-[var(--line)]">
-        {OPTIONS.map((o) => (
+        {/* An open project lets Members create tasks anyway; the switch keeps its value for a switch back. */}
+        {OPTIONS.filter((o) => !(o.key === 'createTasks' && p.taskFlow === 'open')).map((o) => (
           <div key={o.key} className="grid gap-2 py-4 first:pt-2 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6">
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-ink">{o.label}</p>

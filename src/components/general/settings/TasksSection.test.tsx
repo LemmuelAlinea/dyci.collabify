@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { TasksSection } from './TasksSection'
 import type { GeneralProjectState } from '../useGeneralProject'
-import { updateGeneralProject } from '../../../lib/api/general'
+import { previewTaskFlow, setTaskFlow, updateGeneralProject } from '../../../lib/api/general'
 import { DEFAULT_TASK_RULES } from '../../../lib/general/taskRules'
 import { useToast } from '../../ui/Toast'
 
@@ -16,7 +16,11 @@ vi.mock('../../ui/Toast', () => {
   const show = vi.fn()
   return { useToast: () => ({ show }) }
 })
-vi.mock('../../../lib/api/general', () => ({ updateGeneralProject: vi.fn(async () => {}) }))
+vi.mock('../../../lib/api/general', () => ({
+  updateGeneralProject: vi.fn(async () => {}),
+  setTaskFlow: vi.fn(async () => 3),
+  previewTaskFlow: vi.fn(async () => ({ planning: 2, review: 1 })),
+}))
 
 const reload = vi.fn(async () => {})
 
@@ -191,4 +195,59 @@ it('shows the error and skips the reload when saving the task rules fails', asyn
   await act(async () => button('Save task rules')!.click())
   expect(host.querySelector('[role="alert"]')?.textContent).toContain('boom')
   expect(reload).not.toHaveBeenCalled()
+})
+
+const radio = (text: string) =>
+  [...host.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find((b) => b.textContent?.includes(text))
+const bodyButton = (text: string) =>
+  [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
+
+it('shows the two task flows with what each means', async () => {
+  await show(makeState())
+  expect(host.textContent).toContain('Task flow')
+  expect(radio('Planned handoff')!.textContent).toContain('Tasks start in planning. The project manager or a coordinator sends them to a team.')
+  expect(radio('Open')!.textContent).toContain('Anyone on the project adds live tasks and assigns them to anyone.')
+  expect(radio('Planned handoff')!.getAttribute('aria-checked')).toBe('true')
+})
+
+it('lets only the project manager change the task flow', async () => {
+  await show(makeState({ myRole: 'coordinator' }, { taskFlow: 'open' }))
+  expect(radio('Open')!.getAttribute('aria-checked')).toBe('true')
+  expect(radio('Planned handoff')!.disabled).toBe(true)
+  expect(button('Save task flow')).toBeUndefined()
+  expect(host.textContent).toContain('Only the project manager changes this.')
+})
+
+it('confirms a switch to open with what goes live, then saves it', async () => {
+  await show(makeState())
+  await act(async () => radio('Open')!.click())
+  await act(async () => button('Save task flow')!.click())
+  expect(previewTaskFlow).toHaveBeenCalledWith('p1')
+  expect(document.body.textContent).toContain('3 tasks waiting in planning or review go live now.')
+  expect(setTaskFlow).not.toHaveBeenCalled()
+  await act(async () => bodyButton('Open the task flow')!.click())
+  expect(setTaskFlow).toHaveBeenCalledWith('p1', 'open')
+  expect(vi.mocked(useToast)().show).toHaveBeenCalledWith('Task flow is open. 3 tasks are live.')
+  expect(reload).toHaveBeenCalled()
+})
+
+it('says nothing is waiting when no task is in planning', async () => {
+  vi.mocked(previewTaskFlow).mockResolvedValueOnce({ planning: 0, review: 0 })
+  vi.mocked(setTaskFlow).mockResolvedValueOnce(0)
+  await show(makeState())
+  await act(async () => radio('Open')!.click())
+  await act(async () => button('Save task flow')!.click())
+  expect(document.body.textContent).toContain('Nothing is waiting in planning.')
+  await act(async () => bodyButton('Open the task flow')!.click())
+  expect(vi.mocked(useToast)().show).toHaveBeenCalledWith('Task flow is open.')
+})
+
+it('switches back to planned handoff without a confirmation', async () => {
+  vi.mocked(setTaskFlow).mockResolvedValueOnce(0)
+  await show(makeState({}, { taskFlow: 'open' }))
+  await act(async () => radio('Planned handoff')!.click())
+  await act(async () => button('Save task flow')!.click())
+  expect(previewTaskFlow).not.toHaveBeenCalled()
+  expect(setTaskFlow).toHaveBeenCalledWith('p1', 'planned')
+  expect(vi.mocked(useToast)().show).toHaveBeenCalledWith('Task flow is planned handoff.')
 })

@@ -167,3 +167,14 @@ it('offers file setup only to PM and coordinators on active work projects', asyn
     expect(buttonOf(host, 'Set up members from file')).toBeUndefined()
   })
 })
+
+it('leaves out the create-tasks switch in an open project and keeps its value', async () => {
+  await withHost(async (host, render) => {
+    const state = optionsState({}, { manageMilestones: false, createTasks: true })
+    await render({ ...state, project: { ...state.project!, taskFlow: 'open' } } as GeneralProjectState)
+    expect(switchOf(host, 'Members can create tasks')).toBeNull()
+    expect(switchOf(host, 'Members can manage milestones')).not.toBeNull()
+    await act(async () => buttonOf(host, 'Save member options')!.click())
+    expect(updateGeneralProject).toHaveBeenCalledExactlyOnceWith('p1', { members_manage_milestones: false, members_create_tasks: true })
+  })
+})
