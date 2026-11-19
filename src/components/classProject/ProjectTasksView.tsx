@@ -6,6 +6,7 @@ import { Icon } from '../ui/Icon'
 import { ScrollTenList } from '../ui/ScrollTenList'
 import { useToast } from '../ui/Toast'
 import { FanOutForm } from '../tasks/FanOutForm'
+import { ClassTasksFromFileModal } from '../tasks/ClassTasksFromFileModal'
 import { GenerateTasksModal } from '../tasks/GenerateTasksModal'
 import { TaskList } from '../tasks/TaskList'
 import { TaskSummary } from '../tasks/TaskSummary'
@@ -43,6 +44,7 @@ export function ProjectTasksView({
 }) {
   const { show } = useToast()
   const [aiOpen, setAiOpen] = useState(false)
+  const [fileOpen, setFileOpen] = useState(false)
   const [setTaskOpen, setSetTaskOpen] = useState(false)
   const [editingOrigin, setEditingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const [deletingOrigin, setDeletingOrigin] = useState<ProfessorTaskGroup | null>(null)
@@ -84,6 +86,15 @@ export function ProjectTasksView({
             >
               <Icon name="spark" size={15} />
               Draft with AI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="!rounded-lg"
+              onClick={() => setFileOpen(true)}
+            >
+              <Icon name="file" size={15} />
+              From a file
             </Button>
             <Button size="sm" className="!rounded-lg" onClick={() => setSetTaskOpen(true)}>
               <Icon name="plus" size={15} />
@@ -223,6 +234,18 @@ export function ProjectTasksView({
         boards={boards ?? []}
         role="professor"
         viewerId={viewerId}
+        onSaved={async (message) => {
+          show(message)
+          await t.refresh()
+        }}
+      />
+
+      <ClassTasksFromFileModal
+        open={fileOpen}
+        onClose={() => setFileOpen(false)}
+        project={project}
+        boards={boards ?? []}
+        rows={t.rows ?? []}
         onSaved={async (message) => {
           show(message)
           await t.refresh()
