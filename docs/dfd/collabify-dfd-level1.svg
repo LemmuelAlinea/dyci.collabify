@@ -1,0 +1,432 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1480" viewBox="0 0 2200 1480">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker></defs>
+<rect width="2200" height="1480" fill="#FFFFFF"/>
+<polyline points="200.0,65.0 230.0,65.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="200.0,127.0 230.0,127.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="200.0,189.0 230.0,189.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="200.0,251.0 230.0,251.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="230.0,65.0 230.0,400.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="230.0,400.0 270.0,400.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="270.0,432.0 170.0,432.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="170.0,462.0 270.0,462.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="285.0,470.0 285.0,632.0 170.0,632.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="650.0,60.0 480.0,60.0 480.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="530.0,360.0 530.0,88.0 650.0,88.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="350.0,470.0 350.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="400.0,700.0 400.0,470.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="570.0,440.0 600.0,440.0 600.0,650.0 800.0,650.0 800.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="700.0,100.0 700.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="780.0,360.0 780.0,100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="850.0,470.0 850.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="900.0,700.0 900.0,470.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="930.0,430.0 975.0,430.0 975.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1015.0,100.0 1015.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1060.0,360.0 1060.0,100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1125.0,100.0 1125.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1170.0,360.0 1170.0,100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1230.0,100.0 1230.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1270.0,360.0 1270.0,100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1375.0,100.0 1375.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1415.0,360.0 1415.0,100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1480.0,100.0 1480.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1525.0,360.0 1525.0,100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1585.0,100.0 1585.0,360.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1630.0,360.0 1630.0,100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1290.0,395.0 1350.0,395.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1020.0,470.0 1020.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1180.0,470.0 1180.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1300.0,700.0 1300.0,650.0 1400.0,650.0 1400.0,470.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1560.0,470.0 1560.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1650.0,420.0 1695.0,420.0 1695.0,700.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1810.0,700.0 1810.0,470.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1960.0,700.0 1960.0,470.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1665.0,700.0 1665.0,660.0 1740.0,660.0 1740.0,470.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="2010.0,418.0 2040.0,418.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="2040.0,418.0 2040.0,352.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="2040.0,418.0 2040.0,484.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="2040.0,352.0 2060.0,352.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="2040.0,418.0 2060.0,418.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="2040.0,484.0 2060.0,484.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="200.0,895.0 230.0,895.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="200.0,957.0 230.0,957.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="200.0,1019.0 230.0,1019.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="200.0,1081.0 230.0,1081.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="230.0,895.0 230.0,1081.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="230.0,1045.0 270.0,1045.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="450.0,990.0 450.0,758.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="510.0,758.0 510.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="300.0,1100.0 300.0,1190.0 200.0,1190.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="200.0,1222.0 370.0,1222.0 370.0,1100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="540.0,1100.0 540.0,1280.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="540.0,1280.0 345.0,1280.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="345.0,1280.0 345.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="540.0,1280.0 490.0,1280.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="490.0,1280.0 490.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="540.0,1280.0 635.0,1280.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="635.0,1280.0 635.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="905.0,1100.0 905.0,1430.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="905.0,1430.0 345.0,1430.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="345.0,1430.0 345.0,1386.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="905.0,1430.0 490.0,1430.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="490.0,1430.0 490.0,1386.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="905.0,1430.0 635.0,1430.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="635.0,1430.0 635.0,1386.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="905.0,1430.0 780.0,1430.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter"/>
+<polyline points="780.0,1430.0 780.0,1386.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="930.0,1080.0 960.0,1080.0 960.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="650.0,990.0 650.0,758.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="760.0,758.0 760.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="590.0,758.0 590.0,1030.0 630.0,1030.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1095.0,1330.0 1095.0,1100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1145.0,1100.0 1145.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1210.0,1330.0 1210.0,1100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1260.0,1100.0 1260.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1010.0,990.0 1010.0,820.0 1340.0,820.0 1340.0,758.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1250.0,990.0 1250.0,905.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1280.0,905.0 1280.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1365.0,990.0 1365.0,905.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1395.0,905.0 1395.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1460.0,758.0 1460.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1540.0,990.0 1540.0,758.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1630.0,758.0 1630.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1420.0,990.0 1420.0,800.0 900.0,800.0 900.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1450.0,1330.0 1450.0,1100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1545.0,1100.0 1545.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1900.0,990.0 1900.0,758.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1960.0,758.0 1960.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1740.0,990.0 1740.0,915.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1790.0,915.0 1790.0,990.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1725.0,1330.0 1725.0,1100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1770.0,1100.0 1770.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1870.0,1100.0 1870.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="1965.0,1330.0 1965.0,1100.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<polyline points="2000.0,1100.0 2000.0,1330.0" fill="none" stroke="#000000" stroke-width="1.3" stroke-linejoin="miter" marker-end="url(#ah)"/>
+<rect x="270" y="360" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="270" y1="390" x2="570" y2="390" stroke="#000000" stroke-width="1.6"/>
+<text x="420.0" y="375.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">1.0</text>
+<text x="420.0" y="430.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Manage accounts and access</text>
+<rect x="630" y="360" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="630" y1="390" x2="930" y2="390" stroke="#000000" stroke-width="1.6"/>
+<text x="780.0" y="375.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">2.0</text>
+<text x="780.0" y="420.4" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Administer organization and</text><text x="780.0" y="439.6" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">compliance</text>
+<rect x="990" y="360" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="990" y1="390" x2="1290" y2="390" stroke="#000000" stroke-width="1.6"/>
+<text x="1140.0" y="375.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">3.0</text>
+<text x="1140.0" y="430.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Manage classes and groups</text>
+<rect x="1350" y="360" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1350" y1="390" x2="1650" y2="390" stroke="#000000" stroke-width="1.6"/>
+<text x="1500.0" y="375.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">4.0</text>
+<text x="1500.0" y="430.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Run class projects and grading</text>
+<rect x="1710" y="360" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1710" y1="390" x2="2010" y2="390" stroke="#000000" stroke-width="1.6"/>
+<text x="1860.0" y="375.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">5.0</text>
+<text x="1860.0" y="430.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Produce reports and analytics</text>
+<rect x="270" y="990" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="270" y1="1020" x2="570" y2="1020" stroke="#000000" stroke-width="1.6"/>
+<text x="420.0" y="1005.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">6.0</text>
+<text x="420.0" y="1060.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Communicate and meet</text>
+<rect x="630" y="990" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="630" y1="1020" x2="930" y2="1020" stroke="#000000" stroke-width="1.6"/>
+<text x="780.0" y="1005.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">7.0</text>
+<text x="780.0" y="1060.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Send notifications and reminders</text>
+<rect x="990" y="990" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="990" y1="1020" x2="1290" y2="1020" stroke="#000000" stroke-width="1.6"/>
+<text x="1140.0" y="1005.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">8.0</text>
+<text x="1140.0" y="1060.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Manage work spaces and projects</text>
+<rect x="1350" y="990" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1350" y1="1020" x2="1650" y2="1020" stroke="#000000" stroke-width="1.6"/>
+<text x="1500.0" y="1005.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">9.0</text>
+<text x="1500.0" y="1060.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Plan, assign and track tasks</text>
+<rect x="1710" y="990" width="300" height="110" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1710" y1="1020" x2="2010" y2="1020" stroke="#000000" stroke-width="1.6"/>
+<text x="1860.0" y="1005.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">10.0</text>
+<text x="1860.0" y="1060.0" font-family="Arial" font-size="16" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">Manage files and reviews</text>
+<rect x="247" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="412,700 247,700 247,758 412,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="287" y1="700" x2="287" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="267.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D1</text>
+<text x="294.0" y="729.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Accounts</text>
+<rect x="428" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="593,700 428,700 428,758 593,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="468" y1="700" x2="468" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="448.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D8</text>
+<text x="475.0" y="720.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Messages and</text><text x="475.0" y="737.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">meetings</text>
+<rect x="607" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="772,700 607,700 607,758 772,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="647" y1="700" x2="647" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="627.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D9</text>
+<text x="654.0" y="729.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Notifications</text>
+<rect x="788" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="953,700 788,700 788,758 953,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="828" y1="700" x2="828" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="808.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D10</text>
+<text x="835.0" y="720.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Organization</text><text x="835.0" y="737.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">records</text>
+<rect x="967" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="1132,700 967,700 967,758 1132,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="1007" y1="700" x2="1007" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="987.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D3</text>
+<text x="1014.0" y="720.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Syllabi and</text><text x="1014.0" y="737.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">curriculum</text>
+<rect x="1148" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="1313,700 1148,700 1148,758 1313,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="1188" y1="700" x2="1188" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="1168.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D2</text>
+<text x="1195.0" y="720.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Classes and</text><text x="1195.0" y="737.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">groups</text>
+<rect x="1327" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="1492,700 1327,700 1327,758 1492,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="1367" y1="700" x2="1367" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="1347.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D5</text>
+<text x="1374.0" y="720.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Spaces and</text><text x="1374.0" y="737.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">projects</text>
+<rect x="1508" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="1673,700 1508,700 1508,758 1673,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="1548" y1="700" x2="1548" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="1528.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D6</text>
+<text x="1555.0" y="729.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Tasks</text>
+<rect x="1687" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="1852,700 1687,700 1687,758 1852,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="1727" y1="700" x2="1727" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="1707.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D4</text>
+<text x="1734.0" y="720.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">Class projects</text><text x="1734.0" y="737.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">and grades</text>
+<rect x="1868" y="700" width="165" height="58" fill="#FFFFFF" stroke="none"/>
+<polyline points="2033,700 1868,700 1868,758 2033,758" fill="none" stroke="#000000" stroke-width="1.6"/>
+<line x1="1908" y1="700" x2="1908" y2="758" stroke="#000000" stroke-width="1.6"/>
+<text x="1888.0" y="729.0" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">D7</text>
+<text x="1915.0" y="729.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">File repository</text>
+<rect x="20" y="40" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="78" x2="32" y2="90" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="65.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Student</text>
+<rect x="20" y="102" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="140" x2="32" y2="152" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="127.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Teaching member</text>
+<rect x="20" y="164" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="202" x2="32" y2="214" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="189.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Work-project member</text>
+<rect x="20" y="226" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="264" x2="32" y2="276" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="251.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Admin</text>
+<rect x="20" y="420" width="150" height="64" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<text x="95.0" y="452.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Microsoft sign-in</text>
+<rect x="20" y="600" width="150" height="64" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<text x="95.0" y="623.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Email service</text><text x="95.0" y="641.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">(Brevo)</text>
+<rect x="650" y="40" width="170" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="650" y1="88" x2="662" y2="100" stroke="#000000" stroke-width="1.6"/>
+<text x="735.0" y="70.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Admin</text>
+<rect x="995" y="40" width="95" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="995" y1="88" x2="1007" y2="100" stroke="#000000" stroke-width="1.6"/>
+<text x="1042.5" y="70.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Student</text>
+<rect x="1100" y="40" width="95" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1100" y1="88" x2="1112" y2="100" stroke="#000000" stroke-width="1.6"/>
+<text x="1147.5" y="61.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Teaching</text><text x="1147.5" y="79.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="1210" y="40" width="230" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1210" y1="88" x2="1222" y2="100" stroke="#000000" stroke-width="1.6"/>
+<text x="1325.0" y="61.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">AI services (Claude, Groq</text><text x="1325.0" y="79.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Whisper)</text>
+<rect x="1455" y="40" width="95" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1455" y1="88" x2="1467" y2="100" stroke="#000000" stroke-width="1.6"/>
+<text x="1502.5" y="70.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Student</text>
+<rect x="1560" y="40" width="95" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1560" y1="88" x2="1572" y2="100" stroke="#000000" stroke-width="1.6"/>
+<text x="1607.5" y="61.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Teaching</text><text x="1607.5" y="79.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="2060" y="324" width="130" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="2060" y1="368" x2="2072" y2="380" stroke="#000000" stroke-width="1.6"/>
+<text x="2125.0" y="343.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Teaching</text><text x="2125.0" y="361.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="2060" y="390" width="130" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="2060" y1="434" x2="2072" y2="446" stroke="#000000" stroke-width="1.6"/>
+<text x="2125.0" y="409.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Work-project</text><text x="2125.0" y="427.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="2060" y="456" width="130" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="2060" y1="500" x2="2072" y2="512" stroke="#000000" stroke-width="1.6"/>
+<text x="2125.0" y="484.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Admin</text>
+<rect x="20" y="870" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="908" x2="32" y2="920" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="895.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Student</text>
+<rect x="20" y="932" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="970" x2="32" y2="982" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="957.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Teaching member</text>
+<rect x="20" y="994" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="1032" x2="32" y2="1044" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="1019.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Work-project member</text>
+<rect x="20" y="1056" width="180" height="50" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="1094" x2="32" y2="1106" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="1081.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Admin</text>
+<rect x="20" y="1170" width="180" height="64" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="20" y1="1222" x2="32" y2="1234" stroke="#000000" stroke-width="1.6"/>
+<text x="110.0" y="1193.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">AI services (Claude,</text><text x="110.0" y="1211.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Groq Whisper)</text>
+<rect x="280" y="1330" width="130" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="280" y1="1374" x2="292" y2="1386" stroke="#000000" stroke-width="1.6"/>
+<text x="345.0" y="1358.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Student</text>
+<rect x="425" y="1330" width="130" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="425" y1="1374" x2="437" y2="1386" stroke="#000000" stroke-width="1.6"/>
+<text x="490.0" y="1349.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Teaching</text><text x="490.0" y="1367.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="570" y="1330" width="130" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="570" y1="1374" x2="582" y2="1386" stroke="#000000" stroke-width="1.6"/>
+<text x="635.0" y="1349.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Work-project</text><text x="635.0" y="1367.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="715" y="1330" width="130" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="715" y1="1374" x2="727" y2="1386" stroke="#000000" stroke-width="1.6"/>
+<text x="780.0" y="1358.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Admin</text>
+<rect x="930" y="1330" width="125" height="56" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<text x="992.5" y="1358.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">OneSignal</text>
+<rect x="1070" y="1330" width="100" height="70" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1070" y1="1388" x2="1082" y2="1400" stroke="#000000" stroke-width="1.6"/>
+<text x="1120.0" y="1356.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Work-project</text><text x="1120.0" y="1374.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="1185" y="1330" width="100" height="70" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1185" y1="1388" x2="1197" y2="1400" stroke="#000000" stroke-width="1.6"/>
+<text x="1235.0" y="1365.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Admin</text>
+<rect x="1230" y="845" width="180" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1230" y1="893" x2="1242" y2="905" stroke="#000000" stroke-width="1.6"/>
+<text x="1320.0" y="866.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">AI services (Claude,</text><text x="1320.0" y="884.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Groq Whisper)</text>
+<rect x="1420" y="1330" width="160" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1420" y1="1378" x2="1432" y2="1390" stroke="#000000" stroke-width="1.6"/>
+<text x="1500.0" y="1360.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Work-project member</text>
+<rect x="1715" y="855" width="160" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1715" y1="903" x2="1727" y2="915" stroke="#000000" stroke-width="1.6"/>
+<text x="1795.0" y="876.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">AI services (Claude,</text><text x="1795.0" y="894.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Groq Whisper)</text>
+<rect x="1700" y="1330" width="100" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1700" y1="1378" x2="1712" y2="1390" stroke="#000000" stroke-width="1.6"/>
+<text x="1750.0" y="1360.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Student</text>
+<rect x="1815" y="1330" width="110" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1815" y1="1378" x2="1827" y2="1390" stroke="#000000" stroke-width="1.6"/>
+<text x="1870.0" y="1351.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Teaching</text><text x="1870.0" y="1369.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="1940" y="1330" width="140" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="1.6"/>
+<line x1="1940" y1="1378" x2="1952" y2="1390" stroke="#000000" stroke-width="1.6"/>
+<text x="2010.0" y="1351.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">Work-project</text><text x="2010.0" y="1369.0" font-family="Arial" font-size="15" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000000">member</text>
+<rect x="237.0" y="300.2" width="170.9" height="35.6" fill="#FFFFFF"/>
+<text x="240.0" y="309.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">sign-up and sign-in details,</text><text x="240.0" y="326.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">privacy requests</text>
+<rect x="171.6" y="490.6" width="96.9" height="18.8" fill="#FFFFFF"/>
+<text x="220.0" y="500.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">sign-in request</text>
+<rect x="179.1" y="522.2" width="81.9" height="35.6" fill="#FFFFFF"/>
+<text x="220.0" y="531.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">identity</text><text x="220.0" y="548.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">confirmation</text>
+<rect x="187.1" y="567.8" width="81.9" height="52.4" fill="#FFFFFF"/>
+<text x="228.0" y="577.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">confirmation</text><text x="228.0" y="594.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">and reset</text><text x="228.0" y="610.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">emails</text>
+<rect x="323.0" y="173.8" width="153.0" height="52.4" fill="#FFFFFF"/>
+<text x="473.0" y="183.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">accounts and switches,</text><text x="473.0" y="200.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">bulk registration file,</text><text x="473.0" y="216.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">offboarding choices</text>
+<rect x="534.0" y="122.2" width="59.5" height="35.6" fill="#FFFFFF"/>
+<text x="537.0" y="131.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">account</text><text x="537.0" y="148.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">directory</text>
+<rect x="291.1" y="542.2" width="54.9" height="35.6" fill="#FFFFFF"/>
+<text x="343.0" y="551.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">account</text><text x="343.0" y="568.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">details</text>
+<rect x="404.0" y="522.2" width="54.9" height="35.6" fill="#FFFFFF"/>
+<text x="407.0" y="531.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">account</text><text x="407.0" y="548.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">status</text>
+<rect x="645.8" y="607.2" width="108.3" height="35.6" fill="#FFFFFF"/>
+<text x="700.0" y="616.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">audit entries,</text><text x="700.0" y="633.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">privacy requests</text>
+<rect x="511.5" y="255.4" width="184.5" height="69.2" fill="#FFFFFF"/>
+<text x="693.0" y="264.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">offices and heads,</text><text x="693.0" y="281.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">organization settings,</text><text x="693.0" y="298.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">sections and program library,</text><text x="693.0" y="315.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">privacy decisions</text>
+<rect x="784.0" y="182.2" width="175.7" height="35.6" fill="#FFFFFF"/>
+<text x="787.0" y="191.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">organization overview,</text><text x="787.0" y="208.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">audit log and privacy queue</text>
+<rect x="732.2" y="542.2" width="113.8" height="35.6" fill="#FFFFFF"/>
+<text x="843.0" y="551.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">offices, settings,</text><text x="843.0" y="568.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">privacy decisions</text>
+<rect x="904.0" y="498.8" width="61.9" height="52.4" fill="#FFFFFF"/>
+<text x="907.0" y="508.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">audit log,</text><text x="907.0" y="525.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">privacy</text><text x="907.0" y="541.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">requests</text>
+<rect x="979.0" y="583.8" width="61.6" height="52.4" fill="#FFFFFF"/>
+<text x="982.0" y="593.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">sections,</text><text x="982.0" y="610.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">program</text><text x="982.0" y="626.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">library</text>
+<rect x="1019.0" y="122.2" width="102.3" height="35.6" fill="#FFFFFF"/>
+<text x="1022.0" y="131.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">class join code,</text><text x="1022.0" y="148.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">group choices</text>
+<rect x="1064.0" y="195.6" width="84.1" height="18.8" fill="#FFFFFF"/>
+<text x="1067.0" y="205.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">class details</text>
+<rect x="1129.0" y="252.2" width="134.9" height="35.6" fill="#FFFFFF"/>
+<text x="1132.0" y="261.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">class details, syllabi,</text><text x="1132.0" y="278.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">group sets</text>
+<rect x="1174.0" y="322.6" width="86.1" height="18.8" fill="#FFFFFF"/>
+<text x="1177.0" y="332.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">class rosters</text>
+<rect x="1234.0" y="122.2" width="102.9" height="35.6" fill="#FFFFFF"/>
+<text x="1237.0" y="131.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">extracted</text><text x="1237.0" y="148.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">syllabus weeks</text>
+<rect x="1274.0" y="195.6" width="87.5" height="18.8" fill="#FFFFFF"/>
+<text x="1277.0" y="205.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">syllabus files</text>
+<rect x="1379.0" y="252.2" width="79.9" height="35.6" fill="#FFFFFF"/>
+<text x="1382.0" y="261.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">brief and</text><text x="1382.0" y="278.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">rubric drafts</text>
+<rect x="1419.0" y="322.6" width="87.2" height="18.8" fill="#FFFFFF"/>
+<text x="1422.0" y="332.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">brief prompts</text>
+<rect x="1484.0" y="113.8" width="89.2" height="52.4" fill="#FFFFFF"/>
+<text x="1487.0" y="123.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">task updates,</text><text x="1487.0" y="140.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">hand-ins,</text><text x="1487.0" y="156.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">peer ratings</text>
+<rect x="1529.0" y="178.8" width="134.7" height="52.4" fill="#FFFFFF"/>
+<text x="1532.0" y="188.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">project briefs,</text><text x="1532.0" y="205.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">held tasks,</text><text x="1532.0" y="221.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">grades and feedback</text>
+<rect x="1589.0" y="243.8" width="166.3" height="52.4" fill="#FFFFFF"/>
+<text x="1592.0" y="253.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">project briefs and rubrics,</text><text x="1592.0" y="270.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">hand-in decisions, scores,</text><text x="1592.0" y="286.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">reassignment decisions</text>
+<rect x="1634.0" y="314.2" width="146.0" height="35.6" fill="#FFFFFF"/>
+<text x="1637.0" y="323.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">hand-ins,</text><text x="1637.0" y="340.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">peer evaluation results</text>
+<rect x="1291.4" y="434.2" width="57.2" height="35.6" fill="#FFFFFF"/>
+<text x="1320.0" y="443.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">syllabus</text><text x="1320.0" y="460.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">weeks</text>
+<rect x="1024.0" y="550.6" width="45.8" height="18.8" fill="#FFFFFF"/>
+<text x="1027.0" y="560.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">syllabi</text>
+<rect x="1184.0" y="602.2" width="107.6" height="35.6" fill="#FFFFFF"/>
+<text x="1187.0" y="611.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">classes, rosters,</text><text x="1187.0" y="628.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">groups</text>
+<rect x="1404.0" y="550.6" width="47.4" height="18.8" fill="#FFFFFF"/>
+<text x="1407.0" y="560.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">groups</text>
+<rect x="1564.0" y="592.2" width="77.4" height="35.6" fill="#FFFFFF"/>
+<text x="1567.0" y="601.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">class board</text><text x="1567.0" y="618.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">tasks</text>
+<rect x="1583.6" y="502.2" width="107.4" height="35.6" fill="#FFFFFF"/>
+<text x="1688.0" y="511.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">briefs, rubrics,</text><text x="1688.0" y="528.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">hand-ins, scores</text>
+<rect x="1814.0" y="602.2" width="78.7" height="35.6" fill="#FFFFFF"/>
+<text x="1817.0" y="611.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">grades,</text><text x="1817.0" y="628.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">peer results</text>
+<rect x="1964.0" y="542.2" width="62.6" height="35.6" fill="#FFFFFF"/>
+<text x="1967.0" y="551.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">commits,</text><text x="1967.0" y="568.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">reviews</text>
+<rect x="1744.0" y="510.6" width="82.0" height="18.8" fill="#FFFFFF"/>
+<text x="1747.0" y="520.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">task activity</text>
+<rect x="2087.3" y="278.2" width="75.3" height="35.6" fill="#FFFFFF"/>
+<text x="2125.0" y="287.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">reports and</text><text x="2125.0" y="304.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">analytics</text>
+<rect x="17.0" y="817.2" width="178.2" height="35.6" fill="#FFFFFF"/>
+<text x="20.0" y="826.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">messages, announcements,</text><text x="20.0" y="843.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">meetings, program notices</text>
+<rect x="320.6" y="842.2" width="125.4" height="35.6" fill="#FFFFFF"/>
+<text x="443.0" y="851.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">messages, notices,</text><text x="443.0" y="868.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">meetings</text>
+<rect x="514.0" y="920.6" width="92.2" height="18.8" fill="#FFFFFF"/>
+<text x="517.0" y="930.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">conversations</text>
+<rect x="304.0" y="1122.2" width="70.0" height="35.6" fill="#FFFFFF"/>
+<text x="307.0" y="1131.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">voice</text><text x="307.0" y="1148.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">recordings</text>
+<rect x="374.0" y="1180.6" width="71.2" height="18.8" fill="#FFFFFF"/>
+<text x="377.0" y="1190.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">transcripts</text>
+<rect x="544.0" y="1132.2" width="103.6" height="35.6" fill="#FFFFFF"/>
+<text x="547.0" y="1141.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">messages and</text><text x="547.0" y="1158.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">announcements</text>
+<rect x="559.5" y="1440.6" width="81.0" height="18.8" fill="#FFFFFF"/>
+<text x="600.0" y="1450.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">notifications</text>
+<rect x="964.0" y="1232.2" width="81.0" height="35.6" fill="#FFFFFF"/>
+<text x="967.0" y="1241.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">device</text><text x="967.0" y="1258.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">notifications</text>
+<rect x="654.0" y="820.6" width="81.0" height="18.8" fill="#FFFFFF"/>
+<text x="657.0" y="830.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">notifications</text>
+<rect x="764.0" y="892.2" width="81.7" height="35.6" fill="#FFFFFF"/>
+<text x="767.0" y="901.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">preferences,</text><text x="767.0" y="918.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">devices</text>
+<rect x="485.6" y="782.2" width="100.4" height="35.6" fill="#FFFFFF"/>
+<text x="583.0" y="791.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">new messages</text><text x="583.0" y="808.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">and notices</text>
+<rect x="1099.0" y="1123.8" width="164.2" height="52.4" fill="#FFFFFF"/>
+<text x="1102.0" y="1133.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">space and project details,</text><text x="1102.0" y="1150.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">roles and roster files,</text><text x="1102.0" y="1166.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">stakeholder feedback</text>
+<rect x="1149.0" y="1187.2" width="107.4" height="35.6" fill="#FFFFFF"/>
+<text x="1152.0" y="1196.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">project details,</text><text x="1152.0" y="1213.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">feedback replies</text>
+<rect x="1214.0" y="1242.2" width="105.1" height="35.6" fill="#FFFFFF"/>
+<text x="1217.0" y="1251.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">project manager</text><text x="1217.0" y="1268.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">assignments</text>
+<rect x="1264.0" y="1295.6" width="105.7" height="18.8" fill="#FFFFFF"/>
+<text x="1267.0" y="1305.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">work project list</text>
+<rect x="1097.0" y="828.2" width="110.7" height="35.6" fill="#FFFFFF"/>
+<text x="1100.0" y="837.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">spaces, projects,</text><text x="1100.0" y="854.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">roles, feedback</text>
+<rect x="1174.5" y="920.6" width="71.5" height="18.8" fill="#FFFFFF"/>
+<text x="1243.0" y="930.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">roster files</text>
+<rect x="1188.8" y="952.6" width="87.2" height="18.8" fill="#FFFFFF"/>
+<text x="1273.0" y="962.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">roster review</text>
+<rect x="1369.0" y="915.6" width="86.9" height="18.8" fill="#FFFFFF"/>
+<text x="1372.0" y="925.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">task prompts</text>
+<rect x="1399.0" y="942.2" width="122.2" height="35.6" fill="#FFFFFF"/>
+<text x="1402.0" y="951.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">task drafts and</text><text x="1402.0" y="968.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">holder suggestions</text>
+<rect x="1464.0" y="782.2" width="110.9" height="35.6" fill="#FFFFFF"/>
+<text x="1467.0" y="791.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">teams, positions,</text><text x="1467.0" y="808.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">skills</text>
+<rect x="1544.0" y="842.2" width="92.8" height="35.6" fill="#FFFFFF"/>
+<text x="1547.0" y="851.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">tasks, sprints,</text><text x="1547.0" y="868.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">milestones</text>
+<rect x="1634.0" y="772.2" width="51.8" height="35.6" fill="#FFFFFF"/>
+<text x="1637.0" y="781.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">task</text><text x="1637.0" y="798.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">records</text>
+<rect x="1110.8" y="776.6" width="78.4" height="18.8" fill="#FFFFFF"/>
+<text x="1150.0" y="786.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="middle" dominant-baseline="central" fill="#000000">task events</text>
+<rect x="1454.0" y="1133.8" width="202.7" height="52.4" fill="#FFFFFF"/>
+<text x="1457.0" y="1143.2" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">tasks and routing decisions,</text><text x="1457.0" y="1160.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">QA decisions, sprint and</text><text x="1457.0" y="1176.8" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">milestone plans, workflow rules</text>
+<rect x="1549.0" y="1235.6" width="78.4" height="18.8" fill="#FFFFFF"/>
+<text x="1552.0" y="1245.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">task boards</text>
+<rect x="1790.5" y="782.2" width="105.5" height="35.6" fill="#FFFFFF"/>
+<text x="1893.0" y="791.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">commits, drafts,</text><text x="1893.0" y="808.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">reviews</text>
+<rect x="1964.0" y="850.6" width="81.0" height="18.8" fill="#FFFFFF"/>
+<text x="1967.0" y="860.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">file versions</text>
+<rect x="1643.8" y="932.2" width="92.2" height="35.6" fill="#FFFFFF"/>
+<text x="1733.0" y="941.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">file contents</text><text x="1733.0" y="958.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="end" dominant-baseline="central" fill="#000000">and questions</text>
+<rect x="1794.0" y="937.2" width="96.9" height="35.6" fill="#FFFFFF"/>
+<text x="1797.0" y="946.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">file summaries</text><text x="1797.0" y="963.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">and answers</text>
+<rect x="1729.0" y="1140.6" width="31.9" height="18.8" fill="#FFFFFF"/>
+<text x="1732.0" y="1150.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">files</text>
+<rect x="1774.0" y="1195.6" width="78.0" height="18.8" fill="#FFFFFF"/>
+<text x="1777.0" y="1205.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">project files</text>
+<rect x="1874.0" y="1250.6" width="70.3" height="18.8" fill="#FFFFFF"/>
+<text x="1877.0" y="1260.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">group files</text>
+<rect x="1969.0" y="1287.2" width="58.5" height="35.6" fill="#FFFFFF"/>
+<text x="1972.0" y="1296.6" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">files and</text><text x="1972.0" y="1313.4" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">reviews</text>
+<rect x="2004.0" y="1140.6" width="78.0" height="18.8" fill="#FFFFFF"/>
+<text x="2007.0" y="1150.0" font-family="Arial" font-size="14" font-weight="normal" text-anchor="start" dominant-baseline="central" fill="#000000">project files</text>
+</svg>
