@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Alert } from '../ui/Alert'
+import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Field'
 import { FileDrop } from '../ui/FileDrop'
@@ -16,6 +17,7 @@ import { createSprint, setSprintMilestone } from '../../lib/api/sprints'
 import { draftWorkTasks } from '../../lib/api/workAi'
 import type { DraftSharedFile, DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
+import { noteFitDefaults } from '../../lib/classFileTasks'
 import { isAssignCandidate } from '../../lib/work/assignDraft'
 import { formatDue } from '../../lib/general/dates'
 import { NOTES_FILE_ACCEPT, NOTES_FILE_MAX, NotesFileError, readNotesFile } from '../../lib/general/notesFile'
@@ -113,6 +115,8 @@ export function TasksFromNotes({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const projectId = state.project?.id
+  // A class board's hidden Files project: drafted tasks come back checked against the class project.
+  const classBoard = Boolean(state.project?.class_board_id)
   const mayAssign = onSave ? (mayAssignOverride ?? state.can('manage_tasks')) : false
   const workPlans = Boolean(state.project) && !state.readOnly && state.can('manage_tasks')
   const scope: NotesPlanScope = planOverride ?? {
@@ -209,8 +213,12 @@ export function TasksFromNotes({
           ...t,
           files: t.files ?? [],
           assignee: mayAssign && state.roleOf(t.assignee) !== 'stakeholder' ? t.assignee : '',
-          why: !onSave && t.named ? `Named ${t.named} in the notes. The receiving lead assigns members.` : undefined,
-          keep: true,
+          why: classBoard
+            ? noteFitDefaults(t, true).why
+            : !onSave && t.named
+              ? `Named ${t.named} in the notes. The receiving lead assigns members.`
+              : undefined,
+          keep: noteFitDefaults(t, classBoard).keep,
           sprintKey: shaped.links[i].sprint,
           milestoneKey: shaped.links[i].milestone,
         }))
@@ -602,12 +610,15 @@ export function TasksFromNotes({
                     <div className="flex items-start gap-3">
                       <KeepBox checked={r.keep} label={`Keep ${r.title}`} onToggle={() => patch(i, { keep: !r.keep })} />
                       <div className="min-w-0 flex-1 space-y-2">
-                        <Input
-                          value={r.title}
-                          onChange={(e) => patch(i, { title: e.target.value })}
-                          aria-label={`Task ${i + 1} name`}
-                          className="!h-10 font-medium"
-                        />
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Input
+                            value={r.title}
+                            onChange={(e) => patch(i, { title: e.target.value })}
+                            aria-label={`Task ${i + 1} name`}
+                            className="!h-10 font-medium"
+                          />
+                          <FitLabel label={noteFitDefaults(r, classBoard).label} />
+                        </div>
                         {r.description && (
                           <Textarea
                             rows={2}
@@ -725,6 +736,16 @@ export function KeepBox({ checked, label, onToggle }: { checked: boolean; label:
     >
       {checked && <Icon name="check" size={13} strokeWidth={3} />}
     </button>
+  )
+}
+
+/** On a class board: whether the check against the class project says the task fits. */
+function FitLabel({ label }: { label: 'Fits' | "Doesn't fit" | 'Already set' | null }) {
+  if (!label) return null
+  return (
+    <span data-fit-label className="shrink-0 self-start sm:self-center">
+      <Badge tone={label === 'Fits' ? 'success' : 'warning'}>{label}</Badge>
+    </span>
   )
 }
 

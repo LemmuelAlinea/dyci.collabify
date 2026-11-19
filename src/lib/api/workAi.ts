@@ -27,6 +27,9 @@ export type DraftedWorkTask = {
   milestone: string
   /** Shared discussion files the discussion ties to this task (their ids). */
   files: string[]
+  /** On a class board only: the check against the class project. Absent from an older deploy. */
+  fit?: 'fits' | 'off'
+  fit_reason?: string
 }
 
 /** A sprint the text lays out. Dates are '' when it gives none. */

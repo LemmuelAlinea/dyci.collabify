@@ -27,6 +27,7 @@ import { pickTeamRoutes, pickLeadAssignees, maskMemberNames } from '../_shared/a
 import type { AssignCandidate, AssignMatch, AssignTaskIn } from '../_shared/assignPick.ts'
 import { completeNotesDates, matchSprintName, validDay } from '../_shared/notesSchedule.ts'
 import { keepAliveJson } from '../_shared/keepAlive.ts'
+import { buildClassBrief, FIT_RULES, FIT_SCHEMA_FIELDS, normalizeFit, readClassBrief, THIN_NOTE } from '../_shared/classBrief.ts'
 
 const MODEL = 'claude-opus-5'
 /** The most tasks one Tasks from notes run can draft. */
@@ -505,6 +506,15 @@ async function tasksAction(ctx: Ctx) {
   }))
   if (work && ((members ?? []) as unknown as M[]).some(m => !m.profile)) throw new Refused('Could not read project members. Reload and try again.')
   const promptText = (text: string) => work ? maskMemberNames(text, people.map(p => p.name)) : text
+  // A class board: each task is judged against the class project's brief. An
+  // unreadable or empty brief sends no verdict, so the rows stay as before.
+  let classBrief: { text: string; thin: boolean } | null = null
+  if (!work) {
+    const { data: board } = await ctx.caller.from('task_board_overview').select('project_id').eq('id', projectKind!.class_board_id).maybeSingle()
+    const data = board?.project_id ? await readClassBrief(ctx.caller, board.project_id) : null
+    classBrief = data ? buildClassBrief(data) : null
+  }
+  const judge = Boolean(classBrief && !classBrief.thin)
   const teamNames = ((teams ?? []) as { name: string }[]).map((t) => t.name)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
   const anchor = project?.starts_on && project.starts_on > today ? project.starts_on : today
@@ -561,7 +571,7 @@ discussion, not background, not things already done.
   it for the task, or the work is done in it. Give its short id exactly as
   labelled, e.g. ["f1"]. Otherwise an empty list.
 - note: one short sentence on what you read, or what was unclear.
-${VOICE}`,
+${judge ? `\n${FIT_RULES}\n` : ''}${VOICE}`,
     withFiles(
       promptText([
         `Today: ${today}`,
@@ -569,6 +579,7 @@ ${VOICE}`,
         `Project: ${project?.name ?? ''}${project?.starts_on ? `, runs ${project.starts_on} to ${project.ends_on ?? 'open'}` : ''}`,
         work ? '' : `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
         teamNames.length ? `Teams: ${teamNames.join(', ')}` : 'Teams: none',
+        judge ? `\nClass project brief:\n${classBrief!.text}` : '',
         '',
         !work && fileName ? `Text (read from the uploaded file "${fileName}"):` : 'Text:',
         cap(source, 60000),
@@ -589,6 +600,7 @@ ${VOICE}`,
           milestone: str,
           // Only labels that exist can come back.
           files: { type: 'array', items: shared.short.size > 0 ? { type: 'string', enum: [...shared.short.keys()] } : str },
+          ...(judge ? FIT_SCHEMA_FIELDS : {}),
         }),
       },
       sprints: { type: 'array', items: obj({ name: str, goal: str, starts_on: str, ends_on: str }) },
@@ -663,12 +675,18 @@ ${VOICE}`,
         sprint: matchSprintName(sprints, t.sprint),
         milestone: pick(milestones, t.milestone),
         files: [...new Set(((t.files as unknown[]) ?? []).map(sharedId).filter((x): x is string => Boolean(x)))],
+        ...(judge ? normalizeFit(t.fit, t.fit_reason, false) : {}),
       }
     })
   const dated = completeNotesDates(tasks, sprints, milestones, {
     today, projectStart: project?.starts_on, projectEnd: project?.ends_on,
   })
-  return { ...dated, note: String(out.note ?? '').slice(0, 300) + (work && shared.files.length ? ' Shared attachments were not sent to AI; review them alongside the notes.' : ''), shared: shared.files }
+  const note = String(out.note ?? '').slice(0, 300)
+  return {
+    ...dated,
+    note: (classBrief?.thin ? `${THIN_NOTE}${note ? ` ${note}` : ''}` : note) + (work && shared.files.length ? ' Shared attachments were not sent to AI; review them alongside the notes.' : ''),
+    shared: shared.files,
+  }
 }
 
 /** Old and new text per path, for describing a change. */

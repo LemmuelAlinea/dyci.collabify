@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alreadySetTitles, fileRows, fitLabel, retarget, type FileTask } from './classFileTasks'
+import { alreadySetTitles, fileRows, fitLabel, noteFitDefaults, retarget, type FileTask } from './classFileTasks'
 import type { ProjectTask } from './types'
 
 const r = (origin: string | null, board: string, title: string) => ({ origin_id: origin, board_id: board, title }) as ProjectTask
@@ -58,5 +58,19 @@ describe('fitLabel', () => {
     expect(fitLabel({ fit: 'off' })).toBe("Doesn't fit")
     expect(fitLabel({ fit: 'fits' })).toBe('Fits')
     expect(fitLabel({})).toBe('Fits')
+  })
+})
+
+describe('noteFitDefaults', () => {
+  it('unticks a class task that does not fit and gives its reason', () => {
+    expect(noteFitDefaults({ fit: 'off', fit_reason: 'Not in weeks 5–8.' }, true)).toEqual({ keep: false, why: 'Not in weeks 5–8.', label: "Doesn't fit" })
+  })
+  it('keeps a class task ticked when it fits or the function sent no verdict', () => {
+    expect(noteFitDefaults({ fit: 'fits' }, true)).toEqual({ keep: true, why: undefined, label: 'Fits' })
+    // No verdict came back (an older function, or no brief to read): no label claims a check ran.
+    expect(noteFitDefaults({}, true)).toEqual({ keep: true, why: undefined, label: null })
+  })
+  it('changes nothing on a work project', () => {
+    expect(noteFitDefaults({ fit: 'off', fit_reason: 'x' }, false)).toEqual({ keep: true, why: undefined, label: null })
   })
 })

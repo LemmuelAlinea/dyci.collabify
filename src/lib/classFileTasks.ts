@@ -50,3 +50,17 @@ export function fitLabel(row: { fit?: string; already?: boolean }): 'Already set
   if (row.already) return 'Already set'
   return row.fit === 'off' ? "Doesn't fit" : 'Fits'
 }
+
+/**
+ * A students' From notes row on a class board: a task the check says does not
+ * fit starts unticked with its reason. With no verdict (an older function, or a
+ * project with nothing to check against) the row stays as before, unlabelled.
+ */
+export function noteFitDefaults(
+  task: { fit?: string; fit_reason?: string },
+  classBoard: boolean,
+): { keep: boolean; why: string | undefined; label: ReturnType<typeof fitLabel> | null } {
+  if (!classBoard || !task.fit) return { keep: true, why: undefined, label: null }
+  const off = task.fit === 'off'
+  return { keep: !off, why: off && task.fit_reason ? task.fit_reason : undefined, label: fitLabel(task) }
+}
