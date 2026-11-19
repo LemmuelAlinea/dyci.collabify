@@ -5199,3 +5199,26 @@ accepted." from the setting; no failed requests.
   `my_general_draft`, so nothing is refused and no 400 shows in the console. With no draft, Main
   shows and My workspace is empty. The New button hides on an archived view too. No SQL changed.
   Tests: `ClassFilesTab.test.tsx`, the two handed-in board tests.
+
+## Send to person in Plan & route work (2026-11-19)
+
+- The project manager (only) can send Planning tasks straight to themselves or an active coordinator, skipping a team
+  lead: a "Choose a person" picker (Me, then each active coordinator) and Send to person in the modal's pinned footer,
+  Planning queue only. The team is optional: for the PM each row's team picker lists every team (a leadless one marked
+  "(no lead)") plus No team; Send to team still needs a team with a lead and stays off otherwise. Coordinators see
+  what they saw before. `TaskRoutingPanel.tsx`.
+- SQL: `supabase/send-to-planner.sql` (after `file-history.sql`, before `anon-lockdown.sql`; in both full-run lines of
+  `docs/07-backup.md`) adds `send_work_tasks_to_planner(p_project, p_rows, p_holder)`, which checks every row first
+  (pm caller, live work project, holder is the caller or an active coordinator, Planning rows only, no subtasks, no
+  holders, not stale, team live if given) and then releases each task and assigns the holder in one call. It
+  redefines nothing. History reuses `sent_to_team` with `holder_id` ("Ana sent it to Ben", "Ana took it on"); the
+  assignee insert sends the usual assigned notice (none to the PM for their own task). Applied live with
+  `anon-lockdown.sql` after it; suite `supabase/tests/send-to-planner.test.sql` (22 checks), and the handoff,
+  task-rules and anon-lockdown suites still pass.
+- Checked on the dev server signed in as a PM: the picker, No team and Send to person show in the modal at desktop
+  and phone width. Nothing was sent on the live project; the SQL suite covers the send.
+- Spec `docs/superpowers/specs/2026-11-19-send-to-planner-design.md`, plan
+  `docs/superpowers/plans/2026-11-19-send-to-planner.md`.
+
+**Deferred**
+- On a phone the pinned footer now stacks five controls and covers much of the task list.
