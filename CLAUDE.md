@@ -386,6 +386,13 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   work the project manager (only) sends Planning tasks straight to themselves or an active coordinator through
   `send_work_tasks_to_planner`, which releases and assigns in one call; the team is optional and needs no lead. It
   redefines nothing; history reuses `sent_to_team` with `holder_id`. Suite: `supabase/tests/send-to-planner.test.sql`.
+- Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
+  calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
+  `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone
+  opens a direct chat with a contact through `start_contact_conversation` (same `direct_key` as
+  `start_direct_conversation`). `user_presence` is read and written only through those functions. Hiding your status
+  (Settings → Profile) stores no stamp and also hides everyone else from you. Suite:
+  `supabase/tests/active-status.test.sql`.
 - Class tasks from a file (no SQL): a teacher's Tasks tab has From a file (`ClassTasksFromFileModal`), which sends the
   browser-read text to `generate-tasks` (`text`, `file_name`); students' From notes on a class board goes through
   `work-ai` `tasks`. Both judge each task against the class project brief (`supabase/functions/_shared/classBrief.ts`:
