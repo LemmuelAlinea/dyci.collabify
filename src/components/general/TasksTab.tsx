@@ -27,7 +27,7 @@ import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary,
 import { DEFAULT_TASK_RULES, blockersOf, subtasksOf, taskMarkIndex } from '../../lib/general/taskRules'
 import type { TaskMarkData } from '../../lib/general/taskRules'
 import { projectProgress } from '../../lib/general/progress'
-import { routingViewer, routingWaitingCount } from '../../lib/general/routing'
+import { routingViewer, routingWaitingCount, showsRouting } from '../../lib/general/routing'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { PRIORITIES } from '../../lib/general/types'
@@ -193,7 +193,7 @@ export function TasksTab({
       {!project.class_board_id && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-[14px] font-semibold text-ink">Released work</h3>
-          {(state.myRole === 'pm' || state.myRole === 'coordinator') && (
+          {(state.myRole === 'pm' || state.myRole === 'coordinator') && showsRouting(project.taskFlow, state.tasks) && (
             <Button size="sm" variant="outline" aria-label={waiting > 0 ? `Plan & route work, ${waiting} waiting` : undefined} onClick={() => setRoutingOpen(true)}>
               Plan & route work
               {waiting > 0 && (
@@ -334,7 +334,9 @@ export function TasksTab({
           title="No tasks yet"
           body={project.class_board_id
             ? 'Break the project into pieces somebody can pick up. Anyone on the project can add one.'
-            : state.myRole === 'member' && project.memberRules?.createTasks
+            : project.taskFlow === 'open'
+              ? 'Anyone on the project adds tasks and assigns them.'
+              : state.myRole === 'member' && project.memberRules?.createTasks
               ? 'Tasks you add go to the project manager and coordinators for review.'
               : 'The project manager or a coordinator plans tasks, then sends them to a team.'}
           action={

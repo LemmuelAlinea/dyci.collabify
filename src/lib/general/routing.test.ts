@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { incomingTasks, routingViewer, routingWaitingCount } from './routing'
+import { incomingTasks, routingViewer, routingWaitingCount, showsRouting } from './routing'
 import type { GeneralTask } from './types'
 
 const task = (over: Partial<GeneralTask>): GeneralTask => ({
@@ -66,5 +66,19 @@ describe('incomingTasks', () => {
   it('is empty for a viewer who leads no team', () => {
     expect(incomingTasks('member', teams, rows)).toEqual([])
     expect(incomingTasks(undefined, [{ id: 'a', leader_id: null }], rows)).toEqual([])
+  })
+})
+
+describe('showsRouting', () => {
+  it('always shows Plan & route in a planned project', () => {
+    expect(showsRouting('planned', [])).toBe(true)
+    expect(showsRouting(undefined, [])).toBe(true)
+  })
+
+  it('shows it in an open project only while live work waits in planning or review', () => {
+    expect(showsRouting('open', [task({ routing_state: 'released' })])).toBe(false)
+    expect(showsRouting('open', [task({ routing_state: 'planning', archived_at: '2026-11-01' })])).toBe(false)
+    expect(showsRouting('open', [task({ routing_state: 'planning' })])).toBe(true)
+    expect(showsRouting('open', [task({ routing_state: 'coordinator_review' })])).toBe(true)
   })
 })

@@ -24,6 +24,7 @@ import {
   listFiles,
   listLogs,
   listTaskEvents,
+  setTaskHolders,
   unassignTask,
   updateTask,
   uploadTaskFile,
@@ -41,7 +42,7 @@ import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPri
 import { blockersOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
-import { assignableTo, canCommentTask, canEditTask, canUnassign, keepsCreatorRights } from '../../lib/general/permissions'
+import { assignableTo, canCommentTask, canEditTask, canSetHolders, canUnassign, holderCandidates, keepsCreatorRights } from '../../lib/general/permissions'
 import type { TaskViewer } from '../../lib/general/permissions'
 import { QaActions } from '../work/QaActions'
 import { ProjectFilePicker } from './ProjectFilePicker'
@@ -259,7 +260,15 @@ function TaskBody({
   const assignmentViewer: TaskViewer = { ...viewer, manageTasks: work ? state.myRole === 'pm' || state.myRole === 'coordinator' : canManage,
     ...(work ? { workAssignment: { ledTeamIds: state.teams.filter(t => t.leader_id === me).map(t => t.id), members: state.teamMembers } } : {}) }
   const unsent = !state.project.class_board_id && (task.routing_state ?? 'released') !== 'released'
-  const assignable = unsent ? [] : assignableTo(
+  // An open project: the project manager, coordinators and Members set anyone as holder,
+  // except on work in QA or done, which reopens first (set_general_task_holders).
+  const openFlow = work && !unsent && canSetHolders(state.myRole, state.project.taskFlow ?? 'planned', readOnly)
+  const openLocked = openFlow && !task.archived_at && (task.status === 'done'
+    || Boolean(state.project.has_qa && inQa(task, stagesOf(state.project.stages), state.project.qa_stage)))
+  const oneHolder = state.project.taskRules?.allowMultipleAssignees === false
+  const assignable = unsent ? [] : openFlow
+    ? (openLocked || task.archived_at ? [] : holderCandidates(state.members, state.roleOf).filter((id) => !task.assignee_ids.includes(id)))
+    : assignableTo(
     assignmentViewer,
     task,
     state.members.filter((m) => work ? m.profile?.status === 'active' : m.profile?.status !== 'rejected').map((m) => m.user_id),
@@ -302,13 +311,17 @@ function TaskBody({
           >
             {state.nameOf(id)}
             <PersonBadge userId={id} roles={state} />
-            {canUnassign(viewer, id) && (
+            {(openFlow ? !openLocked && !task.archived_at : canUnassign(viewer, id)) && (
               <button
                 type="button"
                 aria-label={id === me ? 'Release this task' : `Take ${state.nameOf(id)} off`}
                 disabled={busy}
                 onClick={() =>
-                  void act(() => unassignTask(task.id, id), id === me ? 'Released' : 'Taken off', 'Could not change that.')
+                  void act(
+                    () => openFlow ? setTaskHolders(task.id, task.assignee_ids.filter((x) => x !== id)) : unassignTask(task.id, id),
+                    id === me ? 'Released' : 'Taken off',
+                    'Could not change that.',
+                  )
                 }
                 className="grid h-5 w-5 place-items-center rounded-full text-faint hover:bg-[var(--surface)] hover:text-ink"
               >
@@ -319,6 +332,7 @@ function TaskBody({
         ))}
         {task.assignee_ids.length === 0 && <li className="text-[13px] text-faint">Nobody holds this yet.</li>}
       </ul>
+      {openLocked && <p className="mt-2 text-[12px] text-muted">Reopen it before changing who holds it.</p>}
       {!unsent && assignable.length > 0 && (
         <div className="mt-2 max-w-[16rem]">
           <Select
@@ -326,9 +340,15 @@ function TaskBody({
             value=""
             onChange={(e) => {
               const userId = e.target.value
-              if (userId) void act(() => assignTask(task.id, task.project_id, userId), 'Assigned', 'Could not assign that.')
+              if (!userId) return
+              if (openFlow) {
+                const next = oneHolder ? [userId] : [...task.assignee_ids, userId]
+                void act(() => setTaskHolders(task.id, next), 'Assigned', 'Could not assign that.')
+              } else void act(() => assignTask(task.id, task.project_id, userId), 'Assigned', 'Could not assign that.')
             }}
-            placeholder={assignmentViewer.manageTasks ? 'Assign someone...' : work ? 'Assign a receiving-team member...' : 'Assign someone you lead...'}
+            placeholder={openFlow
+              ? (oneHolder && task.assignee_ids.length > 0 ? 'Reassign to...' : 'Assign someone...')
+              : assignmentViewer.manageTasks ? 'Assign someone...' : work ? 'Assign a receiving-team member...' : 'Assign someone you lead...'}
             options={assignable.map((id) => ({ value: id, label: state.nameOf(id) }))}
             className="!h-9 !text-[13px]"
           />

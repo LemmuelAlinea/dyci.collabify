@@ -1,4 +1,4 @@
-import { canAssignIncoming, type ProjectRole } from './permissions'
+import { canAssignIncoming, type ProjectRole, type TaskFlow } from './permissions'
 import type { GeneralTask } from './types'
 
 /**
@@ -72,4 +72,14 @@ export function routingWaitingCount(viewer: RoutingViewer & { readOnly: boolean 
   const queues: RoutingQueue[] = ['planning', 'coordinator_review']
   return queues.reduce((sum, queue) =>
     sum + routingRows(tasks, queue).filter(t => !t.parent_id && canUseRoutingRow(viewer, queue, t)).length, 0)
+}
+
+/**
+ * Whether Plan & route work shows. Always in a planned project; in an open
+ * project only while live work still waits in planning or review (From notes
+ * and AI drafts start there), so nothing is stranded.
+ */
+export function showsRouting(flow: TaskFlow | undefined, tasks: readonly GeneralTask[]): boolean {
+  if (flow !== 'open') return true
+  return tasks.some((t) => !t.archived_at && (t.routing_state === 'planning' || t.routing_state === 'coordinator_review'))
 }

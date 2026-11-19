@@ -4,7 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 import { TaskDialog } from './TaskDialog'
-import { listTaskEvents, updateTask } from '../../lib/api/general'
+import { listTaskEvents, setTaskHolders, updateTask } from '../../lib/api/general'
 import type { GeneralProjectState } from './useGeneralProject'
 
 vi.stubGlobal('React', React)
@@ -14,7 +14,7 @@ vi.mock('../ui/Toast', () => ({ useToast: () => ({ show }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RoleBadge', () => ({ PersonBadge: () => null }))
 vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
-vi.mock('../../lib/api/general', async importOriginal => ({ ...await importOriginal<object>(), listComments: async () => [], listFiles: async () => [], listLogs: async () => [], listTaskEvents: vi.fn(async () => []), updateTask: vi.fn() }))
+vi.mock('../../lib/api/general', async importOriginal => ({ ...await importOriginal<object>(), listComments: async () => [], listFiles: async () => [], listLogs: async () => [], listTaskEvents: vi.fn(async () => []), updateTask: vi.fn(), setTaskHolders: vi.fn(async () => {}) }))
 
 it('locks dates and description for a holder but lets the receiving lead edit them before assignment', async () => {
   const task = { id: 'task', title: 'Build page', project_id: 'p', created_by: 'pm', team_id: 'a', routing_state: 'released', assignee_ids: ['worker'], status: 'todo', stage: 0, description: 'Original', starts_at: null, due_at: null, archived_at: null }
@@ -223,5 +223,65 @@ it('names the holder on a direct send in the history', async () => {
     await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
     await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'History')!.click())
     expect(document.body.textContent).toContain('No team to No team · Holder: ana')
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+const openState = (task: Record<string, unknown>, over: Record<string, unknown> = {}) => {
+  const base = { id: 'open', title: 'Open task', project_id: 'p', created_by: 'pm', team_id: null, routing_state: 'released', assignee_ids: ['b'],
+    status: 'todo', stage: 0, description: '', starts_at: null, due_at: null, archived_at: null, priority: 'normal', parent_id: null, ...task }
+  const roles: Record<string, string> = { me: 'member', b: 'member', c: 'coordinator', q: 'qa', s: 'stakeholder' }
+  return { project: { id: 'p', class_board_id: null, stages: ['Todo', 'Doing', 'Testing', 'Done'], qa_stage: 'Testing', has_qa: true, taskFlow: 'open',
+      taskRules: { allowMultipleAssignees: true } },
+    viewerId: 'me', myRole: 'member', readOnly: false, teams: [], teamMembers: [], tasks: [base], dependencies: [],
+    members: Object.keys(roles).map(user_id => ({ user_id, profile: { status: 'active' } })),
+    can: () => false, leadsUser: () => false, nameOf: (id: string) => `Person ${id}`, roleOf: (id: string) => roles[id] ?? null,
+    qaBlocks: () => false, reload: vi.fn().mockResolvedValue(undefined), ...over,
+  } as unknown as GeneralProjectState
+}
+
+it('lets a Member in an open project add and take off holders on any task', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={openState({})} taskId="open" onClose={vi.fn()} />))
+    const select = document.querySelector<HTMLSelectElement>('[aria-label="Assign someone"]')!
+    expect([...select.options].filter(o => o.value).map(o => o.value)).toEqual(['me', 'c'])
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, 'c'); select.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(setTaskHolders).toHaveBeenCalledWith('open', ['b', 'c'])
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Take Person b off"]')!.click())
+    expect(setTaskHolders).toHaveBeenLastCalledWith('open', [])
+  } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(setTaskHolders).mockClear() }
+})
+
+it('reassigns instead of adding when the open project allows one holder', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    const state = openState({})
+    await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, taskRules: { allowMultipleAssignees: false } } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
+    const select = document.querySelector<HTMLSelectElement>('[aria-label="Assign someone"]')!
+    expect(select.options[0].textContent).toBe('Reassign to...')
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, 'me'); select.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(setTaskHolders).toHaveBeenCalledWith('open', ['me'])
+  } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(setTaskHolders).mockClear() }
+})
+
+it('asks to reopen work in QA or done before its holders change in an open project', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    for (const task of [{ status: 'in_progress', stage: 2 }, { status: 'done', stage: 3 }]) {
+      await act(async () => root.render(<TaskDialog state={openState(task)} taskId="open" onClose={vi.fn()} />))
+      expect(document.querySelector('[aria-label="Assign someone"]')).toBeNull()
+      expect(document.querySelector('[aria-label="Take Person b off"]')).toBeNull()
+      expect(document.body.textContent).toContain('Reopen it before changing who holds it.')
+    }
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('gives QA and stakeholders no holder picker in an open project', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    for (const myRole of ['qa', 'stakeholder']) {
+      await act(async () => root.render(<TaskDialog state={openState({}, { viewerId: myRole === 'qa' ? 'q' : 's', myRole })} taskId="open" onClose={vi.fn()} />))
+      expect(document.querySelector('[aria-label="Assign someone"]')).toBeNull()
+    }
   } finally { await act(async () => root.unmount()); container.remove() }
 })
