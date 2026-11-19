@@ -382,6 +382,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   committed or merged any other way, is still held by its base. Re-running
   `file-pulls.sql` means re-running it afterwards. Code: `lib/general/fileHistory.ts`, `lib/api/fileHistory.ts`,
   `PutBackDialog`, `VersionDiff`. Suite: `supabase/tests/file-history.test.sql`.
+- Send to planner (`supabase/send-to-planner.sql`, after `file-history.sql`, before `anon-lockdown.sql`): in Plan & route
+  work the project manager (only) sends Planning tasks straight to themselves or an active coordinator through
+  `send_work_tasks_to_planner`, which releases and assigns in one call; the team is optional and needs no lead. It
+  redefines nothing; history reuses `sent_to_team` with `holder_id`. Suite: `supabase/tests/send-to-planner.test.sql`.
 
 ## First-run walkthroughs
 
