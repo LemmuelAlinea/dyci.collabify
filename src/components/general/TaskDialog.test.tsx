@@ -285,3 +285,13 @@ it('gives QA and stakeholders no holder picker in an open project', async () => 
     }
   } finally { await act(async () => root.unmount()); container.remove() }
 })
+
+it('also asks to reopen work in a stage after QA in an open project', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    const state = openState({ status: 'in_progress', stage: 3 })
+    await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, stages: ['Todo', 'Doing', 'Testing', 'Revision', 'Done'] } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
+    expect(document.querySelector('[aria-label="Assign someone"]')).toBeNull()
+    expect(document.body.textContent).toContain('Reopen it before changing who holds it.')
+  } finally { await act(async () => root.unmount()); container.remove() }
+})

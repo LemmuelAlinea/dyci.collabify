@@ -34,7 +34,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/general/dates'
 import { describeHistory } from '../../lib/general/history'
 import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stages'
-import { QA_PASSES, inQa } from '../../lib/work/qa'
+import { QA_PASSES, inQa, qaStageIndex } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
 import { PRIORITIES } from '../../lib/general/types'
@@ -264,7 +264,8 @@ function TaskBody({
   // except on work in QA or done, which reopens first (set_general_task_holders).
   const openFlow = work && !unsent && canSetHolders(state.myRole, state.project.taskFlow ?? 'planned', readOnly)
   const openLocked = openFlow && !task.archived_at && (task.status === 'done'
-    || Boolean(state.project.has_qa && inQa(task, stagesOf(state.project.stages), state.project.qa_stage)))
+    || Boolean(state.project.has_qa && stageIndex(task.status, task.stage, stagesOf(state.project.stages).length)
+      >= qaStageIndex(state.project.stages, state.project.qa_stage)))
   const oneHolder = state.project.taskRules?.allowMultipleAssignees === false
   const assignable = unsent ? [] : openFlow
     ? (openLocked || task.archived_at ? [] : holderCandidates(state.members, state.roleOf).filter((id) => !task.assignee_ids.includes(id)))

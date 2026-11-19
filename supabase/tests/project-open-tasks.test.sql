@@ -48,7 +48,7 @@ declare
   -- 1 pm, 2 coordinator, 3 member A, 4 member B, 5 qa, 6 stakeholder
   p uuid; q uuid; team uuid;
   t_plan1 uuid; t_plan2 uuid; t_review uuid; t_arch uuid;
-  t_open uuid; t_bare uuid; t_bug uuid; t_qa uuid; t_done uuid; t_rule uuid; t_direct uuid;
+  t_open uuid; t_bare uuid; t_bug uuid; t_qa uuid; t_done uuid; t_after uuid; t_rule uuid; t_direct uuid; t_stage uuid; e_rule uuid;
   n int; pl int; rv int;
 begin
   for k in 1..6 loop
@@ -69,7 +69,7 @@ begin
     (p, u[2], 'coordinator'), (p, u[3], 'member'), (p, u[4], 'member'), (p, u[5], 'qa'), (p, u[6], 'stakeholder'),
     (q, u[3], 'member'), (q, u[4], 'member');
   update public.general_projects
-     set stages = array['To do', 'Doing', 'Testing', 'Done'], qa_stage = 'Testing',
+     set stages = array['To do', 'Doing', 'Testing', 'Revision', 'Done'], qa_stage = 'Testing',
          default_stage = 1, require_assignee = true
    where id = p;
   insert into public.general_teams(project_id, name) values(p, 'Zz team') returning id into team;
@@ -134,13 +134,13 @@ begin
     exists(select 1 from public.notifications where user_id = u[4] and general_task_id = t_open
              and type = 'general_task_assigned'));
   perform pg_temp.check('holder lands at default stage',
-    (select public.general_task_stage_at(status, stage, 4) = 1 from public.general_tasks where id = t_open));
+    (select public.general_task_stage_at(status, stage, 5) = 1 from public.general_tasks where id = t_open));
 
   perform pg_temp.act_as(u[3]);
   t_bare := public.create_general_open_task(p, 'Zz bare', '', null, null, null, null, 'task', '{}'::uuid[]);
   perform pg_temp.service();
   perform pg_temp.check('no holder stays first stage',
-    (select public.general_task_stage_at(status, stage, 4) = 0 and priority = 'normal'
+    (select public.general_task_stage_at(status, stage, 5) = 0 and priority = 'normal'
        from public.general_tasks where id = t_bare));
 
   perform pg_temp.act_as(u[3]);
@@ -163,6 +163,18 @@ begin
   perform public.set_general_task_holders(t_bare, '{}'::uuid[]);
   perform pg_temp.check('member clears holders',
     not exists(select 1 from public.general_task_assignees where task_id = t_bare));
+
+  -- A rule's earlier assign row (no actor) keeps its null actor through a later change.
+  perform pg_temp.service();
+  insert into public.general_task_events(task_id, project_id, actor_id, kind, detail)
+    values(t_bare, p, null, 'assigned', jsonb_build_object('user_id', u[3])) returning id into e_rule;
+  perform pg_temp.act_as(u[4]);
+  perform public.set_general_task_holders(t_bare, array[u[4]]);
+  perform public.set_general_task_holders(t_bare, '{}'::uuid[]);
+  perform pg_temp.service();
+  perform pg_temp.check('older rule rows keep their null actor',
+    (select actor_id is null from public.general_task_events where id = e_rule));
+  perform pg_temp.act_as(u[4]);
 
   perform pg_temp.refuse('start after due refused',
     format('select public.create_general_open_task(%L, %L, %L, %L, %L, null, null, %L, %L::uuid[])',
@@ -205,24 +217,40 @@ begin
   perform pg_temp.act_as(u[1]);
   t_qa := public.create_general_open_task(p, 'Zz in qa', '', null, null, null, null, 'task', array[u[4]]);
   t_done := public.create_general_open_task(p, 'Zz done', '', null, null, null, null, 'task', array[u[4]]);
+  t_after := public.create_general_open_task(p, 'Zz after qa', '', null, null, null, null, 'task', array[u[4]]);
   update public.general_tasks set stage = 2, status = 'in_progress' where id = t_qa;
-  update public.general_tasks set stage = 3, status = 'done' where id = t_done;
+  update public.general_tasks set stage = 4, status = 'done' where id = t_done;
+  update public.general_tasks set stage = 3, status = 'in_progress' where id = t_after;
   perform pg_temp.act_as(u[3]);
   perform pg_temp.refuse('holders refused in QA',
     format('select public.set_general_task_holders(%L, %L::uuid[])', t_qa, array[u[3]]), 'Reopen it before changing who holds it');
   perform pg_temp.refuse('holders refused when done',
     format('select public.set_general_task_holders(%L, %L::uuid[])', t_done, array[u[3]]), 'Reopen it before changing who holds it');
+  perform pg_temp.refuse('holders refused after the QA stage',
+    format('select public.set_general_task_holders(%L, %L::uuid[])', t_after, array[u[3]]), 'Reopen it before changing who holds it');
 
   -- The QA gate still holds for a Member holding the task.
   perform pg_temp.act_as(u[3]);
   perform pg_temp.refuse('QA gate holds',
-    format('update public.general_tasks set stage = 3, status = %L where id = %L', 'done', t_open), 'Only QA or the project manager');
+    format('update public.general_tasks set stage = 4, status = %L where id = %L', 'done', t_open), 'Only QA or the project manager');
 
   -- The planned project refuses the open calls.
   perform pg_temp.act_as(u[3]);
   perform pg_temp.refuse('planned project refuses open create',
     format('select public.create_general_open_task(%L, %L, %L, null, null, null, null, %L, %L::uuid[])',
       q, 'Zz planned', '', 'task', '{}'), 'This project uses planned handoff');
+
+  -- Placing a held task at the default stage fires no stage rule, as a release wouldn't.
+  perform pg_temp.service();
+  insert into public.general_workflow_rules(project_id, position, trigger_kind, trigger_stage, action_kind, action_priority, created_by)
+    values(p, 1, 'stage_entered', 'Doing', 'set_priority', 'low', u[1]);
+  perform pg_temp.act_as(u[3]);
+  t_stage := public.create_general_open_task(p, 'Zz stage rule', '', null, null, null, 'high', 'task', array[u[4]]);
+  perform pg_temp.service();
+  perform pg_temp.check('default stage fires no stage rule',
+    (select priority = 'high' and public.general_task_stage_at(status, stage, 5) = 1 from public.general_tasks where id = t_stage)
+    and not exists(select 1 from public.general_task_events where task_id = t_stage and kind = 'rule_applied'));
+  delete from public.general_workflow_rules where project_id = p;
 
   -- A "when a task is sent" rule covers open-created tasks.
   perform pg_temp.service();

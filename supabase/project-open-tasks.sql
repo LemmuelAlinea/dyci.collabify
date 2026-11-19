@@ -192,6 +192,7 @@ declare
   d int;
   prior_claims text := current_setting('request.jwt.claims', true);
   prior_sub    text := current_setting('request.jwt.claim.sub', true);
+  prior_rule_run text := coalesce(current_setting('collabify.workflow_rule_run', true), 'off');
 begin
   select * into gp from public.general_projects where id = p_project for share;
   if v_role not in ('pm', 'coordinator', 'member', 'qa') then
@@ -247,16 +248,22 @@ begin
     -- with holders it moves on to the default stage, as a released insert would.
     if cardinality(v_holders) > 0 and d > 0
        and (select public.general_task_stage_at(t.status, t.stage, n) = 0 from public.general_tasks t where t.id = v_id) then
+      -- A release fires only the "sent" rules (run below), never the stage it lands in.
+      perform set_config('collabify.workflow_rule_run', 'on', true);
       update public.general_tasks set stage = d where id = v_id;
+      perform set_config('collabify.workflow_rule_run', prior_rule_run, true);
     end if;
     perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
     perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
   exception when others then
+    perform set_config('collabify.workflow_rule_run', prior_rule_run, true);
     perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
     perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
     raise;
   end;
-  update public.general_task_events set actor_id = me where task_id = v_id and actor_id is null;
+  -- The caller's own writes, not any rule's.
+  update public.general_task_events set actor_id = me
+   where task_id = v_id and actor_id is null and kind in ('created', 'updated', 'assigned');
 
   -- The release trigger fires on an update into released only; this task was born live.
   perform public.run_general_workflow_rules(v_id, 'task_released', me);
@@ -276,6 +283,7 @@ declare
   gp public.general_projects%rowtype;
   v_role public.general_role;
   v_holders uuid[];
+  v_prior uuid[];
   n int;
   idx int;
   prior_claims text := current_setting('request.jwt.claims', true);
@@ -299,10 +307,13 @@ begin
   n := public.stage_count(gp.stages);
   idx := public.general_task_stage_at(t.status, t.stage, n);
   if t.status = 'done'
-     or (public.general_project_has_qa(gp.id) and idx = public.general_qa_stage_pick(gp.stages, gp.qa_stage)) then
+     or (public.general_project_has_qa(gp.id) and idx >= public.general_qa_stage_pick(gp.stages, gp.qa_stage)) then
     raise exception 'Reopen it before changing who holds it.' using errcode = 'check_violation';
   end if;
   v_holders := public.general_open_task_holders(t.project_id, p_holders);
+  -- Rows without an actor from before this call (a rule's assign) keep it.
+  select coalesce(array_agg(e.id), '{}') into v_prior from public.general_task_events e
+   where e.task_id = t.id and e.actor_id is null;
 
   begin
     perform set_config('request.jwt.claims', '', true);
@@ -319,7 +330,7 @@ begin
     raise;
   end;
   update public.general_task_events set actor_id = me
-   where task_id = t.id and actor_id is null and kind in ('assigned', 'unassigned');
+   where task_id = t.id and actor_id is null and kind in ('assigned', 'unassigned') and id <> all(v_prior);
 end $$;
 
 -- ---------------------------------------------------------------- grants

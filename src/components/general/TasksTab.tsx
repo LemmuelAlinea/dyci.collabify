@@ -853,7 +853,8 @@ export function NewTaskDialog({
   const isOpen = work && project?.taskFlow === 'open'
   // A planned project's Member sends a plain task to the planners; it starts in planning and they cannot read it back.
   const isMember = work && !isOpen && state.myRole === 'member'
-  const showPriority = work && !isMember
+  // A planned project's QA bug goes to the planners, who set its priority.
+  const showPriority = work && !isMember && (isOpen || !isQa)
   const showHolders = isOpen && !isQa
   const rules = project?.taskRules ?? DEFAULT_TASK_RULES
   const priority: TaskPriority = pickedPriority || rules.defaultPriority

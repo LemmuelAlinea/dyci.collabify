@@ -151,3 +151,11 @@ it('lets a Member add tasks in an open project without the create-tasks switch',
   await act(async () => button('Add task')!.click())
   expect(createOpenTask).toHaveBeenCalled()
 })
+
+it('gives QA no priority in a planned project', async () => {
+  await open(makeState('qa', { taskFlow: 'planned' }))
+  expect(control('Priority')).toBeNull()
+  await act(async () => type(control('Title')!, 'Bug'))
+  await act(async () => button('Add task')!.click())
+  expect(vi.mocked(createTask).mock.calls[0][0]).not.toHaveProperty('priority')
+})

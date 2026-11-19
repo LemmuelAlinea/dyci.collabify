@@ -391,7 +391,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   manager through `set_general_task_flow` (Settings → Tasks); a switch to open releases live top-level planning and
   review tasks (`sent_to_team` rows), a switch back moves nothing. In an open project the project manager,
   coordinators and Members add live tasks with `create_general_open_task` (priority, holders; QA bugs only, no
-  holders) and set any live task's holders with `set_general_task_holders` (not in an active QA stage or Done). Both
+  holders) and set any live task's holders with `set_general_task_holders` (not at or after an active QA stage, nor Done). Both
   write with claims cleared and redefine no guard, so edit rights don't widen. Open-created tasks keep `sent_at` null,
   so their creator keeps the creator rule. Plan & route shows in an open project only while work waits in planning
   (`showsRouting`). Suite: `supabase/tests/project-open-tasks.test.sql`.
