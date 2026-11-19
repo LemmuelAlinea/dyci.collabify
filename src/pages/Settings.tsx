@@ -6,6 +6,7 @@ import { DirectoryHero } from '../components/app/DirectoryHero'
 import { ColorCustomizer } from '../components/settings/ColorCustomizer'
 import { DevicePush } from '../components/settings/DevicePush'
 import { ChimeSetting } from '../components/settings/ChimeSetting'
+import { ActiveStatusSetting } from '../components/settings/ActiveStatusSetting'
 import { PageZoom } from '../components/settings/PageZoom'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Field, Input, Toggle } from '../components/ui/Field'
@@ -450,6 +451,7 @@ export default function Settings() {
               </div>
             </form>
           </div>
+          <ActiveStatusSetting />
           </Section>
 
           <Section
