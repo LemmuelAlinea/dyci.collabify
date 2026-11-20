@@ -74,9 +74,9 @@ export function CallChat({ meetingId, readOnly, onClose, compact = false }: {
     finally { setBusy(false) }
   }
 
-  return <aside aria-label="Meeting chat" className={`flex min-h-72 w-full flex-col rounded-xl border border-line surface ${compact ? '' : 'md:w-80'}`}>
+  return <aside aria-label="Meeting chat" className={`flex w-full flex-col rounded-xl border border-line surface ${compact ? 'min-h-72' : 'h-full min-h-0 md:w-80'}`}>
     <div className="flex items-center justify-between border-b border-line px-4 py-3"><h2 className="font-semibold text-ink">Chat</h2>{onClose && <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>}</div>
-    <div ref={scroll} className="max-h-96 min-h-48 flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite">
+    <div ref={scroll} className={`${compact ? 'max-h-96 min-h-48' : 'min-h-0'} flex-1 space-y-3 overflow-y-auto p-4`} aria-live="polite">
       {older && <button className="text-xs text-navy-600 hover:underline" onClick={() => void loadOlder()}>Load older messages</button>}
       {messages.map((message) => <div key={message.id} className="text-sm">
         <p className="flex gap-2 text-xs text-muted"><span className="font-semibold text-ink">{[message.sender?.first_name, message.sender?.last_name].filter(Boolean).join(' ') || 'Former member'}</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</time></p>

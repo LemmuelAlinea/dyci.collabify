@@ -38,9 +38,7 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
   const handRaised = useParticipantAttribute('collabify.hand', { participant: local.localParticipant }) === '1'
   const hostMuted = Boolean(permissions?.canPublishSources?.length &&
     !permissions.canPublishSources.includes(TrackSource.MICROPHONE))
-  const [settings, setSettings] = useState(false)
-  const [people, setPeople] = useState(false)
-  const [chat, setChat] = useState(false)
+  const [panel, setPanel] = useState<'settings' | 'people' | 'chat' | null>(null)
 
   async function moderate(action: ModerationAction, targetId?: string) {
     try {
@@ -75,20 +73,22 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
     </div>
     {meeting.started_at && Date.parse(meeting.started_at) + 8 * 3_600_000 - now <= 10 * 60_000 &&
       <p role="status" className="rounded-lg bg-warning-500/15 px-3 py-2 text-sm text-warning-700">This call will end at the eight-hour limit soon.</p>}
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 md:flex-row">
+    <div className={`flex min-h-0 min-w-0 flex-1 ${panel === 'chat' ? 'md:pr-[21rem]' : ''}`}>
       <CallStage />
-      {settings && <CallSettings room={room} choices={choices} onChange={setChoices} onClose={() => setSettings(false)} />}
-      {people && <CallPeople canHost={canHost} locked={Boolean(meeting.locked_at)} onAction={(action, target) => void moderate(action, target)} onClose={() => setPeople(false)} />}
-      {chat && <CallChat key={meeting.id} meetingId={meeting.id} readOnly={meeting.call_state !== 'live'} onClose={() => setChat(false)} />}
     </div>
+    {panel === 'chat' && <div className="fixed right-3 bottom-[5rem] top-[calc(var(--app-bar,52px)+1rem)] z-30 w-[min(20rem,calc(100vw-1.5rem))]">
+      <CallChat key={meeting.id} meetingId={meeting.id} readOnly={meeting.call_state !== 'live'} onClose={() => setPanel(null)} />
+    </div>}
     <CallControls microphone={local.isMicrophoneEnabled} camera={local.isCameraEnabled} screen={local.isScreenShareEnabled}
       hostMuted={hostMuted} handRaised={handRaised}
       onMicrophone={(enabled) => { void room.localParticipant.setMicrophoneEnabled(enabled).catch(() => onError('Microphone is unavailable.')) }}
       onCamera={(enabled) => { void room.localParticipant.setCameraEnabled(enabled).catch(() => onError('Camera is unavailable.')) }}
       onScreen={(enabled) => { void room.localParticipant.setScreenShareEnabled(enabled).catch(() => onError('Screen sharing was cancelled or unavailable.')) }}
-      onSettings={() => setSettings((value) => !value)}
-      onPeople={() => setPeople((value) => !value)}
-      onChat={() => setChat((value) => !value)}
+      settingsPanel={panel === 'settings' && <CallSettings room={room} choices={choices} onChange={setChoices} onClose={() => setPanel(null)} />}
+      peoplePanel={panel === 'people' && <CallPeople canHost={canHost} locked={Boolean(meeting.locked_at)} onAction={(action, target) => void moderate(action, target)} onClose={() => setPanel(null)} />}
+      onSettings={() => setPanel((current) => current === 'settings' ? null : 'settings')}
+      onPeople={() => setPanel((current) => current === 'people' ? null : 'people')}
+      onChat={() => setPanel((current) => current === 'chat' ? null : 'chat')}
       onHand={() => void room.localParticipant.setAttributes({ 'collabify.hand': handRaised ? '' : '1' }).catch(() => onError('Could not change your raised hand.'))}
       onCopy={() => void navigator.clipboard.writeText(`${window.location.origin}${paths.meetingCall(meeting.id)}`)}
       onLeave={onLeave} />

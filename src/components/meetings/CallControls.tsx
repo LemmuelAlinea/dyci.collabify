@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
@@ -8,7 +9,7 @@ export function pushToTalkAllowed(target: EventTarget | null) {
     (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName)))
 }
 
-export function CallControls({ microphone, camera, screen, hostMuted, handRaised = false, onMicrophone, onCamera, onScreen, onLeave, onSettings, onCopy, onPeople, onHand, onChat }: {
+export function CallControls({ microphone, camera, screen, hostMuted, handRaised = false, onMicrophone, onCamera, onScreen, onLeave, onSettings, onCopy, onPeople, onHand, onChat, settingsPanel, peoplePanel }: {
   microphone: boolean
   camera: boolean
   screen: boolean
@@ -23,6 +24,8 @@ export function CallControls({ microphone, camera, screen, hostMuted, handRaised
   onPeople?: () => void
   onHand?: () => void
   onChat?: () => void
+  settingsPanel?: ReactNode
+  peoplePanel?: ReactNode
 }) {
   const [push, setPush] = useState(false)
   const held = useRef(false)
@@ -58,8 +61,8 @@ export function CallControls({ microphone, camera, screen, hostMuted, handRaised
     }
   })
 
-  const control = (label: string, icon: IconName, action: () => void, disabled = false, pressed?: boolean) =>
-    <Button variant="outline" size="sm" className="!h-10 !w-10 !rounded-full !p-0" disabled={disabled}
+  const control = (label: string, icon: IconName, action: () => void, disabled = false, pressed?: boolean, variant: 'outline' | 'danger' = 'outline') =>
+    <Button variant={variant} size="sm" className="!h-10 !w-10 !rounded-full !p-0" disabled={disabled}
       onClick={action} aria-label={label} title={label} aria-pressed={pressed}><Icon name={icon} size={19} /></Button>
 
   return <div role="toolbar" aria-label="Call controls" className="fixed inset-x-3 bottom-3 z-40 mx-auto flex w-max max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-center gap-2 rounded-2xl border border-line surface p-2 shadow-lift">
@@ -71,11 +74,15 @@ export function CallControls({ microphone, camera, screen, hostMuted, handRaised
     </button>
     {control(camera ? 'Turn off camera' : 'Turn on camera', camera ? 'video' : 'videoOff', () => onCamera(!camera), false, camera)}
     {control(screen ? 'Stop sharing' : 'Share screen', 'monitor', () => onScreen(!screen), false, screen)}
-    {control('Settings', 'settings', onSettings)}
-    {onPeople && control('People', 'users', onPeople)}
+    <div className="relative">{control('Settings', 'settings', onSettings, false, Boolean(settingsPanel))}
+      {settingsPanel && <div className="absolute bottom-full right-0 z-50 mb-2 max-h-[calc(100dvh-7rem)] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl shadow-lift">{settingsPanel}</div>}
+    </div>
+    {onPeople && <div className="relative">{control('People', 'users', onPeople, false, Boolean(peoplePanel))}
+      {peoplePanel && <div className="absolute bottom-full left-0 z-50 mb-2 max-h-[calc(100dvh-7rem)] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl shadow-lift md:right-0 md:left-auto">{peoplePanel}</div>}
+    </div>}
     {onChat && control('Chat', 'message', onChat)}
     {onHand && control(handRaised ? 'Lower hand' : 'Raise hand', 'hand', onHand, false, handRaised)}
     {control('Copy link', 'copy', onCopy)}
-    {control('Leave', 'logout', onLeave)}
+    {control('Leave', 'logout', onLeave, false, undefined, 'danger')}
   </div>
 }

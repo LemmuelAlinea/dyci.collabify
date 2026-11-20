@@ -32,6 +32,7 @@ it('shows microphone and camera controls', async () => {
   expect(host.querySelector('[role="toolbar"]')?.classList.contains('fixed')).toBe(true)
   expect(button('Turn on camera').title).toBe('Turn on camera')
   expect(button('Turn on camera').textContent).toBe('')
+  expect(button('Leave').classList.contains('bg-destructive-600')).toBe(true)
   await act(async () => button('Turn on microphone').click())
   await act(async () => button('Turn on camera').click())
   expect(microphone).toHaveBeenCalledWith(true)

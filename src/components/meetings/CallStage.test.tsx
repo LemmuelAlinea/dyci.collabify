@@ -47,6 +47,7 @@ it('keeps other participants beside a pin and restores grid when unpinned', asyn
   expect(host.querySelectorAll('.aspect-video')).toHaveLength(2)
   await act(async () => (host.querySelector('[aria-label="Pin Member Two"]') as HTMLButtonElement).click())
   expect(host.querySelector('[aria-label="Featured video"]')?.textContent).toContain('Member Two video')
+  expect(host.querySelector('[aria-label="Featured video"]')?.parentElement?.className).toContain('lg:h-[clamp(10rem,calc(100dvh-18rem),36rem)]')
   expect(host.querySelector('[aria-label="Other participants"]')?.textContent).toContain('Member One')
   expect(host.querySelector('[aria-label="Featured video"]')?.querySelector('.border-2')).not.toBeNull()
   expect(host.querySelector('[aria-label="Other participants"]')?.querySelector('.border-2')).not.toBeNull()

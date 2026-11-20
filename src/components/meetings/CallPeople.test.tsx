@@ -38,6 +38,7 @@ it('shows raised hands first and hides moderation from a nonhost', async () => {
 it('lets a host clear a raised hand', async () => {
   const action = vi.fn()
   await show(true, action)
+  expect([...host.querySelectorAll('button')].find((button) => button.textContent === 'End for everyone')?.classList.contains('bg-destructive-600')).toBe(true)
   const lower = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Lower hand')!
   await act(async () => lower.click())
   expect(action).toHaveBeenCalledWith('clear_hand', 'two')

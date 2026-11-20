@@ -26,7 +26,7 @@ export function CallPeople({ canHost, locked, onAction, onClose }: {
     {locked && <p className="text-xs text-muted">The room is locked to new participants.</p>}
     {canHost && <div className="flex flex-wrap gap-2">
       <Button variant="outline" size="sm" onClick={() => onAction(locked ? 'unlock' : 'lock')}>{locked ? 'Unlock room' : 'Lock room'}</Button>
-      <Button variant="outline" size="sm" onClick={() => { if (window.confirm('End this call for everyone?')) onAction('end') }}>End for everyone</Button>
+      <Button variant="danger" size="sm" onClick={() => { if (window.confirm('End this call for everyone?')) onAction('end') }}>End for everyone</Button>
     </div>}
     <ul className="max-h-[55vh] space-y-2 overflow-auto">
       {people.map((person) => <li key={person.identity} className="rounded-lg surface-sunken p-2 text-sm">

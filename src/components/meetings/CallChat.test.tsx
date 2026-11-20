@@ -31,3 +31,10 @@ it('keeps ended-call history readable as text without a send form', async () => 
   expect(host.querySelector('img')).toBeNull()
   expect(host.querySelector('input[aria-label="Message"]')).toBeNull()
 })
+
+it('fills a fixed live-call panel while messages scroll inside it', async () => {
+  await act(async () => root.render(<CallChat meetingId="meeting" readOnly={false} />))
+  expect(host.querySelector('[aria-label="Meeting chat"]')?.classList.contains('h-full')).toBe(true)
+  expect(host.querySelector('[aria-live="polite"]')?.classList.contains('min-h-0')).toBe(true)
+  expect(host.querySelector('[aria-live="polite"]')?.classList.contains('max-h-96')).toBe(false)
+})
