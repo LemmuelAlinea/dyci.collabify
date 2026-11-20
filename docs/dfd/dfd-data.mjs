@@ -93,16 +93,16 @@ export function level1(makeDiagram) {
   const right = (c) => X[c] + 8
   const px = (c) => X[c] - PW / 2
 
-  const P1 = d.process('P1', '1.0', 'Manage accounts and access', px(0), TOP, PW, PH)
-  const P2 = d.process('P2', '2.0', 'Administer organization and compliance', px(1), TOP, PW, PH)
-  const P3 = d.process('P3', '3.0', 'Manage classes and groups', px(2), TOP, PW, PH)
-  const P4 = d.process('P4', '4.0', 'Run class projects and grading', px(3), TOP, PW, PH)
-  const P5 = d.process('P5', '5.0', 'Produce reports and analytics', px(4), TOP, PW, PH)
-  const P6 = d.process('P6', '6.0', 'Communicate and meet', px(0), BOT, PW, PH)
-  const P7 = d.process('P7', '7.0', 'Send notifications and reminders', px(1), BOT, PW, PH)
-  const P8 = d.process('P8', '8.0', 'Manage work spaces and projects', px(2), BOT, PW, PH)
-  const P9 = d.process('P9', '9.0', 'Plan, assign and track tasks', px(3), BOT, PW, PH)
-  const P10 = d.process('P10', '10.0', 'Manage files and reviews', px(4), BOT, PW, PH)
+  d.process('P1', '1.0', 'Manage accounts and access', px(0), TOP, PW, PH)
+  d.process('P2', '2.0', 'Administer organization and compliance', px(1), TOP, PW, PH)
+  d.process('P3', '3.0', 'Manage classes and groups', px(2), TOP, PW, PH)
+  d.process('P4', '4.0', 'Run class projects and grading', px(3), TOP, PW, PH)
+  d.process('P5', '5.0', 'Produce reports and analytics', px(4), TOP, PW, PH)
+  d.process('P6', '6.0', 'Communicate and meet', px(0), BOT, PW, PH)
+  d.process('P7', '7.0', 'Send notifications and reminders', px(1), BOT, PW, PH)
+  d.process('P8', '8.0', 'Manage work spaces and projects', px(2), BOT, PW, PH)
+  d.process('P9', '9.0', 'Plan, assign and track tasks', px(3), BOT, PW, PH)
+  d.process('P10', '10.0', 'Manage files and reviews', px(4), BOT, PW, PH)
 
   d.store('D1', 'D1', 'Accounts', left(0), SY, SW, SH)
   d.store('D8', 'D8', 'Messages and meetings', right(0), SY, SW, SH)

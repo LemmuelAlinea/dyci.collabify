@@ -76,6 +76,7 @@ export function buildClassBrief(
 
 /** The brief's rows, read through the caller's token; null when the project is not theirs to read. */
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function readClassBrief(caller: { from: (table: string) => any }, projectId: string): Promise<ClassBriefData | null> {
   const { data: project } = await caller
     .from('project_overview')

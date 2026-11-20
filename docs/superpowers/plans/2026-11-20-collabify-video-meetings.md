@@ -202,7 +202,7 @@
 - [x] **Step 4: Implement metadata, Egress and deletion.** Host actions request Egress using server-side S3 credentials; verified webhooks update status idempotently. Use a private bucket, audience-checked playback URL issuance with a maximum 60-second lifetime, and a daily Storage-API deletion job that removes metadata only after bytes are gone. No recording starts before the host confirms. Keep a failed row as an error for hosts to see, never as a playable item.
 - [x] **Step 5: Build recording UI.** Show a persistent in-call recording indicator and notification to late joiners; offer Start/Stop only to hosts, with confirmation. Meeting detail shows processing/ready/failed segments and their expiry, with no recording after expiry. Renew the short playback URL through the audience check during playback so long recordings continue. Keep chat after recordings expire.
 - [ ] **Step 6: Verify.** Apply SQL and `anon-lockdown.sql`; run `meeting-calls.test.sql`, `anon-lockdown.test.sql`, `npm run build`; browser-check recording start/stop/resume, two segments, playback by a member, refusal for a nonmember, Egress failure, and a clock-controlled expiry/deletion retry. Expected: no public object or broken playable link.
-- [ ] **Step 7: Review and commit named files.** Subject: `Record Collabify meetings privately`.
+- [x] **Step 7: Review and commit named files.** Subject: `Record Collabify meetings privately` (`8f0bbdbf`). Browser checks in Step 6 remain for Task 9.
 
 ### Task 9: End-to-end release and handoff
 
