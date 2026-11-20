@@ -114,7 +114,7 @@ export default function CallRoom() {
     if (!choices) return
     try { localStorage.setItem('collabify.call-choices', JSON.stringify({
       cameraId: choices.cameraId, microphoneId: choices.microphoneId,
-      speakerId: choices.speakerId, background: choices.background === 'blur' ? 'blur' : 'off',
+      speakerId: choices.speakerId, background: choices.background,
     })) } catch { /* Storage may be disabled. */ }
   }, [choices])
 

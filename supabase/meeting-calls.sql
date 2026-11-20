@@ -23,6 +23,39 @@ alter table public.meetings add column if not exists started_by uuid references 
 alter table public.meetings add column if not exists ended_at timestamptz;
 alter table public.meetings add column if not exists locked_at timestamptz;
 alter table public.meetings add column if not exists empty_since timestamptz;
+alter table public.meetings add column if not exists request_key uuid;
+create unique index if not exists meetings_request_key_unique on public.meetings(request_key)
+  where request_key is not null;
+
+create or replace function public.create_collabify_meeting_once(
+  p_scope public.meeting_scope, p_audience uuid, p_title text, p_agenda text,
+  p_duration_min integer, p_request_key uuid
+)
+returns public.meetings language plpgsql security definer set search_path = public as $$
+declare
+  m public.meetings;
+  previous_instant text := current_setting('app.meeting_instant', true);
+begin
+  if auth.uid() is null or p_request_key is null then
+    raise exception 'Sign in to start a meeting.' using errcode = 'insufficient_privilege';
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_request_key::text, 73));
+  select * into m from public.meetings where request_key = p_request_key;
+  if found then
+    if m.created_by is distinct from auth.uid()
+       or not public.meeting_call_member_for(m, auth.uid()) then
+      raise exception 'This meeting is unavailable to you.' using errcode = 'insufficient_privilege';
+    end if;
+    return m;
+  end if;
+  perform set_config('app.meeting_instant', 'true', true);
+  m := public.create_meeting(p_scope, p_audience, p_title, p_agenda,
+                             null, now(), p_duration_min);
+  perform set_config('app.meeting_instant', coalesce(previous_instant, ''), true);
+  update public.meetings set request_key = p_request_key where id = m.id returning * into m;
+  return m;
+end;
+$$;
 
 update public.meetings set call_state = 'scheduled'
  where platform = 'collabify' and call_state is null;
@@ -103,6 +136,10 @@ declare
   actor uuid := coalesce(auth.uid(), new.created_by);
 begin
   if tg_op = 'INSERT' then
+    if new.platform = 'collabify'
+       and current_setting('app.meeting_instant', true) = 'true' then
+      return new;
+    end if;
     kind := 'meeting_scheduled';
     head := case when new.platform <> 'collabify' and new.starts_at <= now() + interval '1 minute'
                  then 'Meeting started: ' else 'Meeting: ' end || new.title;
@@ -512,6 +549,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 revoke all on function public.meeting_call_init() from public, anon, authenticated;
+revoke all on function public.create_collabify_meeting_once(public.meeting_scope,uuid,text,text,integer,uuid) from public, anon;
 revoke all on function public.meeting_call_host(public.meetings) from public, anon, authenticated;
 revoke all on function public.meeting_call_host_for(public.meetings,uuid) from public, anon, authenticated;
 revoke all on function public.meeting_call_member_for(public.meetings,uuid) from public, anon, authenticated;
@@ -520,6 +558,7 @@ revoke all on function public.begin_meeting_call(uuid) from public, anon;
 revoke all on function public.list_my_meetings_v2(timestamptz,timestamptz,integer) from public, anon;
 revoke all on function public.get_my_meeting_v2(uuid) from public, anon;
 grant execute on function public.meeting_call_access(uuid) to authenticated;
+grant execute on function public.create_collabify_meeting_once(public.meeting_scope,uuid,text,text,integer,uuid) to authenticated;
 grant execute on function public.begin_meeting_call(uuid) to authenticated;
 grant execute on function public.list_my_meetings_v2(timestamptz,timestamptz,integer) to authenticated;
 grant execute on function public.get_my_meeting_v2(uuid) to authenticated;

@@ -339,7 +339,7 @@ export default function Meetings() {
         startNow={scheduling === 'now'}
         callsEnabled={callsEnabled}
         onStartNow={(scope, audienceId, input) => navigate(paths.meetingStart, {
-          state: { draft: { scope, audienceId, input } },
+          state: { draft: { scope, audienceId, input, requestKey: crypto.randomUUID() } },
         })}
         onSaved={(id, platform, startNow) => {
           void load()

@@ -6,7 +6,7 @@ import type { MeetingInput } from '../../../lib/api/meetings'
 import type { MeetingScope } from '../../../lib/meetings'
 import { paths } from '../../../lib/paths'
 
-export type CallDraft = { scope: MeetingScope; audienceId: string; input: MeetingInput }
+export type CallDraft = { scope: MeetingScope; audienceId: string; input: MeetingInput; requestKey: string }
 
 export default function CallStart() {
   const location = useLocation()
@@ -15,7 +15,7 @@ export default function CallStart() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (!draft || draft.input.joinUrl !== null) return <div className="space-y-3 p-6">
+  if (!draft || draft.input.joinUrl !== null || !draft.requestKey) return <div className="space-y-3 p-6">
     <p>This meeting draft is unavailable.</p><Link to={paths.meetings}>Back to meetings</Link>
   </div>
 
@@ -25,7 +25,7 @@ export default function CallStart() {
       setBusy(true)
       setError(null)
       void createMeeting(draft.scope, draft.audienceId, {
-        ...draft.input, startsAt: new Date().toISOString(),
+        ...draft.input, startsAt: new Date().toISOString(), requestKey: draft.requestKey,
       }).then((meeting) => {
         navigate(paths.meetingCall(meeting.id), { replace: true, state: { startChoices: choices } })
       }).catch((err: unknown) => {

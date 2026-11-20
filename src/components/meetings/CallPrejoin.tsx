@@ -25,7 +25,8 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
     return {
       camera: false, microphone: false, cameraId: saved.cameraId || '',
       microphoneId: saved.microphoneId || '', speakerId: saved.speakerId || '',
-      background: saved.background === 'blur' ? 'blur' : 'off', photoUrl: '',
+      background: saved.background === 'blur' ? 'blur' : saved.background === 'photo' ? 'photo' : 'off',
+      photoUrl: saved.background === 'photo' ? '/video/call-background.png' : '',
     }
   })
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -40,7 +41,7 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
   useEffect(() => {
     try { localStorage.setItem('collabify.call-choices', JSON.stringify({
       cameraId: choices.cameraId, microphoneId: choices.microphoneId,
-      speakerId: choices.speakerId, background: choices.background === 'blur' ? 'blur' : 'off',
+      speakerId: choices.speakerId, background: choices.background,
     })) } catch { /* Storage may be disabled. */ }
   }, [choices.cameraId, choices.microphoneId, choices.speakerId, choices.background])
 
@@ -102,11 +103,14 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
       </div>
       <label className="block text-sm text-muted">Background
         <select className="mt-1 block w-full rounded-lg border border-line surface px-3 py-2 text-ink"
-          value={choices.background} onChange={(event) => setChoices((current) => ({ ...current, background: event.target.value as CallChoices['background'] }))}>
-          <option value="off">Off</option><option value="blur">Blur</option><option value="photo">Photo</option>
+          value={choices.background} onChange={(event) => setChoices((current) => ({ ...current,
+            background: event.target.value as CallChoices['background'],
+            photoUrl: event.target.value === 'photo' ? current.photoUrl || '/video/call-background.png' : current.photoUrl,
+          }))}>
+          <option value="off">Off</option><option value="blur">Blur</option><option value="photo">Study room photo</option>
         </select>
       </label>
-      {choices.background === 'photo' && <label className="block text-sm text-muted">Background photo
+      {choices.background === 'photo' && <label className="block text-sm text-muted">Use your own photo
         <input type="file" accept="image/*" className="mt-1 block w-full text-sm" onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) setChoices((current) => ({ ...current, photoUrl: URL.createObjectURL(file) }))

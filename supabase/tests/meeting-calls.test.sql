@@ -38,6 +38,11 @@ begin
     and not has_table_privilege('authenticated', 'public.meeting_call_messages', 'update')
     and not has_table_privilege('authenticated', 'public.meeting_call_messages', 'delete')
     and not has_table_privilege('authenticated', 'public.meeting_call_presence', 'select'));
+  perform pg_temp.must_be('instant creation is signed-in only',
+    not has_function_privilege('anon',
+      'public.create_collabify_meeting_once(public.meeting_scope,uuid,text,text,integer,uuid)', 'execute')
+    and has_function_privilege('authenticated',
+      'public.create_collabify_meeting_once(public.meeting_scope,uuid,text,text,integer,uuid)', 'execute'));
   perform set_config('role', 'authenticated', true);
   perform pg_temp.must_refuse('members cannot enable calls',
     'update public.organization_settings set meeting_calls_enabled = true where id');
@@ -134,6 +139,7 @@ declare
   group_a uuid := (select v from call_fx where k = 'group_a');
   group_b uuid := (select v from call_fx where k = 'group_b');
   m_class uuid; m_group uuid; m_space uuid; m_project uuid; m_space_team uuid; m_project_team uuid;
+  instant_id uuid; v_request_key uuid := gen_random_uuid();
 begin
   perform pg_temp.act_as(prof);
   m_class := (public.create_meeting('class', cls, 'Class call', '', null, now(), 60)).id;
@@ -198,6 +204,22 @@ begin
     exists (select 1 from public.meeting_call_access(m_project) where can_start and max_participants = 100));
   perform pg_temp.must_be('a scheduler is not automatically a host',
     exists (select 1 from public.meeting_call_access(m_project) where not can_host));
+  instant_id := (public.create_collabify_meeting_once('project',
+    (select v from call_fx where k = 'project'), 'Instant call', '', 60, v_request_key)).id;
+  perform pg_temp.must_be('retrying instant creation reuses one meeting',
+    instant_id = (public.create_collabify_meeting_once('project',
+      (select v from call_fx where k = 'project'), 'Instant call', '', 60, v_request_key)).id
+    and (select count(*) from public.meetings where request_key = v_request_key) = 1);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('instant prejoin sends no schedule notice before connection',
+    not exists (select 1 from public.notifications
+                 where meeting_id = instant_id and type = 'meeting_scheduled'));
+  perform pg_temp.act_as(stakeholder);
+  perform pg_temp.act_as(worker);
+  perform pg_temp.must_refuse('another member cannot reuse an instant meeting key',
+    format('select public.create_collabify_meeting_once(%L, %L, %L, %L, %s, %L)',
+      'project', (select v from call_fx where k = 'project'), 'Instant call', '', 60, v_request_key));
+  perform pg_temp.act_as(stakeholder);
   perform pg_temp.must_refuse('a nonmember cannot start a class call',
     format('select public.begin_meeting_call(%L)', m_class));
 end $$;

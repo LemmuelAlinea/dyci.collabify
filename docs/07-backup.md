@@ -1071,7 +1071,7 @@ write with the request's claims cleared. Re-running it is safe; re-run `anon-loc
 `meeting-calls.sql` runs after `project-open-tasks.sql` and before the final
 `anon-lockdown.sql`. It adds the disabled `organization_settings.meeting_calls_enabled`
 release flag, call lifecycle, access, v2 meeting readers and the one-minute
-reconciler, moderation bans, call presence and persistent chat. It is the final
+reconciler, retry-safe instant creation, moderation bans, call presence and persistent chat. It is the final
 owner of `meetings_notify`, so re-run it after `meetings.sql`. Recording storage
 and retention remain pending provider verification.
 `project-stakeholders.sql` remains the final owner of `create_meeting`,

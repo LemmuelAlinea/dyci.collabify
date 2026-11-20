@@ -59,8 +59,11 @@ export function CallSettings({ room, choices, onChange, onClose }: {
     {select('audiooutput', 'Speaker', 'speakerId')}
     <label className="block text-sm text-muted">Background
       <select value={choices.background} className="mt-1 block w-full rounded-lg border border-line surface px-3 py-2 text-ink"
-        onChange={(event) => void background({ ...choices, background: event.target.value as CallChoices['background'] })}>
-        <option value="off">Off</option><option value="blur">Blur</option><option value="photo">Photo</option>
+        onChange={(event) => void background({ ...choices,
+          background: event.target.value as CallChoices['background'],
+          photoUrl: event.target.value === 'photo' ? choices.photoUrl || '/video/call-background.png' : choices.photoUrl,
+        })}>
+        <option value="off">Off</option><option value="blur">Blur</option><option value="photo">Study room photo</option>
       </select>
     </label>
     {choices.background === 'photo' && <label className="block text-sm text-muted">Photo

@@ -23,7 +23,7 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove() })
 
 it('creates no meeting until Start is pressed in prejoin', async () => {
-  const draft = { scope: 'project', audienceId: 'project-1', input: {
+  const draft = { scope: 'project', audienceId: 'project-1', requestKey: '8e7f7bfc-eebf-4575-8e55-f314e2c3f08b', input: {
     title: 'Project sync', agenda: '', joinUrl: null, startsAt: '2020-01-01T00:00:00Z', durationMin: 60,
   } }
   await act(async () => root.render(<MemoryRouter initialEntries={[{ pathname: paths.meetingStart, state: { draft } }]}>
@@ -35,11 +35,12 @@ it('creates no meeting until Start is pressed in prejoin', async () => {
   await act(async () => start.click())
   expect(mock.create).toHaveBeenCalledOnce()
   expect(mock.create.mock.calls[0][2].startsAt).not.toBe('2020-01-01T00:00:00Z')
+  expect(mock.create.mock.calls[0][2].requestKey).toBe(draft.requestKey)
   expect(host.textContent).toContain('Call room')
 })
 
 it('leaves prejoin without creating or notifying anyone', async () => {
-  const draft = { scope: 'project', audienceId: 'project-1', input: {
+  const draft = { scope: 'project', audienceId: 'project-1', requestKey: '8e7f7bfc-eebf-4575-8e55-f314e2c3f08b', input: {
     title: 'Project sync', agenda: '', joinUrl: null, startsAt: '2026-11-20T10:00:00Z', durationMin: 60,
   } }
   await act(async () => root.render(<MemoryRouter initialEntries={[{ pathname: paths.meetingStart, state: { draft } }]}>

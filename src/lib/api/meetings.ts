@@ -48,18 +48,19 @@ export type MeetingInput = {
   joinUrl: string | null
   startsAt: string
   durationMin: number
+  requestKey?: string
 }
 
 export async function createMeeting(scope: MeetingScope, audienceId: string, input: MeetingInput) {
-  const { data, error } = await supabase.rpc('create_meeting', {
-    p_scope: scope,
-    p_audience: audienceId,
-    p_title: input.title,
-    p_agenda: input.agenda,
-    p_join_url: input.joinUrl,
-    p_starts_at: input.startsAt,
-    p_duration_min: input.durationMin,
-  })
+  const { data, error } = input.requestKey
+    ? await supabase.rpc('create_collabify_meeting_once', {
+      p_scope: scope, p_audience: audienceId, p_title: input.title, p_agenda: input.agenda,
+      p_duration_min: input.durationMin, p_request_key: input.requestKey,
+    })
+    : await supabase.rpc('create_meeting', {
+      p_scope: scope, p_audience: audienceId, p_title: input.title, p_agenda: input.agenda,
+      p_join_url: input.joinUrl, p_starts_at: input.startsAt, p_duration_min: input.durationMin,
+    })
   if (error) throw error
   return data as { id: string }
 }
