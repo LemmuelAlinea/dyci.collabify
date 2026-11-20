@@ -36,7 +36,7 @@ export function CallRecording({ meetingId, canHost, inCall = false }: {
     const stopping = active?.status === 'recording'
     const message = stopping
       ? 'Stop recording this call? The video will be available to its current audience for 30 days.'
-      : 'Start recording? Everyone in this call will see a recording notice. The video will be available to its current audience for 30 days.'
+      : 'Start recording? This call’s audio, video and screen shares may be captured. Everyone in the call will see a notice. Current meeting members can watch the video for 30 days.'
     if (!window.confirm(message)) return
     setBusy(true)
     try {
@@ -69,8 +69,9 @@ export function CallRecording({ meetingId, canHost, inCall = false }: {
   }, [playing, renew])
 
   if (inCall) return <div className="flex flex-wrap items-center gap-2 text-sm">
-    {active ? <span role="status" className="rounded-full bg-danger-500/15 px-3 py-1 font-medium text-danger-700 dark:text-danger-300">
-      {active.status === 'starting' ? 'Starting recording…' : 'Recording in progress'}
+    {active ? <span role="status" className="rounded-lg bg-danger-500/15 px-3 py-2 text-danger-700 dark:text-danger-300">
+      <strong>{active.status === 'starting' ? 'Starting recording…' : 'Recording in progress'}</strong>
+      <span className="block text-xs">Audio, video and screen shares may be captured. Current meeting members can watch for 30 days.</span>
     </span> : rows.some((row) => row.status === 'processing') ? <span role="status" className="text-muted">Recording is processing.</span> : null}
     {canHost && <Button size="sm" variant="outline" onClick={() => void change()} loading={busy} disabled={active?.status === 'starting'}>
       {active ? 'Stop recording' : 'Start recording'}

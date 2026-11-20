@@ -30,6 +30,7 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi
 it('shows the recording notice to everyone but only a host can stop it', async () => {
   await act(async () => root.render(<CallRecording meetingId="meeting-1" canHost={false} inCall />))
   expect(host.textContent).toContain('Recording in progress')
+  expect(host.textContent).toContain('Audio, video and screen shares may be captured.')
   expect(host.textContent).not.toContain('Stop recording')
   await act(async () => root.render(<CallRecording meetingId="meeting-1" canHost inCall />))
   vi.stubGlobal('confirm', vi.fn(() => true))
