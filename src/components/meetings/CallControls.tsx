@@ -74,13 +74,13 @@ export function CallControls({ microphone, camera, screen, hostMuted, handRaised
     </button>
     {control(camera ? 'Turn off camera' : 'Turn on camera', camera ? 'video' : 'videoOff', () => onCamera(!camera), false, camera)}
     {control(screen ? 'Stop sharing' : 'Share screen', 'monitor', () => onScreen(!screen), false, screen)}
-    <div className="relative">{control('Settings', 'settings', onSettings, false, Boolean(settingsPanel))}
-      {settingsPanel && <div className="absolute bottom-full right-0 z-50 mb-2 max-h-[calc(100dvh-7rem)] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl shadow-lift">{settingsPanel}</div>}
+    <div data-call-panel-trigger className="relative">{control('Settings', 'settings', onSettings, false, Boolean(settingsPanel))}
+      {settingsPanel && <div data-call-panel className="absolute bottom-full right-0 z-50 mb-2 max-h-[calc(100dvh-7rem)] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl shadow-lift">{settingsPanel}</div>}
     </div>
-    {onPeople && <div className="relative">{control('People', 'users', onPeople, false, Boolean(peoplePanel))}
-      {peoplePanel && <div className="absolute bottom-full left-0 z-50 mb-2 max-h-[calc(100dvh-7rem)] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl shadow-lift md:right-0 md:left-auto">{peoplePanel}</div>}
+    {onPeople && <div data-call-panel-trigger className="relative">{control('People', 'users', onPeople, false, Boolean(peoplePanel))}
+      {peoplePanel && <div data-call-panel className="absolute bottom-full left-0 z-50 mb-2 max-h-[calc(100dvh-7rem)] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl shadow-lift md:right-0 md:left-auto">{peoplePanel}</div>}
     </div>}
-    {onChat && control('Chat', 'message', onChat)}
+    {onChat && <div data-call-panel-trigger>{control('Chat', 'message', onChat)}</div>}
     {onHand && control(handRaised ? 'Lower hand' : 'Raise hand', 'hand', onHand, false, handRaised)}
     {control('Copy link', 'copy', onCopy)}
     {control('Leave', 'logout', onLeave, false, undefined, 'danger')}

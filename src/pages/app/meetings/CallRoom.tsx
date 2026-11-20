@@ -40,6 +40,16 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
     !permissions.canPublishSources.includes(TrackSource.MICROPHONE))
   const [panel, setPanel] = useState<'settings' | 'people' | 'chat' | null>(null)
 
+  useEffect(() => {
+    if (!panel) return
+    const closeOutside = (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || event.target.closest('[data-call-panel], [data-call-panel-trigger]')) return
+      setPanel(null)
+    }
+    document.addEventListener('pointerdown', closeOutside)
+    return () => document.removeEventListener('pointerdown', closeOutside)
+  }, [panel])
+
   async function moderate(action: ModerationAction, targetId?: string) {
     try {
       await callAction(action, meeting.id, targetId)
@@ -76,7 +86,7 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
     <div className={`flex min-h-0 min-w-0 flex-1 ${panel === 'chat' ? 'md:pr-[21rem]' : ''}`}>
       <CallStage />
     </div>
-    {panel === 'chat' && <div className="fixed right-3 bottom-[5rem] top-[calc(var(--app-bar,52px)+1rem)] z-30 w-[min(20rem,calc(100vw-1.5rem))]">
+    {panel === 'chat' && <div data-call-panel className="fixed right-3 bottom-[5rem] top-[calc(var(--app-bar,52px)+1rem)] z-30 w-[min(20rem,calc(100vw-1.5rem))]">
       <CallChat key={meeting.id} meetingId={meeting.id} readOnly={meeting.call_state !== 'live'} onClose={() => setPanel(null)} />
     </div>}
     <CallControls microphone={local.isMicrophoneEnabled} camera={local.isCameraEnabled} screen={local.isScreenShareEnabled}
