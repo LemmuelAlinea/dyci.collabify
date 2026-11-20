@@ -39,6 +39,18 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
   }, [])
 
   useEffect(() => {
+    const media = navigator.mediaDevices
+    if (!media) return
+    let active = true
+    const refresh = () => {
+      void media.enumerateDevices().then((items) => { if (active) setDevices(items) }).catch(() => undefined)
+    }
+    refresh()
+    media.addEventListener?.('devicechange', refresh)
+    return () => { active = false; media.removeEventListener?.('devicechange', refresh) }
+  }, [])
+
+  useEffect(() => {
     try { localStorage.setItem('collabify.call-choices', JSON.stringify({
       cameraId: choices.cameraId, microphoneId: choices.microphoneId,
       speakerId: choices.speakerId, background: choices.background,
@@ -65,11 +77,18 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
         stream.current = media
         if (preview.current) preview.current.srcObject = media
       } else media.getTracks().forEach((track) => track.stop())
-      setDevices(await navigator.mediaDevices.enumerateDevices())
       setChoices((current) => ({ ...current, [kind]: true }))
       setDeviceError('')
-    } catch {
-      setDeviceError(`${kind === 'camera' ? 'Camera' : 'Microphone'} access was denied or unavailable. You can join without it.`)
+      void navigator.mediaDevices.enumerateDevices().then(setDevices).catch(() => undefined)
+    } catch (error) {
+      const label = kind === 'camera' ? 'Camera' : 'Microphone'
+      const name = error instanceof Error ? error.name : ''
+      setDeviceError(name === 'NotAllowedError'
+        ? `${label} is blocked by your browser or system. Allow it for Collabify, then try again.`
+        : name === 'NotReadableError' || name === 'TrackStartError'
+          ? `${label} is in use or could not start. Close other apps using it, or choose another device.`
+          : `${label} could not start. Choose another device and try again.`)
+      void navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => undefined)
     }
   }
 
@@ -77,7 +96,7 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
     const options = devices.filter((device) => device.kind === kind)
     return <label className="block text-sm text-muted">{label}
       <select className="mt-1 block w-full rounded-lg border border-line surface px-3 py-2 text-ink" value={value}
-        onChange={(event) => setChoices((current) => ({ ...current, [field]: event.target.value }))}>
+        onChange={(event) => { setChoices((current) => ({ ...current, [field]: event.target.value })); setDeviceError('') }}>
         <option value="">System default</option>
         {options.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || label}</option>)}
       </select>

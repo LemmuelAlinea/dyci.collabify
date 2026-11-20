@@ -9,8 +9,14 @@ vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
+const mediaDevicesDescriptor = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
 beforeEach(() => { localStorage.clear(); host = document.createElement('div'); document.body.append(host); root = createRoot(host) })
-afterEach(async () => { await act(async () => root.unmount()); host.remove() })
+afterEach(async () => {
+  await act(async () => root.unmount())
+  host.remove()
+  if (mediaDevicesDescriptor) Object.defineProperty(navigator, 'mediaDevices', mediaDevicesDescriptor)
+  else Reflect.deleteProperty(navigator, 'mediaDevices')
+})
 
 it('offers the supplied photo without accessing media before Start', async () => {
   const enter = vi.fn()
@@ -20,4 +26,19 @@ it('offers the supplied photo without accessing media before Start', async () =>
   const start = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Start call')!
   await act(async () => start.click())
   expect(enter).toHaveBeenCalledWith(expect.objectContaining({ background: 'photo', photoUrl: '/video/call-background.png' }))
+})
+
+it('lists cameras before permission and explains a busy camera failure', async () => {
+  const enumerateDevices = vi.fn().mockResolvedValue([
+    { kind: 'videoinput', deviceId: 'usb', label: 'USB webcam' },
+    { kind: 'videoinput', deviceId: 'virtual', label: 'Virtual camera' },
+  ])
+  const getUserMedia = vi.fn().mockRejectedValue(new DOMException('Could not start', 'NotReadableError'))
+  Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { enumerateDevices, getUserMedia } })
+  await act(async () => root.render(<CallPrejoin title="Call" canStart onEnter={vi.fn()} busy={false} error={null} />))
+  const camera = [...host.querySelectorAll('select')].find((element) => element.parentElement?.textContent?.includes('Camera'))!
+  expect([...camera.options].map((option) => option.textContent)).toEqual(['System default', 'USB webcam', 'Virtual camera'])
+  await act(async () => [...host.querySelectorAll('button')].find((button) => button.textContent === 'Camera off')!.click())
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('in use or could not start')
+  expect(getUserMedia).toHaveBeenCalledOnce()
 })
