@@ -5394,3 +5394,26 @@ accepted." from the setting; no failed requests.
 - Review minors: the task dialog sends a full holder list built from what it last loaded, so two people changing
   holders at once can put back someone the other took off; the open writers read `task_flow` and holder membership
   without a lock, so a create racing a switch back to Planned, or a holder turning QA mid-change, can slip through.
+
+## Collabify video calls — live trial (2026-11-21)
+
+- The Meetings page defaults new calls to Collabify and retains Google Meet and Zoom. The in-app room includes
+  device preview, host controls, chat, screen sharing, recording, mic status and speaker highlighting. The
+  implementation and restore order are in `docs/superpowers/plans/2026-11-20-collabify-video-meetings.md` and
+  `docs/07-backup.md`: run `project-stakeholders.sql` after `meetings.sql`, then the later-owner suffix,
+  `meeting-calls.sql` and `anon-lockdown.sql` last.
+- LiveKit dependencies: `livekit-client` 2.20.1, `@livekit/components-react` 2.9.25 and
+  `@livekit/track-processors` 0.8.3. Supabase has the `meeting-call` and `meeting-call-events` functions,
+  `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `MEETING_RECORDINGS_S3_ACCESS_KEY`,
+  `MEETING_RECORDINGS_S3_SECRET_KEY` and `MEETING_CALL_CRON_SECRET` secrets, and the matching Vault cron secret.
+  The `meeting-recordings` bucket is private. The minute reconciler and daily cleanup jobs are active.
+- Before the live-site push, `npm run check` passed (2,802 unit tests, build, lint, contrast, accessibility and
+  schema checks). The live `meeting-calls.test.sql`, `meetings.test.sql`, `project-stakeholders.test.sql` and
+  `anon-lockdown.test.sql` suites passed in rollback transactions. All eight stored LiveKit webhook events had
+  `processed_at`; the latest minute reconciler run succeeded. The daily cleanup had not reached its first run.
+- The complete legacy SQL gate is not green: `accounts.test.sql` fails independently on its unchanged fixture,
+  and several other batches stopped at unrelated legacy assertions. Do not report the 122 suites as passing.
+  Separate-account project/class/group, stakeholder and revoked-member browser checks, a 100-person simulation,
+  recording start/playback/expiry and school recording-policy review remain before calling this a full release.
+  Provider cost has not been measured for these scenarios. The shared `meeting_calls_enabled` flag is on for
+  this live trial.

@@ -305,6 +305,8 @@ declare
   internal public.meetings;
   external public.meetings;
 begin
+  perform pg_temp.act_as_service();
+  update public.organization_settings set meeting_calls_enabled = false where id;
   perform pg_temp.act_as(prof);
   perform pg_temp.must_refuse('internal scheduling is off by default',
     format('select public.create_meeting(''class'', %L, ''Call'', '''', null, now(), 60)', cls));

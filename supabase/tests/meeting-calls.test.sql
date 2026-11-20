@@ -24,8 +24,10 @@ $$;
 
 do $$
 begin
-  perform pg_temp.must_be('new call feature is disabled before release',
-    (select not meeting_calls_enabled from public.organization_settings where id));
+  perform pg_temp.must_be('new call feature defaults off',
+    (select column_default = 'false' from information_schema.columns
+     where table_schema = 'public' and table_name = 'organization_settings'
+       and column_name = 'meeting_calls_enabled'));
   perform pg_temp.must_be('edge functions can run service-only lifecycle actions',
     has_function_privilege('service_role', 'public.confirm_meeting_live(uuid,text)', 'execute')
     and has_function_privilege('service_role', 'public.finish_meeting_call(uuid,text)', 'execute')

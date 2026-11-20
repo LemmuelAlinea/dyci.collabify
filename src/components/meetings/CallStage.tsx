@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RoomAudioRenderer, VideoTrack, useParticipantAttribute, useParticipants, useSpeakingParticipants, useTracks } from '@livekit/components-react'
+import { RoomAudioRenderer, VideoTrack, useIsMuted, useIsSpeaking, useParticipantAttribute, useParticipantTracks, useParticipants, useSpeakingParticipants, useTracks } from '@livekit/components-react'
 import type { TrackReferenceOrPlaceholder } from '@livekit/components-core'
 import { RemoteTrackPublication, Track } from 'livekit-client'
+import { Icon } from '../ui/Icon'
 
 function CallTile({ track }: { track: TrackReferenceOrPlaceholder }) {
   const handRaised = useParticipantAttribute('collabify.hand', { participant: track.participant }) === '1'
-  return <div className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl bg-slate-800 text-white">
+  const isSpeaking = useIsSpeaking(track.participant)
+  const microphone = useParticipantTracks([Track.Source.Microphone], track.participant.identity)[0]
+  const isMuted = useIsMuted(microphone ?? { participant: track.participant, source: Track.Source.Microphone })
+  const microphoneOn = !!microphone && !isMuted
+  return <div className={`relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl border-2 bg-slate-800 text-white ${isSpeaking ? 'border-success-500' : 'border-transparent'}`}>
     {track.publication?.track ? <VideoTrack trackRef={track as typeof track & { publication: NonNullable<typeof track.publication> }}
       className="h-full w-full object-contain" manageSubscription={false} /> : <span className="text-3xl font-semibold">{track.participant.name?.charAt(0) || '?'}</span>}
     {handRaised && <span aria-label="Hand raised" className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-lg">✋</span>}
-    <span className="absolute bottom-2 left-2 max-w-[80%] truncate rounded bg-black/60 px-2 py-1 text-xs">{track.participant.name || 'Member'}{track.source === Track.Source.ScreenShare ? ' · screen' : ''}</span>
+    <span className="absolute bottom-2 left-2 flex max-w-[80%] items-center gap-1 rounded bg-black/60 px-2 py-1 text-xs">
+      <span className="truncate">{track.participant.name || 'Member'}{track.source === Track.Source.ScreenShare ? ' · screen' : ''}</span>
+      <span aria-label={microphoneOn ? 'Microphone on' : 'Microphone off'} className="shrink-0"><Icon name={microphoneOn ? 'mic' : 'micOff'} size={14} /></span>
+    </span>
   </div>
 }
 
