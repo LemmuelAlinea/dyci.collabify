@@ -3,7 +3,8 @@
 --   node scripts/db.mjs supabase/project-stakeholders.sql supabase/anon-lockdown.sql
 --
 -- A stakeholder on a work project reads everything a member reads and changes
--- nothing. Until now every member write in a work project was gated by
+-- no project work; meetings are an explicit audience-member exception. Until now
+-- every member write in a work project was gated by
 -- is_general_member, which also drives reads. This file adds
 --
 --   general_can_write(project)  the caller is a member (not rejected) who, on a
@@ -31,9 +32,8 @@
 -- Unchanged on purpose: leave_general_project (a stakeholder can leave),
 -- respond_general_invitation and join_general_project (they give a pending
 -- invitation's role, so stakeholder too), every other read path, space
--- membership someone already has, and space report templates. A meeting a
--- stakeholder scheduled while still a member is theirs to see but no longer
--- to change or cancel.
+-- membership someone already has, and space report templates. A stakeholder
+-- can schedule and manage their own project or project-team meetings.
 --
 -- Runs after project-team-leads.sql and everything else in docs/07-backup.md,
 -- and redefines from their latest (live) copies:
@@ -1840,21 +1840,15 @@ begin
      where t.id = p_audience;
   end if;
 
-  if p_scope in ('project', 'project_team')
-     and public.is_general_member(m.project_id) and not public.general_can_write(m.project_id) then
-    raise exception 'Stakeholders can view this project but not change it.'
-      using errcode = 'insufficient_privilege';
-  end if;
-
   allowed := case p_scope
     when 'class' then public.is_class_professor(m.class_id)
     when 'group' then public.is_group_member(m.group_id) or public.is_class_professor(m.class_id)
     when 'space' then public.is_general_space_member(m.space_id)
       and exists (select 1 from public.general_spaces s where s.id = m.space_id and s.kind = 'work')
-    when 'project' then public.general_can_write(m.project_id)
+    when 'project' then public.is_general_member(m.project_id)
     when 'space_team' then public.is_general_space_team_member(m.space_team_id)
     when 'project_team' then public.is_general_team_member(m.project_team_id)
-      and public.general_can_write(m.project_id)
+      and public.is_general_member(m.project_id)
   end;
   if not coalesce(allowed, false) then
     raise exception '%', case p_scope
@@ -1874,7 +1868,11 @@ begin
     raise exception 'This is archived, so it takes no new meetings. Restore it first.'
       using errcode = 'check_violation';
   end if;
-  if not public.meeting_url_ok(p_join_url) then
+  if p_join_url is null and not coalesce(
+    (select meeting_calls_enabled from public.organization_settings where id), false) then
+    raise exception 'Collabify video calls are not available yet.' using errcode = 'check_violation';
+  end if;
+  if p_join_url is not null and not public.meeting_url_ok(p_join_url) then
     raise exception 'Paste a Zoom, Google Meet or Google Calendar invite link. It starts with https://zoom.us/, https://meet.google.com/ or https://calendar.app.google/.'
       using errcode = 'check_violation';
   end if;
@@ -1921,8 +1919,7 @@ as $$
     from public.general_spaces s
    where s.kind = 'work' and s.archived_at is null and public.is_general_space_member(s.id)
   union all
-  -- A stakeholder sees their projects and teams here, but schedules nothing.
-  select 'project', p.id, p.name, s.name, null, p.space_id, public.general_can_write(p.id)
+  select 'project', p.id, p.name, s.name, null, p.space_id, true
     from public.general_projects p
     join public.general_spaces s on s.id = p.space_id
    where p.archived_at is null and s.archived_at is null and public.is_general_member(p.id)
@@ -1934,7 +1931,7 @@ as $$
     join public.general_spaces s on s.id = t.space_id
    where t.archived_at is null and s.archived_at is null and public.is_general_space_team_member(t.id)
   union all
-  select 'project_team', t.id, t.name, p.name, null, p.space_id, public.general_can_write(t.project_id)
+  select 'project_team', t.id, t.name, p.name, null, p.space_id, true
     from public.general_teams t
     join public.general_projects p on p.id = t.project_id
     join public.general_spaces s on s.id = p.space_id
@@ -1942,8 +1939,8 @@ as $$
      and p.class_board_id is null;
 $$;
 
--- Whoever scheduled a project or project-team meeting keeps managing it only
--- while they can write to the project; the project's leads always can.
+-- Whoever scheduled a project or project-team meeting keeps managing it
+-- while they remain in its audience; the project's leads always can.
 create or replace function public.meeting_can_manage(m public.meetings)
 returns boolean
 language sql
@@ -1951,8 +1948,7 @@ stable security definer
 set search_path = public
 as $$
   select public.meeting_can_see(m) and (
-    (m.created_by = auth.uid()
-     and (m.scope not in ('project', 'project_team') or public.general_can_write(m.project_id)))
+    m.created_by = auth.uid()
     or case m.scope
       when 'class' then public.is_class_professor(m.class_id)
       when 'group' then public.is_class_professor(m.class_id)
@@ -1978,11 +1974,6 @@ begin
   if not found or not public.meeting_can_see(m) then
     raise exception 'That meeting is gone, or you are no longer in it.' using errcode = 'no_data_found';
   end if;
-  if m.scope in ('project', 'project_team')
-     and public.is_general_member(m.project_id) and not public.general_can_write(m.project_id) then
-    raise exception 'Stakeholders can view this project but not change it.'
-      using errcode = 'insufficient_privilege';
-  end if;
   if not public.meeting_can_manage(m) then
     raise exception 'Only whoever scheduled this meeting, or whoever leads its audience, can change it.'
       using errcode = 'insufficient_privilege';
@@ -1994,7 +1985,8 @@ begin
     raise exception 'This is archived, so its meetings cannot change. Restore it first.'
       using errcode = 'check_violation';
   end if;
-  if not public.meeting_url_ok(p_join_url) then
+  if (m.platform = 'collabify' and p_join_url is not null)
+     or (m.platform <> 'collabify' and not public.meeting_url_ok(p_join_url)) then
     raise exception 'Paste a Zoom, Google Meet or Google Calendar invite link. It starts with https://zoom.us/, https://meet.google.com/ or https://calendar.app.google/.'
       using errcode = 'check_violation';
   end if;
@@ -2026,11 +2018,6 @@ begin
   select * into m from public.meetings where id = p_meeting for update;
   if not found or not public.meeting_can_see(m) then
     raise exception 'That meeting is gone, or you are no longer in it.' using errcode = 'no_data_found';
-  end if;
-  if m.scope in ('project', 'project_team')
-     and public.is_general_member(m.project_id) and not public.general_can_write(m.project_id) then
-    raise exception 'Stakeholders can view this project but not change it.'
-      using errcode = 'insufficient_privilege';
   end if;
   if not public.meeting_can_manage(m) then
     raise exception 'Only whoever scheduled this meeting, or whoever leads its audience, can cancel it.'

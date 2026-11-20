@@ -1,4 +1,4 @@
--- Collabify — meetings: a Zoom or Google Meet link, a time and an audience.
+-- Collabify — meetings: an audience, a time and a call or external link.
 --
 -- company-accounts.sql is the final owner of meeting_audience.
 -- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
@@ -10,10 +10,9 @@
 -- general-space-teams.sql, one-workplace.sql and teaching-guards.sql.
 
 /**
- * Collabify does not make the meeting. Somebody makes it in Zoom or Meet,
- * pastes the link here, and picks who it is for. What this adds is the part
- * those apps cannot do: knowing who "the class", "group 3" or "the design team"
- * is, telling all of them, and putting it on their calendar.
+ * A meeting can use a Collabify call or an external Zoom or Meet link. The
+ * audience check knows who "the class", "group 3" or "the design team" is,
+ * tells them and puts the meeting on their calendar.
  *
  * Six audiences, each an existing membership:
  *
@@ -64,6 +63,11 @@ do $$ begin
   create type public.meeting_platform as enum ('google_meet', 'zoom');
 exception when duplicate_object then null; end $$;
 
+alter type public.meeting_platform add value if not exists 'collabify';
+
+commit;
+begin;
+
 -- ------------------------------------------------------------------ table
 
 create table if not exists public.meetings (
@@ -78,7 +82,7 @@ create table if not exists public.meetings (
   title           text not null,
   agenda          text not null default '',
   platform        public.meeting_platform not null,
-  join_url        text not null,
+  join_url        text,
   starts_at       timestamptz not null,
   duration_min    int not null default 60,
   created_by      uuid references public.profiles (id) on delete set null,
@@ -89,8 +93,9 @@ create table if not exists public.meetings (
   constraint meetings_agenda_len check (char_length(agenda) <= 2000),
   constraint meetings_duration check (duration_min between 5 and 480),
   constraint meetings_url check (
-    join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/[^[:space:]]+$'
-    or join_url ~* '^https://([a-z0-9-]+\.)*zoom\.(us|com)/[^[:space:]]+$'
+    (platform = 'collabify' and join_url is null)
+    or (platform = 'google_meet' and join_url is not null and join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/[^[:space:]]+$')
+    or (platform = 'zoom' and join_url is not null and join_url ~* '^https://([a-z0-9-]+\.)*zoom\.(us|com)/[^[:space:]]+$')
   ),
   -- The audience id, plus its parents so a list can filter by class or space
   -- without joining through teams and projects. The fill trigger sets them.
@@ -112,10 +117,12 @@ create table if not exists public.meetings (
 
 -- Google Calendar invites carry the Meet call, so they count as Meet links.
 -- Re-set here because `create table if not exists` leaves an older check alone.
+alter table public.meetings alter column join_url drop not null;
 alter table public.meetings drop constraint if exists meetings_url;
 alter table public.meetings add constraint meetings_url check (
-  join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/[^[:space:]]+$'
-  or join_url ~* '^https://([a-z0-9-]+\.)*zoom\.(us|com)/[^[:space:]]+$'
+  (platform = 'collabify' and join_url is null)
+  or (platform = 'google_meet' and join_url is not null and join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/[^[:space:]]+$')
+  or (platform = 'zoom' and join_url is not null and join_url ~* '^https://([a-z0-9-]+\.)*zoom\.(us|com)/[^[:space:]]+$')
 );
 
 create index if not exists meetings_starts_idx on public.meetings (starts_at);
@@ -150,7 +157,8 @@ begin
      where t.id = new.project_team_id;
   end if;
 
-  new.platform := case when new.join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/' then 'google_meet'
+  new.platform := case when new.join_url is null then 'collabify'
+                       when new.join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/' then 'google_meet'
                        else 'zoom' end::public.meeting_platform;
   if tg_op = 'UPDATE' then new.updated_at := now(); end if;
   return new;

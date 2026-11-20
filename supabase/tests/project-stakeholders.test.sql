@@ -448,25 +448,23 @@ declare
   v_team uuid := (select v from fx where k = 'team');
 begin
   perform pg_temp.act_as((select v from fx where k = 's'));
-  perform pg_temp.must_refuse_stakeholder('S schedules a project meeting',
+  perform pg_temp.must_allow('S schedules a project meeting',
     format($q$select public.create_meeting('project', %L, 'Zz sync', '', 'https://zoom.us/j/1234567890',
                                            now() + interval '1 day', 60)$q$, v_p));
-  perform pg_temp.must_refuse_stakeholder('S schedules a meeting for their project team',
+  perform pg_temp.must_allow('S schedules a meeting for their project team',
     format($q$select public.create_meeting('project_team', %L, 'Zz sync', '', 'https://zoom.us/j/1234567890',
                                            now() + interval '1 day', 60)$q$, v_team));
-  perform pg_temp.must_be('meeting_audiences lists the project for S, but not to create in',
+  perform pg_temp.must_be('meeting_audiences lets S create in the project',
     exists (select 1 from public.meeting_audiences() a
-             where a.scope = 'project' and a.audience_id = v_p and not a.can_create));
-  perform pg_temp.must_be('...nor the project team',
+             where a.scope = 'project' and a.audience_id = v_p and a.can_create));
+  perform pg_temp.must_be('...and the project team',
     exists (select 1 from public.meeting_audiences() a
-             where a.scope = 'project_team' and a.audience_id = v_team and not a.can_create));
-  perform pg_temp.must_refuse_stakeholder('S changes the meeting they scheduled as a member',
+             where a.scope = 'project_team' and a.audience_id = v_team and a.can_create));
+  perform pg_temp.must_allow('S changes the meeting they scheduled as a member',
     format($q$select public.update_meeting(%L, 'Zz renamed', '', 'https://zoom.us/j/1234567890',
                                            now() + interval '2 days', 60)$q$, (select v from fx where k = 'meet')));
-  perform pg_temp.must_refuse_stakeholder('...or cancels it',
-    format($q$select public.cancel_meeting(%L)$q$, (select v from fx where k = 'meet')));
   perform pg_temp.must_be('...and meeting_can_manage says so',
-    not public.meeting_can_manage((select m from public.meetings m where m.id = (select v from fx where k = 'meet'))));
+    public.meeting_can_manage((select m from public.meetings m where m.id = (select v from fx where k = 'meet'))));
   perform pg_temp.must_refuse_stakeholder('S asks for edit_files',
     format($q$select public.request_general_access(%L, 'edit_files', 'Zz')$q$, v_p));
 
@@ -492,6 +490,9 @@ begin
   perform pg_temp.must_allow('the pm can still change S''s meeting',
     format($q$select public.update_meeting(%L, 'Zz renamed', '', 'https://zoom.us/j/1234567890',
                                            now() + interval '2 days', 60)$q$, (select v from fx where k = 'meet')));
+  perform pg_temp.act_as((select v from fx where k = 's'));
+  perform pg_temp.must_allow('S can cancel the meeting they scheduled',
+    format($q$select public.cancel_meeting(%L)$q$, (select v from fx where k = 'meet')));
   perform pg_temp.act_as((select v from fx where k = 'm'));
   perform pg_temp.must_allow('M asks for edit_files',
     format($q$select public.request_general_access(%L, 'edit_files', 'Zz')$q$, v_p));
@@ -930,10 +931,19 @@ declare
   gp uuid; v_task uuid;
 begin
   select c.id, c.professor_id into v_class, v_prof from public.classes c
-   where (select count(*) from public.class_members m where m.class_id = c.id and m.status = 'active') >= 2
+   where (select count(*) from public.class_members m
+            join public.profiles p on p.id = m.student_id
+           where m.class_id = c.id and m.status = 'active' and p.status = 'active') >= 2
    order by c.created_at limit 1;
-  select student_id into v_a from public.class_members where class_id = v_class and status = 'active' order by student_id limit 1;
-  select student_id into v_b from public.class_members where class_id = v_class and status = 'active' and student_id <> v_a order by student_id limit 1;
+  select m.student_id into v_a from public.class_members m
+    join public.profiles p on p.id = m.student_id
+   where m.class_id = v_class and m.status = 'active' and p.status = 'active'
+   order by m.student_id limit 1;
+  select m.student_id into v_b from public.class_members m
+    join public.profiles p on p.id = m.student_id
+   where m.class_id = v_class and m.status = 'active' and p.status = 'active'
+     and m.student_id <> v_a
+   order by m.student_id limit 1;
 
   insert into public.group_sets (class_id, name, mode) values (v_class, 'zz-stakeholders', 'manual') returning id into v_set;
   insert into public.groups (set_id, name) values (v_set, 'Zz SH group') returning id into v_group;
