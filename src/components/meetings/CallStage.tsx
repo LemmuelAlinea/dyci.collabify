@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RoomAudioRenderer, VideoTrack, useIsMuted, useIsSpeaking, useParticipantAttribute, useParticipantTracks, useSpeakingParticipants, useTracks } from '@livekit/components-react'
+import { VideoTrack, useIsMuted, useIsSpeaking, useParticipantAttribute, useParticipantTracks, useSpeakingParticipants, useTracks } from '@livekit/components-react'
 import type { TrackReferenceOrPlaceholder } from '@livekit/components-core'
 import { Track } from 'livekit-client'
 import { Icon } from '../ui/Icon'
@@ -83,7 +83,6 @@ export function CallStage() {
   }
 
   return <div className="flex min-h-0 flex-1 flex-col gap-3">
-    <RoomAudioRenderer />
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
       <span>{ordered.length} video tiles</span>
       <div className="flex items-center gap-2">
@@ -95,9 +94,9 @@ export function CallStage() {
         </select>}
       </div>
     </div>
-    <div className={focus ? 'flex min-h-0 flex-col gap-2 lg:h-[clamp(10rem,calc(100dvh-18rem),36rem)] lg:flex-none lg:flex-row' : 'flex min-h-[12rem] flex-1 flex-wrap content-start gap-2'}>
+    <div className={focus ? 'flex min-h-0 flex-1 flex-col gap-2 lg:flex-row' : 'flex min-h-[12rem] flex-1 flex-wrap content-start gap-2'}>
       {focus ? <>
-        <div aria-label="Featured video" className="h-[min(40dvh,22rem)] min-w-0 shrink-0 lg:h-full lg:min-h-0 lg:flex-1 lg:shrink">{tile(focus, trackKey(focus) === maximized)}</div>
+        <div aria-label="Featured video" className="min-h-0 min-w-0 flex-1 lg:h-full">{tile(focus, trackKey(focus) === maximized)}</div>
         {others.length > 0 && <div aria-label="Other participants" className="flex max-h-32 shrink-0 gap-2 overflow-auto lg:max-h-none lg:min-h-0 lg:w-52 lg:flex-col xl:w-64">
           {others.map((track) => <div key={trackKey(track)} className="aspect-video w-40 shrink-0 lg:w-full">{tile(track)}</div>)}
         </div>}

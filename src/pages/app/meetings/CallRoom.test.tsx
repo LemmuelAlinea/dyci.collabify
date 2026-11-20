@@ -9,13 +9,13 @@ const mock = vi.hoisted(() => ({
   room: { localParticipant: { setAttributes: vi.fn().mockResolvedValue(undefined), setMicrophoneEnabled: vi.fn(), setCameraEnabled: vi.fn(), setScreenShareEnabled: vi.fn() }, switchActiveDevice: vi.fn() },
 }))
 vi.mock('@livekit/components-react', () => ({
-  LiveKitRoom: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useRoomContext: () => mock.room,
   useConnectionState: () => 'connected',
   useLocalParticipant: () => ({ localParticipant: mock.room.localParticipant, isCameraEnabled: false, isMicrophoneEnabled: false, isScreenShareEnabled: false }),
   useLocalParticipantPermissions: () => null,
   useParticipantAttribute: () => undefined,
 }))
+vi.mock('../../../components/meetings/CallConnection', () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }))
 vi.mock('../../../components/meetings/CallPrejoin', () => ({ CallPrejoin: ({ onEnter }: { onEnter: (choices: unknown) => void }) => <button onClick={() => onEnter({ camera: false, microphone: false, cameraId: '', microphoneId: '', speakerId: '', background: 'off', photoUrl: '', mirror: false })}>Enter</button> }))
 vi.mock('../../../components/meetings/CallStage', () => ({ CallStage: () => <div aria-label="Video stage">Video stage</div> }))
 vi.mock('../../../components/meetings/CallRecording', () => ({ CallRecording: () => null }))
@@ -27,6 +27,7 @@ vi.mock('../../../hooks/useNow', () => ({ useNow: () => Date.now() }))
 vi.mock('../../../lib/api/meetingCall', () => ({ callAction: async () => ({ serverUrl: 'wss://example.test', token: 'token' }) }))
 vi.mock('../../../lib/api/meetings', () => ({ getMeeting: async () => mock.meeting }))
 import CallRoom from './CallRoom'
+import { CallSessionProvider } from '../../../context/CallSessionContext'
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 const host = document.createElement('div')
@@ -35,7 +36,7 @@ const root = createRoot(host)
 afterEach(async () => { await act(async () => root.unmount()); host.remove() })
 
 it('replaces and dismisses call panels while anchoring settings and people above their controls', async () => {
-  await act(async () => root.render(<MemoryRouter initialEntries={['/meetings/meeting-1/call']}><Routes><Route path="/meetings/:id/call" element={<CallRoom />} /></Routes></MemoryRouter>))
+  await act(async () => root.render(<MemoryRouter initialEntries={['/meetings/meeting-1/call']}><CallSessionProvider profileId="member-1"><Routes><Route path="/meetings/:id/call" element={<CallRoom />} /></Routes></CallSessionProvider></MemoryRouter>))
   await act(async () => { (host.querySelector('button') as HTMLButtonElement).click() })
   const click = async (label: string) => act(async () => (host.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement).click())
   await click('Settings')
@@ -66,4 +67,10 @@ it('replaces and dismisses call panels while anchoring settings and people above
   await click('Chat')
   await press(host.querySelector('[aria-label="Video stage"]')!)
   expect(host.querySelector('[aria-label="Meeting chat"]')).toBeNull()
+  mock.room.localParticipant.setScreenShareEnabled.mockRejectedValueOnce(new Error('sharing failed'))
+  await click('Share screen')
+  expect(host.textContent).toContain('Screen sharing is unavailable')
+  mock.room.localParticipant.setScreenShareEnabled.mockRejectedValueOnce(new DOMException('cancelled', 'NotAllowedError'))
+  await click('Share screen')
+  expect(host.textContent).not.toContain('Screen sharing is unavailable')
 })

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { LiveKitRoom, useConnectionState, useLocalParticipant, useLocalParticipantPermissions, useParticipantAttribute, useRoomContext } from '@livekit/components-react'
+import { useConnectionState, useLocalParticipant, useLocalParticipantPermissions, useParticipantAttribute, useRoomContext } from '@livekit/components-react'
 import { ConnectionState } from 'livekit-client'
 import { TrackSource } from '@livekit/protocol'
 import { CallPrejoin } from '../../../components/meetings/CallPrejoin'
@@ -11,23 +11,24 @@ import { CallChat } from '../../../components/meetings/CallChat'
 import { CallRecording } from '../../../components/meetings/CallRecording'
 import { CallPeople } from '../../../components/meetings/CallPeople'
 import type { ModerationAction } from '../../../components/meetings/CallPeople'
-import { applyBackground, CallSettings } from '../../../components/meetings/CallSettings'
+import { CallSettings } from '../../../components/meetings/CallSettings'
 import { Button } from '../../../components/ui/Button'
 import { useLive } from '../../../hooks/useLive'
 import { useNow } from '../../../hooks/useNow'
 import { callAction } from '../../../lib/api/meetingCall'
-import type { CallSession } from '../../../lib/api/meetingCall'
+import { useCallSession } from '../../../context/CallSessionContext'
 import { getMeeting } from '../../../lib/api/meetings'
 import type { Meeting } from '../../../lib/meetings'
 import { paths } from '../../../lib/paths'
 
-function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError, onRefresh }: {
+function ConnectedCall({ meeting, choices, setChoices, updateMedia, canHost, onLeave, onError, onRefresh }: {
   meeting: Meeting
   choices: CallChoices
   setChoices: (choices: CallChoices) => void
+  updateMedia: (kind: 'camera' | 'microphone', enabled: boolean) => void
   canHost: boolean
   onLeave: () => void
-  onError: (message: string) => void
+  onError: (message: string | null) => void
   onRefresh: () => void
 }) {
   const room = useRoomContext()
@@ -58,23 +59,7 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
     } catch (err) { onError(err instanceof Error ? err.message : 'Could not change the call.') }
   }
 
-  useEffect(() => {
-    if (choices.cameraId) void room.switchActiveDevice('videoinput', choices.cameraId).catch(() => undefined)
-    if (choices.microphoneId) void room.switchActiveDevice('audioinput', choices.microphoneId).catch(() => undefined)
-    if (choices.speakerId) void room.switchActiveDevice('audiooutput', choices.speakerId).catch(() => undefined)
-  }, [room]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (local.isCameraEnabled) void applyBackground(room, choices).catch(() => onError('Background effect failed. Video continues without it.'))
-  }, [local.isCameraEnabled, room]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (connection === ConnectionState.Connected) void room.localParticipant.setAttributes({
-      'collabify.mirror': choices.mirror ? '1' : '',
-    }).catch(() => onError('Could not share your video mirror setting.'))
-  }, [connection, room]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return <div className="flex min-h-[75vh] min-w-0 flex-col gap-3 px-3 pb-32 pt-3 sm:px-5 sm:pb-24">
+  return <div className="flex h-[calc(100dvh-var(--app-bar,52px)-4rem)] min-h-[24rem] min-w-0 flex-col gap-3 px-3 pb-24 pt-3 sm:px-5 sm:pb-14">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0"><h1 className="truncate text-lg font-semibold text-ink">{meeting.title}</h1><p className="text-xs text-muted">Collabify call · members only</p>
         <CallRecording meetingId={meeting.id} canHost={canHost && meeting.call_state === 'live'} inCall />
@@ -91,9 +76,12 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
     </div>}
     <CallControls microphone={local.isMicrophoneEnabled} camera={local.isCameraEnabled} screen={local.isScreenShareEnabled}
       hostMuted={hostMuted} handRaised={handRaised}
-      onMicrophone={(enabled) => { void room.localParticipant.setMicrophoneEnabled(enabled).catch(() => onError('Microphone is unavailable.')) }}
-      onCamera={(enabled) => { void room.localParticipant.setCameraEnabled(enabled).catch(() => onError('Camera is unavailable.')) }}
-      onScreen={(enabled) => { void room.localParticipant.setScreenShareEnabled(enabled).catch(() => onError('Screen sharing was cancelled or unavailable.')) }}
+      onMicrophone={(enabled) => { void room.localParticipant.setMicrophoneEnabled(enabled).then(() => updateMedia('microphone', enabled)).catch(() => onError('Microphone is unavailable.')) }}
+      onCamera={(enabled) => { void room.localParticipant.setCameraEnabled(enabled).then(() => updateMedia('camera', enabled)).catch(() => onError('Camera is unavailable.')) }}
+      onScreen={(enabled) => { onError(null); void room.localParticipant.setScreenShareEnabled(enabled).catch((err: unknown) => {
+        if (err instanceof Error && ['NotAllowedError', 'AbortError', 'NotFoundError'].includes(err.name)) return
+        onError('Screen sharing is unavailable. Try again.')
+      }) }}
       settingsPanel={panel === 'settings' && <CallSettings room={room} choices={choices} onChange={setChoices} onClose={() => setPanel(null)} />}
       peoplePanel={panel === 'people' && <CallPeople canHost={canHost} locked={Boolean(meeting.locked_at)} onAction={(action, target) => void moderate(action, target)} onClose={() => setPanel(null)} />}
       onSettings={() => setPanel((current) => current === 'settings' ? null : 'settings')}
@@ -111,8 +99,8 @@ export default function CallRoom() {
   const location = useLocation()
   const startChoices = useRef((location.state as { startChoices?: CallChoices } | null)?.startChoices)
   const [meeting, setMeeting] = useState<Meeting | null | undefined>()
-  const [session, setSession] = useState<CallSession | null>(null)
-  const [choices, setChoices] = useState<CallChoices | null>(null)
+  const { active, restoring, issue, clearIssue, begin, leave, updateChoices, updateMedia } = useCallSession()
+  const choices = active?.meetingId === id ? active.choices : null
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -123,12 +111,25 @@ export default function CallRoom() {
   useEffect(() => { void load() }, [load])
   useLive(load, ['meetings'])
   useEffect(() => {
-    if (!meeting || !startChoices.current) return
+    if (!meeting || !startChoices.current || restoring) return
     const next = startChoices.current
     startChoices.current = undefined
+    if (active?.meetingId === id) return
     void enter(next)
-  }, [meeting]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => { if (choices?.photoUrl.startsWith('blob:')) URL.revokeObjectURL(choices.photoUrl) }, [choices?.photoUrl])
+  }, [meeting, restoring, active?.meetingId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!error || !choices) return
+    const timer = setTimeout(() => setError(null), 5_000)
+    return () => clearTimeout(timer)
+  }, [error, choices])
+  useEffect(() => {
+    if (!issue || !choices) return
+    const timer = setTimeout(clearIssue, 5_000)
+    return () => clearTimeout(timer)
+  }, [issue, choices, clearIssue])
+  useEffect(() => {
+    if (meeting?.call_state === 'ended' && active?.meetingId === id) leave()
+  }, [meeting?.call_state, active?.meetingId, id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!choices) return
     try { localStorage.setItem('collabify.call-choices', JSON.stringify({
@@ -145,8 +146,7 @@ export default function CallRoom() {
       const action = meeting.can_start && meeting.call_state !== 'live' ? 'start' : 'join'
       const response = await callAction(action, meeting.id)
       if (!('token' in response)) throw new Error('The call did not return a connection.')
-      setChoices(next)
-      setSession(response)
+      begin({ meetingId: meeting.id, title: meeting.title, choices: next, session: response })
       void load()
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not enter the call.') }
     finally { setBusy(false) }
@@ -155,16 +155,13 @@ export default function CallRoom() {
   if (meeting === undefined) return <p className="p-6 text-sm text-muted">Loading call…</p>
   if (!meeting || meeting.platform !== 'collabify') return <div className="p-6"><p>This call is unavailable.</p><Link to={paths.meetings}>Back to meetings</Link></div>
   if (meeting.call_state === 'ended' || meeting.cancelled_at) return <div className="space-y-3 p-6"><h1 className="text-xl font-semibold">This call has ended.</h1><Link to={paths.meetings}>Back to meetings</Link></div>
-  if (!session && !meeting.can_start && !meeting.can_join) return <div className="space-y-3 p-6"><h1 className="text-xl font-semibold">{meeting.title}</h1><p className="text-sm text-muted">A host has not started this call, or joining is unavailable.</p><Button variant="outline" onClick={() => void load()}>Refresh</Button></div>
-  if (!session || !choices) return <CallPrejoin title={meeting.title} canStart={meeting.can_start && meeting.call_state !== 'live'} onEnter={(next) => void enter(next)} onCancel={() => navigate(paths.meetings)} busy={busy} error={error} />
+  if (restoring) return <p className="p-6 text-sm text-muted">Rejoining call…</p>
+  if (!choices && !meeting.can_start && !meeting.can_join) return <div className="space-y-3 p-6"><h1 className="text-xl font-semibold">{meeting.title}</h1><p className="text-sm text-muted">A host has not started this call, or joining is unavailable.</p><Button variant="outline" onClick={() => void load()}>Refresh</Button></div>
+  if (!choices) return <CallPrejoin title={meeting.title} canStart={meeting.can_start && meeting.call_state !== 'live'} onEnter={(next) => void enter(next)} onCancel={() => navigate(paths.meetings)} busy={busy} error={error || issue} />
 
-  return <LiveKitRoom serverUrl={session.serverUrl} token={session.token} connect audio={choices.microphone} video={choices.camera}
-    options={{ adaptiveStream: true, dynacast: true }}
-    onDisconnected={() => { setSession(null); setError('The call disconnected. You can try joining again.'); void load() }}
-    onError={(err) => { setSession(null); setError(err.message) }}
-    onMediaDeviceFailure={() => setError('A camera or microphone is unavailable. You can continue without it.')}>
-    {error && <p role="alert" className="mx-4 text-sm text-danger-600">{error}</p>}
-    <ConnectedCall meeting={meeting} choices={choices} setChoices={setChoices} canHost={meeting.can_host}
-      onLeave={() => navigate(paths.meetings)} onError={setError} onRefresh={() => void load()} />
-  </LiveKitRoom>
+  return <>
+    {(error || issue) && <p role="alert" className="mx-4 text-sm text-danger-600">{error || issue}</p>}
+    <ConnectedCall meeting={meeting} choices={choices} setChoices={updateChoices} updateMedia={updateMedia} canHost={meeting.can_host}
+      onLeave={() => { leave(); navigate(paths.meetings) }} onError={setError} onRefresh={() => void load()} />
+  </>
 }

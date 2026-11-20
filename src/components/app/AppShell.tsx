@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { CallSessionProvider } from '../../context/CallSessionContext'
 import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat'
 import { GeneralNavigationProvider } from '../../context/GeneralNavigationContext'
 import { useFocusTrap } from '../../lib/focus'
@@ -175,13 +176,15 @@ export function AppShell() {
             tabIndex={-1}
             className="flex-1 px-4 py-6 outline-none sm:px-6 md:px-8 md:py-8 xl:px-10 2xl:px-12"
           >
-            <div className="w-full">
-              <ErrorBoundary key={location.pathname} scope="This page" home={homeFor(profile)}>
-                <Suspense fallback={<PageLoading />}>
-                  <Outlet />
-                </Suspense>
-              </ErrorBoundary>
-            </div>
+            <CallSessionProvider profileId={profile?.status === 'active' ? profile.id : null}>
+              <div className="w-full">
+                <ErrorBoundary key={location.pathname} scope="This page" home={homeFor(profile)}>
+                  <Suspense fallback={<PageLoading />}>
+                    <Outlet />
+                  </Suspense>
+                </ErrorBoundary>
+              </div>
+            </CallSessionProvider>
           </main>
         </div>
       </div>
