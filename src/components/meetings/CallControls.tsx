@@ -6,17 +6,20 @@ export function pushToTalkAllowed(target: EventTarget | null) {
     (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName)))
 }
 
-export function CallControls({ microphone, camera, screen, hostMuted, onMicrophone, onCamera, onScreen, onLeave, onSettings, onCopy }: {
+export function CallControls({ microphone, camera, screen, hostMuted, handRaised = false, onMicrophone, onCamera, onScreen, onLeave, onSettings, onCopy, onPeople, onHand }: {
   microphone: boolean
   camera: boolean
   screen: boolean
   hostMuted: boolean
+  handRaised?: boolean
   onMicrophone: (enabled: boolean) => void
   onCamera: (enabled: boolean) => void
   onScreen: (enabled: boolean) => void
   onLeave: () => void
   onSettings: () => void
   onCopy: () => void
+  onPeople?: () => void
+  onHand?: () => void
 }) {
   const [push, setPush] = useState(false)
   const held = useRef(false)
@@ -63,6 +66,8 @@ export function CallControls({ microphone, camera, screen, hostMuted, onMicropho
     <Button variant="outline" onClick={() => onCamera(!camera)} aria-label={camera ? 'Turn off camera' : 'Turn on camera'}>Camera {camera ? 'on' : 'off'}</Button>
     <Button variant="outline" onClick={() => onScreen(!screen)} aria-label={screen ? 'Stop sharing' : 'Share screen'}>{screen ? 'Stop sharing' : 'Share screen'}</Button>
     <Button variant="outline" onClick={onSettings}>Settings</Button>
+    {onPeople && <Button variant="outline" onClick={onPeople}>People</Button>}
+    {onHand && <Button variant="outline" onClick={onHand}>{handRaised ? 'Lower hand' : 'Raise hand'}</Button>}
     <Button variant="outline" onClick={onCopy}>Copy link</Button>
     <Button variant="outline" onClick={onLeave}>Leave</Button>
   </div>

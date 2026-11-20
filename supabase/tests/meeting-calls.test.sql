@@ -26,6 +26,11 @@ do $$
 begin
   perform pg_temp.must_be('new call feature is disabled before release',
     (select not meeting_calls_enabled from public.organization_settings where id));
+  perform pg_temp.must_be('edge functions can run service-only lifecycle actions',
+    has_function_privilege('service_role', 'public.confirm_meeting_live(uuid,text)', 'execute')
+    and has_function_privilege('service_role', 'public.finish_meeting_call(uuid,text)', 'execute')
+    and has_function_privilege('service_role', 'public.ban_meeting_call_participant(uuid,text,uuid)', 'execute')
+    and has_function_privilege('service_role', 'public.meeting_calls_to_reconcile(integer)', 'execute'));
   perform set_config('role', 'authenticated', true);
   perform pg_temp.must_refuse('members cannot enable calls',
     'update public.organization_settings set meeting_calls_enabled = true where id');
@@ -52,6 +57,7 @@ $$;
 do $$
 declare
   prof uuid := gen_random_uuid();
+  coordinator uuid := gen_random_uuid();
   a uuid := gen_random_uuid();
   b uuid := gen_random_uuid();
   worker uuid := gen_random_uuid();
@@ -67,9 +73,10 @@ begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
   select u.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
          u.id::text || '@example.test', '', now(), now()
-    from (values (prof), (a), (b), (worker), (stakeholder), (outsider)) as u(id);
+    from (values (prof), (coordinator), (a), (b), (worker), (stakeholder), (outsider)) as u(id);
   insert into public.profiles (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
   values (prof, prof::text || '@example.test', 'Call', 'Teacher', 'member', 'active', true, true),
+         (coordinator, coordinator::text || '@example.test', 'Call', 'Coordinator', 'member', 'active', true, true),
          (a, a::text || '@example.test', 'Call', 'A', 'student', 'active', false, false),
          (b, b::text || '@example.test', 'Call', 'B', 'student', 'active', false, false),
          (worker, worker::text || '@example.test', 'Call', 'Worker', 'member', 'active', false, true),
@@ -78,6 +85,8 @@ begin
   insert into public.classes (professor_id, name, initial, code, section, year_level, semester, school_year)
   values (prof, 'zz Call class', 'ZZVC', 'ZZ-VC-1', 'BSIT 9V', '3rd', '1st', '2026-2027')
   returning id into cls;
+  insert into public.general_space_members(space_id, user_id, level)
+  select space_id, coordinator, 'manager' from public.classes where id = cls;
   insert into public.class_members (class_id, student_id, status) values (cls, a, 'active'), (cls, b, 'active');
   insert into public.group_sets (class_id, name, mode) values (cls, 'Call set', 'manual') returning id into set_id;
   insert into public.groups (set_id, name, position) values (set_id, 'Group A', 1) returning id into group_a;
@@ -99,7 +108,7 @@ begin
   update public.organization_settings set meeting_calls_enabled = true where id;
   create temp table call_fx (k text primary key, v uuid) on commit drop;
   grant select, insert on call_fx to authenticated;
-  insert into call_fx values ('prof', prof), ('a', a), ('b', b), ('worker', worker),
+  insert into call_fx values ('prof', prof), ('coordinator', coordinator), ('a', a), ('b', b), ('worker', worker),
     ('stakeholder', stakeholder), ('outsider', outsider), ('class', cls),
     ('group_a', group_a), ('group_b', group_b), ('space', space.id),
     ('project', project.id), ('space_team', team.id), ('project_team', project_team);
@@ -108,6 +117,7 @@ end $$;
 do $$
 declare
   prof uuid := (select v from call_fx where k = 'prof');
+  coordinator uuid := (select v from call_fx where k = 'coordinator');
   a uuid := (select v from call_fx where k = 'a');
   b uuid := (select v from call_fx where k = 'b');
   worker uuid := (select v from call_fx where k = 'worker');
@@ -143,14 +153,39 @@ begin
   perform pg_temp.act_as(prof);
   perform pg_temp.must_be('faculty can start a class call',
     exists (select 1 from public.meeting_call_access(m_class) where can_start and can_host));
+  perform pg_temp.act_as(coordinator);
+  perform pg_temp.must_be('a teaching coordinator can start and host the class call',
+    exists (select 1 from public.meeting_call_access(m_class) where can_start and can_host));
   perform pg_temp.act_as(a);
   perform pg_temp.must_be('a group leader can start and host their group call',
     exists (select 1 from public.meeting_call_access(m_group) where can_start and can_host));
+  perform pg_temp.act_as_service();
+  update public.groups set leader_id = null where id = group_a;
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_be('a former group leader loses host controls',
+    exists (select 1 from public.meeting_call_access(m_group) where can_start and not can_host));
+  perform pg_temp.act_as_service();
+  update public.groups set leader_id = a where id = group_a;
   perform pg_temp.act_as(worker);
   perform pg_temp.must_be('work-space and team members can start their calls',
     exists (select 1 from public.meeting_call_access(m_space) where can_start)
     and exists (select 1 from public.meeting_call_access(m_space_team) where can_start)
     and exists (select 1 from public.meeting_call_access(m_project_team) where can_start));
+  perform pg_temp.must_be('an ordinary work member has no host controls before starting',
+    exists (select 1 from public.meeting_call_access(m_space) where not can_host)
+    and exists (select 1 from public.meeting_call_access(m_project_team) where not can_host));
+  perform pg_temp.act_as(prof);
+  perform pg_temp.must_be('current space, team and project managers have host controls',
+    exists (select 1 from public.meeting_call_access(m_space) where can_host)
+    and exists (select 1 from public.meeting_call_access(m_project) where can_host)
+    and exists (select 1 from public.meeting_call_access(m_space_team) where can_host)
+    and exists (select 1 from public.meeting_call_access(m_project_team) where can_host));
+  perform public.set_general_team_leader((select v from call_fx where k = 'project_team'), worker);
+  perform pg_temp.act_as(worker);
+  perform pg_temp.must_be('a current project-team leader gains host controls',
+    exists (select 1 from public.meeting_call_access(m_project_team) where can_host));
+  perform pg_temp.act_as(prof);
+  perform public.set_general_team_leader((select v from call_fx where k = 'project_team'), null);
   perform pg_temp.act_as(stakeholder);
   perform pg_temp.must_be('a stakeholder can start a project call',
     exists (select 1 from public.meeting_call_access(m_project) where can_start and max_participants = 100));
@@ -241,6 +276,19 @@ begin
     exists (select 1 from public.meeting_call_access(m_project) where can_join and can_host));
   perform pg_temp.act_as_service();
   perform public.set_meeting_call_lock(m_project, false);
+  perform pg_temp.act_as(stakeholder);
+  perform pg_temp.must_refuse('a member cannot ban someone directly',
+    format('select public.ban_meeting_call_participant(%L, %L, %L)', m_project, second_room, worker));
+  perform pg_temp.act_as_service();
+  perform public.ban_meeting_call_participant(m_project, second_room, stakeholder);
+  perform pg_temp.must_be('a removed participant cannot return with an old token',
+    not public.meeting_call_participant_allowed(m_project, stakeholder, true)
+    and not public.meeting_call_participant_allowed(m_project, stakeholder, false));
+  perform pg_temp.act_as(stakeholder);
+  perform pg_temp.must_be('a removed participant cannot request a fresh token',
+    exists (select 1 from public.meeting_call_access(m_project) where not can_join));
+  perform pg_temp.act_as_service();
+  delete from public.meeting_call_bans where room_name = second_room and user_id = stakeholder;
   perform pg_temp.must_be('a live room is listed for reconciliation',
     exists (select 1 from public.meeting_calls_to_reconcile(50)
              where meeting_id = m_project and room_name = second_room));

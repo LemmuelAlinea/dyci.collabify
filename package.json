@@ -30,6 +30,7 @@
     "@lezer/python": "^1.1.19",
     "@lezer/rust": "^1.0.3",
     "@livekit/components-react": "2.9.25",
+    "@livekit/protocol": "1.46.6",
     "@livekit/track-processors": "0.8.3",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",

@@ -35,6 +35,17 @@ alter table public.meetings add constraint meetings_call_shape check (
 create unique index if not exists meetings_room_name_unique on public.meetings (room_name)
   where room_name is not null;
 
+create table if not exists public.meeting_call_bans (
+  meeting_id uuid not null references public.meetings(id) on delete cascade,
+  room_name text not null,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (room_name, user_id)
+);
+alter table public.meeting_call_bans enable row level security;
+revoke all on table public.meeting_call_bans from public, anon, authenticated;
+grant select, insert, update, delete on public.meeting_call_bans to service_role;
+
 create or replace function public.meeting_call_init()
 returns trigger language plpgsql set search_path = public as $$
 begin
@@ -92,7 +103,7 @@ returns boolean language sql stable security definer set search_path = public as
       on sm.space_id = c.space_id and sm.user_id = p_user
    where c.id = m.class_id
      and (c.professor_id = p_user
-       or (pr.role = 'faculty' and sm.level in ('owner', 'manager')))
+       or (pr.role = 'member' and pr.can_teach and sm.level in ('owner', 'manager')))
   )
   select exists (select 1 from active) and coalesce(case m.scope
     when 'class' then exists (select 1 from faculty)
@@ -132,7 +143,7 @@ returns boolean language sql stable security definer set search_path = public as
                on sm.space_id = c.space_id and sm.user_id = p_user
               where c.id = m.class_id
                 and (c.professor_id = p_user
-                     or (pr.role = 'faculty' and sm.level in ('owner', 'manager'))))
+                     or (pr.role = 'member' and pr.can_teach and sm.level in ('owner', 'manager'))))
            when 'group' then exists (select 1 from public.groups g
                                      where g.id = m.group_id and g.leader_id = p_user)
            when 'space' then exists (select 1 from public.general_space_members sm
@@ -170,6 +181,8 @@ language sql stable security definer set search_path = public as $$
          public.meeting_call_host(m),
          m.room_name is not null
            and (m.started_at is null or m.started_at > now() - interval '8 hours')
+           and not exists (select 1 from public.meeting_call_bans b
+                            where b.room_name = m.room_name and b.user_id = auth.uid())
            and ((m.call_state = 'starting' and public.meeting_call_host(m))
              or (m.call_state = 'live' and
                    (m.locked_at is null or public.meeting_call_host(m)))),
@@ -250,6 +263,20 @@ begin
 end;
 $$;
 
+create or replace function public.ban_meeting_call_participant(
+  p_meeting uuid, p_room text, p_user uuid
+)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.meetings
+                  where id = p_meeting and room_name = p_room and call_state = 'live') then
+    raise exception 'This call is unavailable.' using errcode = 'check_violation';
+  end if;
+  insert into public.meeting_call_bans(meeting_id, room_name, user_id)
+  values (p_meeting, p_room, p_user) on conflict do nothing;
+end;
+$$;
+
 create or replace function public.mark_meeting_call_empty(
   p_meeting uuid, p_room text, p_empty boolean
 )
@@ -274,6 +301,8 @@ returns boolean language sql stable security definer set search_path = public as
      and (m.started_at is null or m.started_at > now() - interval '8 hours')
      and coalesce((select meeting_calls_enabled from public.organization_settings where id), false)
      and public.meeting_call_member_for(m, p_user)
+     and not exists (select 1 from public.meeting_call_bans b
+                      where b.room_name = m.room_name and b.user_id = p_user)
      and (m.call_state = 'live' or public.meeting_call_host_for(m, p_user))
      and (not p_new_join or m.locked_at is null or public.meeting_call_host_for(m, p_user))
   );
@@ -409,10 +438,19 @@ grant execute on function public.get_my_meeting_v2(uuid) to authenticated;
 revoke all on function public.confirm_meeting_live(uuid,text) from public, anon, authenticated;
 revoke all on function public.finish_meeting_call(uuid,text) from public, anon, authenticated;
 revoke all on function public.set_meeting_call_lock(uuid,boolean) from public, anon, authenticated;
+revoke all on function public.ban_meeting_call_participant(uuid,text,uuid) from public, anon, authenticated;
 revoke all on function public.mark_meeting_call_empty(uuid,text,boolean) from public, anon, authenticated;
 revoke all on function public.meeting_call_participant_allowed(uuid,uuid,boolean) from public, anon, authenticated;
 revoke all on function public.meeting_call_disallowed_participants(uuid,text[],boolean[]) from public, anon, authenticated;
 revoke all on function public.meeting_calls_to_reconcile(integer) from public, anon, authenticated;
+grant execute on function public.confirm_meeting_live(uuid,text) to service_role;
+grant execute on function public.finish_meeting_call(uuid,text) to service_role;
+grant execute on function public.set_meeting_call_lock(uuid,boolean) to service_role;
+grant execute on function public.ban_meeting_call_participant(uuid,text,uuid) to service_role;
+grant execute on function public.mark_meeting_call_empty(uuid,text,boolean) to service_role;
+grant execute on function public.meeting_call_participant_allowed(uuid,uuid,boolean) to service_role;
+grant execute on function public.meeting_call_disallowed_participants(uuid,text[],boolean[]) to service_role;
+grant execute on function public.meeting_calls_to_reconcile(integer) to service_role;
 grant execute on function public.confirm_meeting_live(uuid,text) to service_role;
 grant execute on function public.finish_meeting_call(uuid,text) to service_role;
 grant execute on function public.set_meeting_call_lock(uuid,boolean) to service_role;
