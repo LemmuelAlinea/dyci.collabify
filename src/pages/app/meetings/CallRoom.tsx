@@ -144,7 +144,6 @@ export default function CallRoom() {
 
   return <LiveKitRoom serverUrl={session.serverUrl} token={session.token} connect audio={choices.microphone} video={choices.camera}
     options={{ adaptiveStream: true, dynacast: true }}
-    connectOptions={{ autoSubscribe: false }}
     onDisconnected={() => { setSession(null); setError('The call disconnected. You can try joining again.'); void load() }}
     onError={(err) => { setSession(null); setError(err.message) }}
     onMediaDeviceFailure={() => setError('A camera or microphone is unavailable. You can continue without it.')}>

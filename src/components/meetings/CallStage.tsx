@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RoomAudioRenderer, VideoTrack, useIsMuted, useIsSpeaking, useParticipantAttribute, useParticipantTracks, useParticipants, useSpeakingParticipants, useTracks } from '@livekit/components-react'
+import { RoomAudioRenderer, VideoTrack, useIsMuted, useIsSpeaking, useParticipantAttribute, useParticipantTracks, useSpeakingParticipants, useTracks } from '@livekit/components-react'
 import type { TrackReferenceOrPlaceholder } from '@livekit/components-core'
-import { RemoteTrackPublication, Track } from 'livekit-client'
+import { Track } from 'livekit-client'
 import { Icon } from '../ui/Icon'
 
 function CallTile({ track }: { track: TrackReferenceOrPlaceholder }) {
@@ -24,7 +24,6 @@ function CallTile({ track }: { track: TrackReferenceOrPlaceholder }) {
 export function CallStage() {
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }])
   const speakers = useSpeakingParticipants()
-  const participants = useParticipants()
   const [view, setView] = useState<'speaker' | 'grid'>('grid')
   const [grid, setGrid] = useState(9)
   const [page, setPage] = useState(0)
@@ -48,18 +47,6 @@ export function CallStage() {
         ? ordered.filter((track) => track.participant.identity === speakers[0]?.identity).slice(0, 1)
         : ordered.slice(0, 1)
     : ordered.slice(page * pageSize, (page + 1) * pageSize)
-
-  useEffect(() => {
-    const visible = new Set(selected.map((track) => track.publication?.trackSid))
-    for (const participant of participants) {
-      if (participant.isLocal) continue
-      for (const publication of participant.trackPublications.values()) {
-        if (!(publication instanceof RemoteTrackPublication)) continue
-        const shouldSubscribe = publication.kind === Track.Kind.Audio || visible.has(publication.trackSid)
-        if (publication.isSubscribed !== shouldSubscribe) publication.setSubscribed(shouldSubscribe)
-      }
-    }
-  }, [participants, selected])
 
   return <div className="flex min-h-0 flex-1 flex-col gap-3">
     <RoomAudioRenderer />
