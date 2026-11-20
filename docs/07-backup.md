@@ -1070,14 +1070,24 @@ write with the request's claims cleared. Re-running it is safe; re-run `anon-loc
 
 `meeting-calls.sql` runs after `project-open-tasks.sql` and before the final
 `anon-lockdown.sql`. It adds the disabled `organization_settings.meeting_calls_enabled`
-release flag, call lifecycle, access and v2 meeting readers. It is the final owner
-of `meetings_notify`, so re-run it after `meetings.sql`. Later tasks add chat
-and recordings here.
+release flag, call lifecycle, access, v2 meeting readers and the one-minute
+reconciler. It is the final owner of `meetings_notify`, so re-run it after
+`meetings.sql`. Later tasks add chat and recordings here.
 `project-stakeholders.sql` remains the final owner of `create_meeting`,
 `meeting_audiences`, `meeting_can_manage`, `update_meeting` and `cancel_meeting`.
 Re-run it after `meetings.sql`, then the documented later-owner suffix,
 `meeting-calls.sql` and `anon-lockdown.sql` last. Suite:
 `supabase/tests/meeting-calls.test.sql`.
+
+Deploy `meeting-call` with JWT verification and `meeting-call-events` with
+`--no-verify-jwt` so LiveKit can POST signed webhooks. The latter checks the
+raw webhook signature itself. Configure its URL in LiveKit Cloud. Both functions
+need `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` as Supabase secrets;
+the scheduled reconciler also needs `MEETING_CALL_CRON_SECRET` there and the
+same value stored in Vault as `collabify_meeting_call_cron_secret`. The existing
+Vault `collabify_supabase_url` supplies the function base URL. Do not put these
+values in browser code, Vercel or the repository. Keep `meeting_calls_enabled`
+false until the full call feature and provider checks are ready.
 
 ## Peer round delete
 

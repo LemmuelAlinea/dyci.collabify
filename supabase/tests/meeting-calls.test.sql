@@ -170,6 +170,7 @@ declare
   m_class uuid := (select v from call_fx where k = 'm_class');
   m_project uuid := (select v from call_fx where k = 'm_project');
   m_group uuid := (select v from call_fx where k = 'm_group');
+  m_group_after_leave uuid;
   m_space uuid := (select v from call_fx where k = 'm_space');
   room text;
   second_room text;
@@ -183,6 +184,10 @@ begin
   perform pg_temp.must_be('duplicate Start keeps the first room', room = second_room);
   perform pg_temp.must_refuse('a signed-in user cannot mark a room live',
     format('select public.confirm_meeting_live(%L, %L)', m_class, room));
+  perform pg_temp.must_refuse('a signed-in user cannot finish a room',
+    format('select public.finish_meeting_call(%L, %L)', m_class, room));
+  perform pg_temp.must_refuse('a signed-in user cannot lock a room',
+    format('select public.set_meeting_call_lock(%L, true)', m_class));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('a claimed room sends no started notice',
     not exists (select 1 from public.notifications where meeting_id = m_class and type = 'meeting_started'));
@@ -217,7 +222,17 @@ begin
     second_room <> room and (select started_by = worker from public.meetings where id = m_project));
   perform pg_temp.act_as_service();
   perform public.confirm_meeting_live(m_project, second_room);
+  perform public.mark_meeting_call_empty(m_project, second_room, true);
+  perform pg_temp.must_be('an empty room starts a grace timer',
+    (select empty_since is not null from public.meetings where id = m_project));
+  perform public.mark_meeting_call_empty(m_project, second_room, false);
+  perform pg_temp.must_be('a returning participant clears the empty timer',
+    (select empty_since is null from public.meetings where id = m_project));
   perform public.set_meeting_call_lock(m_project, true);
+  perform pg_temp.must_be('lock blocks a pre-issued token at arrival',
+    not public.meeting_call_participant_allowed(m_project, stakeholder, true)
+    and public.meeting_call_participant_allowed(m_project, stakeholder, false)
+    and public.meeting_call_participant_allowed(m_project, worker, true));
   perform pg_temp.act_as(stakeholder);
   perform pg_temp.must_be('a locked room blocks new nonhost joins',
     exists (select 1 from public.meeting_call_access(m_project) where not can_join));
@@ -226,15 +241,26 @@ begin
     exists (select 1 from public.meeting_call_access(m_project) where can_join and can_host));
   perform pg_temp.act_as_service();
   perform public.set_meeting_call_lock(m_project, false);
+  perform pg_temp.must_be('a live room is listed for reconciliation',
+    exists (select 1 from public.meeting_calls_to_reconcile(50)
+             where meeting_id = m_project and room_name = second_room));
   update public.meetings set started_at = now() - interval '8 hours 1 minute' where id = m_project;
   perform pg_temp.act_as(stakeholder);
   perform pg_temp.must_be('an over-eight-hour room takes no new joins',
     exists (select 1 from public.meeting_call_access(m_project) where not can_join));
 
   perform pg_temp.act_as(a);
+  m_group_after_leave := (public.create_meeting('group',
+    (select v from call_fx where k = 'group_a'), 'Later group call', '', null, now(), 60)).id;
   perform public.cancel_meeting(m_group);
   perform pg_temp.must_refuse('a cancelled call cannot start',
     format('select public.begin_meeting_call(%L)', m_group));
+  perform pg_temp.act_as_service();
+  delete from public.group_members
+   where group_id = (select v from call_fx where k = 'group_a') and student_id = a;
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_be('a group scheduler loses call access after leaving the group',
+    not exists (select 1 from public.meeting_call_access(m_group_after_leave)));
   perform pg_temp.act_as_service();
   update public.meetings set starts_at = now() - interval '40 days' where id = m_space;
   perform pg_temp.act_as(prof);
@@ -244,6 +270,24 @@ begin
     not exists (select 1 from public.list_my_meetings_v2(now() - interval '30 days', now(), 50)
                  where id = m_space));
   perform pg_temp.act_as_service();
+  update public.meetings set started_at = now() where id = m_project;
+  perform pg_temp.must_be('a current project member is allowed to remain in the room',
+    public.meeting_call_participant_allowed(m_project, worker, false));
+  delete from public.general_members
+   where project_id = (select v from call_fx where k = 'project') and user_id = worker;
+  perform pg_temp.must_be('removing project membership revokes room access',
+    not public.meeting_call_participant_allowed(m_project, worker, false));
+  perform pg_temp.must_be('batch reconciliation removes only the former member',
+    (select array_agg(identity order by identity)
+       from public.meeting_call_disallowed_participants(
+         m_project, array[worker::text, stakeholder::text], array[false, false]))
+      = array[worker::text]);
+  insert into public.meeting_call_events (event_id, room_name)
+  values ('zz-test-event', second_room) on conflict do nothing;
+  insert into public.meeting_call_events (event_id, room_name)
+  values ('zz-test-event', second_room) on conflict do nothing;
+  perform pg_temp.must_be('duplicate provider events are stored once',
+    (select count(*) from public.meeting_call_events where event_id = 'zz-test-event') = 1);
   update public.profiles set status = 'pending' where id = stakeholder;
   perform pg_temp.act_as(stakeholder);
   perform pg_temp.must_be('a pending former member cannot read call detail',
