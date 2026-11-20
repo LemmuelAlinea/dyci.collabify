@@ -1,5 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { RoomServiceClient, WebhookReceiver } from 'npm:livekit-server-sdk@2.19.2'
+import { EgressClient, RoomServiceClient, WebhookReceiver } from 'npm:livekit-server-sdk@2.19.2'
+import { EgressStatus, ParticipantInfo_Kind } from 'npm:@livekit/protocol@1.51.0'
+import type { EgressInfo } from 'npm:@livekit/protocol@1.51.0'
 
 type Call = {
   id: string
@@ -20,6 +22,7 @@ const livekitSecret = Deno.env.get('LIVEKIT_API_SECRET')!
 const cronSecret = Deno.env.get('MEETING_CALL_CRON_SECRET')
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 const rooms = new RoomServiceClient(livekitUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:'), livekitKey, livekitSecret)
+const egress = new EgressClient(livekitUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:'), livekitKey, livekitSecret)
 const receiver = new WebhookReceiver(livekitKey, livekitSecret)
 
 async function callForRoom(roomName: string): Promise<Call | null> {
@@ -31,7 +34,8 @@ async function callForRoom(roomName: string): Promise<Call | null> {
 }
 
 async function checkParticipants(call: Call) {
-  const active = await rooms.listParticipants(call.room_name)
+  const active = (await rooms.listParticipants(call.room_name))
+    .filter((participant) => participant.kind !== ParticipantInfo_Kind.EGRESS)
   if (!active.length) {
     const cleared = await admin.rpc('sync_meeting_call_presence', {
       p_meeting: call.id, p_room: call.room_name, p_users: [],
@@ -103,16 +107,66 @@ async function reconcile() {
     }
     checked++
   }
+  const { data: recordings, error: recordingsError } = await admin.from('meeting_call_recordings')
+    .select('id,egress_id,storage_path,status,started_at')
+    .in('status', ['starting', 'recording', 'processing']).limit(500)
+  if (recordingsError) throw recordingsError
+  for (const recording of recordings ?? []) {
+    if (!recording.egress_id) {
+      if (Date.now() - Date.parse(recording.started_at) > 2 * 60_000) {
+        const result = await admin.rpc('finish_meeting_recording', {
+          p_recording: recording.id, p_egress: null, p_success: false,
+          p_ended: new Date().toISOString(),
+        })
+        if (result.error) throw result.error
+      }
+      continue
+    }
+    const current = (await egress.listEgress({ egressId: recording.egress_id }))[0]
+    if (current && [EgressStatus.EGRESS_COMPLETE, EgressStatus.EGRESS_FAILED,
+                    EgressStatus.EGRESS_ABORTED, EgressStatus.EGRESS_LIMIT_REACHED].includes(current.status))
+      await finishRecording(recording.id, recording.storage_path, current)
+  }
   await admin.from('meeting_call_events').delete()
     .lt('received_at', new Date(Date.now() - 7 * 86400_000).toISOString())
   return checked
+}
+
+async function finishRecording(id: string, path: string, info: EgressInfo) {
+  const output = info.fileResults.find((file) => file.filename === path)
+  const success = !!output && [EgressStatus.EGRESS_COMPLETE, EgressStatus.EGRESS_LIMIT_REACHED].includes(info.status)
+  const ended = Number(info.endedAt) > 0 ? new Date(Number(info.endedAt) / 1_000_000) : new Date()
+  const result = await admin.rpc('finish_meeting_recording', {
+    p_recording: id, p_egress: info.egressId, p_success: success, p_ended: ended.toISOString(),
+  })
+  if (result.error) throw result.error
+}
+
+async function cleanupRecordings() {
+  const { data, error } = await admin.rpc('meeting_recordings_to_delete', { p_limit: 500 })
+  if (error) throw error
+  let deleted = 0
+  for (const row of (data ?? []) as { recording_id: string; storage_path: string }[]) {
+    const marked = await admin.from('meeting_call_recordings').update({ status: 'deleting' })
+      .eq('id', row.recording_id).in('status', ['ready', 'failed', 'deleting'])
+    if (marked.error) throw marked.error
+    const removed = await admin.storage.from('meeting-recordings').remove([row.storage_path])
+    if (removed.error) continue
+    const erased = await admin.from('meeting_call_recordings').delete().eq('id', row.recording_id)
+    if (erased.error) throw erased.error
+    deleted++
+  }
+  return deleted
 }
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Use POST.', { status: 405 })
   if (cronSecret && req.headers.get('Authorization') === `Bearer ${cronSecret}`) {
     try {
-      return Response.json({ checked: await reconcile() })
+      const body = await req.json().catch(() => ({})) as { action?: string }
+      return body.action === 'recording_cleanup'
+        ? Response.json({ deleted: await cleanupRecordings() })
+        : Response.json({ checked: await reconcile() })
     } catch (error) {
       console.error('meeting-call reconcile:', error)
       return new Response('Reconciliation failed.', { status: 503 })
@@ -124,6 +178,26 @@ Deno.serve(async (req) => {
     event = await receiver.receive(await req.text(), req.headers.get('Authorization') ?? '')
   } catch {
     return new Response('Invalid signature.', { status: 401 })
+  }
+  if (event.event?.startsWith('egress_') && event.egressInfo?.egressId && event.id) {
+    const info = event.egressInfo
+    const path = info.fileResults[0]?.filename
+    const byId = await admin.from('meeting_call_recordings')
+      .select('id,storage_path,meeting_id,egress_id').eq('egress_id', info.egressId).maybeSingle()
+    if (byId.error) return new Response('Retry event.', { status: 503 })
+    let recording = byId.data
+    if (!recording && path?.startsWith('meetings/')) {
+      const byPath = await admin.from('meeting_call_recordings')
+        .select('id,storage_path,meeting_id,egress_id').eq('storage_path', path).maybeSingle()
+      if (byPath.error) return new Response('Retry event.', { status: 503 })
+      recording = byPath.data
+    }
+    if (!recording) return new Response('Retry event.', { status: 503 })
+    if (event.event === 'egress_ended') {
+      try { await finishRecording(recording.id, recording.storage_path, info) }
+      catch { return new Response('Retry event.', { status: 503 }) }
+    }
+    return new Response('ok', { status: 200 })
   }
   const roomName = event.room?.name
   if (!roomName || !event.id) return new Response('Ignored.', { status: 200 })
@@ -141,6 +215,7 @@ Deno.serve(async (req) => {
     }
 
     if (event.event === 'participant_joined' && event.participant?.identity) {
+      if (event.participant.kind === ParticipantInfo_Kind.EGRESS) return new Response('Ignored egress.', { status: 200 })
       const identity = event.participant.identity
       const { data: permitted, error } = await admin.rpc('meeting_call_participant_allowed', {
         p_meeting: call.id, p_user: identity, p_new_join: true,

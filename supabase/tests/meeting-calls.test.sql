@@ -31,6 +31,8 @@ begin
     and has_function_privilege('service_role', 'public.finish_meeting_call(uuid,text)', 'execute')
     and has_function_privilege('service_role', 'public.ban_meeting_call_participant(uuid,text,uuid)', 'execute')
     and has_function_privilege('service_role', 'public.meeting_calls_to_reconcile(integer)', 'execute')
+    and has_function_privilege('service_role', 'public.begin_meeting_recording(uuid,uuid)', 'execute')
+    and has_function_privilege('service_role', 'public.meeting_recordings_to_delete(integer)', 'execute')
     and has_function_privilege('service_role', 'public.sync_meeting_call_presence(uuid,text,uuid[])', 'execute'));
   perform pg_temp.must_be('chat and presence have no anonymous access or client edits',
     not has_table_privilege('anon', 'public.meeting_call_messages', 'select')
@@ -239,6 +241,8 @@ declare
   room text;
   second_room text;
   message_id uuid;
+  v_recording_id uuid;
+  recording_end timestamptz;
 begin
   perform pg_temp.act_as(prof);
   select room_name into room from public.begin_meeting_call(m_class);
@@ -289,6 +293,64 @@ begin
   perform public.confirm_meeting_live(m_project, second_room);
   perform public.sync_meeting_call_presence(m_project, second_room,
     array[worker, stakeholder]);
+  perform pg_temp.must_be('recording bucket is private',
+    exists (select 1 from storage.buckets where id = 'meeting-recordings' and not public));
+  perform pg_temp.must_be('clients cannot write recording metadata',
+    not has_table_privilege('authenticated', 'public.meeting_call_recordings', 'insert')
+    and not has_table_privilege('authenticated', 'public.meeting_call_recordings', 'update')
+    and not has_table_privilege('authenticated', 'public.meeting_call_recordings', 'delete'));
+  perform pg_temp.must_refuse('a nonhost cannot start recording',
+    format('select public.begin_meeting_recording(%L,%L)', m_project, stakeholder));
+  v_recording_id := (public.begin_meeting_recording(m_project, worker)).id;
+  perform pg_temp.must_be('one active recording has a private MP4 path',
+    (select status = 'starting' and storage_path =
+      'meetings/' || m_project || '/' || v_recording_id || '.mp4'
+      from public.meeting_call_recordings where id = v_recording_id));
+  perform pg_temp.must_refuse('a second active segment cannot start',
+    format('select public.begin_meeting_recording(%L,%L)', m_project, worker));
+  perform public.bind_meeting_recording_egress(v_recording_id, 'EG_test_recording');
+  recording_end := now() - interval '1 minute';
+  perform public.finish_meeting_recording(v_recording_id, 'EG_test_recording', true, recording_end);
+  perform pg_temp.must_be('a finished segment expires exactly 30 days later',
+    (select status = 'ready' and ended_at = recording_end
+       and expires_at = recording_end + interval '30 days'
+       from public.meeting_call_recordings where id = v_recording_id));
+  perform pg_temp.must_be('unexpired recordings are not selected for deletion',
+    not exists (select 1 from public.meeting_recordings_to_delete(10)
+                where recording_id = v_recording_id));
+  update public.meeting_call_recordings
+     set status = 'processing', expires_at = now() - interval '1 minute'
+   where id = v_recording_id;
+  perform pg_temp.must_be('processing recordings are never selected for cleanup',
+    not exists (select 1 from public.meeting_recordings_to_delete(10)
+                 where recording_id = v_recording_id));
+  update public.meeting_call_recordings set status = 'ready', expires_at = recording_end + interval '30 days'
+   where id = v_recording_id;
+  perform pg_temp.act_as(stakeholder);
+  perform pg_temp.must_be('current audience reads ready recording metadata',
+    exists (select 1 from public.meeting_call_recordings where id = v_recording_id));
+  perform pg_temp.must_refuse('clients cannot change recording state',
+    format('update public.meeting_call_recordings set status = %L where id = %L',
+      'ready', v_recording_id));
+  perform pg_temp.act_as((select v from call_fx where k = 'outsider'));
+  perform pg_temp.must_be('a nonmember cannot read recording metadata',
+    not exists (select 1 from public.meeting_call_recordings where id = v_recording_id));
+  perform pg_temp.act_as_service();
+  update public.meeting_call_recordings set expires_at = now() - interval '1 minute'
+   where id = v_recording_id;
+  perform pg_temp.must_be('expired ready recordings are selected for cleanup',
+    exists (select 1 from public.meeting_recordings_to_delete(10)
+             where recording_id = v_recording_id));
+  update public.meeting_call_recordings set status = 'failed' where id = v_recording_id;
+  perform pg_temp.must_be('expired failed recordings are selected for cleanup',
+    exists (select 1 from public.meeting_recordings_to_delete(10)
+             where recording_id = v_recording_id));
+  update public.meeting_call_recordings set status = 'deleting' where id = v_recording_id;
+  perform pg_temp.must_be('failed deletion remains retryable',
+    exists (select 1 from public.meeting_recordings_to_delete(10)
+             where recording_id = v_recording_id));
+  update public.meeting_call_recordings set expires_at = now() + interval '30 days'
+   where id = v_recording_id;
   perform pg_temp.act_as(prof);
   perform pg_temp.must_refuse('a member outside the active room cannot chat',
     format('insert into public.meeting_call_messages(meeting_id,sender_id,body) values (%L,%L,%L)',
@@ -392,6 +454,8 @@ begin
   perform pg_temp.must_be('a former member cannot read chat',
     not exists (select 1 from public.meeting_call_messages
                  where id = (select v from call_fx where k = 'chat')));
+  perform pg_temp.must_be('a former member cannot read recording metadata',
+    not exists (select 1 from public.meeting_call_recordings where id = v_recording_id));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('removing project membership revokes room access',
     not public.meeting_call_participant_allowed(m_project, worker, false));
@@ -431,6 +495,9 @@ begin
   perform pg_temp.must_be('deleting a meeting deletes its chat',
     not exists (select 1 from public.meeting_call_messages
                  where id = (select v from call_fx where k = 'chat')));
+  perform pg_temp.must_be('deleting a meeting keeps private bytes queued for expiry',
+    exists (select 1 from public.meeting_call_recordings
+             where id = v_recording_id and meeting_id is null));
 end $$;
 
 rollback;

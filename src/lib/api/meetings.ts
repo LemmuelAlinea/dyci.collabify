@@ -111,3 +111,20 @@ export async function sendCallMessage(meetingId: string, body: string) {
   if (error) throw error
   return data as unknown as CallMessage
 }
+
+export type MeetingRecording = {
+  id: string
+  meeting_id: string
+  status: 'starting' | 'recording' | 'processing' | 'ready' | 'failed' | 'deleting'
+  started_at: string
+  ended_at: string | null
+  expires_at: string | null
+}
+
+export async function listMeetingRecordings(meetingId: string) {
+  const { data, error } = await supabase.from('meeting_call_recordings')
+    .select('id,meeting_id,status,started_at,ended_at,expires_at')
+    .eq('meeting_id', meetingId).order('started_at', { ascending: false }).limit(50)
+  if (error) throw error
+  return (data ?? []) as MeetingRecording[]
+}

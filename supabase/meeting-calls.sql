@@ -106,6 +106,30 @@ revoke all on table public.meeting_call_messages from public, anon, authenticate
 grant select, insert on table public.meeting_call_messages to authenticated;
 grant select, insert, update, delete on table public.meeting_call_messages to service_role;
 
+insert into storage.buckets (id, name, public)
+values ('meeting-recordings', 'meeting-recordings', false)
+on conflict (id) do update set public = false;
+
+create table if not exists public.meeting_call_recordings (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id uuid references public.meetings(id) on delete set null,
+  started_by uuid references public.profiles(id) on delete set null,
+  egress_id text unique,
+  storage_path text not null unique,
+  status text not null check (status in ('starting', 'recording', 'processing', 'ready', 'failed', 'deleting')),
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  expires_at timestamptz
+);
+create unique index if not exists meeting_call_one_active_recording
+  on public.meeting_call_recordings(meeting_id) where status in ('starting', 'recording');
+create index if not exists meeting_call_recordings_expiry
+  on public.meeting_call_recordings(expires_at) where status in ('ready', 'failed', 'deleting');
+alter table public.meeting_call_recordings enable row level security;
+revoke all on table public.meeting_call_recordings from public, anon, authenticated;
+grant select on table public.meeting_call_recordings to authenticated;
+grant select, insert, update, delete on table public.meeting_call_recordings to service_role;
+
 do $$ begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
      and not exists (select 1 from pg_publication_tables
@@ -426,6 +450,75 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
+drop policy if exists meeting_call_recordings_read on public.meeting_call_recordings;
+create policy meeting_call_recordings_read on public.meeting_call_recordings for select to authenticated
+using (public.meeting_call_can_read(meeting_id));
+
+create or replace function public.begin_meeting_recording(p_meeting uuid, p_host uuid)
+returns public.meeting_call_recordings language plpgsql security definer set search_path = public as $$
+declare
+  m public.meetings;
+  r public.meeting_call_recordings;
+  v_id uuid := gen_random_uuid();
+begin
+  select * into m from public.meetings where id = p_meeting for update;
+  if not found or m.call_state <> 'live'
+     or not public.meeting_call_host_for(m, p_host)
+     or not public.meeting_call_participant_allowed(p_meeting, p_host, false)
+     or not exists (select 1 from public.meeting_call_presence p
+                     where p.meeting_id = p_meeting and p.room_name = m.room_name
+                       and p.user_id = p_host and p.left_at is null) then
+    raise exception 'Only a connected host can record this call.' using errcode = 'insufficient_privilege';
+  end if;
+  if exists (select 1 from public.meeting_call_recordings
+              where meeting_id = p_meeting and status in ('starting', 'recording')) then
+    raise exception 'This call is already being recorded.' using errcode = 'check_violation';
+  end if;
+  insert into public.meeting_call_recordings(id, meeting_id, started_by, storage_path, status)
+  values (v_id, p_meeting, p_host,
+          'meetings/' || p_meeting || '/' || v_id || '.mp4', 'starting')
+  returning * into r;
+  return r;
+end;
+$$;
+
+create or replace function public.bind_meeting_recording_egress(p_recording uuid, p_egress text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update public.meeting_call_recordings
+     set egress_id = p_egress, status = 'recording'
+   where id = p_recording and status = 'starting' and egress_id is null;
+  if not found and not exists (select 1 from public.meeting_call_recordings
+                              where id = p_recording and egress_id = p_egress) then
+    raise exception 'Recording start is unavailable.' using errcode = 'check_violation';
+  end if;
+end;
+$$;
+
+create or replace function public.finish_meeting_recording(
+  p_recording uuid, p_egress text, p_success boolean, p_ended timestamptz
+)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_ended is null then raise exception 'Recording end time is required.'; end if;
+  update public.meeting_call_recordings
+     set egress_id = coalesce(egress_id, p_egress),
+         status = case when p_success then 'ready' else 'failed' end,
+         ended_at = p_ended, expires_at = p_ended + interval '30 days'
+   where id = p_recording and (egress_id is null or egress_id = p_egress)
+     and status in ('starting', 'recording', 'processing');
+end;
+$$;
+
+create or replace function public.meeting_recordings_to_delete(p_limit integer)
+returns table (recording_id uuid, storage_path text)
+language sql stable security definer set search_path = public as $$
+  select r.id, r.storage_path from public.meeting_call_recordings r
+   where r.expires_at <= now() and r.status in ('ready', 'failed', 'deleting')
+   order by r.expires_at, r.id
+   limit greatest(1, least(coalesce(p_limit, 100), 500));
+$$;
+
 drop policy if exists meeting_call_messages_read on public.meeting_call_messages;
 create policy meeting_call_messages_read on public.meeting_call_messages for select to authenticated
 using (public.meeting_call_can_read(meeting_id));
@@ -583,6 +676,14 @@ grant execute on function public.meeting_call_participant_allowed(uuid,uuid,bool
 grant execute on function public.sync_meeting_call_presence(uuid,text,uuid[]) to service_role;
 grant execute on function public.meeting_call_can_chat(uuid) to authenticated;
 grant execute on function public.meeting_call_can_read(uuid) to authenticated;
+revoke all on function public.begin_meeting_recording(uuid,uuid) from public, anon, authenticated;
+revoke all on function public.bind_meeting_recording_egress(uuid,text) from public, anon, authenticated;
+revoke all on function public.finish_meeting_recording(uuid,text,boolean,timestamptz) from public, anon, authenticated;
+revoke all on function public.meeting_recordings_to_delete(integer) from public, anon, authenticated;
+grant execute on function public.begin_meeting_recording(uuid,uuid) to service_role;
+grant execute on function public.bind_meeting_recording_egress(uuid,text) to service_role;
+grant execute on function public.finish_meeting_recording(uuid,text,boolean,timestamptz) to service_role;
+grant execute on function public.meeting_recordings_to_delete(integer) to service_role;
 grant execute on function public.meeting_call_disallowed_participants(uuid,text[],boolean[]) to service_role;
 grant execute on function public.meeting_calls_to_reconcile(integer) to service_role;
 grant execute on function public.confirm_meeting_live(uuid,text) to service_role;
@@ -614,6 +715,27 @@ end;
 $$;
 revoke all on function public.reconcile_meeting_calls_tick() from public, anon, authenticated;
 
+create or replace function public.reconcile_meeting_recordings_tick()
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_url text;
+  v_secret text;
+begin
+  select decrypted_secret into v_url from vault.decrypted_secrets
+   where name = 'collabify_supabase_url';
+  select decrypted_secret into v_secret from vault.decrypted_secrets
+   where name = 'collabify_meeting_call_cron_secret';
+  if v_url is null or v_secret is null then return; end if;
+  perform net.http_post(
+    url := rtrim(v_url, '/') || '/functions/v1/meeting-call-events',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || v_secret,
+                                  'Content-Type', 'application/json'),
+    body := '{"action":"recording_cleanup"}'::jsonb,
+    timeout_milliseconds := 30000);
+end;
+$$;
+revoke all on function public.reconcile_meeting_recordings_tick() from public, anon, authenticated;
+
 do $$
 begin
   if exists (select 1 from cron.job where jobname = 'collabify-meeting-call-reconcile') then
@@ -621,6 +743,11 @@ begin
   end if;
   perform cron.schedule('collabify-meeting-call-reconcile', '* * * * *',
                         'select public.reconcile_meeting_calls_tick()');
+  if exists (select 1 from cron.job where jobname = 'collabify-meeting-recording-cleanup') then
+    perform cron.unschedule('collabify-meeting-recording-cleanup');
+  end if;
+  perform cron.schedule('collabify-meeting-recording-cleanup', '0 0 * * *',
+                        'select public.reconcile_meeting_recordings_tick()');
 end;
 $$;
 

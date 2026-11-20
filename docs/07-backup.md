@@ -1071,9 +1071,12 @@ write with the request's claims cleared. Re-running it is safe; re-run `anon-loc
 `meeting-calls.sql` runs after `project-open-tasks.sql` and before the final
 `anon-lockdown.sql`. It adds the disabled `organization_settings.meeting_calls_enabled`
 release flag, call lifecycle, access, v2 meeting readers and the one-minute
-reconciler, retry-safe instant creation, moderation bans, call presence and persistent chat. It is the final
-owner of `meetings_notify`, so re-run it after `meetings.sql`. Recording storage
-and retention remain pending provider verification.
+reconciler, retry-safe instant creation, moderation bans, call presence, persistent chat,
+private recording metadata and a daily 30-day cleanup. It creates the private
+`meeting-recordings` Storage bucket and is the final owner of `meetings_notify`,
+so re-run it after `meetings.sql`.
+LiveKit Cloud limits an MP4 Egress to three hours. The call UI shows this limit;
+hosts may start another recording segment while the meeting continues.
 `project-stakeholders.sql` remains the final owner of `create_meeting`,
 `meeting_audiences`, `meeting_can_manage`, `update_meeting` and `cancel_meeting`.
 Re-run it after `meetings.sql`, then the documented later-owner suffix,
@@ -1083,8 +1086,11 @@ Re-run it after `meetings.sql`, then the documented later-owner suffix,
 Deploy `meeting-call` with JWT verification and `meeting-call-events` with
 `--no-verify-jwt` so LiveKit can POST signed webhooks. The latter checks the
 raw webhook signature itself. Configure its URL in LiveKit Cloud. Both functions
-need `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` as Supabase secrets;
-the scheduled reconciler also needs `MEETING_CALL_CRON_SECRET` there and the
+need `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` as Supabase secrets.
+Recording also needs `MEETING_RECORDINGS_S3_ACCESS_KEY` and
+`MEETING_RECORDINGS_S3_SECRET_KEY` as Supabase secrets; these are server-only
+Supabase S3 access keys. The minute reconciler and daily recording cleanup
+need `MEETING_CALL_CRON_SECRET` there and the
 same value stored in Vault as `collabify_meeting_call_cron_secret`. The existing
 Vault `collabify_supabase_url` supplies the function base URL. Do not put these
 values in browser code, Vercel or the repository. Keep `meeting_calls_enabled`

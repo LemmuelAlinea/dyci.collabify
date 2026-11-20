@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { AccessToken, RoomServiceClient } from 'npm:livekit-server-sdk@2.19.2'
-import { RoomConfiguration, TrackSource } from 'npm:@livekit/protocol@1.51.0'
+import { AccessToken, EgressClient, EncodedFileOutput, RoomServiceClient } from 'npm:livekit-server-sdk@2.19.2'
+import { ParticipantInfo_Kind, RoomConfiguration, TrackSource } from 'npm:@livekit/protocol@1.51.0'
 import { cors, denied } from '../_shared/cors.ts'
 
 type Access = {
@@ -42,21 +42,90 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authError } = await caller.auth.getUser()
   if (authError || !user) return json(headers, { error: 'Sign in to use this call.' }, 401)
 
-  const body = await req.json().catch(() => ({})) as { action?: unknown; meeting_id?: unknown; target_id?: unknown }
+  const body = await req.json().catch(() => ({})) as {
+    action?: unknown; meeting_id?: unknown; target_id?: unknown; recording_id?: unknown
+  }
   const meetingId = typeof body.meeting_id === 'string' ? body.meeting_id : ''
   const action = body.action
-  if (!uuid.test(meetingId) || !['start', 'join', 'end', 'lock', 'unlock', 'mute', 'stop_share', 'remove', 'clear_hand'].includes(String(action)))
+  if (!uuid.test(meetingId) || !['start', 'join', 'end', 'lock', 'unlock', 'mute', 'stop_share', 'remove', 'clear_hand', 'record_start', 'record_stop', 'record_url'].includes(String(action)))
     return json(headers, { error: 'Choose a valid call action.' }, 400)
 
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
   const rooms = new RoomServiceClient(livekitUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:'), livekitKey, livekitSecret)
+  const egress = new EgressClient(livekitUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:'), livekitKey, livekitSecret)
 
   try {
+    if (action === 'record_url') {
+      const recordingId = typeof body.recording_id === 'string' ? body.recording_id : ''
+      if (!uuid.test(recordingId)) return json(headers, { error: 'Choose a recording.' }, 400)
+      const { data: mayRead, error: accessError } = await caller.rpc('meeting_call_can_read', { p_meeting: meetingId })
+      if (accessError || !mayRead) return json(headers, { error: 'This recording is unavailable to you.' }, 403)
+      const { data: recording } = await admin.from('meeting_call_recordings')
+        .select('storage_path,status,expires_at').eq('id', recordingId).eq('meeting_id', meetingId).maybeSingle()
+      if (!recording || recording.status !== 'ready' || !recording.expires_at
+          || Date.parse(recording.expires_at) <= Date.now())
+        return json(headers, { error: 'This recording is unavailable.' }, 404)
+      const { data: signed, error: signError } = await admin.storage.from('meeting-recordings')
+        .createSignedUrl(recording.storage_path, 60)
+      if (signError || !signed) throw signError ?? new Error('Could not sign recording URL')
+      return json(headers, { url: signed.signedUrl, expiresIn: 60 })
+    }
+
     const { data, error } = await caller.rpc(action === 'start' ? 'begin_meeting_call' : 'meeting_call_access', {
       p_meeting: meetingId,
     })
     const access = (data as Access[] | null)?.[0]
     if (error || !access) return json(headers, { error: 'This call is unavailable to you.' }, 403)
+
+    if (action === 'record_start' || action === 'record_stop') {
+      if (!access.can_host || !access.room_name || access.call_state !== 'live')
+        return json(headers, { error: 'Only a host can record a live call.' }, 403)
+      if (action === 'record_stop') {
+        const { data: recording } = await admin.from('meeting_call_recordings')
+          .select('id,egress_id').eq('meeting_id', meetingId).eq('status', 'recording').maybeSingle()
+        if (!recording?.egress_id) return json(headers, { error: 'No recording is running.' }, 409)
+        await egress.stopEgress(recording.egress_id)
+        const stopped = await admin.from('meeting_call_recordings').update({ status: 'processing' })
+          .eq('id', recording.id).eq('status', 'recording')
+        if (stopped.error) throw stopped.error
+        return json(headers, { result: 'processing' })
+      }
+      const s3Key = Deno.env.get('MEETING_RECORDINGS_S3_ACCESS_KEY')
+      const s3Secret = Deno.env.get('MEETING_RECORDINGS_S3_SECRET_KEY')
+      if (!s3Key || !s3Secret) return json(headers, { error: 'Recording is unavailable. Try again later.' }, 503)
+      const connected = (await rooms.listParticipants(access.room_name))
+        .some((participant) => participant.identity === user.id && participant.kind === ParticipantInfo_Kind.STANDARD)
+      if (!connected) return json(headers, { error: 'Join the call before recording.' }, 409)
+      const begun = await admin.rpc('begin_meeting_recording', { p_meeting: meetingId, p_host: user.id })
+      if (begun.error || !begun.data) return json(headers, { error: 'This call is already being recorded.' }, 409)
+      const recording = begun.data as { id: string; storage_path: string }
+      let egressId: string | null = null
+      try {
+        const ref = new URL(supabaseUrl).hostname.split('.')[0]
+        const output = new EncodedFileOutput({
+          filepath: recording.storage_path, disableManifest: true,
+          output: { case: 's3', value: {
+            accessKey: s3Key, secret: s3Secret, bucket: 'meeting-recordings',
+            endpoint: `https://${ref}.storage.supabase.co/storage/v1/s3`,
+            region: 'ap-southeast-1', forcePathStyle: true,
+          } },
+        })
+        const started = await egress.startRoomCompositeEgress(access.room_name, output, { layout: 'speaker' })
+        egressId = started.egressId
+        const bound = await admin.rpc('bind_meeting_recording_egress', {
+          p_recording: recording.id, p_egress: egressId,
+        })
+        if (bound.error) throw bound.error
+        return json(headers, { result: 'recording' })
+      } catch (startError) {
+        if (egressId) await egress.stopEgress(egressId).catch(() => undefined)
+        await admin.rpc('finish_meeting_recording', {
+          p_recording: recording.id, p_egress: egressId, p_success: false,
+          p_ended: new Date().toISOString(),
+        })
+        throw startError
+      }
+    }
 
     if (action === 'mute' || action === 'stop_share' || action === 'remove' || action === 'clear_hand') {
       const targetId = typeof body.target_id === 'string' ? body.target_id : ''
@@ -126,7 +195,8 @@ Deno.serve(async (req) => {
         }
       }
     }
-    const participants = await rooms.listParticipants(access.room_name)
+    const participants = (await rooms.listParticipants(access.room_name))
+      .filter((participant) => participant.kind !== ParticipantInfo_Kind.EGRESS)
     if (participants.length >= 100 && !participants.some((p) => p.identity === user.id))
       return json(headers, { error: 'This call is full.' }, 409)
 

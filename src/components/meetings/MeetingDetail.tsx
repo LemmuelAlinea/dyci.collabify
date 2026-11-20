@@ -8,6 +8,7 @@ import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { JoinLink } from './MeetingRow'
 import { CallChat } from './CallChat'
+import { CallRecording } from './CallRecording'
 
 const STATE_COPY = {
   upcoming: null,
@@ -117,6 +118,7 @@ export function MeetingDetail({
             </div>
           )}
           {meeting.platform === 'collabify' && state === 'ended' && <CallChat key={meeting.id} meetingId={meeting.id} readOnly compact />}
+          {meeting.platform === 'collabify' && state === 'ended' && <CallRecording key={`recordings-${meeting.id}`} meetingId={meeting.id} canHost={false} />}
         </div>
       )}
     </Modal>

@@ -8,6 +8,7 @@ import type { CallChoices } from '../../../components/meetings/CallPrejoin'
 import { CallStage } from '../../../components/meetings/CallStage'
 import { CallControls } from '../../../components/meetings/CallControls'
 import { CallChat } from '../../../components/meetings/CallChat'
+import { CallRecording } from '../../../components/meetings/CallRecording'
 import { CallPeople } from '../../../components/meetings/CallPeople'
 import type { ModerationAction } from '../../../components/meetings/CallPeople'
 import { applyBackground, CallSettings } from '../../../components/meetings/CallSettings'
@@ -61,7 +62,9 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
 
   return <div className="flex min-h-[75vh] min-w-0 flex-col gap-3 px-3 py-3 sm:px-5">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="min-w-0"><h1 className="truncate text-lg font-semibold text-ink">{meeting.title}</h1><p className="text-xs text-muted">Collabify call · members only</p></div>
+      <div className="min-w-0"><h1 className="truncate text-lg font-semibold text-ink">{meeting.title}</h1><p className="text-xs text-muted">Collabify call · members only</p>
+        <CallRecording meetingId={meeting.id} canHost={canHost && meeting.call_state === 'live'} inCall />
+      </div>
       <span className="rounded-full bg-success-500/15 px-3 py-1 text-xs text-success-700">{connection === ConnectionState.Connected ? 'In call' : 'Reconnecting…'}</span>
     </div>
     {meeting.started_at && Date.parse(meeting.started_at) + 8 * 3_600_000 - now <= 10 * 60_000 &&
@@ -146,7 +149,7 @@ export default function CallRoom() {
     onError={(err) => { setSession(null); setError(err.message) }}
     onMediaDeviceFailure={() => setError('A camera or microphone is unavailable. You can continue without it.')}>
     {error && <p role="alert" className="mx-4 text-sm text-danger-600">{error}</p>}
-    <ConnectedCall meeting={meeting} choices={choices} setChoices={setChoices} canHost={session.canHost}
+    <ConnectedCall meeting={meeting} choices={choices} setChoices={setChoices} canHost={meeting.can_host}
       onLeave={() => navigate(paths.meetings)} onError={setError} onRefresh={() => void load()} />
   </LiveKitRoom>
 }
