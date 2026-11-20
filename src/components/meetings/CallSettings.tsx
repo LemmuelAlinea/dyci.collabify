@@ -44,6 +44,14 @@ export function CallSettings({ room, choices, onChange, onClose }: {
     }
   }
 
+  async function mirror(enabled: boolean) {
+    try {
+      await room.localParticipant.setAttributes({ 'collabify.mirror': enabled ? '1' : '' })
+      onChange({ ...choices, mirror: enabled })
+      setError('')
+    } catch { setError('Could not change video mirroring.') }
+  }
+
   const select = (kind: MediaDeviceKind, label: string, field: 'microphoneId' | 'cameraId' | 'speakerId') => <label className="block text-sm text-muted">{label}
     <select className="mt-1 block w-full rounded-lg border border-line surface px-3 py-2 text-ink" value={choices[field]}
       onChange={(event) => void device(kind, event.target.value, field)}>
@@ -56,6 +64,8 @@ export function CallSettings({ room, choices, onChange, onClose }: {
     <div className="flex items-center justify-between"><h2 className="font-semibold text-ink">Settings</h2><Button variant="ghost" size="sm" onClick={onClose}>Close</Button></div>
     {select('audioinput', 'Microphone', 'microphoneId')}
     {select('videoinput', 'Camera', 'cameraId')}
+    <label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={choices.mirror}
+      onChange={(event) => void mirror(event.target.checked)} />Mirror my video for everyone</label>
     {select('audiooutput', 'Speaker', 'speakerId')}
     <label className="block text-sm text-muted">Background
       <select value={choices.background} className="mt-1 block w-full rounded-lg border border-line surface px-3 py-2 text-ink"

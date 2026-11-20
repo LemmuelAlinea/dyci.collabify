@@ -42,3 +42,13 @@ it('lists cameras before permission and explains a busy camera failure', async (
   expect(host.querySelector('[role="alert"]')?.textContent).toContain('in use or could not start')
   expect(getUserMedia).toHaveBeenCalledOnce()
 })
+
+it('remembers the mirror setting and includes it when joining', async () => {
+  localStorage.setItem('collabify.call-choices', JSON.stringify({ mirror: true }))
+  const enter = vi.fn()
+  await act(async () => root.render(<CallPrejoin title="Call" canStart onEnter={enter} busy={false} error={null} />))
+  expect((host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true)
+  expect(host.querySelector('video')?.classList.contains('scale-x-[-1]')).toBe(true)
+  await act(async () => [...host.querySelectorAll('button')].find((button) => button.textContent === 'Start call')!.click())
+  expect(enter).toHaveBeenCalledWith(expect.objectContaining({ mirror: true }))
+})

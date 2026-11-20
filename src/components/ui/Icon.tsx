@@ -89,6 +89,7 @@ const PATHS = {
   swap: 'M7 4L3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7',
   mic: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3',
   micOff: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3M3 3l18 18',
+  walkieTalkie: 'M9 6V2M7 6h10v15H7zM9 9h6v4H9zM11 17h2M17 15h2v4h-2',
   // Attach: the composer's menu of files, polls and voice on a phone.
   clip: 'M21.4 11.6l-8.8 8.8a5.5 5.5 0 01-7.8-7.8l8.8-8.8a3.7 3.7 0 015.2 5.2l-8.8 8.8a1.8 1.8 0 01-2.6-2.6l8.1-8.1',
   // The group's leader.

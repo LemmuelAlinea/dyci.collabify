@@ -60,6 +60,12 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
     if (local.isCameraEnabled) void applyBackground(room, choices).catch(() => onError('Background effect failed. Video continues without it.'))
   }, [local.isCameraEnabled, room]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (connection === ConnectionState.Connected) void room.localParticipant.setAttributes({
+      'collabify.mirror': choices.mirror ? '1' : '',
+    }).catch(() => onError('Could not share your video mirror setting.'))
+  }, [connection, room]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return <div className="flex min-h-[75vh] min-w-0 flex-col gap-3 px-3 pb-32 pt-3 sm:px-5 sm:pb-24">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0"><h1 className="truncate text-lg font-semibold text-ink">{meeting.title}</h1><p className="text-xs text-muted">Collabify call · members only</p>
@@ -117,7 +123,7 @@ export default function CallRoom() {
     if (!choices) return
     try { localStorage.setItem('collabify.call-choices', JSON.stringify({
       cameraId: choices.cameraId, microphoneId: choices.microphoneId,
-      speakerId: choices.speakerId, background: choices.background,
+      speakerId: choices.speakerId, background: choices.background, mirror: choices.mirror,
     })) } catch { /* Storage may be disabled. */ }
   }, [choices])
 

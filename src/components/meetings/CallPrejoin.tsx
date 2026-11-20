@@ -9,6 +9,7 @@ export type CallChoices = {
   speakerId: string
   background: 'off' | 'blur' | 'photo'
   photoUrl: string
+  mirror: boolean
 }
 
 export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }: {
@@ -27,6 +28,7 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
       microphoneId: saved.microphoneId || '', speakerId: saved.speakerId || '',
       background: saved.background === 'blur' ? 'blur' : saved.background === 'photo' ? 'photo' : 'off',
       photoUrl: saved.background === 'photo' ? '/video/call-background.png' : '',
+      mirror: saved.mirror === true,
     }
   })
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -53,9 +55,9 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
   useEffect(() => {
     try { localStorage.setItem('collabify.call-choices', JSON.stringify({
       cameraId: choices.cameraId, microphoneId: choices.microphoneId,
-      speakerId: choices.speakerId, background: choices.background,
+      speakerId: choices.speakerId, background: choices.background, mirror: choices.mirror,
     })) } catch { /* Storage may be disabled. */ }
-  }, [choices.cameraId, choices.microphoneId, choices.speakerId, choices.background])
+  }, [choices.cameraId, choices.microphoneId, choices.speakerId, choices.background, choices.mirror])
 
   async function toggle(kind: 'camera' | 'microphone') {
     const enabled = !choices[kind]
@@ -105,7 +107,7 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
 
   return <div className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 lg:grid-cols-2">
     <div className="flex aspect-video items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-white">
-      <video ref={preview} autoPlay playsInline muted className={choices.camera ? 'h-full w-full object-cover' : 'hidden'} />
+      <video ref={preview} autoPlay playsInline muted className={`${choices.camera ? 'h-full w-full object-cover' : 'hidden'} ${choices.mirror ? 'scale-x-[-1]' : ''}`} />
       {!choices.camera && <span>Camera off</span>}
     </div>
     <div className="space-y-4">
@@ -135,6 +137,8 @@ export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }:
           if (file) setChoices((current) => ({ ...current, photoUrl: URL.createObjectURL(file) }))
         }} />
       </label>}
+      <label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={choices.mirror}
+        onChange={(event) => setChoices((current) => ({ ...current, mirror: event.target.checked }))} />Mirror my video for everyone</label>
       {error && <p role="alert" className="text-sm text-danger-600">{error}</p>}
       <div className="flex gap-2">
         {onCancel && <Button variant="outline" onClick={onCancel} disabled={busy}>Cancel</Button>}

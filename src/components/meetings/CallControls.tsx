@@ -67,7 +67,7 @@ export function CallControls({ microphone, camera, screen, hostMuted, handRaised
     <button type="button" onPointerDown={press} onPointerUp={release} onPointerCancel={release} onPointerLeave={release}
       disabled={hostMuted || microphone} className="grid h-10 w-10 place-items-center rounded-full border border-line text-ink disabled:opacity-50"
       aria-label="Push to talk" title="Hold to talk (Space)" aria-pressed={push}>
-      <Icon name="mic" size={19} />
+      <Icon name="walkieTalkie" size={19} />
     </button>
     {control(camera ? 'Turn off camera' : 'Turn on camera', camera ? 'video' : 'videoOff', () => onCamera(!camera), false, camera)}
     {control(screen ? 'Stop sharing' : 'Share screen', 'monitor', () => onScreen(!screen), false, screen)}

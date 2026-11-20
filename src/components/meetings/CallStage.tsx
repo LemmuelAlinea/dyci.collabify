@@ -14,6 +14,7 @@ function CallTile({ track, pinned, maximized, onPin, onMaximize }: {
   onMaximize: () => void
 }) {
   const handRaised = useParticipantAttribute('collabify.hand', { participant: track.participant }) === '1'
+  const mirrored = useParticipantAttribute('collabify.mirror', { participant: track.participant }) === '1'
   const isSpeaking = useIsSpeaking(track.participant)
   const microphone = useParticipantTracks([Track.Source.Microphone], track.participant.identity)[0]
   const isMuted = useIsMuted(microphone ?? { participant: track.participant, source: Track.Source.Microphone })
@@ -21,7 +22,7 @@ function CallTile({ track, pinned, maximized, onPin, onMaximize }: {
   const name = track.participant.name || 'Member'
   return <div className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl border-2 bg-slate-800 text-white ${isSpeaking ? 'border-success-500' : 'border-transparent'}`}>
     {track.publication?.track ? <VideoTrack trackRef={track as typeof track & { publication: NonNullable<typeof track.publication> }}
-      className="h-full w-full object-contain" manageSubscription={false} /> : <span className="text-3xl font-semibold">{track.participant.name?.charAt(0) || '?'}</span>}
+      className={`h-full w-full object-contain ${mirrored && track.source === Track.Source.Camera ? 'scale-x-[-1]' : ''}`} manageSubscription={false} /> : <span className="text-3xl font-semibold">{track.participant.name?.charAt(0) || '?'}</span>}
     {handRaised && <span aria-label="Hand raised" className="absolute left-2 top-2 rounded-full bg-black/60 p-1 text-lg">✋</span>}
     <div className="absolute right-2 top-2 flex gap-1">
       <button type="button" onClick={onPin} aria-label={`${pinned ? 'Unpin' : 'Pin'} ${name}`} title={`${pinned ? 'Unpin' : 'Pin'} ${name}`}
@@ -62,8 +63,10 @@ export function CallStage() {
   const featured = ordered.find((track) => trackKey(track) === pinned) ||
     ordered.find((track) => track.source === Track.Source.ScreenShare) ||
     ordered.find((track) => track.participant.identity === speakers[0]?.identity) || ordered[0]
-  const selected = view === 'speaker' ? featured ? [featured] : [] : ordered.slice(page * pageSize, (page + 1) * pageSize)
   const expanded = ordered.find((track) => trackKey(track) === maximized)
+  const focus = expanded || (pinned ? ordered.find((track) => trackKey(track) === pinned) : undefined) || (view === 'speaker' ? featured : undefined)
+  const selected = focus ? [focus] : ordered.slice(page * pageSize, (page + 1) * pageSize)
+  const others = focus ? ordered.filter((track) => trackKey(track) !== trackKey(focus)) : []
 
   useEffect(() => {
     if (!maximized) return
@@ -75,7 +78,7 @@ export function CallStage() {
   const tile = (track: TrackReferenceOrPlaceholder, isMaximized = false) => {
     const key = trackKey(track)
     return <CallTile key={key} track={track} pinned={pinned === key} maximized={isMaximized}
-      onPin={() => { setPinned(pinned === key ? null : key); if (pinned !== key) { setView('speaker'); setPage(0) } }}
+      onPin={() => setPinned(pinned === key ? null : key)}
       onMaximize={() => setMaximized(isMaximized ? null : key)} />
   }
 
@@ -87,19 +90,21 @@ export function CallStage() {
         <select aria-label="View" value={view} onChange={(event) => { setView(event.target.value as typeof view); setPage(0) }} className="rounded border border-line surface px-2 py-1 text-ink">
           <option value="grid">Grid</option><option value="speaker">Speaker</option>
         </select>
-        {view === 'grid' && <select aria-label="Grid size" value={grid} onChange={(event) => { setGrid(Number(event.target.value)); setPage(0) }} className="rounded border border-line surface px-2 py-1 text-ink">
+        {view === 'grid' && !focus && <select aria-label="Grid size" value={grid} onChange={(event) => { setGrid(Number(event.target.value)); setPage(0) }} className="rounded border border-line surface px-2 py-1 text-ink">
           <option value="4">4</option><option value="9">9</option><option value="16">16</option>
         </select>}
       </div>
     </div>
-    <div className="flex min-h-[12rem] flex-1 flex-wrap content-start gap-2">
-      {selected.map((track) => <div key={trackKey(track)} className={`aspect-video w-full ${view === 'speaker' ? 'max-w-5xl' : 'max-w-[22rem]'}`}>{tile(track)}</div>)}
+    <div className={focus ? 'flex min-h-0 flex-1 flex-col gap-2 lg:h-[min(70dvh,52rem)] lg:flex-row' : 'flex min-h-[12rem] flex-1 flex-wrap content-start gap-2'}>
+      {focus ? <>
+        <div aria-label="Featured video" className="min-h-[18rem] min-w-0 flex-1">{tile(focus, trackKey(focus) === maximized)}</div>
+        {others.length > 0 && <div aria-label="Other participants" className="flex max-h-44 shrink-0 gap-2 overflow-auto lg:max-h-none lg:w-52 lg:flex-col xl:w-64">
+          {others.map((track) => <div key={trackKey(track)} className="aspect-video w-40 shrink-0 lg:w-full">{tile(track)}</div>)}
+        </div>}
+      </> : selected.map((track) => <div key={trackKey(track)} className="aspect-video w-full max-w-[22rem]">{tile(track)}</div>)}
       {selected.length === 0 && <p className="col-span-full m-auto text-sm text-muted">Waiting for video…</p>}
     </div>
-    {expanded && <div role="region" className="fixed inset-0 z-30 flex items-center justify-center bg-ink/95 px-3 pb-24 pt-3" aria-label={`Maximized ${expanded.participant.name || 'member'} video`}>
-      <div className="aspect-video w-full max-w-6xl max-h-[calc(100dvh-7rem)]">{tile(expanded, true)}</div>
-    </div>}
-    {view === 'grid' && pages > 1 && <div className="flex justify-center gap-3 text-sm">
+    {view === 'grid' && !focus && pages > 1 && <div className="flex justify-center gap-3 text-sm">
       <button disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
       <span>Page {page + 1} of {pages}</span>
       <button disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>Next</button>
