@@ -46,6 +46,42 @@ alter table public.meeting_call_bans enable row level security;
 revoke all on table public.meeting_call_bans from public, anon, authenticated;
 grant select, insert, update, delete on public.meeting_call_bans to service_role;
 
+create table if not exists public.meeting_call_presence (
+  meeting_id uuid not null references public.meetings(id) on delete cascade,
+  room_name text not null,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  left_at timestamptz,
+  primary key (room_name, user_id)
+);
+alter table public.meeting_call_presence enable row level security;
+revoke all on table public.meeting_call_presence from public, anon, authenticated;
+grant select, insert, update, delete on public.meeting_call_presence to service_role;
+
+create table if not exists public.meeting_call_messages (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id uuid not null references public.meetings(id) on delete cascade,
+  sender_id uuid references public.profiles(id) on delete set null,
+  body text not null check (char_length(btrim(body)) between 1 and 2000
+                            and char_length(body) <= 2000),
+  created_at timestamptz not null default now()
+);
+create index if not exists meeting_call_messages_page on public.meeting_call_messages
+  (meeting_id, created_at desc, id desc);
+alter table public.meeting_call_messages enable row level security;
+revoke all on table public.meeting_call_messages from public, anon, authenticated;
+grant select, insert on table public.meeting_call_messages to authenticated;
+grant select, insert, update, delete on table public.meeting_call_messages to service_role;
+
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables
+                      where pubname = 'supabase_realtime' and schemaname = 'public'
+                        and tablename = 'meeting_call_messages') then
+    alter publication supabase_realtime add table public.meeting_call_messages;
+  end if;
+end $$;
+
 create or replace function public.meeting_call_init()
 returns trigger language plpgsql set search_path = public as $$
 begin
@@ -308,6 +344,59 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
+create or replace function public.sync_meeting_call_presence(
+  p_meeting uuid, p_room text, p_users uuid[]
+)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.meetings
+                  where id = p_meeting and room_name = p_room
+                    and call_state in ('starting', 'live')) then return; end if;
+  insert into public.meeting_call_presence(meeting_id, room_name, user_id)
+  select p_meeting, p_room, u
+    from unnest(coalesce(p_users, '{}'::uuid[])) as u
+   where public.meeting_call_participant_allowed(p_meeting, u, false)
+  on conflict (room_name, user_id) do update set left_at = null;
+  update public.meeting_call_presence
+     set left_at = coalesce(left_at, now())
+   where meeting_id = p_meeting and room_name = p_room and left_at is null
+     and not (user_id = any(coalesce(p_users, '{}'::uuid[]))
+              and public.meeting_call_participant_allowed(p_meeting, user_id, false));
+end;
+$$;
+
+create or replace function public.meeting_call_can_chat(p_meeting uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.meetings m
+    join public.meeting_call_presence p
+      on p.meeting_id = m.id and p.room_name = m.room_name
+     and p.user_id = auth.uid() and p.left_at is null
+   where m.id = p_meeting and m.call_state = 'live'
+     and public.meeting_call_participant_allowed(m.id, auth.uid(), false)
+  );
+$$;
+
+create or replace function public.meeting_call_can_read(p_meeting uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.meetings m
+    join public.profiles pr on pr.id = auth.uid() and pr.status = 'active'
+   where m.id = p_meeting and m.platform = 'collabify'
+     and public.meeting_can_see(m)
+     and public.meeting_call_member_for(m, auth.uid())
+     and not public.meeting_audience_archived(m)
+  );
+$$;
+
+drop policy if exists meeting_call_messages_read on public.meeting_call_messages;
+create policy meeting_call_messages_read on public.meeting_call_messages for select to authenticated
+using (public.meeting_call_can_read(meeting_id));
+
+drop policy if exists meeting_call_messages_send on public.meeting_call_messages;
+create policy meeting_call_messages_send on public.meeting_call_messages for insert to authenticated
+with check (sender_id = auth.uid() and public.meeting_call_can_chat(meeting_id));
+
 create or replace function public.meeting_call_disallowed_participants(
   p_meeting uuid, p_identities text[], p_new_joins boolean[]
 )
@@ -441,6 +530,9 @@ revoke all on function public.set_meeting_call_lock(uuid,boolean) from public, a
 revoke all on function public.ban_meeting_call_participant(uuid,text,uuid) from public, anon, authenticated;
 revoke all on function public.mark_meeting_call_empty(uuid,text,boolean) from public, anon, authenticated;
 revoke all on function public.meeting_call_participant_allowed(uuid,uuid,boolean) from public, anon, authenticated;
+revoke all on function public.sync_meeting_call_presence(uuid,text,uuid[]) from public, anon, authenticated;
+revoke all on function public.meeting_call_can_chat(uuid) from public, anon;
+revoke all on function public.meeting_call_can_read(uuid) from public, anon;
 revoke all on function public.meeting_call_disallowed_participants(uuid,text[],boolean[]) from public, anon, authenticated;
 revoke all on function public.meeting_calls_to_reconcile(integer) from public, anon, authenticated;
 grant execute on function public.confirm_meeting_live(uuid,text) to service_role;
@@ -449,6 +541,9 @@ grant execute on function public.set_meeting_call_lock(uuid,boolean) to service_
 grant execute on function public.ban_meeting_call_participant(uuid,text,uuid) to service_role;
 grant execute on function public.mark_meeting_call_empty(uuid,text,boolean) to service_role;
 grant execute on function public.meeting_call_participant_allowed(uuid,uuid,boolean) to service_role;
+grant execute on function public.sync_meeting_call_presence(uuid,text,uuid[]) to service_role;
+grant execute on function public.meeting_call_can_chat(uuid) to authenticated;
+grant execute on function public.meeting_call_can_read(uuid) to authenticated;
 grant execute on function public.meeting_call_disallowed_participants(uuid,text[],boolean[]) to service_role;
 grant execute on function public.meeting_calls_to_reconcile(integer) to service_role;
 grant execute on function public.confirm_meeting_live(uuid,text) to service_role;

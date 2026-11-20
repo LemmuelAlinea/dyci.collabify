@@ -80,3 +80,33 @@ export async function cancelMeeting(id: string) {
   const { error } = await supabase.rpc('cancel_meeting', { p_meeting: id })
   if (error) throw error
 }
+
+export type CallMessage = {
+  id: string
+  meeting_id: string
+  sender_id: string | null
+  body: string
+  created_at: string
+  sender: { first_name: string | null; last_name: string | null } | null
+}
+
+const MESSAGE_COLUMNS = 'id,meeting_id,sender_id,body,created_at,sender:profiles!meeting_call_messages_sender_id_fkey(first_name,last_name)'
+
+export async function listCallMessages(meetingId: string, before?: string, limit = 50) {
+  let query = supabase.from('meeting_call_messages').select(MESSAGE_COLUMNS)
+    .eq('meeting_id', meetingId).order('created_at', { ascending: false }).limit(limit)
+  if (before) query = query.lt('created_at', before)
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as unknown as CallMessage[]
+}
+
+export async function sendCallMessage(meetingId: string, body: string) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('Sign in to chat in this call.')
+  const { data, error } = await supabase.from('meeting_call_messages')
+    .insert({ meeting_id: meetingId, sender_id: user.id, body: body.trim() })
+    .select(MESSAGE_COLUMNS).single()
+  if (error) throw error
+  return data as unknown as CallMessage
+}

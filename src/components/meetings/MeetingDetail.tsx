@@ -7,6 +7,7 @@ import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { JoinLink } from './MeetingRow'
+import { CallChat } from './CallChat'
 
 const STATE_COPY = {
   upcoming: null,
@@ -115,6 +116,7 @@ export function MeetingDetail({
               <p className="mt-1 whitespace-pre-wrap break-words text-ink">{meeting.agenda}</p>
             </div>
           )}
+          {meeting.platform === 'collabify' && state === 'ended' && <CallChat key={meeting.id} meetingId={meeting.id} readOnly compact />}
         </div>
       )}
     </Modal>

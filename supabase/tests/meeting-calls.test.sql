@@ -30,7 +30,14 @@ begin
     has_function_privilege('service_role', 'public.confirm_meeting_live(uuid,text)', 'execute')
     and has_function_privilege('service_role', 'public.finish_meeting_call(uuid,text)', 'execute')
     and has_function_privilege('service_role', 'public.ban_meeting_call_participant(uuid,text,uuid)', 'execute')
-    and has_function_privilege('service_role', 'public.meeting_calls_to_reconcile(integer)', 'execute'));
+    and has_function_privilege('service_role', 'public.meeting_calls_to_reconcile(integer)', 'execute')
+    and has_function_privilege('service_role', 'public.sync_meeting_call_presence(uuid,text,uuid[])', 'execute'));
+  perform pg_temp.must_be('chat and presence have no anonymous access or client edits',
+    not has_table_privilege('anon', 'public.meeting_call_messages', 'select')
+    and not has_table_privilege('anon', 'public.meeting_call_messages', 'insert')
+    and not has_table_privilege('authenticated', 'public.meeting_call_messages', 'update')
+    and not has_table_privilege('authenticated', 'public.meeting_call_messages', 'delete')
+    and not has_table_privilege('authenticated', 'public.meeting_call_presence', 'select'));
   perform set_config('role', 'authenticated', true);
   perform pg_temp.must_refuse('members cannot enable calls',
     'update public.organization_settings set meeting_calls_enabled = true where id');
@@ -209,6 +216,7 @@ declare
   m_space uuid := (select v from call_fx where k = 'm_space');
   room text;
   second_room text;
+  message_id uuid;
 begin
   perform pg_temp.act_as(prof);
   select room_name into room from public.begin_meeting_call(m_class);
@@ -257,6 +265,41 @@ begin
     second_room <> room and (select started_by = worker from public.meetings where id = m_project));
   perform pg_temp.act_as_service();
   perform public.confirm_meeting_live(m_project, second_room);
+  perform public.sync_meeting_call_presence(m_project, second_room,
+    array[worker, stakeholder]);
+  perform pg_temp.act_as(prof);
+  perform pg_temp.must_refuse('a member outside the active room cannot chat',
+    format('insert into public.meeting_call_messages(meeting_id,sender_id,body) values (%L,%L,%L)',
+      m_project, prof, 'Outside'));
+  perform pg_temp.act_as(stakeholder);
+  insert into public.meeting_call_messages(meeting_id, sender_id, body)
+  values (m_project, stakeholder, 'Hello project') returning id into message_id;
+  perform pg_temp.must_refuse('a chat sender cannot impersonate another member',
+    format('insert into public.meeting_call_messages(meeting_id,sender_id,body) values (%L,%L,%L)',
+      m_project, worker, 'Impersonation'));
+  perform pg_temp.must_refuse('empty chat is refused',
+    format('insert into public.meeting_call_messages(meeting_id,sender_id,body) values (%L,%L,%L)',
+      m_project, stakeholder, '  '));
+  perform pg_temp.must_refuse('overlong chat is refused',
+    format('insert into public.meeting_call_messages(meeting_id,sender_id,body) values (%L,%L,%L)',
+      m_project, stakeholder, repeat('x', 2001)));
+  perform pg_temp.act_as(worker);
+  perform pg_temp.must_be('current members can read earlier chat',
+    exists (select 1 from public.meeting_call_messages where id = message_id));
+  perform pg_temp.act_as((select v from call_fx where k = 'outsider'));
+  perform pg_temp.must_be('a nonmember cannot read chat',
+    not exists (select 1 from public.meeting_call_messages where id = message_id));
+  perform pg_temp.act_as_service();
+  insert into call_fx values ('chat', message_id);
+  perform public.sync_meeting_call_presence(m_project, second_room, array[worker]);
+  perform pg_temp.act_as(stakeholder);
+  perform pg_temp.must_refuse('a member who left the room cannot send chat',
+    format('insert into public.meeting_call_messages(meeting_id,sender_id,body) values (%L,%L,%L)',
+      m_project, stakeholder, 'After leaving'));
+  perform pg_temp.must_be('a member who left the room still reads history',
+    exists (select 1 from public.meeting_call_messages where id = message_id));
+  perform pg_temp.act_as_service();
+  perform public.sync_meeting_call_presence(m_project, second_room, array[worker, stakeholder]);
   perform public.mark_meeting_call_empty(m_project, second_room, true);
   perform pg_temp.must_be('an empty room starts a grace timer',
     (select empty_since is not null from public.meetings where id = m_project));
@@ -323,6 +366,11 @@ begin
     public.meeting_call_participant_allowed(m_project, worker, false));
   delete from public.general_members
    where project_id = (select v from call_fx where k = 'project') and user_id = worker;
+  perform pg_temp.act_as(worker);
+  perform pg_temp.must_be('a former member cannot read chat',
+    not exists (select 1 from public.meeting_call_messages
+                 where id = (select v from call_fx where k = 'chat')));
+  perform pg_temp.act_as_service();
   perform pg_temp.must_be('removing project membership revokes room access',
     not public.meeting_call_participant_allowed(m_project, worker, false));
   perform pg_temp.must_be('batch reconciliation removes only the former member',
@@ -343,10 +391,24 @@ begin
   perform pg_temp.must_be('a pending former member cannot read call access',
     not exists (select 1 from public.meeting_call_access(m_project)));
   perform pg_temp.act_as_service();
+  perform public.finish_meeting_call(m_project, second_room);
+  perform pg_temp.act_as(prof);
+  perform pg_temp.must_be('current audience keeps chat history after the call',
+    exists (select 1 from public.meeting_call_messages
+             where id = (select v from call_fx where k = 'chat')));
+  perform pg_temp.must_refuse('nobody can send after the call ends',
+    format('insert into public.meeting_call_messages(meeting_id,sender_id,body) values (%L,%L,%L)',
+      m_project, prof, 'Too late'));
+  perform pg_temp.act_as_service();
   update public.general_spaces set archived_at = now() where id = (select v from call_fx where k = 'space');
   perform pg_temp.act_as(prof);
   perform pg_temp.must_refuse('an archived audience cannot start a call',
     format('select public.begin_meeting_call(%L)', m_space));
+  perform pg_temp.act_as_service();
+  delete from public.meetings where id = m_project;
+  perform pg_temp.must_be('deleting a meeting deletes its chat',
+    not exists (select 1 from public.meeting_call_messages
+                 where id = (select v from call_fx where k = 'chat')));
 end $$;
 
 rollback;

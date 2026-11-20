@@ -32,7 +32,13 @@ async function callForRoom(roomName: string): Promise<Call | null> {
 
 async function checkParticipants(call: Call) {
   const active = await rooms.listParticipants(call.room_name)
-  if (!active.length) return 0
+  if (!active.length) {
+    const cleared = await admin.rpc('sync_meeting_call_presence', {
+      p_meeting: call.id, p_room: call.room_name, p_users: [],
+    })
+    if (cleared.error) throw cleared.error
+    return 0
+  }
   const { data, error } = await admin.rpc('meeting_call_disallowed_participants', {
     p_meeting: call.id,
     p_identities: active.map((p) => p.identity),
@@ -42,6 +48,12 @@ async function checkParticipants(call: Call) {
   if (error) throw error
   const rejected = (data ?? []) as { identity: string }[]
   for (const row of rejected) await rooms.removeParticipant(call.room_name, row.identity)
+  const denied = new Set(rejected.map((row) => row.identity))
+  const synced = await admin.rpc('sync_meeting_call_presence', {
+    p_meeting: call.id, p_room: call.room_name,
+    p_users: active.filter((p) => !denied.has(p.identity)).map((p) => p.identity),
+  })
+  if (synced.error) throw synced.error
   return active.length - rejected.length
 }
 
@@ -70,6 +82,10 @@ async function reconcile() {
         if (result.error) throw result.error
       }
     } else if (row.call_state === 'live') {
+      const cleared = await admin.rpc('sync_meeting_call_presence', {
+        p_meeting: row.id, p_room: row.room_name, p_users: [],
+      })
+      if (cleared.error) throw cleared.error
       if (row.empty_since && Date.now() - Date.parse(row.empty_since) > 60_000) {
         const result = await admin.rpc('finish_meeting_call', { p_meeting: row.id, p_room: row.room_name })
         if (result.error) throw result.error
@@ -132,6 +148,7 @@ Deno.serve(async (req) => {
       if (error) throw error
       if (!permitted) await rooms.removeParticipant(roomName, identity)
       else {
+        await checkParticipants(call)
         const result = await admin.rpc('confirm_meeting_live', { p_meeting: call.id, p_room: roomName })
         if (result.error) throw result.error
         await admin.rpc('mark_meeting_call_empty', {
@@ -140,14 +157,24 @@ Deno.serve(async (req) => {
       }
     } else if (event.event === 'participant_left') {
       const present = await rooms.listRooms([roomName])
-      const participants = present.length ? await rooms.listParticipants(roomName) : []
-      if (!participants.length) {
+      const count = present.length ? await checkParticipants(call) : 0
+      if (!present.length) {
+        const cleared = await admin.rpc('sync_meeting_call_presence', {
+          p_meeting: call.id, p_room: roomName, p_users: [],
+        })
+        if (cleared.error) throw cleared.error
+      }
+      if (!count) {
         const result = await admin.rpc('mark_meeting_call_empty', {
           p_meeting: call.id, p_room: roomName, p_empty: true,
         })
         if (result.error) throw result.error
       }
     } else if (event.event === 'room_finished') {
+      const cleared = await admin.rpc('sync_meeting_call_presence', {
+        p_meeting: call.id, p_room: roomName, p_users: [],
+      })
+      if (cleared.error) throw cleared.error
       const result = await admin.rpc('finish_meeting_call', {
         p_meeting: call.id, p_room: roomName,
       })

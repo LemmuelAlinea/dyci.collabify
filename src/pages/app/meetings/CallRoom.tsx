@@ -6,6 +6,7 @@ import { CallPrejoin } from '../../../components/meetings/CallPrejoin'
 import type { CallChoices } from '../../../components/meetings/CallPrejoin'
 import { CallStage } from '../../../components/meetings/CallStage'
 import { CallControls } from '../../../components/meetings/CallControls'
+import { CallChat } from '../../../components/meetings/CallChat'
 import { CallPeople } from '../../../components/meetings/CallPeople'
 import type { ModerationAction } from '../../../components/meetings/CallPeople'
 import { applyBackground, CallSettings } from '../../../components/meetings/CallSettings'
@@ -34,6 +35,7 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
     !permissions.canPublishSources.includes(TrackSource.MICROPHONE))
   const [settings, setSettings] = useState(false)
   const [people, setPeople] = useState(false)
+  const [chat, setChat] = useState(false)
 
   async function moderate(action: ModerationAction, targetId?: string) {
     try {
@@ -62,6 +64,7 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
       <CallStage />
       {settings && <CallSettings room={room} choices={choices} onChange={setChoices} onClose={() => setSettings(false)} />}
       {people && <CallPeople canHost={canHost} locked={Boolean(meeting.locked_at)} onAction={(action, target) => void moderate(action, target)} onClose={() => setPeople(false)} />}
+      {chat && <CallChat key={meeting.id} meetingId={meeting.id} readOnly={meeting.call_state !== 'live'} onClose={() => setChat(false)} />}
     </div>
     <CallControls microphone={local.isMicrophoneEnabled} camera={local.isCameraEnabled} screen={local.isScreenShareEnabled}
       hostMuted={hostMuted} handRaised={handRaised}
@@ -70,6 +73,7 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
       onScreen={(enabled) => { void room.localParticipant.setScreenShareEnabled(enabled).catch(() => onError('Screen sharing was cancelled or unavailable.')) }}
       onSettings={() => setSettings((value) => !value)}
       onPeople={() => setPeople((value) => !value)}
+      onChat={() => setChat((value) => !value)}
       onHand={() => void room.localParticipant.setAttributes({ 'collabify.hand': handRaised ? '' : '1' }).catch(() => onError('Could not change your raised hand.'))}
       onCopy={() => void navigator.clipboard.writeText(`${window.location.origin}${paths.meetingCall(meeting.id)}`)}
       onLeave={onLeave} />
