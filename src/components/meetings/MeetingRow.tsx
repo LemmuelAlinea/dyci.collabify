@@ -83,8 +83,10 @@ export function MeetingRow({
         {meeting.platform === 'collabify' && state === 'scheduled' && <span className="font-mono text-[11px] text-muted">Scheduled</span>}
         {meeting.platform === 'collabify' && state === 'starting' && <span className="font-mono text-[11px] text-muted">Starting…</span>}
         {meeting.platform === 'collabify' && state === 'ended' && <span className="font-mono text-[11px] text-muted">Ended</span>}
-        {meeting.platform === 'collabify' && meeting.can_start && state === 'scheduled' && (
-          <Link to={paths.meetingCall(meeting.id)} className={buttonClass({ variant: 'primary', size: 'sm' })}>Start</Link>
+        {meeting.platform === 'collabify' && meeting.can_start && (state === 'scheduled' || state === 'starting') && (
+          <Link to={paths.meetingCall(meeting.id)} className={buttonClass({ variant: 'primary', size: 'sm' })}>
+            {state === 'starting' ? 'Retry start' : 'Start'}
+          </Link>
         )}
         {canJoin(meeting, now) && (meeting.platform !== 'collabify' || meeting.can_join) && <JoinLink meeting={meeting} />}
         {meeting.can_manage && !cancelled && state !== 'ended' && state !== 'starting' && state !== 'live' && (

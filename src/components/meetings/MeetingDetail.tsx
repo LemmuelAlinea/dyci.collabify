@@ -63,8 +63,8 @@ export function MeetingDetail({
             ) : (
               <span />
             )}
-            {meeting.platform === 'collabify' && meeting.can_start && state === 'scheduled' ? (
-              <Link to={paths.meetingCall(meeting.id)} className={buttonClass({ variant: 'primary', size: 'md' })}>Start call</Link>
+            {meeting.platform === 'collabify' && meeting.can_start && (state === 'scheduled' || state === 'starting') ? (
+              <Link to={paths.meetingCall(meeting.id)} className={buttonClass({ variant: 'primary', size: 'md' })}>{state === 'starting' ? 'Retry start' : 'Start call'}</Link>
             ) : canJoin(meeting, now) && (meeting.platform !== 'collabify' || meeting.can_join) ? (
               <JoinLink meeting={meeting} size="md" />
             ) : (
