@@ -1,15 +1,9 @@
-/**
- * Meetings: a Zoom or Google Meet link, a time, and who it is for.
- *
- * Collabify does not create the meeting itself — somebody makes it in Zoom or
- * Meet and pastes the link. The rules for who may schedule what live in
- * supabase/meetings.sql; these only keep a screen from offering what the
- * database would refuse.
- */
 import type { Scope } from './scope'
 
 export type MeetingScope = 'class' | 'group' | 'space' | 'project' | 'space_team' | 'project_team'
-export type MeetingPlatform = 'google_meet' | 'zoom'
+export type MeetingPlatform = 'collabify' | 'google_meet' | 'zoom'
+export type ExternalMeetingPlatform = Exclude<MeetingPlatform, 'collabify'>
+export type MeetingCallState = 'scheduled' | 'starting' | 'live' | 'ended'
 
 /** One row of `list_my_meetings`. */
 export type Meeting = {
@@ -24,7 +18,7 @@ export type Meeting = {
   title: string
   agenda: string
   platform: MeetingPlatform
-  join_url: string
+  join_url: string | null
   starts_at: string
   duration_min: number
   created_by: string | null
@@ -36,6 +30,16 @@ export type Meeting = {
   space_name: string | null
   creator_name: string | null
   can_manage: boolean
+  call_state: MeetingCallState | null
+  room_name: string | null
+  starting_at: string | null
+  started_at: string | null
+  started_by: string | null
+  ended_at: string | null
+  locked_at: string | null
+  can_start: boolean
+  can_join: boolean
+  can_host: boolean
 }
 
 /** One row of `meeting_audiences`: somewhere the reader belongs. */
@@ -59,6 +63,7 @@ export const SCOPE_LABEL: Record<MeetingScope, string> = {
 }
 
 export const PLATFORM_LABEL: Record<MeetingPlatform, string> = {
+  collabify: 'Collabify',
   google_meet: 'Google Meet',
   zoom: 'Zoom',
 }
@@ -68,7 +73,7 @@ const MEET = /^https:\/\/(meet\.google\.com|calendar\.app\.google|calendar\.goog
 const ZOOM = /^https:\/\/([a-z0-9-]+\.)*zoom\.(us|com)\/\S+$/i
 
 /** Which platform a pasted link is for, or null when it is neither. Mirrors `meeting_url_ok`. */
-export function detectPlatform(url: string): MeetingPlatform | null {
+export function detectPlatform(url: string): ExternalMeetingPlatform | null {
   const u = url.trim()
   if (MEET.test(u)) return 'google_meet'
   if (ZOOM.test(u)) return 'zoom'
@@ -80,22 +85,27 @@ export function scopeOf(m: Pick<Meeting, 'scope'>): Exclude<Scope, 'all'> {
   return m.scope === 'class' || m.scope === 'group' ? 'classes' : 'work'
 }
 
-export type MeetingState = 'upcoming' | 'live' | 'ended' | 'cancelled'
+export type MeetingState = 'upcoming' | 'scheduled' | 'starting' | 'live' | 'ended' | 'cancelled'
 
 export function endsAt(m: Pick<Meeting, 'starts_at' | 'duration_min'>) {
   return new Date(m.starts_at).getTime() + m.duration_min * 60_000
 }
 
-export function meetingState(m: Pick<Meeting, 'starts_at' | 'duration_min' | 'cancelled_at'>, now: number): MeetingState {
+type TimedMeeting = Pick<Meeting, 'starts_at' | 'duration_min' | 'cancelled_at'> &
+  Partial<Pick<Meeting, 'platform' | 'call_state'>>
+
+export function meetingState(m: TimedMeeting, now: number): MeetingState {
   if (m.cancelled_at) return 'cancelled'
+  if (m.platform === 'collabify') return m.call_state ?? 'scheduled'
   const start = new Date(m.starts_at).getTime()
   if (now < start) return 'upcoming'
   return now < endsAt(m) ? 'live' : 'ended'
 }
 
 /** Join opens fifteen minutes early, the way people actually arrive, and closes when it ends. */
-export function canJoin(m: Pick<Meeting, 'starts_at' | 'duration_min' | 'cancelled_at'>, now: number) {
+export function canJoin(m: TimedMeeting, now: number) {
   if (m.cancelled_at) return false
+  if (m.platform === 'collabify') return m.call_state === 'live'
   return now >= new Date(m.starts_at).getTime() - 15 * 60_000 && now < endsAt(m)
 }
 

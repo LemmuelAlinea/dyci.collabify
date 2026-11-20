@@ -5,7 +5,7 @@ import { fromLocalInput, toLocalInput } from '../../lib/general/dates'
 import { inviteChecks, readInvitation, untitledMeeting } from '../../lib/meetingInvite'
 import type { MeetingInvite } from '../../lib/meetingInvite'
 import { PLATFORM_LABEL, audienceText, detectPlatform } from '../../lib/meetings'
-import type { Meeting, MeetingAudience, MeetingScope } from '../../lib/meetings'
+import type { Meeting, MeetingAudience, MeetingPlatform, MeetingScope } from '../../lib/meetings'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input, Toggle } from '../ui/Field'
@@ -71,6 +71,7 @@ export function ScheduleMeetingModal({
   audiences,
   editing,
   startNow = false,
+  callsEnabled = false,
   onSaved,
 }: {
   open: boolean
@@ -80,7 +81,8 @@ export function ScheduleMeetingModal({
   editing?: Meeting | null
   /** Open with "Start now" on. */
   startNow?: boolean
-  onSaved: (id: string) => void
+  callsEnabled?: boolean
+  onSaved: (id: string, platform: MeetingPlatform, startNow: boolean) => void
 }) {
   const { show } = useToast()
   const creatable = useMemo(() => audiences.filter((a) => a.can_create), [audiences])
@@ -114,6 +116,7 @@ export function ScheduleMeetingModal({
   const [starts, setStarts] = useState('')
   const [duration, setDuration] = useState('60')
   const [link, setLink] = useState('')
+  const [provider, setProvider] = useState<MeetingPlatform>('google_meet')
   const [agenda, setAgenda] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -135,7 +138,8 @@ export function ScheduleMeetingModal({
       setNow(false)
       setStarts(toLocalInput(editing.starts_at))
       setDuration(String(editing.duration_min))
-      setLink(editing.join_url)
+      setLink(editing.join_url ?? '')
+      setProvider(editing.platform)
       setAgenda(editing.agenda)
       return
     }
@@ -147,8 +151,9 @@ export function ScheduleMeetingModal({
     setStarts(nextHour())
     setDuration('60')
     setLink('')
+    setProvider(callsEnabled ? 'collabify' : 'google_meet')
     setAgenda('')
-  }, [open, editing, startNow]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, editing, startNow, callsEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const whoOptions = creatable
     .filter((a) => whereKey(a) === where)
@@ -170,6 +175,10 @@ export function ScheduleMeetingModal({
 
   /** Fill the form from an invitation. Only a real title replaces one that was typed. */
   function applyInvite(invite: MeetingInvite) {
+    if (editing && invite.platform !== editing.platform) {
+      setError(`This meeting uses ${PLATFORM_LABEL[editing.platform]}. Schedule a new meeting to change providers.`)
+      return
+    }
     const ours = (typed: string, last: string) => !typed.trim() || typed === last
     const nextTitle = invite.title ?? (ours(title, filled.current.title) ? untitledMeeting(invite.platform) : title)
     const nextAgenda = ours(agenda, filled.current.agenda) ? invite.details : agenda
@@ -177,6 +186,7 @@ export function ScheduleMeetingModal({
     setTitle(nextTitle)
     setAgenda(nextAgenda)
     setLink(invite.joinUrl)
+    setProvider(invite.platform)
     if (invite.startsAt) setStarts(toLocalInput(invite.startsAt))
     setDuration(String(invite.durationMin ?? 60))
     setError(null)
@@ -202,21 +212,21 @@ export function ScheduleMeetingModal({
     setError(null)
     if (!editing && !who) return setError('Choose who the meeting is for.')
     if (!title.trim()) return setError('Give the meeting a title.')
-    if (!platform) return setError('Paste a Zoom, Google Meet or Google Calendar invite link. It starts with https://zoom.us/, https://meet.google.com/ or https://calendar.app.google/.')
+    if (provider !== 'collabify' && platform !== provider) return setError(`Paste a ${PLATFORM_LABEL[provider]} meeting link.`)
     const startsAt = now ? new Date().toISOString() : fromLocalInput(starts)
     if (!startsAt) return setError('Pick when the meeting starts.')
-    const input = { title: title.trim(), agenda, joinUrl: link.trim(), startsAt, durationMin: Number(duration) }
+    const input = { title: title.trim(), agenda, joinUrl: provider === 'collabify' ? null : link.trim(), startsAt, durationMin: Number(duration) }
     setBusy(true)
     try {
       if (editing) {
         await updateMeeting(editing.id, input)
         show('Meeting updated. Everyone in it was notified of any new time or link.')
-        onSaved(editing.id)
+        onSaved(editing.id, editing.platform, false)
       } else {
         const [scope, id] = who.split(':') as [MeetingScope, string]
         const m = await createMeeting(scope, id, input)
-        show(now ? 'Meeting started. Everyone in it was notified.' : 'Meeting scheduled. Everyone in it was notified.')
-        onSaved(m.id)
+        show(provider === 'collabify' ? 'Meeting created. Everyone in it was notified.' : now ? 'Meeting started. Everyone in it was notified.' : 'Meeting scheduled. Everyone in it was notified.')
+        onSaved(m.id, provider, now)
       }
       onClose()
     } catch (err) {
@@ -231,11 +241,7 @@ export function ScheduleMeetingModal({
       open={open}
       onClose={onClose}
       title={editing ? 'Edit meeting' : now ? 'Start a meeting now' : 'Schedule a meeting'}
-      description={
-        editing
-          ? 'Make the meeting in Zoom or Google Meet, then paste its link here.'
-          : 'Make the meeting in Zoom or Google Meet, then paste its invitation here.'
-      }
+      description={provider === 'collabify' ? 'Meet with your audience inside Collabify.' : 'Paste a Zoom or Google Meet link or invitation.'}
       size="lg"
       focusField
       footer={
@@ -257,7 +263,7 @@ export function ScheduleMeetingModal({
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
 
-        {!editing && creatable.length > 0 && (
+        {!editing && creatable.length > 0 && provider !== 'collabify' && (
           <div className="space-y-2">
             <Field
               label="Invitation"
@@ -327,11 +333,23 @@ export function ScheduleMeetingModal({
           )}
         </Field>
 
+        {editing ? (
+          <p className="text-[13px] text-muted">On {PLATFORM_LABEL[editing.platform]}</p>
+        ) : (
+          <Field label="Video call">
+            {(id) => <Select id={id} value={provider} onChange={(e) => setProvider(e.target.value as MeetingPlatform)} options={[
+              ...(callsEnabled ? [{ value: 'collabify', label: 'Collabify' }] : []),
+              { value: 'google_meet', label: 'Google Meet' },
+              { value: 'zoom', label: 'Zoom' },
+            ]} />}
+          </Field>
+        )}
+
         {!editing && (
           <label className="flex items-center justify-between gap-3 rounded-xl surface-sunken px-3.5 py-3">
             <span>
               <span className="block text-[14px] font-medium text-ink">Start now</span>
-              <span className="block text-[12px] text-muted">Notifies everyone that the meeting has begun.</span>
+              <span className="block text-[12px] text-muted">{provider === 'collabify' ? 'Opens the call after saving.' : 'Notifies everyone that the meeting has begun.'}</span>
             </span>
             <Toggle checked={now} onChange={setNow} label="Start now" />
           </label>
@@ -348,7 +366,7 @@ export function ScheduleMeetingModal({
           </Field>
         </div>
 
-        <Field
+        {provider !== 'collabify' && <Field
           label="Meeting link"
           hint={
             link.trim() ? (
@@ -376,8 +394,8 @@ export function ScheduleMeetingModal({
               placeholder="A Meet, Google Calendar or Zoom link"
             />
           )}
-        </Field>
-        <p className="-mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
+        </Field>}
+        {provider !== 'collabify' && <p className="-mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
           <a href="https://meet.google.com/new" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-navy-600 hover:underline dark:text-navy-200">
             <Icon name="plus" size={12} />
             New Google Meet
@@ -387,7 +405,7 @@ export function ScheduleMeetingModal({
             New Zoom meeting
           </a>
           <span>Copy its link or whole invitation, then paste it above.</span>
-        </p>
+        </p>}
 
         <Field label="Agenda" optional>
           {(id) => (

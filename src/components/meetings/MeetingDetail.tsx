@@ -1,5 +1,8 @@
 import { PLATFORM_LABEL, SCOPE_LABEL, audienceText, canJoin, meetingState, timeRange } from '../../lib/meetings'
 import type { Meeting } from '../../lib/meetings'
+import { Link } from 'react-router-dom'
+import { paths } from '../../lib/paths'
+import { buttonClass } from '../ui/buttonClass'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
@@ -7,6 +10,8 @@ import { JoinLink } from './MeetingRow'
 
 const STATE_COPY = {
   upcoming: null,
+  scheduled: 'This call starts when a host presses Start.',
+  starting: 'The call is starting…',
   live: 'Happening now.',
   ended: 'This meeting has ended.',
   cancelled: 'This meeting was cancelled.',
@@ -37,7 +42,7 @@ export function MeetingDetail({
       footer={
         meeting && (
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
-            {meeting.can_manage && state !== 'cancelled' && state !== 'ended' ? (
+            {meeting.can_manage && state !== 'cancelled' && state !== 'ended' && state !== 'starting' && state !== 'live' ? (
               <div className="flex gap-2">
                 {/* The fixed destructive red, like the row menu's Cancel: not a
                     personal colour, and it stays red on hover. */}
@@ -57,7 +62,9 @@ export function MeetingDetail({
             ) : (
               <span />
             )}
-            {canJoin(meeting, now) ? (
+            {meeting.platform === 'collabify' && meeting.can_start && state === 'scheduled' ? (
+              <Link to={paths.meetingCall(meeting.id)} className={buttonClass({ variant: 'primary', size: 'md' })}>Start call</Link>
+            ) : canJoin(meeting, now) && (meeting.platform !== 'collabify' || meeting.can_join) ? (
               <JoinLink meeting={meeting} size="md" />
             ) : (
               state === 'upcoming' && <span className="text-[12px] text-muted">Join opens 15 minutes before it starts.</span>
@@ -86,9 +93,13 @@ export function MeetingDetail({
             <div className="sm:col-span-2">
               <dt className="text-[12px] text-faint">Link</dt>
               <dd className="truncate">
-                <a href={meeting.join_url} target="_blank" rel="noopener noreferrer" className="text-navy-600 hover:underline dark:text-navy-200">
-                  {meeting.join_url}
-                </a>
+                {meeting.platform === 'collabify' ? (
+                  <button type="button" className="text-navy-600 hover:underline dark:text-navy-200" onClick={() => void navigator.clipboard.writeText(`${window.location.origin}${paths.meetingCall(meeting.id)}`)}>
+                    Copy meeting link
+                  </button>
+                ) : (
+                  <a href={meeting.join_url ?? undefined} target="_blank" rel="noopener noreferrer" className="text-navy-600 hover:underline dark:text-navy-200">{meeting.join_url}</a>
+                )}
               </dd>
             </div>
             {meeting.creator_name && (

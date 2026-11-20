@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { MeetingDetail } from '../../../components/meetings/MeetingDetail'
 import { MeetingRow } from '../../../components/meetings/MeetingRow'
@@ -17,11 +17,12 @@ import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useLive } from '../../../hooks/useLive'
 import { useNow } from '../../../hooks/useNow'
 import { membershipOf, showsClassScope } from '../../../lib/access'
-import { cancelMeeting, listMeetingAudiences, listMeetings } from '../../../lib/api/meetings'
+import { cancelMeeting, getMeeting, listMeetingAudiences, listMeetingPage, meetingCallsEnabled } from '../../../lib/api/meetings'
 import { authErrorMessage } from '../../../lib/authError'
 import { SCOPE_LABEL, endsAt, meetingState, scopeOf } from '../../../lib/meetings'
 import type { Meeting, MeetingAudience, MeetingScope } from '../../../lib/meetings'
 import { readScope, writeScope } from '../../../lib/scope'
+import { paths } from '../../../lib/paths'
 
 function dayHeading(iso: string, now: number) {
   const d = new Date(iso)
@@ -50,7 +51,12 @@ export default function Meetings() {
   const [loadedAt, setLoadedAt] = useState(0)
   const now = Math.max(clock, loadedAt)
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const [meetings, setMeetings] = useState<Meeting[] | null>(null)
+  const [directMeeting, setDirectMeeting] = useState<Meeting | null>(null)
+  const [callsEnabled, setCallsEnabled] = useState(false)
+  const [olderAvailable, setOlderAvailable] = useState(true)
+  const [olderBusy, setOlderBusy] = useState(false)
   const [audiences, setAudiences] = useState<MeetingAudience[]>([])
   const [error, setError] = useState<string | null>(null)
   const [scheduling, setScheduling] = useState<'schedule' | 'now' | null>(null)
@@ -66,9 +72,10 @@ export default function Meetings() {
 
   const load = useCallback(async () => {
     try {
-      const [m, a] = await Promise.all([listMeetings(), listMeetingAudiences()])
+      const [m, a, enabled] = await Promise.all([listMeetingPage(), listMeetingAudiences(), meetingCallsEnabled()])
       setMeetings(m)
       setAudiences(a)
+      setCallsEnabled(enabled)
       setLoadedAt(Date.now())
       setError(null)
     } catch (err) {
@@ -82,6 +89,32 @@ export default function Meetings() {
   }, [load])
 
   useLive(load, ['meetings'])
+
+  const openId = params.get('meeting')
+  useEffect(() => {
+    if (!openId || meetings === null || meetings.some((m) => m.id === openId)) {
+      setDirectMeeting(null)
+      return
+    }
+    let active = true
+    void getMeeting(openId).then((m) => { if (active) setDirectMeeting(m) }).catch(() => { if (active) setDirectMeeting(null) })
+    return () => { active = false }
+  }, [openId, meetings])
+
+  async function loadOlder() {
+    const oldest = meetings?.at(-1)
+    if (!oldest) return
+    setOlderBusy(true)
+    try {
+      const batch = await listMeetingPage(new Date(0), new Date(oldest.starts_at))
+      setMeetings((current) => current ? [...current, ...batch.filter((m) => !current.some((c) => c.id === m.id))] : batch)
+      setOlderAvailable(batch.length === 100)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not load older meetings.'))
+    } finally {
+      setOlderBusy(false)
+    }
+  }
 
   const classScope = showsClassScope(profile, membershipOf(general.spaces, general.myProjects))
   const scope = classScope ? readScope(params) : 'all'
@@ -109,10 +142,10 @@ export default function Meetings() {
   const live = shown.filter((m) => meetingState(m, now) === 'live')
   const upcoming = shown.filter((m) => {
     const s = meetingState(m, now)
-    return s === 'upcoming' || (s === 'cancelled' && endsAt(m) > now)
+    return s === 'upcoming' || s === 'scheduled' || s === 'starting' || (s === 'cancelled' && endsAt(m) > now)
   })
   const past = shown
-    .filter((m) => endsAt(m) <= now)
+    .filter((m) => meetingState(m, now) === 'ended' || (meetingState(m, now) === 'cancelled' && endsAt(m) <= now))
     .sort((a, b) => b.starts_at.localeCompare(a.starts_at))
 
   const byDay = new Map<string, Meeting[]>()
@@ -122,8 +155,7 @@ export default function Meetings() {
   }
   const days = [...byDay.values()]
 
-  const openId = params.get('meeting')
-  const open = (meetings ?? []).find((m) => m.id === openId) ?? null
+  const open = (meetings ?? []).find((m) => m.id === openId) ?? directMeeting
   const showMeeting = (id: string | null) => {
     const next = new URLSearchParams(params)
     if (id) next.set('meeting', id)
@@ -149,7 +181,7 @@ export default function Meetings() {
       <DirectoryHero
         title="Meet with"
         accent="your people."
-        description="Zoom and Google Meet meetings for your classes, groups, spaces, projects and teams. Everyone invited is notified, and it lands on their calendar."
+        description="Video meetings for your classes, groups, spaces, projects and teams. Everyone invited is notified, and it lands on their calendar."
         action={
           canSchedule ? (
             <>
@@ -233,7 +265,7 @@ export default function Meetings() {
             filtersOn || scope !== 'all'
               ? 'No meeting fits these filters. Clear them to see every meeting.'
               : canSchedule
-                ? 'Schedule one with a Zoom or Google Meet link, or start one now. Everyone you invite is notified.'
+                ? 'Schedule a video meeting or start one now. Everyone you invite is notified.'
                 : 'Meetings your class, group, space, project or team schedules show up here.'
           }
           action={
@@ -282,7 +314,7 @@ export default function Meetings() {
                 className="flex w-full items-center gap-3 surface-sunken px-4 py-3 text-left sm:px-5"
               >
                 <Icon name="history" size={15} className="shrink-0 text-faint" />
-                <span className="flex-1 font-medium text-ink">Past 30 days</span>
+                <span className="flex-1 font-medium text-ink">Past meetings</span>
                 <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted">{past.length}</span>
                 <Icon name={showPast ? 'chevronDown' : 'chevronRight'} size={14} className="shrink-0 text-faint" />
               </button>
@@ -290,6 +322,10 @@ export default function Meetings() {
             </section>
           )}
         </div>
+      )}
+
+      {meetings && meetings.length > 0 && olderAvailable && (
+        <Button variant="ghost" onClick={() => void loadOlder()} loading={olderBusy}>Load older meetings</Button>
       )}
 
       <ScheduleMeetingModal
@@ -301,7 +337,11 @@ export default function Meetings() {
         audiences={audiences}
         editing={editing}
         startNow={scheduling === 'now'}
-        onSaved={() => void load()}
+        callsEnabled={callsEnabled}
+        onSaved={(id, platform, startNow) => {
+          void load()
+          if (platform === 'collabify' && startNow) navigate(paths.meetingCall(id))
+        }}
       />
 
       <MeetingDetail

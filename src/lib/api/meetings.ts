@@ -12,6 +12,29 @@ export async function listMeetings(since = new Date(Date.now() - 30 * 86_400_000
   return (data ?? []) as Meeting[]
 }
 
+export async function listMeetingPage(
+  since = new Date(Date.now() - 30 * 86_400_000),
+  before = new Date('9999-12-31T23:59:59Z'),
+) {
+  const { data, error } = await supabase.rpc('list_my_meetings_v2', {
+    p_since: since.toISOString(), p_before: before.toISOString(), p_limit: 100,
+  })
+  if (error) throw error
+  return (data ?? []) as Meeting[]
+}
+
+export async function getMeeting(id: string) {
+  const { data, error } = await supabase.rpc('get_my_meeting_v2', { p_meeting: id })
+  if (error) throw error
+  return ((data ?? []) as Meeting[])[0] ?? null
+}
+
+export async function meetingCallsEnabled() {
+  const { data, error } = await supabase.from('organization_settings').select('meeting_calls_enabled').single()
+  if (error) throw error
+  return Boolean(data.meeting_calls_enabled)
+}
+
 /** Every audience the reader is in, and whether they may schedule for it. */
 export async function listMeetingAudiences() {
   const { data, error } = await supabase.rpc('meeting_audiences')
@@ -22,7 +45,7 @@ export async function listMeetingAudiences() {
 export type MeetingInput = {
   title: string
   agenda: string
-  joinUrl: string
+  joinUrl: string | null
   startsAt: string
   durationMin: number
 }
