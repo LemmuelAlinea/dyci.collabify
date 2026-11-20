@@ -52,6 +52,7 @@ export function classWorkSource(t: ProjectTasks, viewerId: string | undefined): 
   }
 
   return {
+    terms: { singular: board.term_singular ?? 'Stage', plural: board.term_plural ?? 'Stages' },
     items: t.tasks.map(classWorkItem),
     sprints: t.sprints,
     canPlan,
@@ -97,6 +98,7 @@ export function classMilestoneSource(t: ProjectTasks, projectId: string): Milest
     }
   }
   return {
+    terms: { singular: board?.term_singular ?? 'Stage', plural: board?.term_plural ?? 'Stages' },
     milestones: t.milestones,
     items: t.isProfessor ? [] : t.tasks.map(classWorkItem),
     groups: t.isProfessor

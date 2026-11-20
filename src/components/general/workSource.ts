@@ -74,6 +74,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
   }
 
   return {
+    terms: state.sprintSettings.terms,
     items: generalWorkItems(state),
     sprints: state.sprints,
     canPlan,
@@ -149,6 +150,7 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     }
   }
   return {
+    terms: state.sprintSettings.terms,
     milestones: state.milestones,
     items: generalWorkItems(state),
     groups: [],

@@ -115,5 +115,5 @@ it('greys a team with no running sprint', async () => {
   }
   await act(async () => root.render(<Idle />))
   expect(tab('Design').disabled).toBe(true)
-  expect(tab('Design').title).toBe('No sprint running')
+  expect(tab('Design').title).toBe('No stage running')
 })

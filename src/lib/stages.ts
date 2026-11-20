@@ -81,14 +81,14 @@ export function presetOf(stages: readonly string[] | null | undefined): string {
 
 /** Why a list cannot be saved, or null. Mirrors public.stages_ok(). */
 export function checkStages(stages: readonly string[]): string | null {
-  if (stages.length < MIN_STAGES) return `Use at least ${MIN_STAGES} stages: a start, a middle and an end.`
-  if (stages.length > MAX_STAGES) return `Keep it to ${MAX_STAGES} stages.`
-  if (stages.some((s) => s.trim().length === 0)) return 'Every stage needs a name.'
+  if (stages.length < MIN_STAGES) return `Use at least ${MIN_STAGES} workflow steps: a start, a middle and an end.`
+  if (stages.length > MAX_STAGES) return `Keep it to ${MAX_STAGES} workflow steps.`
+  if (stages.some((s) => s.trim().length === 0)) return 'Every workflow step needs a name.'
   if (stages.some((s) => s.trim().length > MAX_STAGE_LENGTH)) {
     return `Keep each name to ${MAX_STAGE_LENGTH} characters.`
   }
   const seen = new Set(stages.map((s) => s.trim().toLowerCase()))
-  if (seen.size !== stages.length) return 'Two stages have the same name.'
+  if (seen.size !== stages.length) return 'Two workflow steps have the same name.'
   return null
 }
 

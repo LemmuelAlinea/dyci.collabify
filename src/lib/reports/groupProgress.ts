@@ -5,9 +5,12 @@ import { CLASS_ENDED_NOTE, LEFT_OUT_LINE, deliverableCell } from './deliverables
 import { dayText } from './doc'
 import type { Block, Cell, Column, ReportDoc } from './doc'
 import type { ReportHead } from './grading'
+import { stageText } from '../work/stageTerms'
 
 export type ProgressBoard = {
   board_id: string
+  term_singular?: string
+  term_plural?: string
   /** The group's name, or the student's on an individual project. */
   name: string
   submitted_at: string | null
@@ -104,6 +107,9 @@ export function groupProgressDoc(input: Input): ReportDoc {
   const boards = [...input.boards].sort((a, b) => byName(a.name, b.name))
   const ids = new Set(boards.map((b) => b.board_id))
   const nameOf = new Map(boards.map((b) => [b.board_id, b.name]))
+  const termsOf = new Map(boards.map((b) => [b.board_id, {
+    singular: b.term_singular ?? 'Stage', plural: b.term_plural ?? 'Stages',
+  }]))
   const tasks = input.tasks.filter((t) => ids.has(t.board_id))
   const tasksOf = (id: string) => tasks.filter((t) => t.board_id === id)
   const history = input.history.filter((h) => ids.has(h.board_id))
@@ -278,26 +284,32 @@ export function groupProgressDoc(input: Input): ReportDoc {
     .filter((s) => ids.has(s.board_id))
     .sort((a, b) => byName(nameOf.get(a.board_id) ?? '', nameOf.get(b.board_id) ?? '') || a.starts_on.localeCompare(b.starts_on))
   if (sprints.length === 0) {
-    blocks.push({ kind: 'note', tone: 'info', text: 'No sprints planned yet. Sprints appear once a group plans one on its board.' })
+    blocks.push({ kind: 'note', tone: 'info', text: single
+      ? stageText('No sprints planned yet. Sprints appear once a group plans one on its board.', termsOf.get(boards[0].board_id))
+      : 'No work cycles planned yet. Work cycles appear once a group plans one on its board.' })
   } else {
+    const onlyTerms = single ? termsOf.get(boards[0].board_id) : undefined
     blocks.push({
       kind: 'table',
       id: 'sprints',
-      title: 'Sprints',
+      title: onlyTerms?.plural ?? 'Work cycles',
       columns: [
         ...leadCol,
-        { key: 'sprint', label: 'Sprint', type: 'text' },
+        ...(!single ? [{ key: 'called', label: 'Board term', type: 'text' as const }] : []),
+        { key: 'sprint', label: onlyTerms?.singular ?? 'Cycle', type: 'text' },
         { key: 'starts', label: 'Starts', type: 'date' },
         { key: 'ends', label: 'Ends', type: 'date' },
         { key: 'committed', label: 'Committed', type: 'number' },
-        { key: 'done', label: 'Done in sprint', type: 'number' },
+        { key: 'done', label: onlyTerms ? stageText('Done in sprint', onlyTerms) : 'Done in cycle', type: 'number' },
         { key: 'carried', label: 'Carried over', type: 'number' },
       ],
       rows: sprints.map<Cell[]>((s) => {
         const ended = s.state === 'completed' || s.ends_on < today
-        return [...lead(s.board_id), s.name, s.starts_on, s.ends_on, s.tasks, s.done_in_window, ended ? s.tasks - s.done_in_window : null]
+        return [...lead(s.board_id), ...(!single ? [termsOf.get(s.board_id)?.plural ?? 'Stages'] : []), s.name, s.starts_on, s.ends_on, s.tasks, s.done_in_window, ended ? s.tasks - s.done_in_window : null]
       }),
-      note: "Done in sprint counts work finished inside the sprint's dates. Carried over is the rest, counted once the sprint has ended.",
+      note: onlyTerms
+        ? stageText("Done in sprint counts work finished inside the sprint's dates. Carried over is the rest, counted once the sprint has ended.", onlyTerms)
+        : 'Done in cycle counts work finished inside its dates. Carried over is the rest, counted once the cycle has ended.',
     })
   }
 

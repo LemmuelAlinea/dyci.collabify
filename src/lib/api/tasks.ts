@@ -16,12 +16,14 @@ const PROFILE_COLS = 'id, first_name, middle_name, last_name, avatar_url'
 /* ---------------------------------------------------------------- boards */
 
 export async function listBoards(projectId: string) {
-  const { data, error } = await supabase
-    .from('task_board_overview')
-    .select('*')
-    .eq('project_id', projectId)
+  const [{ data, error }, { data: terms, error: termError }] = await Promise.all([
+    supabase.from('task_board_overview').select('*').eq('project_id', projectId),
+    supabase.from('project_boards').select('id, term_singular, term_plural').eq('project_id', projectId),
+  ])
   if (error) throw error
-  return ((data ?? []) as BoardSummary[]).sort((a, b) =>
+  if (termError) throw termError
+  const byId = new Map((terms ?? []).map((row) => [row.id, row]))
+  return ((data ?? []) as BoardSummary[]).map((board) => ({ ...board, ...byId.get(board.id) })).sort((a, b) =>
     (a.group_name ?? '').localeCompare(b.group_name ?? '', 'en', { numeric: true }),
   )
 }

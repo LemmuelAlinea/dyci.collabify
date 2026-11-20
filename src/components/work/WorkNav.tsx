@@ -1,6 +1,7 @@
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import type { WorkSection } from '../../lib/work/nav'
+import type { StageTerms } from '../../lib/work/stageTerms'
 
 const LOOK: Record<WorkSection, { label: string; icon: IconName }> = {
   summary: { label: 'Summary', icon: 'chart' },
@@ -21,10 +22,12 @@ export function WorkNav({
   sections,
   active,
   onChange,
+  terms,
 }: {
   sections: readonly WorkSection[]
   active: WorkSection
   onChange: (s: WorkSection) => void
+  terms?: StageTerms
 }) {
   return (
     <nav aria-label="Work sections" className="-mx-1 overflow-x-auto px-1 pb-1">
@@ -44,7 +47,7 @@ export function WorkNav({
               }`}
             >
               <Icon name={LOOK[id].icon} size={15} />
-              {LOOK[id].label}
+              {id === 'sprints' ? terms?.plural ?? 'Stages' : LOOK[id].label}
             </button>
           )
         })}

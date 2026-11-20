@@ -7,6 +7,7 @@ import { TasksTab } from './TasksTab'
 import { WorkTab } from './WorkTab'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { GeneralProjectState } from './useGeneralProject'
+import { DEFAULT_SPRINT_SETTINGS } from '../../lib/work/sprintSettings'
 
 vi.mock('../../lib/api/general', () => ({ sendTasksToTeams: vi.fn(), sendTasksToCoordinator: vi.fn(), returnWorkTask: vi.fn() }))
 vi.stubGlobal('React', React)
@@ -22,7 +23,7 @@ it('keeps only the QA creators own unsent bugs reachable without planner actions
   const task = { id: 'own', title: 'Own planning bug', kind: 'bug', routing_state: 'planning', created_by: 'qa', team_id: null, assignee_ids: [], status: 'todo', description: '', archived_at: null }
   const state = { project: { id: 'project', class_board_id: null }, myRole: 'qa', viewerId: 'qa', readOnly: false,
     tasks: [task, { ...task, id: 'review', title: 'Own review bug', routing_state: 'coordinator_review' }, { ...task, id: 'other', title: 'Another QA bug', created_by: 'other' }, { ...task, id: 'regular', title: 'Regular private task', kind: 'task' }],
-    teams: [], teamMembers: [], members: [], sprints: [], milestones: [], can: () => false, qaBlocks: () => false,
+    teams: [], teamMembers: [], members: [], sprints: [], milestones: [], sprintSettings: DEFAULT_SPRINT_SETTINGS, can: () => false, qaBlocks: () => false,
   } as unknown as GeneralProjectState
   const open = vi.fn()
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
@@ -47,7 +48,7 @@ it('reveals a sent backlog task on the board only when the notice action is chos
   const task = { id: 'sent', title: 'Sent task', kind: 'task', routing_state: 'planning', team_id: 'destination', assignee_ids: [], status: 'todo', stage: 0, description: '', sprint_id: null, updated_at: 'stamp', archived_at: null }
   const state = { project: { id: 'discovery', class_board_id: null }, myRole: 'coordinator', viewerId: 'coordinator', readOnly: false,
     tasks: [task, { ...task, id: 'existing', title: 'Existing work', routing_state: 'released' }],
-    teams: [{ id: 'destination', name: 'Destination', leader_id: 'lead' }, { id: 'other', name: 'Other', leader_id: 'coordinator' }], teamMembers: [], members: [], sprints: [{ id: 'running', name: 'Running', state: 'active' }], milestones: [], can: () => false, qaBlocks: () => false, leadsUser: () => false, nameOf: (id: string) => id,
+    teams: [{ id: 'destination', name: 'Destination', leader_id: 'lead' }, { id: 'other', name: 'Other', leader_id: 'coordinator' }], teamMembers: [], members: [], sprints: [{ id: 'running', name: 'Running', state: 'active' }], milestones: [], sprintSettings: DEFAULT_SPRINT_SETTINGS, can: () => false, qaBlocks: () => false, leadsUser: () => false, nameOf: (id: string) => id,
     reload: async () => { task.routing_state = 'released'; state.tasks = [...state.tasks] },
   } as unknown as GeneralProjectState
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)

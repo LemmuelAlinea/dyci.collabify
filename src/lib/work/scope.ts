@@ -4,6 +4,7 @@
  */
 import { runningSprints } from './sprints'
 import type { Sprint } from './types'
+import { stageText, type StageTerms } from './stageTerms'
 
 /** 'running' | `running:${id}` | 'all' | 'backlog' | `sprint:${id}` */
 export type TaskScope = string
@@ -49,11 +50,11 @@ export function applyScope<T extends { sprint_id: string | null }>(
   return id ? items.filter((i) => i.sprint_id === id) : [...items]
 }
 
-export function scopeOptions(sprints: readonly Sprint[]) {
+export function scopeOptions(sprints: readonly Sprint[], terms?: StageTerms) {
   const running = runningSprints(sprints)
   const entries =
     running.length === 1
-      ? [{ value: 'running', label: `Running sprint · ${running[0].name}` }]
+      ? [{ value: 'running', label: `${stageText('Running sprint', terms)} · ${running[0].name}` }]
       : running.map((s) => ({ value: `running:${s.id}`, label: `Running · ${s.name}` }))
   return [
     ...entries,

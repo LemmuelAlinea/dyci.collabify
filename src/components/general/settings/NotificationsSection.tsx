@@ -96,7 +96,7 @@ export function NotificationsSection({ state }: { state: GeneralProjectState }) 
       )}
 
       <div className="divide-y divide-[var(--line)]">
-        <SettingRow title="Sprint ending reminder" htmlFor={sprintId}>
+        <SettingRow title={`${state.sprintSettings.terms.singular} ending reminder`} htmlFor={sprintId}>
           <Select
             id={sprintId}
             value={choices.sprintEndDays === null ? '' : String(choices.sprintEndDays)}
@@ -135,9 +135,9 @@ export function NotificationsSection({ state }: { state: GeneralProjectState }) 
         <SettingRow title="Task assignment notices">
           <Toggle label="Task assignment notices" checked={choices.assignment} onChange={flip('assignment')} disabled={off} />
         </SettingRow>
-        <SettingRow title="Sprint completion notices">
+        <SettingRow title={`${state.sprintSettings.terms.singular} completion notices`}>
           <Toggle
-            label="Sprint completion notices"
+            label={`${state.sprintSettings.terms.singular} completion notices`}
             checked={choices.sprintCompletion}
             onChange={flip('sprintCompletion')}
             disabled={off}

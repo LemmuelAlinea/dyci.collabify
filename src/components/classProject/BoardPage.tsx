@@ -11,6 +11,7 @@ import { PeerRoundsPanel } from '../peer/PeerRoundsPanel'
 import { ScoreCard } from '../scoring/ScoreCard'
 import { useProjectScores } from '../scoring/useProjectScores'
 import { BoardProgress } from '../tasks/BoardProgress'
+import { BoardStageNames } from '../tasks/BoardStageNames'
 import { BoardVerdict } from '../tasks/BoardVerdict'
 import { ClassFilesTab } from '../tasks/ClassFilesTab'
 import { MemberProgress } from '../tasks/MemberProgress'
@@ -32,7 +33,7 @@ import {
 import type { BoardTab } from '../../lib/classProjectNav'
 import { paths } from '../../lib/paths'
 import { stagesOf } from '../../lib/stages'
-import { boardOwnerName, boardWeight } from '../../lib/types'
+import { boardOwnerName, boardWeight, isBoardSubmitted } from '../../lib/types'
 import type { BoardSummary, ProjectSummary } from '../../lib/types'
 import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import { scopeOptions } from '../../lib/work/scope'
@@ -277,7 +278,7 @@ function BoardOverview({
 
       <div className="space-y-3">
         {t.sprints.length > 0 && (
-          <ScopePicker value={t.sprintScope} options={scopeOptions(t.sprints)} onChange={t.setSprintScope} />
+          <ScopePicker value={t.sprintScope} options={scopeOptions(t.sprints, { singular: board.term_singular ?? 'Stage', plural: board.term_plural ?? 'Stages' })} onChange={t.setSprintScope} />
         )}
         <TaskViewSwitch view={t.view} onView={t.setView} shown={t.shown.length} total={rows.length} />
         {/* The board is the page, so it stays out of the filter and out of its count. */}
@@ -319,6 +320,7 @@ function BoardOverview({
           ))}
         {t.view === 'timeline' && (
           <TimelineView
+            terms={{ singular: board.term_singular ?? 'Stage', plural: board.term_plural ?? 'Stages' }}
             tasks={classTimelineTasks(t.shown, false)}
             groups={[]}
             span={NO_SPAN}
@@ -348,9 +350,13 @@ function BoardPlan({ t, viewerId }: { t: ProjectTasks; viewerId?: string }) {
   const [params] = useSearchParams()
   const part = params.get('work') === 'sprints' ? 'sprints' : 'backlog'
   const source = classWorkSource(t, viewerId)
+  const board = t.active
+  const canName = !t.locked && Boolean(board) && !isBoardSubmitted(board) && (t.isProfessor || board?.student_id === viewerId ||
+    t.progress.some((row) => row.board_id === board?.id && row.is_leader && row.student_id === viewerId))
 
   return (
     <div className="space-y-4">
+      {board && <BoardStageNames key={`${board.id}:${board.term_singular}:${board.term_plural}`} board={board} canEdit={canName} onSaved={t.refresh} />}
       <div className="surface-sunken flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg p-0.5">
         {(['backlog', 'sprints'] as const).map((p) => (
           <button
@@ -362,7 +368,7 @@ function BoardPlan({ t, viewerId }: { t: ProjectTasks; viewerId?: string }) {
               part === p ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
             }`}
           >
-            {p === 'backlog' ? 'Backlog' : 'Sprints'}
+            {p === 'backlog' ? 'Backlog' : source?.terms?.plural ?? 'Stages'}
           </button>
         ))}
       </div>

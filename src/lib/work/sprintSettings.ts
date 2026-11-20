@@ -5,6 +5,7 @@
  * reads it are in supabase/sprint-settings.sql.
  */
 import type { Sprint } from './types'
+import type { StageTerms } from './stageTerms'
 
 export type SprintCarry = 'ask' | 'next' | 'backlog'
 
@@ -12,6 +13,7 @@ export type SprintCarry = 'ask' | 'next' | 'backlog'
 export type SprintOrganization = 'sequential' | 'streams' | 'parallel'
 
 export type SprintSettings = {
+  terms: StageTerms
   organization: SprintOrganization
   autoFinish: boolean
   autoStart: boolean
@@ -24,6 +26,7 @@ export type SprintSettings = {
 }
 
 export const DEFAULT_SPRINT_SETTINGS: SprintSettings = {
+  terms: { singular: 'Stage', plural: 'Stages' },
   organization: 'sequential',
   autoFinish: false,
   autoStart: false,
@@ -82,7 +85,7 @@ export function reopenFinishNotice(endsOn: string, settings: SprintSettings, now
   if (!settings.autoFinish) return null
   const { day, time } = manilaNow(now)
   if (endsOn >= day) return null
-  const lead = "Automatic finishing is on and this sprint's end date has passed, so it will finish again"
+  const lead = `Automatic finishing is on and this ${settings.terms.singular.toLowerCase()}'s end date has passed, so it will finish again`
   if (endsOn < dayBefore(day) || time >= settings.runAt.slice(0, 5)) {
     return `${lead} within 15 minutes unless you move its end date.`
   }

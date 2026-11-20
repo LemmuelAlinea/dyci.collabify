@@ -413,6 +413,8 @@ export function useReportDoc(r: R, professor: string) {
             project: { id: p.id, title: p.title, audience: p.audience, due_at: p.due_at, archived_at: p.archived_at, created_at: p.created_at },
             boards: shown.map((b) => ({
               board_id: b.id,
+              term_singular: b.term_singular,
+              term_plural: b.term_plural,
               name: b.group_name ?? b.student_name ?? 'A board',
               submitted_at: b.submitted_at,
               submitted_by_name: b.submitted_by_name,

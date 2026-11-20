@@ -55,19 +55,19 @@ it('reads the stages and offers no editing to somebody who cannot edit', async (
   await show(makeState({ can: () => false, myRole: 'qa' }, { stages: ['Plan', 'Build', 'Ship'] }))
   expect(host.textContent).toContain('Plan → Build → Ship')
   expect(host.querySelector('input:not([disabled]), select:not([disabled])')).toBeNull()
-  expect(button('Edit stages')).toBeUndefined()
+  expect(button('Edit workflow steps')).toBeUndefined()
 })
 
 it('reads only while the project is read-only', async () => {
   await show(makeState({ readOnly: true }))
-  expect(button('Edit stages')).toBeUndefined()
+  expect(button('Edit workflow steps')).toBeUndefined()
 })
 
 it('saves stages and the QA stage together, and nothing else', async () => {
   await show(makeState())
-  await act(async () => button('Edit stages')!.click())
+  await act(async () => button('Edit workflow steps')!.click())
   await act(async () => [...host.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find((b) => b.textContent === 'System development')!.click())
-  await act(async () => button('Save stages')!.click())
+  await act(async () => button('Save workflow steps')!.click())
   expect(updateGeneralProject).toHaveBeenCalledWith('p1', {
     stages: ['Planning', 'Development', 'Testing', 'Revision', 'Completed'],
     qa_stage: null,
@@ -77,10 +77,10 @@ it('saves stages and the QA stage together, and nothing else', async () => {
 
 it('keeps the stage validation message', async () => {
   await show(makeState())
-  await act(async () => button('Edit stages')!.click())
-  await act(async () => button('Add a stage')!.click())
-  await act(async () => button('Save stages')!.click())
-  expect(host.textContent).toContain('Progress stages: Every stage needs a name.')
+  await act(async () => button('Edit workflow steps')!.click())
+  await act(async () => button('Add a workflow step')!.click())
+  await act(async () => button('Save workflow steps')!.click())
+  expect(host.textContent).toContain('Task workflow steps: Every workflow step needs a name.')
   expect(updateGeneralProject).not.toHaveBeenCalled()
 })
 

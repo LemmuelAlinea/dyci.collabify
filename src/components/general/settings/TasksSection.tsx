@@ -157,13 +157,13 @@ function StagesPanel({ state }: { state: GeneralProjectState }) {
     <section className="card p-4 shadow-card sm:p-5">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2>Stages</h2>
+          <h2>Task workflow steps</h2>
           <p className="mt-0.5 text-[12px] text-muted">The columns this project's tasks move through.</p>
         </div>
         {!editable ? (
           <RequestAccessButton state={state} permission="edit_project" />
         ) : (
-          !open && <EditButton label="Edit stages" onClick={() => setEditing(true)} />
+          !open && <EditButton label="Edit workflow steps" onClick={() => setEditing(true)} />
         )}
       </header>
       {open ? <StagesForm state={state} onDone={() => setEditing(false)} /> : <StagesView state={state} />}
@@ -194,7 +194,7 @@ function StagesForm({ state, onDone }: { state: GeneralProjectState; onDone: () 
     if (!p) return
     setError(null)
     const stageProblem = checkStages(stages)
-    if (stageProblem) return setError(`Progress stages: ${stageProblem}`)
+    if (stageProblem) return setError(`Task workflow steps: ${stageProblem}`)
     setBusy(true)
     try {
       await updateGeneralProject(p.id, {
@@ -226,7 +226,7 @@ function StagesForm({ state, onDone }: { state: GeneralProjectState; onDone: () 
           Cancel
         </Button>
         <Button onClick={() => void save()} loading={busy}>
-          Save stages
+          Save workflow steps
         </Button>
       </div>
     </div>

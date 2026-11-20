@@ -758,6 +758,8 @@ export type TaskEventKind =
 /** Where work happens: one group's board, or one student's for a solo project. */
 export type ProjectBoard = {
   id: string
+  term_singular?: string
+  term_plural?: string
   project_id: string
   group_id: string | null
   student_id: string | null

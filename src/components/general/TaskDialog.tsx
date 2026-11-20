@@ -637,7 +637,7 @@ function TaskDetails({
             <div id={`task-properties-${task.id}`} className={detailsOpen ? 'block' : 'hidden lg:block'}>
               <h3 className="hidden lg:block">Details</h3>
               <dl className="mt-4 grid gap-3 text-[13px] sm:grid-cols-2 lg:grid-cols-1">
-              <div><dt className="text-[12px] text-faint">Stage</dt><dd className="text-ink">{stageName(stages, task)}</dd></div>
+              <div><dt className="text-[12px] text-faint">Workflow step</dt><dd className="text-ink">{stageName(stages, task)}</dd></div>
               {work && <div><dt className="text-[12px] text-faint">Priority</dt><dd className="text-ink">{PRIORITIES.find((p) => p.value === (task.priority ?? 'normal'))?.label}</dd></div>}
               <div><dt className="text-[12px] text-faint">Starts</dt><dd className="text-ink">{task.starts_at ? formatDue(task.starts_at) : 'Not set'}</dd></div>
               <div>
@@ -703,7 +703,7 @@ function TaskDetails({
             <h3 className="hidden lg:block">Details</h3>
             <div className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
-              <Field label="Stage" hint={gatedStages ? <span className="text-[12px] text-faint">{QA_PASSES}</span> : undefined}>
+              <Field label="Workflow step" hint={gatedStages ? <span className="text-[12px] text-faint">{QA_PASSES}</span> : undefined}>
                 {(id) => (
                   <Select
                     id={id}

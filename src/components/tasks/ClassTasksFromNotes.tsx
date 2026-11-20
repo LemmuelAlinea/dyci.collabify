@@ -133,6 +133,7 @@ export function ClassTasksFromNotes({
   return (
     <TasksFromNotes
       state={state}
+      terms={{ singular: board.term_singular ?? 'Stage', plural: board.term_plural ?? 'Stages' }}
       open={open && Boolean(state.project)}
       onClose={onClose}
       onSave={save}

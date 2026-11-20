@@ -75,7 +75,7 @@ describe('checkStages', () => {
   })
   it('refuses too few, too many, blank and repeated names', () => {
     expect(checkStages(['A', 'B'])).toMatch(/at least 3/)
-    expect(checkStages(['1', '2', '3', '4', '5', '6', '7', '8', '9'])).toMatch(/8 stages/)
+    expect(checkStages(['1', '2', '3', '4', '5', '6', '7', '8', '9'])).toMatch(/8 workflow steps/)
     expect(checkStages(['A', ' ', 'C'])).toMatch(/needs a name/)
     expect(checkStages(['A', 'b', 'B '])).toMatch(/same name/)
   })

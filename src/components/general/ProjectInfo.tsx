@@ -68,12 +68,12 @@ export function StagesView({ state }: { state: GeneralProjectState }) {
   return (
     <dl className="space-y-3 text-[14px]">
       <div>
-        <dt className="text-[12px] text-faint">Progress stages</dt>
+        <dt className="text-[12px] text-faint">Task workflow steps</dt>
         <dd className="text-ink">{stagesOf(p.stages).join(' → ')}</dd>
       </div>
       {p.qa_stage && (
         <div>
-          <dt className="text-[12px] text-faint">QA stage</dt>
+          <dt className="text-[12px] text-faint">QA workflow step</dt>
           <dd className="text-ink">{p.qa_stage}</dd>
         </div>
       )}

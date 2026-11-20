@@ -518,6 +518,11 @@ async function tasksAction(ctx: Ctx) {
   const teamNames = ((teams ?? []) as { name: string }[]).map((t) => t.name)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
   const anchor = project?.starts_on && project.starts_on > today ? project.starts_on : today
+  const { data: naming } = work
+    ? await ctx.caller.from('general_sprint_settings').select('term_singular, term_plural').eq('project_id', ctx.projectId).maybeSingle()
+    : await ctx.caller.from('project_boards').select('term_singular, term_plural').eq('id', projectKind!.class_board_id).maybeSingle()
+  const cycleOne = naming?.term_singular ?? 'Stage'
+  const cycleMany = naming?.term_plural ?? 'Stages'
 
   const out = await ask(
     ctx.anthropic,
@@ -539,26 +544,27 @@ discussion, not background, not things already done.
   Use weekdays for estimated dates. Do not move a stated date to a weekday.
 - At most ${NOTES_TASK_LIMIT} items, in the order the text gives them. A task list or plan
   document is all action items: take every task it lists.
-- sprints: only when the text clearly lays out sprints or iterations by name
-  ("Sprint 1", "Iteration 2", a sprint plan) and says which tasks belong to
-  each. name as the text gives it (at most 80 characters, e.g. "Sprint 1 -
-  Planning & System Design"), goal (the sprint goal in one sentence if the
+- sprints: this board calls work cycles "${cycleMany}". Only when the text clearly
+  lays out named ${cycleMany.toLowerCase()}, sprints or iterations (for example,
+  "${cycleOne} 1" or "Sprint 1") and says which tasks belong to each.
+  name as the text gives it (at most 80 characters); do not rename a saved
+  "Sprint 1" to "${cycleOne} 1". goal (the cycle goal in one sentence if the
   text gives one, else empty), starts_on and ends_on (YYYY-MM-DD). Keep stated
   dates; map relative weeks such as "Weeks 1–2" from the schedule start and
-  estimate dates when missing. Never invent sprints from a plain task list,
-  from dates alone, or from a passing "next sprint". Otherwise an empty list.
-- sprint: on each task, the sprint it belongs to from your sprints list.
-  A task marked "Sprint: Sprint 1" belongs to "Sprint 1 - ..." even when the
+  estimate dates when missing. Never invent cycles from a plain task list,
+  from dates alone, or from a passing "next ${cycleOne.toLowerCase()}". Otherwise an empty list.
+- sprint: on each task, the cycle it belongs to from your sprints list.
+  A task marked "${cycleOne}: ${cycleOne} 1" belongs to "${cycleOne} 1 - ..." even when the
   plan uses a longer name. Return the full name or its numbered label. Leave
-  empty only when the task has no sprint.
+  empty only when the task has no cycle.
 - milestones: only when the text names milestones, deliverables or checkpoints
   ("Milestone: prototype ready by Nov 6"). name (at most 80
   characters), description (one sentence of what the text says about it,
-  else empty; never made up), due (YYYY-MM-DD, inferred from its related sprint
+  else empty; never made up), due (YYYY-MM-DD, inferred from its related cycle
   or tasks if unstated), sprints (the exact names of
-  the sprints from your sprints list the text says count toward it, such as
-  "milestone: end of Sprint 2"; else an empty list). Never
-  turn ordinary tasks or the end of a sprint into a milestone. Otherwise an
+  the cycles from your sprints list the text says count toward it, such as
+  "milestone: end of ${cycleOne} 2"; else an empty list). Never
+  turn ordinary tasks or the end of a cycle into a milestone. Otherwise an
   empty list.
 - milestone: on each task, the exact name of the milestone the text says it
   counts toward, else empty.
@@ -642,7 +648,7 @@ ${judge ? `\n${FIT_RULES}\n` : ''}${VOICE}`,
       name: String(m.name ?? '').trim().slice(0, 80),
       description: String(m.description ?? '').trim().slice(0, 1000),
       due: day(m.due),
-      sprints: [...new Set(((m.sprints as unknown[]) ?? []).map((x) => matchSprintName(sprints, x)).filter(Boolean))],
+      sprints: [...new Set(((m.sprints as unknown[]) ?? []).map((x) => matchSprintName(sprints, x, cycleOne)).filter(Boolean))],
     })),
   ).slice(0, 20)
 
@@ -672,7 +678,7 @@ ${judge ? `\n${FIT_RULES}\n` : ''}${VOICE}`,
         due,
         // A start after the due day is refused by the table; drop it rather than the task.
         start: start && due && start > due ? '' : start,
-        sprint: matchSprintName(sprints, t.sprint),
+        sprint: matchSprintName(sprints, t.sprint, cycleOne),
         milestone: pick(milestones, t.milestone),
         files: [...new Set(((t.files as unknown[]) ?? []).map(sharedId).filter((x): x is string => Boolean(x)))],
         ...(judge ? normalizeFit(t.fit, t.fit_reason, false) : {}),

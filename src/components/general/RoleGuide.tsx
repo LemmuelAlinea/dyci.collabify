@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { DEFAULT_MEMBER_RULES, ROLE_LABEL, ROLE_MATRIX, roleMark } from '../../lib/general/permissions'
 import type { MemberRules, ProjectRole, RoleMark } from '../../lib/general/permissions'
+import { stageText, type StageTerms } from '../../lib/work/stageTerms'
 
 const COLUMNS: { key: ProjectRole | 'lead'; label: string }[] = [
   { key: 'pm', label: ROLE_LABEL.pm },
@@ -26,7 +27,7 @@ const MARK_WORDS: Record<RoleMark, string> = {
  * never does. With a project's member options, the Member column shows what
  * the project manager switched on.
  */
-export function RoleGuide({ memberRules = DEFAULT_MEMBER_RULES }: { memberRules?: MemberRules }) {
+export function RoleGuide({ memberRules = DEFAULT_MEMBER_RULES, terms }: { memberRules?: MemberRules; terms?: StageTerms }) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
 
@@ -75,7 +76,7 @@ export function RoleGuide({ memberRules = DEFAULT_MEMBER_RULES }: { memberRules?
                     scope="row"
                     className="sticky left-0 z-10 w-[16rem] min-w-[14rem] surface px-4 py-2.5 font-normal text-ink sm:px-5"
                   >
-                    {row.action}
+                    {stageText(row.action, terms)}
                     {row.later && (
                       <span className="mt-0.5 block text-[11px] text-faint">{row.later}</span>
                     )}
@@ -84,7 +85,7 @@ export function RoleGuide({ memberRules = DEFAULT_MEMBER_RULES }: { memberRules?
                     const { mark, note, label } = roleMark(row, c.key, memberRules)
                     return (
                       <td key={c.key} className={`whitespace-nowrap px-3 py-2.5 ${mark === 'yes' ? 'text-ink' : 'text-muted'}`}>
-                        {label ?? (mark ? MARK_WORDS[mark] : '')}
+                        {label ? stageText(label, terms) : mark ? MARK_WORDS[mark] : ''}
                         {note && <span className="mt-0.5 block text-[11px] text-faint">{note}</span>}
                       </td>
                     )

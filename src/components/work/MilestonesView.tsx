@@ -24,6 +24,7 @@ import {
   waitingLabel,
 } from '../../lib/work/milestones'
 import type { Milestone, MilestoneDependency, MilestoneSource } from '../../lib/work/types'
+import { stageText } from '../../lib/work/stageTerms'
 
 /** Every milestone that waits for this one, directly or through others; waiting on one of them would close a loop. */
 function waitingOn(dependencies: readonly MilestoneDependency[], id: string) {
@@ -47,6 +48,7 @@ function waitingOn(dependencies: readonly MilestoneDependency[], id: string) {
  * a sprint tags every task in it, and any that join later.
  */
 export function MilestonesView({ source, selectedId }: { source: MilestoneSource; selectedId?: string | null }) {
+  const txt = (copy: string) => stageText(copy, source.terms)
   const now = useNow()
   const { show } = useToast()
   const [createKey, setCreateKey] = useState(0)
@@ -89,7 +91,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
     try {
       await action()
     } catch (err) {
-      show(authErrorMessage(err, failure), 'error')
+      show(txt(authErrorMessage(err, failure)), 'error')
     }
   }
 
@@ -101,7 +103,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
         <div>
           <h3>Milestones</h3>
           <p className="mt-0.5 max-w-prose text-[13px] text-muted">
-            Dated goals. Tag the tasks or add the sprints that count toward each one; its progress is how many of those tasks are done.
+            {txt('Dated goals. Tag the tasks or add the sprints that count toward each one; its progress is how many of those tasks are done.')}
           </p>
         </div>
         {source.canManage && (
@@ -120,6 +122,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
       </div>
 
       <MilestoneChart
+        terms={source.terms}
         milestones={list}
         isReached={(m) =>
           milestoneStatus(m, milestoneProgress(source.items, m.id), now, completion, waitingFor(m, links, source.milestones)) === 'reached'
@@ -179,7 +182,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                     items={[
                       source.canTag && { label: 'Tag tasks', icon: 'plus', onSelect: () => setTagging(m) },
                       source.canTag &&
-                        source.sprints.length > 0 && { label: 'Add sprint', icon: 'target', onSelect: () => setAddingSprint(m) },
+                        source.sprints.length > 0 && { label: txt('Add sprint'), icon: 'target', onSelect: () => setAddingSprint(m) },
                       canMark && {
                         label: m.reached_at ? 'Not reached yet' : 'Mark reached',
                         icon: m.reached_at ? 'undo' : 'checkCircle',
@@ -273,14 +276,14 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                     )}
                     {linked.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[12px] text-faint">Sprints:</span>
+                        <span className="text-[12px] text-faint">{txt('Sprints:')}</span>
                         {linked.map((sp) => (
                           <span key={sp.id} className="flex items-center gap-1 rounded-lg surface-sunken py-1 pr-1 pl-2.5 text-[12px] text-ink">
                             {sp.name}
                             {source.canTag && (
                               <button
                                 type="button"
-                                onClick={() => void run(() => source.linkSprint(sp.id, null), 'Could not take that sprint off.')}
+                                onClick={() => void run(() => source.linkSprint(sp.id, null), txt('Could not take that sprint off.'))}
                                 aria-label={`Stop counting ${sp.name} toward ${m.name}`}
                                 className="grid h-5 w-5 place-items-center rounded-full text-faint hover:text-ink"
                               >
@@ -341,6 +344,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
         perSprint={
           source.canTag && openSprints.length > 0
             ? {
+                terms: source.terms,
                 sprints: openSprints,
                 nameOf: (id) => source.milestones.find((m) => m.id === id)?.name,
                 create: async (sprint, description) => {

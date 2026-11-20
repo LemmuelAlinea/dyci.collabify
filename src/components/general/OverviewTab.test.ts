@@ -85,7 +85,7 @@ it('links an editor from Project info to Settings', async () => {
   const { root, dialog } = await openInfo(detailed())
   const links = [...dialog.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])
   expect(links).toContainEqual(['Edit in Settings', '/?tab=settings&section=general'])
-  expect(links).toContainEqual(['Edit stages in Settings', '/?tab=settings&section=tasks'])
+  expect(links).toContainEqual(['Edit workflow steps in Settings', '/?tab=settings&section=tasks'])
   await act(async () => root.unmount())
 })
 

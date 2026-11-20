@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { GeneralSection } from './GeneralSection'
 import type { GeneralProjectState } from '../useGeneralProject'
+import { DEFAULT_SPRINT_SETTINGS } from '../../../lib/work/sprintSettings'
 import { ProjectDeletedError } from '../../../lib/general/projectDeleted'
 import { archiveGeneralProject, deleteGeneralProject, updateGeneralProject } from '../../../lib/api/general'
 
@@ -37,7 +38,7 @@ function makeState(over: Record<string, unknown> = {}, project: Record<string, u
     },
     fields: [], values: [], members: [], myRole: 'pm', myOpenRequests: [], myGrants: [],
     can: () => true, readOnly: false, archived: false, isOwner: true,
-    nameOf: () => '', reload,
+    nameOf: () => '', reload, sprintSettings: DEFAULT_SPRINT_SETTINGS,
     ...over,
   } as unknown as GeneralProjectState
 }
@@ -296,7 +297,7 @@ it('keeps delete disabled until the exact project name is typed, then deletes an
   await act(async () => button(host, 'Delete project')!.click())
   const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
   expect(dialog.textContent).toContain(
-    'Delete Alpha? This removes its tasks, files, sprints and milestones for good. Type the project name to confirm.',
+    'Delete Alpha? This removes its tasks, files, stages and milestones for good. Type the project name to confirm.',
   )
   const confirm = button(dialog, 'Delete project') as HTMLButtonElement
   expect(confirm.disabled).toBe(true)

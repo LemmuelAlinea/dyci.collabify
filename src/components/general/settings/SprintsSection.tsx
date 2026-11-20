@@ -11,6 +11,7 @@ import { useToast } from '../../ui/Toast'
 import { saveSprintSettings } from '../../../lib/api/sprints'
 import { authErrorMessage } from '../../../lib/authError'
 import { startWeekdayOf } from '../../../lib/work/sprintSettings'
+import { stageText, validStageTerms } from '../../../lib/work/stageTerms'
 import type { SprintCarry, SprintOrganization } from '../../../lib/work/sprintSettings'
 import type { GeneralProjectState } from '../useGeneralProject'
 
@@ -71,6 +72,8 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
   // Null stays derived from the first sprint until somebody picks a day.
   const [weekday, setWeekday] = useState<number | null>(saved.startWeekday)
   const [runAt, setRunAt] = useState(saved.runAt)
+  const [singular, setSingular] = useState(saved.terms.singular)
+  const [plural, setPlural] = useState(saved.terms.plural)
   const [autoMoved, setAutoMoved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -96,6 +99,8 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
     setLength(String(saved.lengthDays))
     setWeekday(saved.startWeekday)
     setRunAt(saved.runAt)
+    setSingular(saved.terms.singular)
+    setPlural(saved.terms.plural)
     setAutoMoved(false)
     setLengthError(null)
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -105,11 +110,12 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
     : [...TIME_OPTIONS, { value: runAt, label: timeLabel(runAt) }].sort((a, b) => a.value.localeCompare(b.value))
   const carryOptions = (Object.keys(CARRY_LABELS) as SprintCarry[]).map((value) => ({
     value,
-    label: CARRY_LABELS[value],
+    label: stageText(CARRY_LABELS[value], saved.terms),
     // The database refuses auto-finish together with "Ask on finish".
     disabled: autoFinish && value === 'ask',
   }))
   const shownDay = weekday ?? startWeekdayOf(saved, state.sprints)
+  const txt = (copy: string) => stageText(copy, saved.terms)
 
   function toggleAutoFinish(next: boolean) {
     setAutoFinish(next)
@@ -130,10 +136,13 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
       return setLengthError(LENGTH_ERROR)
     }
     setLengthError(null)
+    const terms = { singular: singular.trim(), plural: plural.trim() }
+    if (!validStageTerms(terms)) return setError('Use singular and plural names of 1 to 24 characters.')
     setBusy(true)
     try {
       await saveSprintSettings(state.project.id, {
         organization: saved.organization,
+        terms,
         autoFinish,
         autoStart,
         carry: autoFinish && carry === 'ask' ? 'next' : carry,
@@ -142,9 +151,9 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
         runAt,
       })
       await state.reload()
-      show('Sprint settings saved')
+      show(stageText('Sprint settings saved', terms))
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not save the sprint settings.'))
+      setError(txt(authErrorMessage(err, 'Could not save the sprint settings.')))
     } finally {
       setBusy(false)
     }
@@ -157,17 +166,17 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
     try {
       await saveSprintSettings(state.project.id, { ...saved, organization: switching })
       await state.reload()
-      show('Sprint organization changed')
+      show(txt('Sprint organization changed'))
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not change how sprints are organized.'))
+      setError(txt(authErrorMessage(err, 'Could not change how sprints are organized.')))
     }
   }
 
   return (
     <section className="card p-4 shadow-card sm:p-5">
       <header className="mb-2">
-        <h2>Sprints</h2>
-        <p className="mt-0.5 text-[12px] text-muted">How this project's sprints start, run and finish.</p>
+        <h2>{saved.terms.singular} settings</h2>
+        <p className="mt-0.5 text-[12px] text-muted">{txt("How this project's sprints start, run and finish.")}</p>
       </header>
 
       {error && (
@@ -177,17 +186,23 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
       )}
 
       <div className="divide-y divide-[var(--line)]">
-        <Row title="Sprint organization" help={organization.help} helpId={orgHelpId}>
+        <Row title="Singular name" help="Existing names stay as they are." >
+          <Input value={singular} maxLength={24} onChange={(e) => setSingular(e.target.value)} disabled={!editable || busy} aria-label="Singular stage name" />
+        </Row>
+        <Row title="Plural name">
+          <Input value={plural} maxLength={24} onChange={(e) => setPlural(e.target.value)} disabled={!editable || busy} aria-label="Plural stage name" />
+        </Row>
+        <Row title={txt('Sprint organization')} help={txt(organization.help)} helpId={orgHelpId}>
           <div
             role="radiogroup"
-            aria-label="Sprint organization"
+            aria-label={txt('Sprint organization')}
             aria-describedby={orgHelpId}
             className="flex flex-wrap gap-2"
           >
             {ORGANIZATIONS.map((o) => (
               <Choice
                 key={o.value}
-                label={o.label}
+                label={txt(o.label)}
                 selected={o.value === organization.value}
                 disabled={!editable || busy}
                 onSelect={() => {
@@ -198,9 +213,9 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
           </div>
         </Row>
 
-        <Row title="Finish sprints automatically" help="When the end date passes, at the time below.">
+        <Row title={txt('Finish sprints automatically')} help="When the end date passes, at the time below.">
           <Toggle
-            label="Finish sprints automatically"
+            label={txt('Finish sprints automatically')}
             checked={autoFinish}
             onChange={toggleAutoFinish}
             disabled={!editable || busy}
@@ -208,11 +223,11 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
         </Row>
 
         <Row
-          title="Start the next sprint automatically"
-          help="Creates the next sprint if none is planned. Never makes a duplicate, and never creates one that starts after the project's due date."
+          title={txt('Start the next sprint automatically')}
+          help={txt("Creates the next sprint if none is planned. Never makes a duplicate, and never creates one that starts after the project's due date.")}
         >
           <Toggle
-            label="Start the next sprint automatically"
+            label={txt('Start the next sprint automatically')}
             checked={autoStart}
             onChange={setAutoStart}
             disabled={!editable || busy}
@@ -223,7 +238,7 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
           title="Unfinished tasks at finish"
           htmlFor={carryId}
           help="Where tasks that are not done go."
-          note={autoMoved ? AUTO_MOVED : undefined}
+          note={autoMoved ? txt(AUTO_MOVED) : undefined}
         >
           <Select
             id={carryId}
@@ -237,7 +252,7 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
           />
         </Row>
 
-        <Row title="Default sprint length" htmlFor={lengthId}>
+        <Row title={txt('Default sprint length')} htmlFor={lengthId}>
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <Input
@@ -266,7 +281,7 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
           )}
         </Row>
 
-        <Row title="Sprint start day" htmlFor={dayId}>
+        <Row title={txt('Sprint start day')} htmlFor={dayId}>
           <Select
             id={dayId}
             value={String(shownDay)}
@@ -290,7 +305,7 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
       {editable && (
         <div className="mt-5 flex justify-end border-t border-line pt-4">
           <Button onClick={() => void save()} loading={busy}>
-            Save sprint settings
+            Save {saved.terms.singular.toLowerCase()} settings
           </Button>
         </div>
       )}
@@ -303,9 +318,9 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
         <ConfirmDialog
           open
           tone="primary"
-          title={`Switch to ${switchTo.label}?`}
+          title={`Switch to ${txt(switchTo.label)}?`}
           confirmLabel="Switch"
-          body={switchTo.change}
+          body={txt(switchTo.change)}
           onClose={() => setSwitching(null)}
           onConfirm={changeOrganization}
         />

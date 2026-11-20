@@ -16,11 +16,13 @@ import { RunningSprintTabs } from './RunningSprintTabs'
 import { useRunningSprint } from './useRunningSprint'
 import { needsYou, nextMilestone } from '../../lib/work/summary'
 import type { Milestone, MilestoneDependency, Sprint, WorkItem } from '../../lib/work/types'
+import { stageText, type StageTerms } from '../../lib/work/stageTerms'
 
 /** Rows shown per Needs you group before "and N more". */
 const LIST_CAP = 5
 
 type GlanceProps = {
+  terms?: StageTerms
   /** A work project's sprint organization and teams; a class board has neither. */
   organization?: SprintOrganization
   teams?: WorkTeams
@@ -45,10 +47,10 @@ type GlanceProps = {
  * the viewer now. The same cards in either space; each one links to the
  * section where that work is done.
  */
-export function WorkGlance({ items, sprints, milestones, mine, canPlan, completion, dependencies, organization, teams, onOpenTask, onSection, aside }: GlanceProps) {
+export function WorkGlance({ items, sprints, milestones, mine, canPlan, completion, dependencies, organization, teams, onOpenTask, onSection, aside, terms }: GlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} completion={completion} organization={organization} teams={teams} onSection={onSection} />
+      <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} completion={completion} organization={organization} teams={teams} onSection={onSection} terms={terms} />
       {aside ? (
         <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
           <MilestoneCard items={items} milestones={milestones} completion={completion} dependencies={dependencies} onSection={onSection} />
@@ -99,7 +101,8 @@ function Counted({ done, total, noun, pct }: { done: number; total: number; noun
   )
 }
 
-function SprintCard({ items, sprints, milestones, canPlan, completion, organization = 'sequential', teams, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'milestones' | 'canPlan' | 'completion' | 'organization' | 'teams' | 'onSection'>) {
+function SprintCard({ items, sprints, milestones, canPlan, completion, organization = 'sequential', teams, onSection, terms }: Pick<GlanceProps, 'items' | 'sprints' | 'milestones' | 'canPlan' | 'completion' | 'organization' | 'teams' | 'onSection' | 'terms'>) {
+  const txt = (copy: string) => stageText(copy, terms)
   const now = useNow()
   const { tabs, activeKey, sprint, pick } = useRunningSprint({
     projectId: teams?.projectId,
@@ -125,7 +128,7 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, organizat
         />
         <span className="eyebrow relative flex items-center gap-2">
           <Icon name="target" size={14} />
-          Running sprint
+          {txt('Running sprint')}
         </span>
         <div className="relative flex flex-1 flex-col items-center justify-center py-5 text-center">
           <span aria-hidden="true" className="relative grid h-28 w-28 place-items-center">
@@ -135,9 +138,9 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, organizat
               <Icon name="flag" size={34} />
             </span>
           </span>
-          <h3 className="mt-3 font-display text-[26px] leading-tight sm:text-[30px]">No active sprint</h3>
+          <h3 className="mt-3 font-display text-[26px] leading-tight sm:text-[30px]">{txt('No active sprint')}</h3>
           <p className="mt-1.5 max-w-sm text-[13px] text-muted sm:text-[14px]">
-            {canPlan ? (planned ? 'Start a planned sprint from Backlog.' : 'Plan your next sprint from Backlog.') : 'A sprint appears here when the team starts one.'}
+            {txt(canPlan ? (planned ? 'Start a planned sprint from Backlog.' : 'Plan your next sprint from Backlog.') : 'A sprint appears here when the team starts one.')}
           </p>
           <button
             type="button"
@@ -155,10 +158,10 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, organizat
   const pct = total ? Math.round((done / total) * 100) : 0
   return (
     <section className="card p-4 shadow-card sm:p-5">
-      <CardHead icon="target" label={teamName ? `Running sprint · ${teamName}` : 'Running sprint'} action="Open Sprints" onAction={() => onSection('sprints')} />
+      <CardHead icon="target" label={`${txt('Running sprint')}${teamName ? ` · ${teamName}` : ''}`} action={txt('Open Sprints')} onAction={() => onSection('sprints')} />
       {tabs.length > 0 && (
         <div className="mt-3">
-          <RunningSprintTabs tabs={tabs} activeKey={activeKey} onPick={pick} />
+          <RunningSprintTabs tabs={tabs} activeKey={activeKey} onPick={pick} terms={terms} />
         </div>
       )}
       <h3 className="mt-2 truncate">{sprint.name}</h3>
@@ -170,7 +173,7 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, organizat
         <Counted done={done} total={total} noun="tasks" pct={pct} />
       </div>
       <div className="mt-4">
-        <SprintTimeline sprint={sprint} milestones={milestones} items={items} completion={completion} />
+        <SprintTimeline sprint={sprint} milestones={milestones} items={items} completion={completion} terms={terms} />
       </div>
     </section>
   )

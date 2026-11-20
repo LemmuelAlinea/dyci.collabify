@@ -9,6 +9,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { sprintItems } from '../../lib/work/backlog'
 import { nextSprintDraft, plannedSprints, sprintCounts } from '../../lib/work/sprints'
+import { stageText } from '../../lib/work/stageTerms'
 import type { Sprint, WorkSource } from '../../lib/work/types'
 
 type Target = 'backlog' | 'next' | 'new'
@@ -25,6 +26,7 @@ export function FinishSprintDialog({
   sprint: Sprint
   source: WorkSource
 }) {
+  const txt = (copy: string) => stageText(copy, source.terms)
   const { show } = useToast()
   // In streams a sprint's work stays with its team.
   const streams = source.sprintSettings?.organization === 'streams'
@@ -33,7 +35,7 @@ export function FinishSprintDialog({
   const counts = sprintCounts(source.items, sprint.id)
   const team = streams ? source.teams?.teams.find((t) => t.id === sprint.team_id) : undefined
   // Taken once, so the label keeps its name and dates if the sprints reload.
-  const [draft] = useState(() => nextSprintDraft(source.sprints, Date.now(), source.sprintSettings, team))
+  const [draft] = useState(() => nextSprintDraft(source.sprints, Date.now(), source.sprintSettings, team, source.terms?.singular))
   // The project's setting picks the starting choice; the person can still change it.
   const [target, setTarget] = useState<Target>(
     source.sprintSettings?.carry !== 'backlog' && planned.length > 0 ? 'next' : 'backlog',
@@ -60,7 +62,7 @@ export function FinishSprintDialog({
       show(`${sprint.name} finished`)
       onClose()
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not finish the sprint.'))
+      setError(txt(authErrorMessage(err, txt('Could not finish the sprint.'))))
     } finally {
       setBusy(false)
     }
@@ -94,7 +96,7 @@ export function FinishSprintDialog({
             Cancel
           </Button>
           <Button onClick={() => void finish()} loading={busy}>
-            Finish sprint
+            {txt('Finish sprint')}
           </Button>
         </>
       }
@@ -110,21 +112,21 @@ export function FinishSprintDialog({
             {planned.length > 0 &&
               option(
                 'next',
-                'Into a planned sprint',
+                txt('Into a planned sprint'),
                 effectiveTarget === 'next' && (
                   <span className="mt-2 block">
                     <Select
                       value={nextValid}
                       onChange={(e) => setNextId(e.target.value)}
                       options={planned.map((s) => ({ value: s.id, label: `${s.name} · ${dateRange(s.starts_on, s.ends_on)}` }))}
-                      aria-label="Planned sprint"
+                      aria-label={txt('Planned sprint')}
                       className="!h-9 !text-[13px]"
                     />
                   </span>
                 ),
               )}
             {/* A lead runs sprints but does not create them; a sprint that lost its team has nowhere new to go. */}
-            {source.canPlan && (!streams || team) && option('new', `Into a new sprint (${draft.name}, ${dateRange(draft.startsOn, draft.endsOn)})`)}
+            {source.canPlan && (!streams || team) && option('new', `${txt('Into a new sprint')} (${draft.name}, ${dateRange(draft.startsOn, draft.endsOn)})`)}
             {option('backlog', 'Back to the backlog')}
           </div>
         )}

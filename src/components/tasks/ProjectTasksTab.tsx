@@ -61,7 +61,7 @@ export function ProjectTasksTab({
 
   return (
     <div className="space-y-5">
-      <WorkNav sections={CLASS_SECTIONS} active={t.section} onChange={t.setSection} />
+      <WorkNav sections={CLASS_SECTIONS} active={t.section} onChange={t.setSection} terms={{ singular: t.active?.term_singular ?? 'Stage', plural: t.active?.term_plural ?? 'Stages' }} />
       <StudentTasksView project={project} role={role} viewerId={viewerId} t={t} />
     </div>
   )

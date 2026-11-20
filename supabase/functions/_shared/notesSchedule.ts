@@ -2,12 +2,13 @@ type TaskDate = { start: string; due: string; sprint: string; milestone?: string
 type SprintDate = { name: string; starts_on: string; ends_on: string }
 type MilestoneDate = { name: string; due: string; sprints: string[] }
 
-export function matchSprintName(sprints: { name: string }[], reference: unknown): string {
+export function matchSprintName(sprints: { name: string }[], reference: unknown, term = 'Stage'): string {
   const name = String(reference ?? '').trim().replace(/\s+/g, ' ')
   if (!name) return ''
   const exact = sprints.find((s) => s.name.toLowerCase() === name.toLowerCase())
   if (exact) return exact.name
-  const numbered = /^(sprint|iteration)\s*#?\s*(\d+)(?:\s*[-:|–—(].*)?$/i
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const numbered = new RegExp(`^(sprint|iteration|${escaped})\\s*#?\\s*(\\d+)(?:\\s*[-:|–—(].*)?$`, 'i')
   const wanted = numbered.exec(name)
   if (!wanted) return ''
   const matches = sprints.filter((s) => {

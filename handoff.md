@@ -5417,3 +5417,10 @@ accepted." from the setting; no failed requests.
   recording start/playback/expiry and school recording-policy review remain before calling this a full release.
   Provider cost has not been measured for these scenarios. The shared `meeting_calls_enabled` flag is on for
   this live trial.
+
+## Stage and Phase terminology (2026-11-21)
+
+- Dated sprints now read as Stages by default across work projects and class boards. Each work project's Stage settings or class board's Plan view can set a singular and plural name such as Phase/Phases. Existing saved names, including finished Sprint 1 and Sprint 2, stay untouched; new defaults continue the count under the current name.
+- Task-column “stages” now read as task workflow steps. Internal sprint table, API, notification type and URL names remain stable for existing links and records. Mixed-board reports use a neutral Work cycles heading and identify each board's term.
+- `supabase/stage-terminology.sql` adds the two labels and a narrow board-naming RPC. The live database has the migration and `anon-lockdown.sql`; the affected class-planning, sprint-settings, sprint-organization, project-notification-rules, task-stages and anon-lockdown SQL suites passed. The shared `work-ai` Edge Function was deployed with the chosen-term prompt.
+- `npm run check` passed with 2,821 tests, typecheck, lint, build, contrast, accessibility, schema drift and motion checks. A final Vitest run after the role-guide change passed 2,822 tests. The 122-suite legacy SQL gate was not rerun. Live role and layout checks remain for the owner after the frontend push.

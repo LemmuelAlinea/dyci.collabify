@@ -6,6 +6,7 @@ import { useToast } from '../ui/Toast'
 import { ClassTasksFromNotes } from './ClassTasksFromNotes'
 import { GenerateTasksModal } from './GenerateTasksModal'
 import { BoardProgress } from './BoardProgress'
+import { BoardStageNames } from './BoardStageNames'
 import { MemberProgress } from './MemberProgress'
 import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
@@ -100,9 +101,16 @@ export function StudentTasksView({
         </div>
       ) : (
         <>
+          {(t.section === 'backlog' || t.section === 'sprints') && <BoardStageNames
+            key={`${active.id}:${active.term_singular}:${active.term_plural}`}
+            board={active}
+            canEdit={!locked && !isBoardSubmitted(active) && (active.student_id === viewerId || t.progress.some((row) => row.board_id === active.id && row.is_leader && row.student_id === viewerId))}
+            onSaved={t.refresh}
+          />}
           {t.section === 'summary' ? (
             <div className="space-y-4">
               <WorkGlance
+                terms={{ singular: active.term_singular ?? 'Stage', plural: active.term_plural ?? 'Stages' }}
                 items={t.tasks.map(classWorkItem)}
                 sprints={t.sprints}
                 milestones={t.milestones}
@@ -175,7 +183,7 @@ export function StudentTasksView({
               {t.sprints.length > 0 && (
                 <ScopePicker
                   value={t.sprintScope}
-                  options={scopeOptions(t.sprints)}
+                  options={scopeOptions(t.sprints, { singular: t.active?.term_singular ?? 'Stage', plural: t.active?.term_plural ?? 'Stages' })}
                   onChange={t.setSprintScope}
                 />
               )}
@@ -238,6 +246,7 @@ export function StudentTasksView({
               )}
               {t.view === 'timeline' && (
                 <TimelineView
+                  terms={{ singular: t.active?.term_singular ?? 'Stage', plural: t.active?.term_plural ?? 'Stages' }}
                   tasks={classTimelineTasks(t.shown, false)}
                   groups={[]}
                   span={NO_SPAN}

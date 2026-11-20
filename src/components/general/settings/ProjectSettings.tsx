@@ -17,7 +17,7 @@ import { WorkflowSection } from './WorkflowSection'
 
 const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: 'general', label: 'General', icon: 'settings' },
-  { id: 'sprints', label: 'Sprints', icon: 'target' },
+  { id: 'sprints', label: 'Stage settings', icon: 'target' },
   { id: 'tasks', label: 'Tasks', icon: 'kanban' },
   { id: 'milestones', label: 'Milestones', icon: 'pin' },
   { id: 'members', label: 'Members & permissions', icon: 'users' },
@@ -73,7 +73,7 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
                 />
               )}
               <Icon name={s.icon} size={17} className={on ? 'shrink-0' : 'shrink-0 text-nav-icon'} />
-              {s.label}
+              {s.id === 'sprints' ? `${state.sprintSettings.terms.singular} settings` : s.label}
               {s.id === 'members' && openRequests > 0 && (
                 <span
                   className={`rounded-full px-2 py-0.5 font-mono text-[12px] ${

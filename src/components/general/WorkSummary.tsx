@@ -43,6 +43,7 @@ export function WorkSummary({
     <div className="space-y-6">
       <NoPmNotice state={state} />
       <WorkGlance
+        terms={state.sprintSettings.terms}
         items={generalWorkItems(state)}
         sprints={state.sprints}
         milestones={state.milestones}

@@ -615,7 +615,7 @@ function DangerZone({ state }: { state: GeneralProjectState }) {
       {state.archived && (
         <DangerRow
           title="Delete project"
-          body="Removes its tasks, files, sprints and milestones for good. This cannot be undone."
+          body={`Removes its tasks, files, ${state.sprintSettings.terms.plural.toLowerCase()} and milestones for good. This cannot be undone.`}
         >
           <Button variant="destroy" onClick={() => setDeleting(true)} className="shrink-0">
             <Icon name="trash" size={14} />
@@ -639,6 +639,7 @@ function DangerZone({ state }: { state: GeneralProjectState }) {
       />
       <HandOverDialog open={handingOver} onClose={() => setHandingOver(false)} state={state} />
       <DeleteDialog
+        terms={state.sprintSettings.terms}
         open={deleting}
         onClose={() => setDeleting(false)}
         projectId={p.id}
@@ -663,12 +664,14 @@ function DangerRow({ title, body, children }: { title: string; body: string; chi
 
 /** Deleting cannot be undone, so it waits for the exact project name, case and spaces included. */
 function DeleteDialog({
+  terms,
   open,
   onClose,
   projectId,
   name,
   spaceId,
 }: {
+  terms: { singular: string; plural: string }
   open: boolean
   onClose: () => void
   projectId: string
@@ -743,7 +746,7 @@ function DeleteDialog({
       >
         {error && <Alert tone="error">{error}</Alert>}
         <p className="text-[14px] leading-relaxed text-muted">
-          {`Delete ${name}? This removes its tasks, files, sprints and milestones for good. Type the project name to confirm.`}
+          {`Delete ${name}? This removes its tasks, files, ${terms.plural.toLowerCase()} and milestones for good. Type the project name to confirm.`}
         </p>
         <Field label="Project name">
           {(id) => (

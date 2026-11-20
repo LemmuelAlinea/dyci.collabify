@@ -56,7 +56,7 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
             tabs={[
               { id: 'backlog', label: 'Backlog', icon: 'board' },
               { id: 'milestones', label: 'Milestones', icon: 'target' },
-              { id: 'sprints', label: 'Sprints', icon: 'calendar' },
+              { id: 'sprints', label: state.sprintSettings.terms.plural, icon: 'calendar' },
             ]}
             active={section === 'backlog' || section === 'sprints' ? section : 'milestones'}
             onChange={changeSection}

@@ -1,5 +1,6 @@
 import { formatDay } from '../../lib/general/dates'
 import type { Milestone } from '../../lib/work/types'
+import { stageText, type StageTerms } from '../../lib/work/stageTerms'
 
 /** The narrowest a milestone's slot gets before the chart scrolls sideways. */
 const SLOT = 104
@@ -21,11 +22,11 @@ function Dot({ reached, running }: { reached: boolean; running?: boolean }) {
   )
 }
 
-function Label({ m, align, running }: { m: Milestone; align: 'center' | 'left'; running?: boolean }) {
+function Label({ m, align, running, terms }: { m: Milestone; align: 'center' | 'left'; running?: boolean; terms?: StageTerms }) {
   return (
     <span className={`block min-w-0 ${align === 'center' ? 'text-center' : 'text-left'}`}>
       <span className="line-clamp-2 text-[13px] leading-snug font-medium text-ink group-hover:underline">{m.name}</span>
-      <span className={`block font-mono text-[11px] ${running ? 'text-warning-700 dark:text-warning-300' : 'text-faint'}`}>{m.due_on ? formatDay(m.due_on) : 'No due date'}{running && ' · Sprint running'}</span>
+      <span className={`block font-mono text-[11px] ${running ? 'text-warning-700 dark:text-warning-300' : 'text-faint'}`}>{m.due_on ? formatDay(m.due_on) : 'No due date'}{running && stageText(' · Sprint running', terms)}</span>
     </span>
   )
 }
@@ -41,6 +42,7 @@ export function MilestoneChart({
   isReached,
   runningIds = [],
   onPick,
+  terms,
 }: {
   /** Already in date order; ones with no due date come last, in the same line. */
   milestones: Milestone[]
@@ -49,11 +51,12 @@ export function MilestoneChart({
   /** Milestones a running sprint counts toward. */
   runningIds?: readonly string[]
   onPick: (id: string) => void
+  terms?: StageTerms
 }) {
   const n = milestones.length
   if (n === 0) return null
   const say = (m: Milestone) =>
-    `${m.name}, ${m.due_on ? `due ${formatDay(m.due_on)}` : 'no due date'}, ${isReached(m) ? 'reached' : 'not reached yet'}${runningIds.includes(m.id) ? ', the running sprint counts toward it' : ''}. Show its card.`
+    `${m.name}, ${m.due_on ? `due ${formatDay(m.due_on)}` : 'no due date'}, ${isReached(m) ? 'reached' : 'not reached yet'}${runningIds.includes(m.id) ? stageText(', the running sprint counts toward it', terms) : ''}. Show its card.`
 
   return (
     <section aria-label="Milestone timeline" className="card p-4 shadow-card">
@@ -86,7 +89,7 @@ export function MilestoneChart({
                   <Dot reached={isReached(m)} running={runningIds.includes(m.id)} />
                   <span aria-hidden className="h-6 w-px shrink-0 bg-[var(--line-strong)]" />
                   <span className={`w-full ${above ? 'mb-1' : 'mt-1'}`}>
-                    <Label m={m} align="center" running={runningIds.includes(m.id)} />
+                    <Label m={m} align="center" running={runningIds.includes(m.id)} terms={terms} />
                   </span>
                 </button>
               </li>
@@ -103,7 +106,7 @@ export function MilestoneChart({
               <span className="mt-1">
                 <Dot reached={isReached(m)} running={runningIds.includes(m.id)} />
               </span>
-              <Label m={m} align="left" running={runningIds.includes(m.id)} />
+              <Label m={m} align="left" running={runningIds.includes(m.id)} terms={terms} />
             </button>
           </li>
         ))}

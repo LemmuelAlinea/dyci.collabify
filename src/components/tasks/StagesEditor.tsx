@@ -64,7 +64,7 @@ export function StagesEditor({
 
   return (
     <div className="space-y-3">
-      <div role="radiogroup" aria-label="Stage preset" className="flex flex-wrap gap-2">
+      <div role="radiogroup" aria-label="Workflow step preset" className="flex flex-wrap gap-2">
         {[...STAGE_PRESETS, { id: 'custom', label: 'Custom', stages: [] as readonly string[] }].map((p) => {
           const on = preset === p.id
           return (
@@ -100,7 +100,7 @@ export function StagesEditor({
                 value={name}
                 disabled={disabled}
                 maxLength={MAX_STAGE_LENGTH}
-                aria-label={`Stage ${i + 1} name`}
+                aria-label={`Workflow step ${i + 1} name`}
                 onChange={(e) => set(i, e.target.value)}
                 className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-[var(--surface)] px-3 text-[14px] text-ink outline-none transition-colors focus:border-navy-400 disabled:opacity-60"
               />
@@ -114,7 +114,7 @@ export function StagesEditor({
                   type="button"
                   disabled={disabled || i === 0}
                   onClick={() => swap(i, i - 1)}
-                  aria-label={`Move ${name || `stage ${i + 1}`} up`}
+                  aria-label={`Move ${name || `workflow step ${i + 1}`} up`}
                   className="grid h-8 w-8 place-items-center rounded-lg text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-30"
                 >
                   <Icon name="chevronDown" size={15} className="rotate-180" />
@@ -123,7 +123,7 @@ export function StagesEditor({
                   type="button"
                   disabled={disabled || i === list.length - 1}
                   onClick={() => swap(i, i + 1)}
-                  aria-label={`Move ${name || `stage ${i + 1}`} down`}
+                  aria-label={`Move ${name || `workflow step ${i + 1}`} down`}
                   className="grid h-8 w-8 place-items-center rounded-lg text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-30"
                 >
                   <Icon name="chevronDown" size={15} />
@@ -132,7 +132,7 @@ export function StagesEditor({
                   type="button"
                   disabled={disabled || list.length <= MIN_STAGES}
                   onClick={() => onChange(list.filter((_, j) => j !== i))}
-                  aria-label={`Remove ${name || `stage ${i + 1}`}`}
+                  aria-label={`Remove ${name || `workflow step ${i + 1}`}`}
                   className="grid h-8 w-8 place-items-center rounded-lg text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-danger-600 disabled:opacity-30 dark:hover:text-danger-400"
                 >
                   <Icon name="x" size={15} />
@@ -153,23 +153,23 @@ export function StagesEditor({
             className="flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline disabled:opacity-60 dark:text-navy-200"
           >
             <Icon name="plus" size={14} />
-            Add a stage
+            Add a workflow step
           </button>
         ) : (
-          <span className="text-[12px] text-faint">{MAX_STAGES} stages is the most a project can have.</span>
+          <span className="text-[12px] text-faint">A project can have up to {MAX_STAGES} workflow steps.</span>
         )}
         <p className="text-[12px] text-muted">
-          The first stage is not started, the last is done, and the rest count as in progress.
+          The first step is not started, the last is done, and the rest count as in progress.
         </p>
       </div>
 
       {onQaStageChange && (
         <div>
           <label htmlFor={qaId} className="text-[13px] font-medium text-ink">
-            QA stage
+            QA workflow step
           </label>
           <p className="mb-1.5 text-[12px] text-muted">
-            When a project has QA, only QA and the project manager can move a task past this stage.
+            When a project has QA, only QA and the project manager can move a task past this step.
           </p>
           <Select
             id={qaId}
@@ -177,7 +177,7 @@ export function StagesEditor({
             disabled={disabled}
             onChange={(e) => onQaStageChange(e.target.value || null)}
             options={[
-              { value: '', label: 'Default (Testing, or the stage before the last)' },
+              { value: '', label: 'Default (Testing, or the step before the last)' },
               ...list.slice(1, -1).filter((n) => n.trim()).map((n) => ({ value: n, label: n })),
             ]}
           />

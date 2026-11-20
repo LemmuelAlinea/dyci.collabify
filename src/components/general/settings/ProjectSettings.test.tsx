@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { expect, it, vi } from 'vitest'
 import { ProjectSettings } from './ProjectSettings'
 import type { GeneralProjectState } from '../useGeneralProject'
+import { DEFAULT_SPRINT_SETTINGS } from '../../../lib/work/sprintSettings'
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 vi.mock('./MembersSection', () => ({ MembersSection: () => 'Members content' }))
@@ -34,7 +35,7 @@ async function renderAt(
         createElement(
           MemoryRouter,
           { initialEntries: [`/projects/p?${query}`] },
-          createElement(ProjectSettings, { state: state as GeneralProjectState }),
+          createElement(ProjectSettings, { state: { sprintSettings: DEFAULT_SPRINT_SETTINGS, ...state } as GeneralProjectState }),
           createElement(Where),
         ),
       ),
@@ -52,7 +53,7 @@ const item = (container: HTMLElement, label: string) =>
 it('lists the sections and opens General by default', async () => {
   await renderAt('tab=settings', async (container) => {
     expect([...container.querySelectorAll('nav button')].map((b) => b.textContent)).toEqual([
-      'General', 'Sprints', 'Tasks', 'Milestones', 'Members & permissions', 'Notifications', 'Workflow rules',
+      'General', 'Stage settings', 'Tasks', 'Milestones', 'Members & permissions', 'Notifications', 'Workflow rules',
     ])
     expect(item(container, 'General').getAttribute('aria-current')).toBe('page')
     expect(container.textContent).toContain('General content')
@@ -99,10 +100,10 @@ it('opens Workflow rules from its section link', async () => {
 
 it('puts the chosen section in the URL', async () => {
   await renderAt('tab=settings', async (container) => {
-    await act(async () => item(container, 'Sprints').click())
+    await act(async () => item(container, 'Stage settings').click())
     expect(container.querySelector('output')?.textContent).toBe('?tab=settings&section=sprints')
     expect(container.textContent).toContain('Sprints content')
-    expect(item(container, 'Sprints').getAttribute('aria-current')).toBe('page')
+    expect(item(container, 'Stage settings').getAttribute('aria-current')).toBe('page')
     await act(async () => item(container, 'Members & permissions').click())
     expect(container.textContent).toContain('Members content')
   })

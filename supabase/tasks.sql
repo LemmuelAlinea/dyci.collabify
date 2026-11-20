@@ -46,6 +46,10 @@ create table if not exists public.project_boards (
   )
 );
 
+alter table public.project_boards
+  add column if not exists term_singular text not null default 'Stage',
+  add column if not exists term_plural text not null default 'Stages';
+
 create unique index if not exists project_boards_group_key
   on public.project_boards (project_id, group_id) where group_id is not null;
 create unique index if not exists project_boards_student_key

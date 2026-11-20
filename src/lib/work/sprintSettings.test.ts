@@ -20,6 +20,7 @@ const sprint = (over: Partial<Sprint> = {}): Sprint => ({
 describe('DEFAULT_SPRINT_SETTINGS', () => {
   it('matches the table defaults', () => {
     expect(DEFAULT_SPRINT_SETTINGS).toEqual({
+      terms: { singular: 'Stage', plural: 'Stages' },
       organization: 'sequential',
       autoFinish: false,
       autoStart: false,
@@ -65,7 +66,7 @@ describe('reopenFinishNotice', () => {
   })
   it('names the set time when the end date was yesterday and it has not come', () => {
     expect(reopenFinishNotice('2026-11-10', on, at('08:59'))).toBe(
-      "Automatic finishing is on and this sprint's end date has passed, so it will finish again at 9:00 AM.",
+      "Automatic finishing is on and this stage's end date has passed, so it will finish again at 9:00 AM.",
     )
   })
   it('promises a finish within 15 minutes when the end date was yesterday and the set time has come', () => {

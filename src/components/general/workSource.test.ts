@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemberTask, createTask } from '../../lib/api/general'
 import { generalMilestoneSource, generalWorkSource } from './workSource'
 import type { GeneralProjectState } from './useGeneralProject'
+import { DEFAULT_SPRINT_SETTINGS } from '../../lib/work/sprintSettings'
 
 vi.mock('../../lib/api/general', () => ({ createTask: vi.fn(async () => 't-new'), createMemberTask: vi.fn(async () => 't-member') }))
 vi.mock('../../lib/api/milestones', () => ({}))
@@ -25,7 +26,7 @@ function makeState(
     milestones: [],
     teams: [],
     teamMembers: [],
-    sprintSettings: undefined,
+    sprintSettings: DEFAULT_SPRINT_SETTINGS,
     // A Member holds no manage_tasks, so the planners' switch stays off for them.
     can: (p: string) => myRole === 'pm' || myRole === 'coordinator' ? p !== 'edit_project' || myRole === 'pm' : false,
     leadsUser: () => false,

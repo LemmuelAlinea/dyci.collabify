@@ -73,7 +73,7 @@ export function OverviewTab({ state }: { state: GeneralProjectState }) {
           <InfoSection title="Details" editLabel="Edit in Settings" section="general" state={state} onGo={() => setShowInfo(false)} divided>
             <DetailsView state={state} />
           </InfoSection>
-          <InfoSection title="Stages" editLabel="Edit stages in Settings" section="tasks" state={state} onGo={() => setShowInfo(false)} divided>
+          <InfoSection title="Task workflow steps" editLabel="Edit workflow steps in Settings" section="tasks" state={state} onGo={() => setShowInfo(false)} divided>
             <StagesView state={state} />
           </InfoSection>
           <InfoSection title="Fields" state={state}>

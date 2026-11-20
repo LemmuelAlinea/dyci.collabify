@@ -21,6 +21,7 @@ import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { createMemberTask, createOpenTask, createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { stageText } from '../../lib/work/stageTerms'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
 import { DEFAULT_MEMBER_RULES, canCreateWorkTask, canCreateWorkTaskWith, canEditTask, holderCandidates } from '../../lib/general/permissions'
 import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary, sortByPriority } from '../../lib/general/taskFilters'
@@ -279,7 +280,7 @@ export function TasksTab({
             </FilterPopover>
             {state.sprints.length > 0 && (
               <div className="min-w-0 flex-1 sm:flex-none">
-                <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
+                <ScopePicker value={scope} options={scopeOptions(state.sprints, state.sprintSettings.terms)} onChange={onScope} />
               </div>
             )}
             <p className="ml-auto shrink-0 text-[12px] text-faint">
@@ -361,10 +362,10 @@ export function TasksTab({
           title={project.class_board_id ? 'No tasks here' : 'No released tasks here'}
           body={
             scope === 'backlog'
-              ? 'Every released task is in a sprint.'
+              ? stageText('Every released task is in a sprint.', state.sprintSettings.terms)
               : state.sprints.find((s) => s.id === scopeSprintId(scope, state.sprints))?.state === 'completed'
-                ? 'Nothing was recorded in this sprint.'
-                : 'This sprint has no tasks yet. Move some in from Backlog.'
+                ? stageText('Nothing was recorded in this sprint.', state.sprintSettings.terms)
+                : stageText('This sprint has no tasks yet. Move some in from Backlog.', state.sprintSettings.terms)
           }
         />
       ) : shown.length === 0 ? (
@@ -383,6 +384,7 @@ export function TasksTab({
         <TaskTable tasks={shown} state={state} stages={stages} marksOf={marksOf} onOpen={showTask} mayMove={mayMove} onMove={async (t, to, stage) => { await move(t, to, stage) }} />
       ) : layout === 'timeline' ? (
         <TimelineView
+          terms={state.sprintSettings.terms}
           tasks={shown.map((t) => ({
             id: t.id,
             title: t.title,
