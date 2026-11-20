@@ -51,3 +51,8 @@ it('sends a teacher\'s reassignment notice to Waiting', () => {
 it('leaves a student\'s hand-in notice on the class project', () => {
   expect(destination(note({ type: 'board_submitted', class_id: 'c1', project_id: 'p1' }), 'student', false)).toBe('/class-projects/p1')
 })
+
+it('opens a started Collabify call and falls back to Meetings without an id', () => {
+  expect(destination(note({ type: 'meeting_started', meeting_id: 'm1' }), 'member', false)).toBe('/meetings/m1/call')
+  expect(destination(note({ type: 'meeting_started', meeting_id: null }), 'member', false)).toBe('/meetings')
+})

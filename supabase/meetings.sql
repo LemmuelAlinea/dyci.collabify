@@ -1,7 +1,8 @@
 -- Collabify — meetings: an audience, a time and a call or external link.
 --
--- company-accounts.sql is the final owner of meeting_audience.
--- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+-- company-accounts.sql owns meeting_audience and meeting-calls.sql owns
+-- meetings_notify. Re-run the later-owner suffix, then anon-lockdown.sql,
+-- after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 --
 --   node scripts/db.mjs supabase/meetings.sql

@@ -207,6 +207,7 @@ export type AppNotification = {
     | 'project_updated'
     | 'membership_changed'
     | 'meeting_scheduled'
+    | 'meeting_started'
     | 'meeting_changed'
     | 'meeting_cancelled'
     | 'peer_round_opened'
