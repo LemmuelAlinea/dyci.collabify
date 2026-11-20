@@ -12,6 +12,7 @@ describe('paths', () => {
   it('builds the short routes', () => {
     expect(paths.home).toBe('/home')
     expect(paths.meetingCall('m1')).toBe('/meetings/m1/call')
+    expect(paths.meetingStart).toBe('/meetings/start')
     expect(paths.conversation('c1')).toBe('/inbox/c1')
     expect(paths.space('s1')).toBe('/spaces/s1')
     expect(paths.spaceReports('s1')).toBe('/spaces/s1/reports')

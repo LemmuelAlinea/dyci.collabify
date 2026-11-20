@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { LiveKitRoom, useLocalParticipant, useLocalParticipantPermissions, useParticipantAttribute, useRoomContext } from '@livekit/components-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { LiveKitRoom, useConnectionState, useLocalParticipant, useLocalParticipantPermissions, useParticipantAttribute, useRoomContext } from '@livekit/components-react'
+import { ConnectionState } from 'livekit-client'
 import { TrackSource } from '@livekit/protocol'
 import { CallPrejoin } from '../../../components/meetings/CallPrejoin'
 import type { CallChoices } from '../../../components/meetings/CallPrejoin'
@@ -12,6 +13,7 @@ import type { ModerationAction } from '../../../components/meetings/CallPeople'
 import { applyBackground, CallSettings } from '../../../components/meetings/CallSettings'
 import { Button } from '../../../components/ui/Button'
 import { useLive } from '../../../hooks/useLive'
+import { useNow } from '../../../hooks/useNow'
 import { callAction } from '../../../lib/api/meetingCall'
 import type { CallSession } from '../../../lib/api/meetingCall'
 import { getMeeting } from '../../../lib/api/meetings'
@@ -28,6 +30,8 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
   onRefresh: () => void
 }) {
   const room = useRoomContext()
+  const connection = useConnectionState()
+  const now = useNow()
   const local = useLocalParticipant()
   const permissions = useLocalParticipantPermissions()
   const handRaised = useParticipantAttribute('collabify.hand', { participant: local.localParticipant }) === '1'
@@ -58,8 +62,10 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
   return <div className="flex min-h-[75vh] min-w-0 flex-col gap-3 px-3 py-3 sm:px-5">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0"><h1 className="truncate text-lg font-semibold text-ink">{meeting.title}</h1><p className="text-xs text-muted">Collabify call · members only</p></div>
-      <span className="rounded-full bg-success-500/15 px-3 py-1 text-xs text-success-700">In call</span>
+      <span className="rounded-full bg-success-500/15 px-3 py-1 text-xs text-success-700">{connection === ConnectionState.Connected ? 'In call' : 'Reconnecting…'}</span>
     </div>
+    {meeting.started_at && Date.parse(meeting.started_at) + 8 * 3_600_000 - now <= 10 * 60_000 &&
+      <p role="status" className="rounded-lg bg-warning-500/15 px-3 py-2 text-sm text-warning-700">This call will end at the eight-hour limit soon.</p>}
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 md:flex-row">
       <CallStage />
       {settings && <CallSettings room={room} choices={choices} onChange={setChoices} onClose={() => setSettings(false)} />}
@@ -83,6 +89,8 @@ function ConnectedCall({ meeting, choices, setChoices, canHost, onLeave, onError
 export default function CallRoom() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const startChoices = useRef((location.state as { startChoices?: CallChoices } | null)?.startChoices)
   const [meeting, setMeeting] = useState<Meeting | null | undefined>()
   const [session, setSession] = useState<CallSession | null>(null)
   const [choices, setChoices] = useState<CallChoices | null>(null)
@@ -95,7 +103,20 @@ export default function CallRoom() {
   }, [id])
   useEffect(() => { void load() }, [load])
   useLive(load, ['meetings'])
+  useEffect(() => {
+    if (!meeting || !startChoices.current) return
+    const next = startChoices.current
+    startChoices.current = undefined
+    void enter(next)
+  }, [meeting]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { if (choices?.photoUrl.startsWith('blob:')) URL.revokeObjectURL(choices.photoUrl) }, [choices?.photoUrl])
+  useEffect(() => {
+    if (!choices) return
+    try { localStorage.setItem('collabify.call-choices', JSON.stringify({
+      cameraId: choices.cameraId, microphoneId: choices.microphoneId,
+      speakerId: choices.speakerId, background: choices.background === 'blur' ? 'blur' : 'off',
+    })) } catch { /* Storage may be disabled. */ }
+  }, [choices])
 
   async function enter(next: CallChoices) {
     if (!meeting) return
@@ -116,7 +137,7 @@ export default function CallRoom() {
   if (!meeting || meeting.platform !== 'collabify') return <div className="p-6"><p>This call is unavailable.</p><Link to={paths.meetings}>Back to meetings</Link></div>
   if (meeting.call_state === 'ended' || meeting.cancelled_at) return <div className="space-y-3 p-6"><h1 className="text-xl font-semibold">This call has ended.</h1><Link to={paths.meetings}>Back to meetings</Link></div>
   if (!session && !meeting.can_start && !meeting.can_join) return <div className="space-y-3 p-6"><h1 className="text-xl font-semibold">{meeting.title}</h1><p className="text-sm text-muted">A host has not started this call, or joining is unavailable.</p><Button variant="outline" onClick={() => void load()}>Refresh</Button></div>
-  if (!session || !choices) return <CallPrejoin title={meeting.title} canStart={meeting.can_start && meeting.call_state !== 'live'} onEnter={(next) => void enter(next)} busy={busy} error={error} />
+  if (!session || !choices) return <CallPrejoin title={meeting.title} canStart={meeting.can_start && meeting.call_state !== 'live'} onEnter={(next) => void enter(next)} onCancel={() => navigate(paths.meetings)} busy={busy} error={error} />
 
   return <LiveKitRoom serverUrl={session.serverUrl} token={session.token} connect audio={choices.microphone} video={choices.camera}
     options={{ adaptiveStream: true, dynacast: true }}

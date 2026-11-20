@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createMeeting, updateMeeting } from '../../lib/api/meetings'
+import type { MeetingInput } from '../../lib/api/meetings'
 import { authErrorMessage } from '../../lib/authError'
 import { fromLocalInput, toLocalInput } from '../../lib/general/dates'
 import { inviteChecks, readInvitation, untitledMeeting } from '../../lib/meetingInvite'
@@ -72,6 +73,7 @@ export function ScheduleMeetingModal({
   editing,
   startNow = false,
   callsEnabled = false,
+  onStartNow,
   onSaved,
 }: {
   open: boolean
@@ -82,6 +84,7 @@ export function ScheduleMeetingModal({
   /** Open with "Start now" on. */
   startNow?: boolean
   callsEnabled?: boolean
+  onStartNow?: (scope: MeetingScope, audienceId: string, input: MeetingInput) => void
   onSaved: (id: string, platform: MeetingPlatform, startNow: boolean) => void
 }) {
   const { show } = useToast()
@@ -216,6 +219,12 @@ export function ScheduleMeetingModal({
     const startsAt = now ? new Date().toISOString() : fromLocalInput(starts)
     if (!startsAt) return setError('Pick when the meeting starts.')
     const input = { title: title.trim(), agenda, joinUrl: provider === 'collabify' ? null : link.trim(), startsAt, durationMin: Number(duration) }
+    if (!editing && provider === 'collabify' && now && onStartNow) {
+      const [scope, id] = who.split(':') as [MeetingScope, string]
+      onStartNow(scope, id, input)
+      onClose()
+      return
+    }
     setBusy(true)
     try {
       if (editing) {
@@ -254,7 +263,7 @@ export function ScheduleMeetingModal({
               Cancel
             </Button>
             <Button onClick={() => void save()} loading={busy}>
-              {editing ? 'Save changes' : now ? 'Start meeting' : 'Schedule meeting'}
+              {editing ? 'Save changes' : now && provider === 'collabify' ? 'Review devices' : now ? 'Start meeting' : 'Schedule meeting'}
             </Button>
           </div>
         </div>
@@ -349,7 +358,7 @@ export function ScheduleMeetingModal({
           <label className="flex items-center justify-between gap-3 rounded-xl surface-sunken px-3.5 py-3">
             <span>
               <span className="block text-[14px] font-medium text-ink">Start now</span>
-              <span className="block text-[12px] text-muted">{provider === 'collabify' ? 'Opens the call after saving.' : 'Notifies everyone that the meeting has begun.'}</span>
+              <span className="block text-[12px] text-muted">{provider === 'collabify' ? 'The meeting is created after you press Start in device preview.' : 'Notifies everyone that the meeting has begun.'}</span>
             </span>
             <Toggle checked={now} onChange={setNow} label="Start now" />
           </label>
@@ -382,7 +391,11 @@ export function ScheduleMeetingModal({
               type="url"
               inputMode="url"
               value={link}
-              onChange={(e) => setLink(e.target.value)}
+              onChange={(e) => {
+                setLink(e.target.value)
+                const detected = detectPlatform(e.target.value)
+                if (detected && !editing) setProvider(detected)
+              }}
               onPaste={(e) => {
                 // A whole invitation pasted here would lose its lines to the one-line input.
                 const text = e.clipboardData.getData('text')

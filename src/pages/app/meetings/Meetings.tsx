@@ -338,6 +338,9 @@ export default function Meetings() {
         editing={editing}
         startNow={scheduling === 'now'}
         callsEnabled={callsEnabled}
+        onStartNow={(scope, audienceId, input) => navigate(paths.meetingStart, {
+          state: { draft: { scope, audienceId, input } },
+        })}
         onSaved={(id, platform, startNow) => {
           void load()
           if (platform === 'collabify' && startNow) navigate(paths.meetingCall(id))

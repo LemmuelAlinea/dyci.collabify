@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RoomAudioRenderer, VideoTrack, useParticipants, useSpeakingParticipants, useTracks } from '@livekit/components-react'
+import { RoomAudioRenderer, VideoTrack, useParticipantAttribute, useParticipants, useSpeakingParticipants, useTracks } from '@livekit/components-react'
 import type { TrackReferenceOrPlaceholder } from '@livekit/components-core'
 import { RemoteTrackPublication, Track } from 'livekit-client'
+
+function CallTile({ track }: { track: TrackReferenceOrPlaceholder }) {
+  const handRaised = useParticipantAttribute('collabify.hand', { participant: track.participant }) === '1'
+  return <div className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl bg-slate-800 text-white">
+    {track.publication?.track ? <VideoTrack trackRef={track as typeof track & { publication: NonNullable<typeof track.publication> }}
+      className="h-full w-full object-contain" manageSubscription={false} /> : <span className="text-3xl font-semibold">{track.participant.name?.charAt(0) || '?'}</span>}
+    {handRaised && <span aria-label="Hand raised" className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-lg">✋</span>}
+    <span className="absolute bottom-2 left-2 max-w-[80%] truncate rounded bg-black/60 px-2 py-1 text-xs">{track.participant.name || 'Member'}{track.source === Track.Source.ScreenShare ? ' · screen' : ''}</span>
+  </div>
+}
 
 export function CallStage() {
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }])
@@ -43,13 +53,6 @@ export function CallStage() {
     }
   }, [participants, selected])
 
-  const tile = (track: TrackReferenceOrPlaceholder) => <div key={`${track.participant.identity}:${track.source}`}
-    className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl bg-slate-800 text-white">
-    {track.publication?.track ? <VideoTrack trackRef={track as typeof track & { publication: NonNullable<typeof track.publication> }}
-      className="h-full w-full object-contain" manageSubscription={false} /> : <span className="text-3xl font-semibold">{track.participant.name?.charAt(0) || '?'}</span>}
-    <span className="absolute bottom-2 left-2 max-w-[80%] truncate rounded bg-black/60 px-2 py-1 text-xs">{track.participant.name || 'Member'}{track.source === Track.Source.ScreenShare ? ' · screen' : ''}</span>
-  </div>
-
   return <div className="flex min-h-0 flex-1 flex-col gap-3">
     <RoomAudioRenderer />
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
@@ -64,7 +67,7 @@ export function CallStage() {
       </div>
     </div>
     <div className={`grid min-h-[16rem] flex-1 gap-2 ${view === 'speaker' ? 'grid-cols-1' : 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-      {selected.map(tile)}
+      {selected.map((track) => <CallTile key={`${track.participant.identity}:${track.source}`} track={track} />)}
       {selected.length === 0 && <p className="col-span-full m-auto text-sm text-muted">Waiting for video…</p>}
     </div>
     {view === 'grid' && pages > 1 && <div className="flex justify-center gap-3 text-sm">

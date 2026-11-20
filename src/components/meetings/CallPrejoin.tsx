@@ -11,16 +11,22 @@ export type CallChoices = {
   photoUrl: string
 }
 
-export function CallPrejoin({ title, canStart, onEnter, busy, error }: {
+export function CallPrejoin({ title, canStart, onEnter, onCancel, busy, error }: {
   title: string
   canStart: boolean
   onEnter: (choices: CallChoices) => void
+  onCancel?: () => void
   busy: boolean
   error: string | null
 }) {
-  const [choices, setChoices] = useState<CallChoices>({
-    camera: false, microphone: false, cameraId: '', microphoneId: '', speakerId: '',
-    background: 'off', photoUrl: '',
+  const [choices, setChoices] = useState<CallChoices>(() => {
+    let saved: Partial<CallChoices> = {}
+    try { saved = JSON.parse(localStorage.getItem('collabify.call-choices') || '{}') as Partial<CallChoices> } catch { /* Reset invalid preferences. */ }
+    return {
+      camera: false, microphone: false, cameraId: saved.cameraId || '',
+      microphoneId: saved.microphoneId || '', speakerId: saved.speakerId || '',
+      background: saved.background === 'blur' ? 'blur' : 'off', photoUrl: '',
+    }
   })
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceError, setDeviceError] = useState('')
@@ -30,6 +36,13 @@ export function CallPrejoin({ title, canStart, onEnter, busy, error }: {
   useEffect(() => () => {
     stream.current?.getTracks().forEach((track) => track.stop())
   }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem('collabify.call-choices', JSON.stringify({
+      cameraId: choices.cameraId, microphoneId: choices.microphoneId,
+      speakerId: choices.speakerId, background: choices.background === 'blur' ? 'blur' : 'off',
+    })) } catch { /* Storage may be disabled. */ }
+  }, [choices.cameraId, choices.microphoneId, choices.speakerId, choices.background])
 
   async function toggle(kind: 'camera' | 'microphone') {
     const enabled = !choices[kind]
@@ -100,9 +113,10 @@ export function CallPrejoin({ title, canStart, onEnter, busy, error }: {
         }} />
       </label>}
       {error && <p role="alert" className="text-sm text-danger-600">{error}</p>}
-      <Button onClick={() => onEnter(choices)} loading={busy}>
-        {canStart ? 'Start call' : 'Join call'}
-      </Button>
+      <div className="flex gap-2">
+        {onCancel && <Button variant="outline" onClick={onCancel} disabled={busy}>Cancel</Button>}
+        <Button onClick={() => onEnter(choices)} loading={busy}>{canStart ? 'Start call' : 'Join call'}</Button>
+      </div>
     </div>
   </div>
 }
