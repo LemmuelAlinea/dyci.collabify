@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
+import type { IconName } from '../ui/Icon'
 
 export function pushToTalkAllowed(target: EventTarget | null) {
   return !(typeof HTMLElement !== 'undefined' && target instanceof HTMLElement &&
@@ -56,21 +58,24 @@ export function CallControls({ microphone, camera, screen, hostMuted, handRaised
     }
   })
 
-  return <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-line surface p-3">
-    <Button variant="outline" disabled={hostMuted} onClick={() => onMicrophone(!microphone)} aria-label={microphone ? 'Mute microphone' : 'Turn on microphone'}>
-      Microphone {microphone ? 'on' : 'off'}
-    </Button>
+  const control = (label: string, icon: IconName, action: () => void, disabled = false, pressed?: boolean) =>
+    <Button variant="outline" size="sm" className="!h-10 !w-10 !rounded-full !p-0" disabled={disabled}
+      onClick={action} aria-label={label} title={label} aria-pressed={pressed}><Icon name={icon} size={19} /></Button>
+
+  return <div role="toolbar" aria-label="Call controls" className="fixed inset-x-3 bottom-3 z-40 mx-auto flex w-max max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-center gap-2 rounded-2xl border border-line surface p-2 shadow-lift">
+    {control(microphone ? 'Mute microphone' : 'Turn on microphone', microphone ? 'mic' : 'micOff', () => onMicrophone(!microphone), hostMuted, microphone)}
     <button type="button" onPointerDown={press} onPointerUp={release} onPointerCancel={release} onPointerLeave={release}
-      disabled={hostMuted || microphone} className="rounded-lg border border-line px-3 py-2 text-sm disabled:opacity-50" aria-label="Push to talk">
-      {push ? 'Talking…' : 'Hold to talk'}
+      disabled={hostMuted || microphone} className="grid h-10 w-10 place-items-center rounded-full border border-line text-ink disabled:opacity-50"
+      aria-label="Push to talk" title="Hold to talk (Space)" aria-pressed={push}>
+      <Icon name="mic" size={19} />
     </button>
-    <Button variant="outline" onClick={() => onCamera(!camera)} aria-label={camera ? 'Turn off camera' : 'Turn on camera'}>Camera {camera ? 'on' : 'off'}</Button>
-    <Button variant="outline" onClick={() => onScreen(!screen)} aria-label={screen ? 'Stop sharing' : 'Share screen'}>{screen ? 'Stop sharing' : 'Share screen'}</Button>
-    <Button variant="outline" onClick={onSettings}>Settings</Button>
-    {onPeople && <Button variant="outline" onClick={onPeople}>People</Button>}
-    {onChat && <Button variant="outline" onClick={onChat}>Chat</Button>}
-    {onHand && <Button variant="outline" onClick={onHand}>{handRaised ? 'Lower hand' : 'Raise hand'}</Button>}
-    <Button variant="outline" onClick={onCopy}>Copy link</Button>
-    <Button variant="outline" onClick={onLeave}>Leave</Button>
+    {control(camera ? 'Turn off camera' : 'Turn on camera', camera ? 'video' : 'videoOff', () => onCamera(!camera), false, camera)}
+    {control(screen ? 'Stop sharing' : 'Share screen', 'monitor', () => onScreen(!screen), false, screen)}
+    {control('Settings', 'settings', onSettings)}
+    {onPeople && control('People', 'users', onPeople)}
+    {onChat && control('Chat', 'message', onChat)}
+    {onHand && control(handRaised ? 'Lower hand' : 'Raise hand', 'hand', onHand, false, handRaised)}
+    {control('Copy link', 'copy', onCopy)}
+    {control('Leave', 'logout', onLeave)}
   </div>
 }

@@ -35,6 +35,7 @@ const PATHS = {
   monitor: 'M3 4h18v12H3zM8 20h8M12 16v4',
   // A camera body and its lens hood: meetings.
   video: 'M3 6h12v12H3zM15 10l6-3.5v11L15 14',
+  videoOff: 'M3 6h12v12H3zM15 10l6-3.5v11L15 14M2 2l20 20',
   bell: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
   lock: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4',
   // The same body with the shackle swung open, so the pair reads as one state.
@@ -78,6 +79,7 @@ const PATHS = {
   // A clock turning back: the archive of past things, not the act of archiving.
   history: 'M3 12a9 9 0 102.6-6.4L3 8M3 3v5h5M12 7v5l3 2',
   pin: 'M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z',
+  hand: 'M8 13V5a1.5 1.5 0 013 0v6-8a1.5 1.5 0 013 0v8-6a1.5 1.5 0 013 0v7-4a1.5 1.5 0 013 0v7c0 4-3 7-7 7h-2c-3 0-5-2-6-4l-2-4a1.5 1.5 0 012.5-1.5L8 15',
   download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
   dots: 'M12 6h.01M12 12h.01M12 18h.01',
   // Four rings in a square: pick how the same items are laid out.

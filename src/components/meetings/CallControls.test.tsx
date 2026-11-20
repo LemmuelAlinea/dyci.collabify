@@ -29,6 +29,9 @@ const button = (name: string) => host.querySelector(`button[aria-label="${name}"
 
 it('shows microphone and camera controls', async () => {
   await show()
+  expect(host.querySelector('[role="toolbar"]')?.classList.contains('fixed')).toBe(true)
+  expect(button('Turn on camera').title).toBe('Turn on camera')
+  expect(button('Turn on camera').textContent).toBe('')
   await act(async () => button('Turn on microphone').click())
   await act(async () => button('Turn on camera').click())
   expect(microphone).toHaveBeenCalledWith(true)

@@ -38,6 +38,19 @@ it('renders a subscribed remote camera beside the local tile', async () => {
   expect(host.textContent).toContain('Member Two video')
   expect(host.textContent).toContain('2 video tiles')
 })
+
+it('keeps tiles sized and lets a remote participant be pinned and maximized', async () => {
+  state.remote = true
+  await act(async () => root.render(<CallStage />))
+  expect(host.querySelectorAll('.aspect-video')).toHaveLength(2)
+  await act(async () => (host.querySelector('[aria-label="Pin Member Two"]') as HTMLButtonElement).click())
+  expect(host.querySelector('[aria-label="Unpin Member Two"]')).not.toBeNull()
+  expect(host.querySelectorAll('.aspect-video')).toHaveLength(1)
+  await act(async () => (host.querySelector('[aria-label="Maximize Member Two"]') as HTMLButtonElement).click())
+  expect(host.querySelector('[aria-label="Maximized Member Two video"]')).not.toBeNull()
+  await act(async () => (host.querySelector('[aria-label="Maximized Member Two video"] [aria-label="Restore Member Two"]') as HTMLButtonElement).click())
+  expect(host.querySelector('[aria-label="Maximized Member Two video"]')).toBeNull()
+})
 afterEach(async () => { await act(async () => root.unmount()); host.remove() })
 
 it('shows microphone status and highlights the tile while speaking', async () => {
