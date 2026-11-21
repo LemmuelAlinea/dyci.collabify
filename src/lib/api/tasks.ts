@@ -293,6 +293,8 @@ export type TaskInput = {
   details: string
   weight: number
   dueAt: string | null
+  taskType?: string
+  priority?: ProjectTask['priority']
   /** Students' own tasks only; a professor's set task has no planned start yet. */
   startsAt?: string | null
   /** New tasks only: the sprint it joins. Omitted or null puts it in the backlog. */
@@ -319,6 +321,8 @@ export async function addTask(
       board_id: boardId,
       title: input.title.trim(),
       details: input.details.trim(),
+      task_type: input.taskType ?? 'Task',
+      ...(input.priority && { priority: input.priority }),
       weight: input.weight,
       due_at: input.dueAt,
       starts_at: input.startsAt ?? null,
@@ -340,11 +344,57 @@ export async function updateTask(taskId: string, input: TaskInput) {
     .update({
       title: input.title.trim(),
       details: input.details.trim(),
+      ...(input.taskType && { task_type: input.taskType }),
+      ...(input.priority && { priority: input.priority }),
       weight: input.weight,
       due_at: input.dueAt,
       ...(input.startsAt !== undefined && { starts_at: input.startsAt }),
     })
     .eq('id', taskId)
+  if (error) throw error
+}
+
+export async function updateClassTaskFields(taskId: string, fields: {
+  due_at?: string | null
+  task_type?: string
+  priority?: ProjectTask['priority']
+}) {
+  const { error } = await supabase.from('project_tasks').update(fields).eq('id', taskId)
+  if (error) throw error
+}
+
+export async function listClassTaskRelations(boardId: string, taskId: string) {
+  const [{ data: tasks, error: taskError }, { data: links, error: linkError }] = await Promise.all([
+    supabase.from('project_tasks').select('id, title, status, parent_id, position').eq('board_id', boardId).order('position'),
+    supabase.from('class_task_dependencies').select('task_id, depends_on_id').eq('board_id', boardId),
+  ])
+  if (taskError) throw taskError
+  if (linkError) throw linkError
+  return {
+    tasks: (tasks ?? []) as Pick<ProjectTask, 'id' | 'title' | 'status' | 'parent_id' | 'position'>[],
+    dependencies: ((links ?? []) as { task_id: string; depends_on_id: string }[])
+      .filter((link) => link.task_id === taskId).map((link) => link.depends_on_id),
+  }
+}
+
+export async function addClassSubtask(parent: ProjectTask, title: string, createdBy: string, role: 'professor' | 'student') {
+  const { data: last } = await supabase.from('project_tasks').select('position')
+    .eq('board_id', parent.board_id).order('position', { ascending: false }).limit(1).maybeSingle()
+  const { error } = await supabase.from('project_tasks').insert({
+    board_id: parent.board_id,
+    parent_id: parent.id,
+    title: title.trim(),
+    position: ((last as { position: number } | null)?.position ?? 0) + 1,
+    created_by: createdBy,
+    author_role: role,
+  })
+  if (error) throw error
+}
+
+export async function setClassTaskDependency(taskId: string, dependsOnId: string, add: boolean) {
+  const { error } = await supabase.rpc('set_class_task_dependency', {
+    p_task: taskId, p_depends_on: dependsOnId, p_add: add,
+  })
   if (error) throw error
 }
 
@@ -449,6 +499,8 @@ export async function createProfessorTask(input: {
   /** Null hands it to every group in the set. */
   boardId: string | null
   aiGenerated?: boolean
+  taskType?: string
+  priority?: ProjectTask['priority']
 }) {
   const { data, error } = await supabase.rpc('create_professor_task', {
     p_project: input.projectId,
@@ -458,6 +510,8 @@ export async function createProfessorTask(input: {
     p_due_at: input.dueAt,
     p_board: input.boardId,
     p_ai: input.aiGenerated ?? false,
+    p_type: input.taskType ?? 'Task',
+    p_priority: input.priority ?? null,
   })
   if (error) throw error
   return data as FanOutResult
@@ -473,6 +527,8 @@ export async function updateProfessorTask(
     p_details: input.details,
     p_weight: input.weight,
     p_due_at: input.dueAt,
+    p_type: input.taskType ?? null,
+    p_priority: input.priority ?? null,
   })
   if (error) throw error
   return data as { result: string; changed?: number; frozen?: number }
@@ -491,6 +547,8 @@ export async function deleteProfessorTask(originId: string) {
 export type ProfessorTaskGroup = {
   origin_id: string
   title: string
+  task_type: string
+  priority: ProjectTask['priority']
   details: string
   weight: number
   due_at: string | null
@@ -507,6 +565,8 @@ export function groupByOrigin(tasks: ProjectTask[]): ProfessorTaskGroup[] {
     const row = out.get(t.origin_id) ?? {
       origin_id: t.origin_id,
       title: t.title,
+      task_type: t.task_type,
+      priority: t.priority,
       details: t.details,
       weight: t.weight,
       due_at: t.due_at,

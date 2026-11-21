@@ -71,6 +71,31 @@ export async function getProject(id: string) {
   return { ...(data as ProjectSummary), stages: (stages.data?.stages as string[] | null) ?? null }
 }
 
+export type ClassTaskSettings = {
+  stages: string[] | null
+  task_types: string[]
+  default_priority: 'low' | 'normal' | 'high' | 'urgent'
+  default_stage: number
+  allow_subtasks: boolean
+  allow_dependencies: boolean
+  allow_multiple_assignees: boolean
+  require_assignee: boolean
+  require_subtasks_done: boolean
+}
+
+export async function getClassTaskSettings(projectId: string): Promise<ClassTaskSettings> {
+  const { data, error } = await supabase.from('projects').select(
+    'stages, task_types, default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done',
+  ).eq('id', projectId).single()
+  if (error) throw error
+  return data as ClassTaskSettings
+}
+
+export async function updateClassTaskSettings(projectId: string, settings: ClassTaskSettings) {
+  const { error } = await supabase.from('projects').update(settings).eq('id', projectId)
+  if (error) throw error
+}
+
 export async function createProject(input: ProjectInput, createdBy: string) {
   const { data, error } = await supabase
     .from('projects')

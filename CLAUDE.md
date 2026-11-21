@@ -399,6 +399,11 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `anon-lockdown.sql`): a project manager sets extra names alongside Task and Bug; removed names stay on old
   tasks. `kind` still enforces the QA Bug rule. Re-run this file after `project-member-rules.sql` or
   `project-open-tasks.sql` to restore typed task creation. Suite: `supabase/tests/project-task-types.test.sql`.
+- Class task settings (`supabase/class-task-settings.sql`, after `project-task-types.sql`, before
+  `anon-lockdown.sql`): each class project has workflow steps, custom task types, and task rules.
+  Class tasks gain priority, one-level subtasks, and same-board dependencies. Re-run this file after
+  `class-schedule.sql`, `task-stages.sql`, or `tasks.sql` to restore the task view, defaults, and
+  typed professor RPCs. Suite: `supabase/tests/class-task-settings.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone

@@ -845,6 +845,9 @@ export type ProjectTask = {
   /** Set on the copies of one professor task handed to several groups. */
   origin_id: string | null
   title: string
+  task_type: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  parent_id: string | null
   details: string
   weight: number
   status: TaskStatus

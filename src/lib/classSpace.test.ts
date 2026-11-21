@@ -133,6 +133,7 @@ describe('teacherSettingsSection', () => {
     expect(teacherSettingsSection('settings', null, null)).toBe('general')
     expect(teacherSettingsSection('settings', null, 'members')).toBe('members')
     expect(teacherSettingsSection('settings', null, 'groups')).toBe('groups')
+    expect(teacherSettingsSection('settings', null, 'tasks')).toBe('tasks')
     expect(teacherSettingsSection('settings', null, 'nope')).toBe('general')
   })
 

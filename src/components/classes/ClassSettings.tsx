@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ClassForm } from './ClassForm'
+import { ClassTaskSettings } from './ClassTaskSettings'
 import { CLASS_TILE, ClassMark } from './ClassMark'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -29,6 +30,7 @@ const SECTIONS: { id: ClassSettingsSection; label: string; icon: IconName }[] = 
   { id: 'general', label: 'General', icon: 'settings' },
   { id: 'members', label: 'Members', icon: 'users' },
   { id: 'groups', label: 'Groups', icon: 'kanban' },
+  { id: 'tasks', label: 'Tasks', icon: 'check' },
 ]
 
 /**
@@ -125,6 +127,8 @@ export function ClassSettings({
           members
         ) : active === 'groups' ? (
           groups
+        ) : active === 'tasks' ? (
+          <ClassTaskSettings classId={cls.id} readOnly={Boolean(cls.archived_at)} />
         ) : (
           <div className="space-y-6">
             <LookPanel cls={cls} look={look} onChanged={onChanged} onToggleJoin={onToggleJoin} />

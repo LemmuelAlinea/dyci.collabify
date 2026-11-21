@@ -5401,6 +5401,12 @@ accepted." from the setting; no failed requests.
 - Custom types are available in planned, Member and open creation, task editing and the Type filter. QA still creates Bug only; changing a task's type does not change its QA kind.
 - `supabase/project-task-types.sql` runs after `stage-terminology.sql` and before `anon-lockdown.sql`. It was applied live, then `anon-lockdown.sql` was rerun. Re-run it after `project-member-rules.sql` or `project-open-tasks.sql` to restore the typed task creators. Suite: `supabase/tests/project-task-types.test.sql`.
 
+## Class task settings (2026-11-21)
+
+- After custom work task types were pushed to `main` as `fcceb7ef`, the class phase added Settings → Tasks for professors. They choose a class project and edit its task workflow steps, task types, and task rules.
+- Class tasks now carry a type and priority. Their detail window edits due date, type and priority, adds one-level subtasks, and links same-board dependencies. The database enforces holder limits, completion blockers, and dependency cycles.
+- `supabase/class-task-settings.sql` runs after `project-task-types.sql` and before `anon-lockdown.sql`. It was applied live with `anon-lockdown.sql` after it. Re-run it after `tasks.sql`, `task-stages.sql`, or `class-schedule.sql`. Suite: `supabase/tests/class-task-settings.test.sql`.
+
 ## Collabify video calls — live trial (2026-11-21)
 
 - The Meetings page defaults new calls to Collabify and retains Google Meet and Zoom. The in-app room includes

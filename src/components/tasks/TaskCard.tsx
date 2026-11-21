@@ -131,6 +131,13 @@ export function TaskCard({
         </p>
       )}
 
+      {(task.task_type && task.task_type !== 'Task' || task.priority && task.priority !== 'normal' || task.parent_id) &&
+        <div className="pointer-events-none mt-2 flex flex-wrap gap-1 text-[11px] text-muted">
+          {task.task_type && task.task_type !== 'Task' && <span className="rounded-md surface-sunken px-1.5 py-0.5">{task.task_type}</span>}
+          {task.priority && task.priority !== 'normal' && <span className="rounded-md surface-sunken px-1.5 py-0.5">{task.priority}</span>}
+          {task.parent_id && <span className="rounded-md surface-sunken px-1.5 py-0.5">Subtask</span>}
+        </div>}
+
       {/*
         z-30, not z-10 like its siblings. These rows are only lifted to clear
         the stretched overlay button behind the card, but AssigneePicker opens
