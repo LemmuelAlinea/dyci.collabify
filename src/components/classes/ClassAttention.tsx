@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BentoTile, TileEmpty } from '../dashboard/Bento'
+import { BentoTile, TilePanel } from '../dashboard/Bento'
 import { Alert } from '../ui/Alert'
 import { Button, ButtonLink } from '../ui/Button'
 import { Icon } from '../ui/Icon'
@@ -76,7 +76,7 @@ export function ClassAttention({ cls }: { cls: ClassSummary }) {
         seeAllLabel="Open"
       >
         {waiting === 0 ? (
-          <TileEmpty>Nothing in this class is waiting on you.</TileEmpty>
+          <TilePanel icon="inbox" title="You're all caught up" body="Nothing in this class is waiting on you." />
         ) : (
           <ul className="-mx-2 divide-y divide-[var(--line)]">
             <WaitingRow
@@ -95,7 +95,7 @@ export function ClassAttention({ cls }: { cls: ClassSummary }) {
 
       <BentoTile icon="alert" title="Groups behind" count={data.behind.length}>
         {data.behind.length === 0 ? (
-          <TileEmpty>Nothing is behind</TileEmpty>
+          <TilePanel icon="users" title="No groups behind" body="Groups that fall behind will appear here." />
         ) : (
           <ul className="-mx-2 divide-y divide-[var(--line)]">
             {data.behind.map((b) => (
