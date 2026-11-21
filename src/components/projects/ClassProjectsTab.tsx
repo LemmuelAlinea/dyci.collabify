@@ -19,6 +19,7 @@ export function ClassProjectsTab({
   viewerId?: string
 }) {
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null)
   // The projects load keys on the id alone: the class page refetches its class
   // on every live refresh, and a new object each time would reload the list.
   const classId = cls.id
@@ -50,12 +51,15 @@ export function ClassProjectsTab({
         </Alert>
       )}
 
-      {canManage && projects.length > 0 && (
-        <div className="flex justify-end">
-          <Button onClick={() => setWizardOpen(true)} className="!rounded-xl">
-            <Icon name="plus" size={17} />
-            New project
-          </Button>
+      {projects.length > 0 && (
+        <div className="flex items-center gap-2 sm:gap-3">
+          {canManage && (
+            <Button size="sm" onClick={() => setWizardOpen(true)} className="!rounded-xl">
+              <Icon name="plus" size={17} />
+              New project
+            </Button>
+          )}
+          <div ref={setFilterSlot} className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3" />
         </div>
       )}
 
@@ -64,6 +68,7 @@ export function ClassProjectsTab({
         classes={classes}
         linkBase={paths.classProjects}
         showClass={false}
+        filterSlot={filterSlot}
         // A professor is looking at the whole class, not at a board of their
         // own — without this the cards speak to them in the second person and
         // say things like "accepted by your professor".
