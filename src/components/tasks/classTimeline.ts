@@ -1,5 +1,6 @@
 // src/components/tasks/classTimeline.ts
 import type { ProjectTaskRow } from '../../lib/api/tasks'
+import { fullName } from '../../lib/types'
 import type { TimelineTask } from '../../lib/work/timeline'
 
 /**
@@ -15,5 +16,6 @@ export function classTimelineTasks(rows: readonly ProjectTaskRow[], byBoard: boo
     starts_at: r.starts_at,
     due_at: r.due_at,
     group_id: byBoard ? r.board_id : null,
+    owner_names: r.assignees.flatMap((a) => (a.profile ? [fullName(a.profile)] : [])),
   }))
 }
