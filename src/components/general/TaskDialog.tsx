@@ -37,7 +37,7 @@ import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stage
 import { QA_PASSES, inQa, qaStageIndex } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
-import { PRIORITIES } from '../../lib/general/types'
+import { PRIORITIES, taskTypeOf, taskTypeOptions } from '../../lib/general/types'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPriority } from '../../lib/general/types'
 import { blockersOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
@@ -144,7 +144,7 @@ export function TaskDialog({
       description={
         task ? (
           <span className="inline-flex flex-wrap items-center gap-2">
-            <BugBadge kind={task.kind} onBanner />
+            <BugBadge kind={task.kind} taskType={task.task_type} onBanner />
             {stageName(state.project?.stages, task)}
             {!state.project?.class_board_id && <>
               <span aria-hidden="true">·</span>
@@ -588,6 +588,7 @@ function TaskDetails({
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('normal')
+  const [taskType, setTaskType] = useState(task ? taskTypeOf(task) : 'task')
   const [error, setError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -600,6 +601,7 @@ function TaskDetails({
     setStarts(toLocalInput(task.starts_at))
     setTeam(task.team_id ?? '')
     setPriority(task.priority ?? 'normal')
+    setTaskType(taskTypeOf(task))
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task || !state.project) return null
@@ -608,6 +610,9 @@ function TaskDetails({
   const gatedStages = stages.some((_, i) => i !== current && state.qaBlocks(current, i))
   // Priority is for work projects; a task that waits for an open task can't take the last stage.
   const work = !state.project.class_board_id
+  const typeOptions = task.kind === 'bug'
+    ? [{ value: 'bug', label: 'Bug' }]
+    : taskTypeOptions([...new Set([...(state.project.taskTypes ?? []), ...(task.task_type ? [task.task_type] : [])])]).filter((option) => option.value !== 'bug')
   const waiting = blockersOf(state.dependencies ?? [], state.tasks, task.id).length > 0
   const mobileDetails = (
     <button
@@ -639,6 +644,7 @@ function TaskDetails({
               <dl className="mt-4 grid gap-3 text-[13px] sm:grid-cols-2 lg:grid-cols-1">
               <div><dt className="text-[12px] text-faint">Workflow step</dt><dd className="text-ink">{stageName(stages, task)}</dd></div>
               {work && <div><dt className="text-[12px] text-faint">Priority</dt><dd className="text-ink">{PRIORITIES.find((p) => p.value === (task.priority ?? 'normal'))?.label}</dd></div>}
+              {work && <div><dt className="text-[12px] text-faint">Type</dt><dd className="text-ink">{taskTypeOf(task) === 'task' ? 'Task' : taskTypeOf(task) === 'bug' ? 'Bug' : taskTypeOf(task)}</dd></div>}
               <div><dt className="text-[12px] text-faint">Starts</dt><dd className="text-ink">{task.starts_at ? formatDue(task.starts_at) : 'Not set'}</dd></div>
               <div>
                 <dt className="text-[12px] text-faint">Due</dt>
@@ -676,6 +682,7 @@ function TaskDetails({
       await updateTask(task.id, {
         ...(canEdit ? { title: title.trim(), status: statusForStage(stage, stages.length) as GeneralTaskStatus, stage, team_id: team || null } : {}),
         ...(canEdit && work && priority !== (task.priority ?? 'normal') ? { priority } : {}),
+        ...(canEdit && work && task.kind !== 'bug' && taskType !== taskTypeOf(task) ? { task_type: taskType === 'task' ? null : taskType } : {}),
         ...(canEditSchedule ? { description, due_at: dueAt, starts_at: startsAt } : {}),
       })
       show('Task saved')
@@ -728,6 +735,17 @@ function TaskDetails({
                       options={PRIORITIES.map((p) => ({ value: p.value, label: p.label }))}
                     />
                   )}
+                </Field>
+              )}
+              {work && (
+                <Field label="Type">
+                  {(id) => <Select
+                    id={id}
+                    disabled={!canEdit || task.kind === 'bug'}
+                    value={taskType}
+                    onChange={(e) => setTaskType(e.target.value)}
+                    options={typeOptions}
+                  />}
                 </Field>
               )}
             </div>

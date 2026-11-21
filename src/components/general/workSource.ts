@@ -43,6 +43,7 @@ export function generalWorkItems(state: GeneralProjectState): WorkItem[] {
     holderIds: t.assignee_ids,
     teamId: t.team_id,
     kind: t.kind,
+    task_type: t.task_type,
     created_at: t.created_at,
   }))
 }

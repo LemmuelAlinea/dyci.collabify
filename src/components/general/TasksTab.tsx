@@ -31,7 +31,7 @@ import { projectProgress } from '../../lib/general/progress'
 import { routingViewer, routingWaitingCount, showsRouting } from '../../lib/general/routing'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
-import { PRIORITIES } from '../../lib/general/types'
+import { PRIORITIES, taskTypeOf, taskTypeOptions } from '../../lib/general/types'
 import type { GeneralTask, TaskKind, TaskPriority } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
@@ -83,8 +83,7 @@ export function TasksTab({
   const [assignee, setAssignee] = useState('')
   // A stage index as text, or '' for every stage.
   const [status, setStatus] = useState('')
-  // '' for every kind, else 'task' or 'bug'.
-  const [kind, setKind] = useState<'' | TaskKind>('')
+  const [type, setType] = useState('')
   // Which priorities to show, and whether to sort by priority; remembered per project.
   const [priorityView, setPriorityView] = usePriorityView(state.project?.id)
   const [creating, setCreating] = useState(false)
@@ -116,13 +115,14 @@ export function TasksTab({
             : t.assignee_ids.includes(assignee),
       )
       .filter((t) => (status ? stageIndex(t.status, t.stage, stageCount) === Number(status) : true))
-      .filter((t) => (kind ? (t.kind ?? 'task') === kind : true))
+      .filter((t) => (type ? taskTypeOf(t) === type : true))
       .filter((t) => (q ? `${t.title} ${t.description}`.toLowerCase().includes(q) : true))
     const byPriority = filterByPriority(matching, priorityView.priorities)
     return priorityView.sort === 'priority' ? sortByPriority(byPriority) : byPriority
-  }, [scoped, query, team, teamLinks, assignee, status, kind, projectStages, priorityView])
+  }, [scoped, query, team, teamLinks, assignee, status, type, projectStages, priorityView])
 
   if (!project) return null
+  const typeOptions = taskTypeOptions([...new Set([...(project.taskTypes ?? []), ...state.tasks.map((task) => task.task_type).filter((name): name is string => Boolean(name))])])
   const progress = projectProgress(scoped)
   // Subtasks and waiting are a work project's; a class board's tasks have neither.
   const marksOf = (t: GeneralTask): TaskMarkData | null =>
@@ -176,7 +176,7 @@ export function TasksTab({
         <Modal open={routingOpen} onClose={() => setRoutingOpen(false)} title="Plan & route work" size="xl">
           <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} onViewBoard={() => {
             setRoutingOpen(false)
-            setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setKind(''); setPriorityView(EMPTY_PRIORITY_VIEW)
+            setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setType(''); setPriorityView(EMPTY_PRIORITY_VIEW)
             onViewBoard()
           }} />
         </Modal>
@@ -212,13 +212,13 @@ export function TasksTab({
             <TaskViewMenu view={layout} onView={onLayout} />
             <FilterPopover
               label="Filter tasks"
-              active={[query.trim(), team, assignee, status, kind].filter(Boolean).length + priorityActive(priorityView)}
+              active={[query.trim(), team, assignee, status, type].filter(Boolean).length + priorityActive(priorityView)}
               summary={[
                 query.trim() && `“${query.trim()}”`,
                 team && state.teams.find((t) => t.id === team)?.name,
                 assignee && assigneeOptions.find((o) => o.value === assignee)?.label,
                 status && stages[Number(status)],
-                kind && (kind === 'bug' ? 'Bugs' : 'Tasks'),
+                type && typeOptions.find((option) => option.value === type)?.label,
                 ...prioritySummary(priorityView),
               ]
                 .filter(Boolean)
@@ -228,7 +228,7 @@ export function TasksTab({
                 setTeam('')
                 setAssignee('')
                 setStatus('')
-                setKind('')
+                setType('')
                 setPriorityView(EMPTY_PRIORITY_VIEW)
               }}
             >
@@ -266,13 +266,10 @@ export function TasksTab({
               </FilterField>
               <FilterField label="Type">
                 <Select
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as '' | TaskKind)}
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
                   placeholder="All"
-                  options={[
-                    { value: 'task', label: 'Tasks' },
-                    { value: 'bug', label: 'Bugs' },
-                  ]}
+                  options={typeOptions}
                   className="!h-10 !text-[13px]"
                 />
               </FilterField>
@@ -621,7 +618,7 @@ function TaskCard({
           {task.title}
         </h4>
         <div className="flex shrink-0 items-center gap-1">
-          <BugBadge kind={task.kind} />
+          <BugBadge kind={task.kind} taskType={task.task_type} />
           <PriorityBadge priority={task.priority} />
           {teamName && (
             <span className="max-w-[8rem] truncate rounded-md bg-navy-50 px-1.5 py-0.5 text-[12px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
@@ -755,7 +752,7 @@ function TaskTable({
                     {t.title}
                   </button>
                   <span className="mt-0.5 flex items-center gap-3 text-[12px] text-faint">
-                    <BugBadge kind={t.kind} />
+                    <BugBadge kind={t.kind} taskType={t.task_type} />
                     <PriorityBadge priority={t.priority} />
                     {marks?.partOf && <span className="max-w-[200px] truncate">{marks.partOf}</span>}
                     <SubtaskCount progress={marks?.subtasks ?? null} />
@@ -842,15 +839,17 @@ export function NewTaskDialog({
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
   const [pickedKind, setPickedKind] = useState<TaskKind>('task')
+  const [pickedType, setPickedType] = useState('task')
   const [pickedPriority, setPickedPriority] = useState<TaskPriority | ''>('')
   const [holders, setHolders] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const project = state.project
+  const work = Boolean(project && !project.class_board_id)
   // QA creates bug tasks only, so the type is fixed for them.
   const isQa = state.myRole === 'qa'
-  const kind: TaskKind = isQa ? 'bug' : pickedKind
-  const work = Boolean(project && !project.class_board_id)
+  const kind: TaskKind = isQa || (work ? pickedType === 'bug' : pickedKind === 'bug') ? 'bug' : 'task'
+  const taskType = work && kind === 'task' && pickedType !== 'task' ? pickedType : null
   // An open project's tasks are live at once, with holders anyone picks; QA assigns nobody.
   const isOpen = work && project?.taskFlow === 'open'
   // A planned project's Member sends a plain task to the planners; it starts in planning and they cannot read it back.
@@ -874,12 +873,13 @@ export function NewTaskDialog({
     setBusy(true)
     try {
       if (isMember) {
-        await createMemberTask(project.id, title, description, dueAt, team || undefined)
+        await createMemberTask(project.id, title, description, dueAt, team || undefined, taskType)
         show('Sent to planners for review')
         setTitle('')
         setDescription('')
         setDue('')
         setTeam('')
+        setPickedType('task')
         onClose()
         await state.reload()
         return
@@ -894,6 +894,7 @@ export function NewTaskDialog({
             teamId: team || null,
             priority,
             kind,
+            taskType,
             holderIds: showHolders ? holders : [],
           })
         : await createTask({
@@ -905,6 +906,7 @@ export function NewTaskDialog({
             teamId: team || null,
             sprintId,
             kind,
+            taskType,
             ...(showPriority ? { priority } : {}),
           })
       show('Task added')
@@ -914,6 +916,7 @@ export function NewTaskDialog({
       setStarts('')
       setTeam('')
       setPickedKind('task')
+      setPickedType('task')
       setPickedPriority('')
       setHolders([])
       onClose()
@@ -952,22 +955,32 @@ export function NewTaskDialog({
           )}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
+          {work && (
+            <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
+              {(id) => (
+                <Select
+                  id={id}
+                  value={isQa ? 'bug' : pickedType}
+                  disabled={isQa}
+                  onChange={(e) => setPickedType(e.target.value)}
+                  options={taskTypeOptions(project?.taskTypes).filter((option) => !isMember || option.value !== 'bug')}
+                />
+              )}
+            </Field>
+          )}
           {!isMember && (
             <>
-              <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
+              {!work && <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
                 {(id) => (
                   <Select
                     id={id}
                     value={kind}
                     disabled={isQa}
                     onChange={(e) => setPickedKind(e.target.value as TaskKind)}
-                    options={[
-                      { value: 'task', label: 'Task' },
-                      { value: 'bug', label: 'Bug' },
-                    ]}
+                    options={taskTypeOptions()}
                   />
                 )}
-              </Field>
+              </Field>}
               <Field label="Starts" optional>
                 {(id) => (
                   <Input id={id} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />

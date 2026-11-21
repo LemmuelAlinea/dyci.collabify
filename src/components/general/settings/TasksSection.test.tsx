@@ -112,6 +112,18 @@ it('titles the panel and shows every control with its label', async () => {
   expect(host.textContent).toContain("Turning this off keeps current holders; tasks just can't get another.")
 })
 
+it('saves custom task types for the project manager', async () => {
+  await show(makeState({}, { taskTypes: ['Research'] }))
+  await act(async () => button('Add type')!.click())
+  const input = host.querySelector<HTMLInputElement>('[aria-label="Custom task type 2"]')!
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Design')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await act(async () => button('Save task types')!.click())
+  expect(updateGeneralProject).toHaveBeenCalledWith('p1', { task_types: ['Research', 'Design'] })
+})
+
 it('disables every task rule control for somebody who cannot edit', async () => {
   await show(makeState({ can: () => false, myRole: 'member' }))
   expect(select('Default priority')!.disabled).toBe(true)

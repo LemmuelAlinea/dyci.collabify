@@ -5395,6 +5395,12 @@ accepted." from the setting; no failed requests.
   holders at once can put back someone the other took off; the open writers read `task_flow` and holder membership
   without a lock, so a create racing a switch back to Planned, or a holder turning QA mid-change, can slip through.
 
+## Custom work task types (2026-11-21)
+
+- Settings → Tasks lets the project manager add, rename and remove up to 20 custom task types alongside Task and Bug. Existing tasks keep removed type names.
+- Custom types are available in planned, Member and open creation, task editing and the Type filter. QA still creates Bug only; changing a task's type does not change its QA kind.
+- `supabase/project-task-types.sql` runs after `stage-terminology.sql` and before `anon-lockdown.sql`. It was applied live, then `anon-lockdown.sql` was rerun. Re-run it after `project-member-rules.sql` or `project-open-tasks.sql` to restore the typed task creators. Suite: `supabase/tests/project-task-types.test.sql`.
+
 ## Collabify video calls — live trial (2026-11-21)
 
 - The Meetings page defaults new calls to Collabify and retains Google Meet and Zoom. The in-app room includes

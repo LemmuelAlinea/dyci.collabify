@@ -94,11 +94,19 @@ it('lets a Member in an open project add a live task with holders and a priority
   await act(async () => button('Add task')!.click())
   expect(createOpenTask).toHaveBeenCalledWith({
     projectId: 'p1', title: 'Fix login', description: '', startsAt: null, dueAt: null, teamId: null,
-    priority: 'urgent', kind: 'task', holderIds: ['b'],
+    priority: 'urgent', kind: 'task', taskType: null, holderIds: ['b'],
   })
   expect(createTask).not.toHaveBeenCalled()
   expect(toast).toHaveBeenCalledWith('Task added')
   expect(onCreated).toHaveBeenCalledWith('open-task')
+})
+
+it('offers the project manager\'s custom types without changing QA kind', async () => {
+  await open(makeState('member', { taskTypes: ['Research'] }))
+  await act(async () => type(control('Title')!, 'Survey'))
+  await act(async () => type(control('Type')!, 'Research'))
+  await act(async () => button('Add task')!.click())
+  expect(createOpenTask).toHaveBeenCalledWith(expect.objectContaining({ kind: 'task', taskType: 'Research' }))
 })
 
 it('offers one holder when the project allows only one', async () => {

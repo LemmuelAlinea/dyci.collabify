@@ -63,6 +63,8 @@ export type GeneralProject = {
   memberRules?: MemberRules
   /** Planned handoff or open. Read by getGeneralProject only. */
   taskFlow?: TaskFlow
+  /** Extra type choices for work tasks. Task and Bug are built in. */
+  taskTypes?: string[]
   /** How milestones are reached, whether they need a due date, may wait for each other and alert when overdue. Read by getGeneralProject only. */
   milestoneRules?: MilestoneRules
   /** What the project sends: sprint, task and milestone reminders and the assignment and completion notices. Read by getGeneralProject only. */
@@ -344,6 +346,12 @@ export const PRIORITIES: readonly { value: TaskPriority; label: string }[] = [
 /** general_task_overview, with priority and parent_id read beside it from general_tasks. */
 /** A bug is a task QA raised; everything else is a plain task. */
 export type TaskKind = 'task' | 'bug'
+export function taskTypeOptions(custom: string[] = []) {
+  return [{ value: 'task', label: 'Task' }, { value: 'bug', label: 'Bug' }, ...custom.map((name) => ({ value: name, label: name }))]
+}
+export function taskTypeOf(task: Pick<GeneralTask, 'kind' | 'task_type'>) {
+  return task.kind === 'bug' ? 'bug' : task.task_type ?? 'task'
+}
 export type TaskRoutingState = 'planning' | 'coordinator_review' | 'released'
 
 export type GeneralTask = {
@@ -380,6 +388,8 @@ export type GeneralTask = {
   stage?: number | null
   /** A bug is a task QA raised. Absent before supabase/project-qa.sql runs. */
   kind?: TaskKind
+  /** A work project's custom type; null means the built-in Task or Bug. */
+  task_type?: string | null
   /** When it reached the QA stage; null elsewhere. */
   qa_entered_at?: string | null
   /** Added by listTasks and the other task lists; Normal before project-task-rules.sql is live. */

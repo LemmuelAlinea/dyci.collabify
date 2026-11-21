@@ -407,7 +407,7 @@ function ItemRow({
           >
             {item.title}
           </button>
-          <BugBadge kind={item.kind} />
+          <BugBadge kind={item.kind} taskType={item.task_type} />
         </div>
         <p className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-faint">
           <span className={item.holders.length ? '' : 'text-warning-700 dark:text-warning-300'}>

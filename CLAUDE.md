@@ -395,6 +395,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   write with claims cleared and redefine no guard, so edit rights don't widen. Open-created tasks keep `sent_at` null,
   so their creator keeps the creator rule. Plan & route shows in an open project only while work waits in planning
   (`showsRouting`). Suite: `supabase/tests/project-open-tasks.test.sql`.
+- Custom work task types (`supabase/project-task-types.sql`, after `stage-terminology.sql`, before
+  `anon-lockdown.sql`): a project manager sets extra names alongside Task and Bug; removed names stay on old
+  tasks. `kind` still enforces the QA Bug rule. Re-run this file after `project-member-rules.sql` or
+  `project-open-tasks.sql` to restore typed task creation. Suite: `supabase/tests/project-task-types.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone

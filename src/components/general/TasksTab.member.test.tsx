@@ -116,7 +116,7 @@ it('creates a Member task through createMemberTask, sends it to the planners and
     title.dispatchEvent(new Event('input', { bubbles: true }))
   })
   await act(async () => buttonOf(dialog as HTMLElement, 'Add task')!.click())
-  expect(createMemberTask).toHaveBeenCalledExactlyOnceWith('p1', '  Draft the survey ', '', null, undefined)
+  expect(createMemberTask).toHaveBeenCalledExactlyOnceWith('p1', '  Draft the survey ', '', null, undefined, null)
   expect(createTask).not.toHaveBeenCalled()
   expect(useToast().show).toHaveBeenCalledWith('Sent to planners for review')
   expect(reload).toHaveBeenCalled()

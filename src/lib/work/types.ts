@@ -54,6 +54,7 @@ export type WorkItem = {
   teamId?: string | null
   /** A bug is a task QA raised. Work projects only; absent means a plain task. */
   kind?: 'task' | 'bug'
+  task_type?: string | null
   created_at: string
 }
 

@@ -91,7 +91,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                       <button type="button" onClick={() => source.openTask(i.id)} className="text-left text-[13px] text-ink hover:underline">
                         {i.title}
                       </button>
-                      <BugBadge kind={i.kind} />
+                      <BugBadge kind={i.kind} taskType={i.task_type} />
                     </li>
                   ))}
                   {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}
@@ -201,7 +201,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                               >
                                 {i.title}
                               </button>
-                              <BugBadge kind={i.kind} />
+                              <BugBadge kind={i.kind} taskType={i.task_type} />
                             </li>
                           ))}
                           {column.length === 0 && <li className="text-[12px] text-faint">Nothing here</li>}
