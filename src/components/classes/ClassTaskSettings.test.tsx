@@ -45,6 +45,13 @@ it('saves workflow, types and rules for the chosen class project', async () => {
   expect(host.textContent).toContain('Task workflow steps')
   expect(host.textContent).toContain('Task types')
   expect(host.textContent).toContain('Task rules')
+  for (const description of [
+    'Let people add one level of subtasks.',
+    'Let tasks wait for other tasks.',
+    'Let more than one student hold a task.',
+    'Assign someone before moving past To do.',
+    'Finish every subtask before its parent.',
+  ]) expect(host.textContent).toContain(description)
   const projectPicker = host.querySelector<HTMLSelectElement>('select')!
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(projectPicker, 'p2')

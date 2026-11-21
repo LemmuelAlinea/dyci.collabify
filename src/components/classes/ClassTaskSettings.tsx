@@ -54,12 +54,12 @@ export function ClassTaskSettings({ classId, readOnly = false }: { classId: stri
   const startLimit = stages.length - 2
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setDraft((current) => current && ({ ...current, [key]: value }))
   const names = draft.task_types
-  const switches: { key: keyof Settings; label: string }[] = [
-    { key: 'allow_subtasks', label: 'Allow subtasks' },
-    { key: 'allow_dependencies', label: 'Allow dependencies' },
-    { key: 'allow_multiple_assignees', label: 'Allow multiple holders' },
-    { key: 'require_assignee', label: 'Require a holder before work starts' },
-    { key: 'require_subtasks_done', label: 'Require all subtasks to be done first' },
+  const switches: { key: keyof Settings; label: string; description: string }[] = [
+    { key: 'allow_subtasks', label: 'Allow subtasks', description: 'Let people add one level of subtasks.' },
+    { key: 'allow_dependencies', label: 'Allow dependencies', description: 'Let tasks wait for other tasks.' },
+    { key: 'allow_multiple_assignees', label: 'Allow multiple holders', description: 'Let more than one student hold a task.' },
+    { key: 'require_assignee', label: 'Require a holder before work starts', description: 'Assign someone before moving past To do.' },
+    { key: 'require_subtasks_done', label: 'Require all subtasks to be done first', description: 'Finish every subtask before its parent.' },
   ]
 
   async function save() {
@@ -115,8 +115,14 @@ export function ClassTaskSettings({ classId, readOnly = false }: { classId: stri
           onChange={(e) => set('default_stage', Number(e.target.value))}
           options={stages.slice(0, startLimit + 1).map((stage, index) => ({ value: String(index), label: stage }))} />
       </label>
-      {switches.map(({ key, label }) => <Toggle key={key} label={label} checked={Boolean(draft[key])} disabled={busy || readOnly}
-        onChange={(checked) => setDraft((current) => current && ({ ...current, [key]: checked }))} />)}
+      <div className="divide-y divide-[var(--line)]">
+        {switches.map(({ key, label, description }) => <div key={key} className="flex items-center justify-between gap-4 py-3">
+          <div><p className="text-[13px] font-medium text-ink">{label}</p>
+            <p className="text-[12px] text-muted">{description}</p></div>
+          <Toggle label={label} checked={Boolean(draft[key])} disabled={busy || readOnly}
+            onChange={(checked) => setDraft((current) => current && ({ ...current, [key]: checked }))} />
+        </div>)}
+      </div>
     </section>
     {!readOnly && <div className="flex justify-end"><Button onClick={() => void save()} loading={busy}
       disabled={JSON.stringify(saved) === JSON.stringify(draft)}>Save task settings</Button></div>
