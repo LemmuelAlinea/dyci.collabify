@@ -266,6 +266,9 @@ declare
   v_today date := (now() at time zone 'Asia/Manila')::date;
   v_mon date;
   v_fri date;
+  -- Today, or the next Monday on a weekend, and the Monday of its week.
+  v_anchor date := v_today + case extract(isodow from v_today)::int when 6 then 2 when 7 then 1 else 0 end;
+  v_amon date := v_anchor - (extract(isodow from v_anchor)::int - 1);
   v_start timestamptz;
   v_due timestamptz;
   v_class uuid; v_syl uuid;
@@ -420,6 +423,36 @@ begin
        from public.general_space_people_load(s, v_mon, v_fri, array[u[4]]))
     and (select array_agg(user_id) = array[u[4]]
            from public.general_space_people_hours(s, v_mon, v_fri, array[u[4]])));
+
+  -- Overdue and undated work counts on the anchored day: today, or Monday on a
+  -- weekend. X holds only these two, so the anchored week's load is exactly theirs.
+  perform pg_temp.service();
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl overdue', 'released', u[6], 100,
+      ((v_anchor - 10) + time '09:00') at time zone 'Asia/Manila',
+      ((v_anchor - 3) + time '17:00') at time zone 'Asia/Manila') returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[6], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes)
+    values(p, 'Zz wl undated', 'released', u[6], 50) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[6], u[6]);
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('overdue and undated count in the current week',
+    (select sum(load_minutes) = 150
+       from public.general_space_people_load(s, v_amon, v_amon + 4) where user_id = u[6])
+    and (select sum(load_minutes) = 150
+           from public.general_space_people_load(s, v_anchor, v_anchor) where user_id = u[6]));
+
+  -- Ten weekdays from the window's Monday: half the share falls in each week.
+  perform pg_temp.service();
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl two weeks', 'released', u[6], 200, v_start,
+      ((v_mon + 11) + time '17:00') at time zone 'Asia/Manila') returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[5], u[6]);
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('a ten-weekday task counts half in one week',
+    (select sum(load_minutes) = 220 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[5])
+    and (select sum(load_minutes) = 100
+           from public.general_space_people_load(s, v_mon + 7, v_mon + 11) where user_id = u[5]));
 
   -- Class spaces are refused.
   perform pg_temp.service();

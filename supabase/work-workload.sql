@@ -398,7 +398,8 @@ grant execute on function public.general_space_people_hours(uuid, date, date, uu
 -- (a parent with live subtasks stops counting). A task's estimate splits evenly
 -- among its holders and spreads over the weekdays from its start (or release,
 -- or creation; today if later) to its due date; overdue or undated work falls
--- on today. A span with no weekdays puts the whole share on its first day.
+-- on today. Today means the next weekday on or after today (a weekend reads as
+-- Monday). A span with no weekdays puts the whole share on its first day.
 -- Tasks with no estimate are counted in unestimated, never as minutes.
 create or replace function public.general_space_people_load(
   p_space uuid, p_from date, p_to date, p_users uuid[] default null)
@@ -410,7 +411,11 @@ set search_path = public
 as $$
 #variable_conflict use_column
 declare
-  v_today date := (now() at time zone 'Asia/Manila')::date;
+  -- Today in Manila, moved to Monday on a weekend so overdue and undated work
+  -- lands on a working day.
+  v_today date := (now() at time zone 'Asia/Manila')::date
+    + case extract(isodow from (now() at time zone 'Asia/Manila')::date)::int
+        when 6 then 2 when 7 then 1 else 0 end;
 begin
   perform public.work_workload_check(p_space, p_from, p_to);
 
