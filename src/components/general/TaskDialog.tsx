@@ -254,17 +254,20 @@ function TaskBody({
 
   useLive(load, ['general_task_comments', 'general_task_files', 'general_task_logs', 'general_task_events'])
 
-  // Hours beside names in the holder picker: planners and the task's team lead
-  // see hours, a Member in an Open project sees only who has no room.
+  // Hours beside names in the holder picker: planners, and in a Planned project
+  // the task's team lead, see hours; a Member in an Open project (a lead there
+  // included, since the database checks them as a Member) sees only who has no room.
+  const openProject = state.project?.taskFlow === 'open'
   const holderViewer: HolderViewer = !task || !state.project || state.project.class_board_id || state.readOnly ? 'none'
     : state.myRole === 'pm' || state.myRole === 'coordinator'
-      || state.teams.some((t) => t.id === task.team_id && t.leader_id === state.viewerId) ? 'planner'
-    : state.myRole === 'member' && state.project.taskFlow === 'open' ? 'member' : 'none'
+      || (!openProject && state.teams.some((t) => t.id === task.team_id && t.leader_id === state.viewerId)) ? 'planner'
+    : state.myRole === 'member' && openProject ? 'member' : 'none'
   const holderLabels = useHolderHours({
     spaceId: state.project?.space_id,
     userIds: state.members.map((m) => m.user_id),
     taskId: task?.id ?? null,
     viewer: holderViewer,
+    refresh: task ? [...task.assignee_ids].sort().join(',') : '',
   })
 
   if (!task || !state.project) return null

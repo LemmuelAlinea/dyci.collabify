@@ -316,6 +316,26 @@ it('shows a Member only who has no room', async () => {
   } finally { await act(async () => root.unmount()); container.remove(); holderHours.labels = new Map() }
 })
 
+it('reads hours again when the holders change', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  holderHours.calls = []
+  try {
+    const state = openState({ assignee_ids: ['b', 'me'] }, { viewerId: 'c', myRole: 'coordinator' })
+    await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, space_id: 's' } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
+    expect(holderHours.calls.at(-1)).toMatchObject({ refresh: 'b,me' })
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('gives a team lead in an open project only room status', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  holderHours.calls = []
+  try {
+    const state = openState({ team_id: 't1' }, { teams: [{ id: 't1', leader_id: 'me' }] })
+    await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, space_id: 's' } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
+    expect(holderHours.calls.at(-1)).toMatchObject({ viewer: 'member' })
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
 it('warns a planner when a holder goes over available hours', async () => {
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
   holderHours.labels = new Map([['b', { text: '18 / 16 h this week', tone: 'danger' }]])

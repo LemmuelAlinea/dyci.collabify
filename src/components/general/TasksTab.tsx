@@ -873,8 +873,16 @@ export function NewTaskDialog({
     spaceId: project?.space_id,
     userIds: candidates,
     taskId: null,
-    viewer: showHolders && (state.myRole === 'pm' || state.myRole === 'coordinator') ? 'planner' : 'none',
+    viewer: open && showHolders && (state.myRole === 'pm' || state.myRole === 'coordinator') ? 'planner' : 'none',
   })
+  // A picked holder whose hours this week plus their share of the estimate pass what they have.
+  const estimateNow = parseHours(estimate)
+  const overHolders = typeof estimateNow === 'number' && holders.length > 0
+    ? holders.filter((uid) => {
+        const hours = holderLabels.get(uid)
+        return hours?.load != null && hours.available != null && hours.load + estimateNow / holders.length > hours.available
+      })
+    : []
   const holderName = (uid: string) => {
     const hours = holderLabels.get(uid)
     return hours ? `${state.nameOf(uid)} · ${hours.text}` : state.nameOf(uid)
@@ -1112,6 +1120,12 @@ export function NewTaskDialog({
             )}
           </Field>
         )}
+        {overHolders.map((uid) => (
+          <p key={uid} className="flex items-center gap-1 text-[12px] text-warning-700 dark:text-warning-300">
+            <Icon name="alert" size={12} />
+            {state.nameOf(uid)} goes over available hours this week.
+          </p>
+        ))}
         <Field label="Description" optional>
           {(id) => (
             <Textarea

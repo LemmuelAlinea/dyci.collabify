@@ -110,7 +110,7 @@ export default function SpaceWorkload() {
   const [weeks, setWeeks] = useState<Map<string, WeekData>>(new Map())
   const [summary, setSummary] = useState<WorkloadSummary | null>(null)
   const [open, setOpen] = useState<string | null>(null)
-  const [tasks, setTasks] = useState<Map<string, PersonTask[] | 'error'>>(new Map())
+  const [tasks, setTasks] = useState<Map<string, PersonTask[] | 'loading' | 'error'>>(new Map())
   const [error, setError] = useState<string | null>(null)
 
   const shown = useMemo(() => {
@@ -127,13 +127,16 @@ export default function SpaceWorkload() {
     return () => { current = false }
   }, [spaceId])
 
+  // Caches are keyed by space too: the route can move to another space's tab
+  // without remounting this page.
+  const weekKey = (from: string) => `${spaceId}:${from}`
   useEffect(() => {
     let current = true
-    const missing = shown.filter((w) => !weeks.has(w.from))
+    const missing = shown.filter((w) => !weeks.has(weekKey(w.from)))
     if (missing.length === 0) return
     void Promise.all(missing.map(async (w) => {
       const [load, hours] = await Promise.all([spacePeopleLoad(spaceId, w.from, w.to), spacePeopleHours(spaceId, w.from, w.to)])
-      return [w.from, { load, hours }] as const
+      return [weekKey(w.from), { load, hours }] as const
     }))
       .then((rows) => { if (current) setWeeks((prev) => new Map([...prev, ...rows])) })
       .catch((err) => { if (current) setError(authErrorMessage(err, 'Could not load workload. Reload the page.')) })
@@ -148,21 +151,30 @@ export default function SpaceWorkload() {
     return () => { current = false }
   }, [spaceId, first.from, first.to])
 
-  const firstData = weeks.get(first.from)
+  // The open row's tasks for the first week shown: read when the row opens or the
+  // week moves, and again after a failed read.
+  const taskKey = (userId: string) => `${spaceId}:${userId}:${first.from}`
+  useEffect(() => {
+    if (!open) return
+    const key = `${spaceId}:${open}:${first.from}`
+    const cached = tasks.get(key)
+    if (cached && cached !== 'error') return
+    let current = true
+    setTasks((prev) => new Map(prev).set(key, 'loading'))
+    void spacePersonTasks(spaceId, open, first.from, first.to)
+      .then((rows) => { if (current) setTasks((prev) => new Map(prev).set(key, rows)) })
+      .catch(() => { if (current) setTasks((prev) => new Map(prev).set(key, 'error')) })
+    return () => { current = false }
+  }, [spaceId, open, first.from, first.to]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const firstData = weeks.get(weekKey(first.from))
   const people = useMemo(() => (firstData?.hours ?? [])
     .map((h) => h.user_id)
     .sort((a, b) => (names.get(a) ?? '').localeCompare(names.get(b) ?? '')), [firstData, names])
   const projectName = (id: string) => all.find((p) => p.id === id)?.name ?? 'A project'
 
   function toggle(userId: string) {
-    const next = open === userId ? null : userId
-    setOpen(next)
-    const key = `${userId}:${first.from}`
-    if (!next || tasks.has(key)) return
-    setTasks((prev) => new Map(prev).set(key, []))
-    void spacePersonTasks(spaceId, userId, first.from, first.to)
-      .then((rows) => setTasks((prev) => new Map(prev).set(key, rows)))
-      .catch(() => setTasks((prev) => new Map(prev).set(key, 'error')))
+    setOpen(open === userId ? null : userId)
   }
 
   return (
@@ -202,8 +214,8 @@ export default function SpaceWorkload() {
           </div>
           {people.map((userId) => {
             const expanded = open === userId
-            const cells = shown.map((w) => cellOf(weeks.get(w.from), userId))
-            const list = tasks.get(`${userId}:${first.from}`)
+            const cells = shown.map((w) => cellOf(weeks.get(weekKey(w.from)), userId))
+            const list = tasks.get(taskKey(userId))
             return (
               <Fragment key={userId}>
                 <div data-person={userId} className="grid grid-cols-[minmax(9rem,1.2fr)_minmax(0,1fr)] items-center gap-x-4 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(0,1fr))]">
@@ -225,9 +237,11 @@ export default function SpaceWorkload() {
                     <p className="eyebrow mb-2">Week of {formatDayLabel(first.from)}</p>
                     {list === 'error' ? (
                       <p className="text-muted">Could not load these tasks. Close the row and open it again.</p>
+                    ) : list === 'loading' || !list ? (
+                      <p className="text-faint">Loading tasks…</p>
                     ) : (
                       <ul className="space-y-1.5">
-                        {(list ?? []).map((t) => (
+                        {list.map((t) => (
                           <li key={t.task_id} className="flex items-baseline justify-between gap-3">
                             <span className="min-w-0 truncate text-ink">{t.title}<span className="ml-2 text-faint">{projectName(t.project_id)}</span></span>
                             <span className="shrink-0 font-mono text-muted">{t.unestimated ? 'No estimate' : formatHours(t.minutes)}</span>
@@ -236,7 +250,7 @@ export default function SpaceWorkload() {
                         {(cells[0]?.other ?? 0) > 0 && (
                           <li className="text-muted">Other work in this space · {formatHours(cells[0]!.other)}</li>
                         )}
-                        {list && list.length === 0 && !(cells[0]?.other) && <li className="text-faint">No estimated work this week.</li>}
+                        {list.length === 0 && !(cells[0]?.other) && <li className="text-faint">No estimated work this week.</li>}
                       </ul>
                     )}
                   </div>

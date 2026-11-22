@@ -142,6 +142,27 @@ it('shows the no-room refusal as the error', async () => {
   expect(document.body.textContent).toContain('Ben has no room this week. Pick someone else or ask a project manager.')
 })
 
+it('reads hours only while open', async () => {
+  holderHours.calls = []
+  await act(async () => root.render(
+    <MemoryRouter>
+      <NewTaskDialog open={false} onClose={() => {}} state={makeState('pm', { space_id: 's' })} sprintId={null} onCreated={onCreated} />
+    </MemoryRouter>,
+  ))
+  expect(holderHours.calls.at(-1)).toMatchObject({ viewer: 'none' })
+})
+
+it('warns when a picked holder goes over available hours', async () => {
+  holderHours.labels = new Map([['b', { text: '14 / 16 h this week', tone: 'warning', load: 840, available: 960 }]])
+  try {
+    await open(makeState('pm', { space_id: 's' }))
+    await act(async () => type(control('Estimated effort (hours)')!, '3'))
+    expect(document.body.textContent).not.toContain('goes over available hours')
+    await act(async () => holderBoxes()[1].click())
+    expect(document.body.textContent).toContain('Person b goes over available hours this week.')
+  } finally { holderHours.labels = new Map() }
+})
+
 it('shows a planner hours beside each holder', async () => {
   holderHours.labels = new Map([['b', { text: '14 / 16 h this week', tone: 'warning' }]]); holderHours.calls = []
   try {

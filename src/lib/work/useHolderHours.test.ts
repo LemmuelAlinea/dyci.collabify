@@ -28,10 +28,10 @@ describe('plannerHolderLabels', () => {
       ],
       [hours('ana', 960), hours('ben', 960), hours('cy', 960), hours('dee', 960)],
     )
-    expect(labels.get('ana')).toEqual({ text: '10 / 16 h this week', tone: 'success' })
-    expect(labels.get('ben')).toEqual({ text: '14 / 16 h this week', tone: 'warning' })
-    expect(labels.get('cy')).toEqual({ text: '18 / 16 h this week', tone: 'danger' })
-    expect(labels.get('dee')).toEqual({ text: '0 / 16 h this week', tone: 'success' })
+    expect(labels.get('ana')).toEqual({ text: '10 / 16 h this week', tone: 'success', load: 600, available: 960 })
+    expect(labels.get('ben')).toEqual({ text: '14 / 16 h this week', tone: 'warning', load: 840, available: 960 })
+    expect(labels.get('cy')).toEqual({ text: '18 / 16 h this week', tone: 'danger', load: 1080, available: 960 })
+    expect(labels.get('dee')).toEqual({ text: '0 / 16 h this week', tone: 'success', load: 0, available: 960 })
   })
 
   it('shows unknown hours label as Not set', () => {
@@ -85,6 +85,20 @@ describe('useHolderHours', () => {
     const labels = await run({ spaceId: 's', userIds: ['ben'], taskId: 't', viewer: 'member' })
     expect(labels.get('ben')?.text).toBe('No room this week')
     expect(spacePeopleLoad).not.toHaveBeenCalled()
+  })
+
+  it('reads again when the holders change', async () => {
+    vi.mocked(spacePeopleLoad).mockResolvedValue([])
+    vi.mocked(spacePeopleHours).mockResolvedValue([hours('ben', 960)])
+    let refresh = 'a'
+    function Probe() { useHolderHours({ spaceId: 's', userIds: ['ben'], taskId: 't', viewer: 'planner', refresh }); return null }
+    const container = document.createElement('div')
+    const root = createRoot(container)
+    await act(async () => root.render(React.createElement(Probe)))
+    refresh = 'a,ben'
+    await act(async () => root.render(React.createElement(Probe)))
+    await act(async () => root.unmount())
+    expect(spacePeopleLoad).toHaveBeenCalledTimes(2)
   })
 
   it('gives a Member nothing without a task', async () => {

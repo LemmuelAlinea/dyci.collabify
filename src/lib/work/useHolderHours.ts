@@ -3,7 +3,8 @@ import { holderRoom, spacePeopleHours, spacePeopleLoad, type HolderRoom, type Pe
 import { formatHours, workWeek } from './hours'
 
 export type HolderTone = 'success' | 'warning' | 'danger' | 'pending'
-export type HolderLabel = { text: string; tone: HolderTone }
+/** A planner's label also carries this week's minutes, so a dialog can project a pick. */
+export type HolderLabel = { text: string; tone: HolderTone; load?: number; available?: number }
 
 /**
  * Who is picking holders: a planner (the project manager, a coordinator or the
@@ -29,6 +30,8 @@ export function plannerHolderLabels(load: PeopleLoad[], hours: PeopleHours[]): M
     labels.set(row.user_id, {
       text: `${bare(minutes)} / ${bare(row.available_minutes)} h this week`,
       tone: ratio > 1 ? 'danger' : ratio >= 0.8 ? 'warning' : 'success',
+      load: minutes,
+      available: row.available_minutes,
     })
   }
   return labels
@@ -41,12 +44,16 @@ export function memberHolderLabels(rooms: HolderRoom[]): Map<string, HolderLabel
   return labels
 }
 
-/** Labels for the people in a holder picker. One read per change of people or task. */
-export function useHolderHours({ spaceId, userIds, taskId, viewer }: {
+/**
+ * Labels for the people in a holder picker. One read per change of people,
+ * task or `refresh` (pass the task's holders, so a pick reads the hours again).
+ */
+export function useHolderHours({ spaceId, userIds, taskId, viewer, refresh = '' }: {
   spaceId: string | null | undefined
   userIds: string[]
   taskId: string | null
   viewer: HolderViewer
+  refresh?: string
 }): Map<string, HolderLabel> {
   const [labels, setLabels] = useState<Map<string, HolderLabel>>(() => new Map())
   const key = [...userIds].sort().join(',')
@@ -67,6 +74,6 @@ export function useHolderHours({ spaceId, userIds, taskId, viewer }: {
     // Hours are a hint: a failed read shows no labels rather than an error.
     void read.then((next) => { if (current) setLabels(next) }).catch(() => { if (current) setLabels(new Map()) })
     return () => { current = false }
-  }, [spaceId, key, taskId, viewer])
+  }, [spaceId, key, taskId, viewer, refresh])
   return labels
 }

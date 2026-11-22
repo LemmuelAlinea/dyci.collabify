@@ -128,3 +128,48 @@ it('counts what is unknown in the footer', async () => {
   await render()
   expect(document.body.textContent).toContain('3 tasks have no estimate · 1 person has no weekly hours set')
 })
+
+it('retries a row whose tasks failed to load', async () => {
+  vi.mocked(spacePersonTasks).mockRejectedValueOnce(new Error('offline'))
+  await render()
+  const toggle = () => document.querySelector<HTMLButtonElement>('[data-person="ana"] button[aria-expanded]')!
+  await act(async () => toggle().click())
+  await act(async () => {})
+  expect(document.body.textContent).toContain('Could not load these tasks.')
+  await act(async () => toggle().click())
+  await act(async () => toggle().click())
+  await act(async () => {})
+  expect(spacePersonTasks).toHaveBeenCalledTimes(2)
+  expect(document.body.textContent).toContain('Build the form')
+})
+
+it('shows no empty message while tasks load', async () => {
+  vi.mocked(spacePersonTasks).mockReturnValueOnce(new Promise(() => {}))
+  await render()
+  await act(async () => document.querySelector<HTMLButtonElement>('[data-person="ana"] button[aria-expanded]')!.click())
+  expect(document.body.textContent).not.toContain('No estimated work this week.')
+  expect(document.body.textContent).toContain('Loading')
+})
+
+it('loads the open row again for a new week', async () => {
+  await render()
+  await act(async () => document.querySelector<HTMLButtonElement>('[data-person="ana"] button[aria-expanded]')!.click())
+  await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Next week"]')!.click())
+  await act(async () => {})
+  expect(spacePersonTasks).toHaveBeenLastCalledWith('s1', 'ana', '2026-11-30', '2026-12-04')
+})
+
+it('keeps each space apart', async () => {
+  const { useNavigate } = await import('react-router-dom')
+  function Go() { const go = useNavigate(); return <button type="button" onClick={() => go('/spaces/s2/workload')}>Go</button> }
+  await act(async () => root.render(
+    <MemoryRouter initialEntries={['/spaces/s1/workload']}>
+      <Go />
+      <Routes><Route path="/spaces/:spaceId/workload" element={<SpaceWorkload />} /></Routes>
+    </MemoryRouter>,
+  ))
+  await act(async () => {})
+  await act(async () => [...document.querySelectorAll('button')].find((b) => b.textContent === 'Go')!.click())
+  await act(async () => {})
+  expect(spacePeopleLoad).toHaveBeenCalledWith('s2', '2026-11-23', '2026-11-27')
+})
