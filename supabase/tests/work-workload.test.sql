@@ -652,4 +652,251 @@ begin
     (public.general_breakdown_context(sub, w_from, w_to) ->> 'blocked') like 'This is a subtask%');
 end $$;
 
+------------------------------------------------------------ apply a breakdown
+-- The defense fixture: A (Auth, 360 min load), B (UI, 240), C (Testing, 120),
+-- 960 a week each; seven rows owned A, B, C, A, B, C, C with five links.
+create or replace function pg_temp.load_of(p_space uuid, p_from date, p_to date, p_user uuid)
+returns int language sql as $$
+  select coalesce(sum(load_minutes), 0)::int
+    from public.general_space_people_load(p_space, p_from, p_to, array[p_user]);
+$$;
+
+create or replace function pg_temp.defense_rows(a uuid, b uuid, c uuid, p_space uuid, p_from date, p_to date)
+returns jsonb language plpgsql as $$
+declare
+  la int := pg_temp.load_of(p_space, p_from, p_to, a);
+  lb int := pg_temp.load_of(p_space, p_from, p_to, b);
+  lc int := pg_temp.load_of(p_space, p_from, p_to, c);
+begin
+  return jsonb_build_array(
+    jsonb_build_object('key', 'contract', 'title', 'Agree the API contract', 'description', 'Endpoints and errors',
+      'minutes', 120, 'owner', a, 'depends_on', '[]'::jsonb, 'starts_on', p_from, 'due_on', p_to, 'shown_load_minutes', la),
+    jsonb_build_object('key', 'page', 'title', 'Design the login page', 'description', '',
+      'minutes', 120, 'owner', b, 'depends_on', '[]'::jsonb, 'starts_on', p_from, 'due_on', p_to, 'shown_load_minutes', lb),
+    jsonb_build_object('key', 'cases', 'title', 'Write test cases', 'description', '',
+      'minutes', 180, 'owner', c, 'depends_on', '[]'::jsonb, 'starts_on', p_from, 'due_on', p_to, 'shown_load_minutes', lc),
+    jsonb_build_object('key', 'auth', 'title', 'Build sign-in', 'description', '',
+      'minutes', 360, 'owner', a, 'depends_on', '["contract"]'::jsonb, 'starts_on', p_from, 'due_on', p_to, 'shown_load_minutes', la),
+    jsonb_build_object('key', 'ui', 'title', 'Build the interface', 'description', '',
+      'minutes', 480, 'owner', b, 'depends_on', '["contract"]'::jsonb, 'starts_on', p_from, 'due_on', p_to, 'shown_load_minutes', lb),
+    jsonb_build_object('key', 'integration', 'title', 'Integrate', 'description', '',
+      'minutes', 240, 'owner', c, 'depends_on', '["auth", "ui"]'::jsonb, 'starts_on', p_from, 'due_on', p_to, 'shown_load_minutes', lc),
+    jsonb_build_object('key', 'e2e', 'title', 'End-to-end tests', 'description', '',
+      'minutes', 300, 'owner', c, 'depends_on', '["integration"]'::jsonb, 'starts_on', p_from, 'due_on', p_to, 'shown_load_minutes', lc));
+end $$;
+
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
+  -- 1 pm, 2 coordinator, 3 A (team lead), 4 B, 5 C (the team), 6 D (member on no team), 7 QA
+  names text[] := array['Pia', 'Cora', 'Ana', 'Ben', 'Carlo', 'Dina', 'Quinn'];
+  s uuid; p uuid; team uuid; par uuid; par2 uuid; t uuid; extra uuid;
+  v_today date := (now() at time zone 'Asia/Manila')::date;
+  v_mon date;
+  v_fri date;
+  v_start timestamptz;
+  v_due timestamptz;
+  v_sent timestamptz;
+  v_rows jsonb;
+  v_ids uuid[];
+  call text;
+begin
+  v_mon := v_today + (8 - extract(isodow from v_today)::int);
+  v_fri := v_mon + 4;
+  v_start := (v_mon + time '09:00') at time zone 'Asia/Manila';
+  v_due := (v_fri + time '17:00') at time zone 'Asia/Manila';
+
+  perform pg_temp.service();
+  for k in 1..7 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-ap-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-ap-'||k||'@example.test', names[k], 'Zz', 'member', 'active', false, k = 1)
+      on conflict(id) do update set first_name = excluded.first_name, role = excluded.role, status = 'active',
+        can_teach = excluded.can_teach, can_manage_projects = excluded.can_manage_projects;
+  end loop;
+
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz ap space', '')).id;
+  p := (public.create_general_project('Zz ap project', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  update public.general_projects set task_flow = 'planned', allow_subtasks = true, allow_dependencies = true
+   where id = p;
+  insert into public.general_space_members(space_id, user_id, role) values
+    (s, u[2], 'coordinator'), (s, u[3], 'member'), (s, u[4], 'member'), (s, u[5], 'member'),
+    (s, u[6], 'member'), (s, u[7], 'qa');
+  insert into public.general_members(project_id, user_id, role) values
+    (p, u[2], 'coordinator'), (p, u[3], 'member'), (p, u[4], 'member'), (p, u[5], 'member'),
+    (p, u[6], 'member'), (p, u[7], 'qa');
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values
+    (s, u[3], 960), (s, u[4], 960), (s, u[5], 960), (s, u[6], 960);
+  insert into public.general_teams(project_id, name) values (p, 'Zz ap team') returning id into team;
+  insert into public.general_team_members(project_id, team_id, user_id) values
+    (p, team, u[3]), (p, team, u[4]), (p, team, u[5]);
+  update public.general_teams set leader_id = u[3] where id = team;
+
+  -- Existing load: A 360, B 240, C 120.
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz ap A load', 'released', u[1], 360, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[3], u[1]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz ap B load', 'released', u[1], 240, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[4], u[1]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz ap C load', 'released', u[1], 120, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[5], u[1]);
+
+  -- The parent: released to the team, held by A.
+  insert into public.general_tasks(project_id, title, description, team_id, routing_state, sent_at, created_by)
+    values(p, 'Zz ap login', 'Develop the login module', team, 'released', now() - interval '1 day', u[1])
+    returning id into par;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(par, p, u[3], u[1]);
+  select sent_at into v_sent from public.general_tasks where id = par;
+
+  perform pg_temp.act_as(u[1]);
+  v_rows := pg_temp.defense_rows(u[3], u[4], u[5], s, v_mon, v_fri);
+  perform pg_temp.check('defense loads as shown',
+    (v_rows -> 0 ->> 'shown_load_minutes')::int = 360 and (v_rows -> 1 ->> 'shown_load_minutes')::int = 240
+    and (v_rows -> 2 ->> 'shown_load_minutes')::int = 120);
+  call := format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri, v_rows);
+
+  -- Refusals save nothing.
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.refuse('member refused', call, 'Only the project manager or coordinators break down tasks.');
+
+  perform pg_temp.service();
+  delete from public.general_team_members where team_id = team and user_id = u[5];
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('owner left team', call, 'Carlo can no longer take tasks from this team. Review again.');
+  perform pg_temp.service();
+  perform pg_temp.check('owner left team saves nothing',
+    (select count(*) = 0 from public.general_tasks where parent_id = par));
+  insert into public.general_team_members(project_id, team_id, user_id) values (p, team, u[5]);
+
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz ap A extra', 'released', u[1], 60, v_start, v_due) returning id into extra;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(extra, p, u[3], u[1]);
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('load rose refused', call, 'Ana''s work changed since you reviewed it. Review again.');
+  perform pg_temp.service();
+  perform pg_temp.check('load rose saves nothing',
+    (select count(*) = 0 from public.general_tasks where parent_id = par));
+  update public.general_tasks set archived_at = now(), archived_by = u[1] where id = extra;
+
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('bad link rolls back',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri,
+      jsonb_set(v_rows, '{6,depends_on}', '["nope"]'::jsonb)),
+    '"End-to-end tests" depends on "nope", which isn''t in the plan.');
+  perform pg_temp.refuse('cycle refused',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri,
+      jsonb_set(v_rows, '{0,depends_on}', '["e2e"]'::jsonb)),
+    'is part of a circular dependency.');
+  perform pg_temp.refuse('self link refused',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri,
+      jsonb_set(v_rows, '{1,depends_on}', '["page"]'::jsonb)),
+    '"Design the login page" depends on itself.');
+  perform pg_temp.refuse('duplicate key refused',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri,
+      jsonb_set(v_rows, '{1,key}', '"contract"'::jsonb)),
+    'reuses the key "contract".');
+  perform pg_temp.refuse('minutes out of range refused',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri,
+      jsonb_set(v_rows, '{2,minutes}', '4801'::jsonb)),
+    '"Write test cases" needs an estimate from 15 minutes to 80 hours.');
+  perform pg_temp.refuse('one row refused',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri,
+      jsonb_build_array(v_rows -> 1)),
+    'A breakdown needs 2 to 12 subtasks; this one has 1.');
+  perform pg_temp.refuse('QA owner refused',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par, v_mon, v_fri,
+      jsonb_set(v_rows, '{1,owner}', to_jsonb(u[7]))),
+    'Quinn can no longer take tasks from this team. Review again.');
+  perform pg_temp.service();
+  perform pg_temp.check('bad plans save nothing',
+    (select count(*) = 0 from public.general_tasks where parent_id = par));
+
+  update public.general_projects set allow_subtasks = false where id = p;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('subtasks off refused', call, 'The task changed since you reviewed it. Review again.');
+  perform pg_temp.service();
+  update public.general_projects set allow_subtasks = true where id = p;
+
+  -- The plan saves whole.
+  perform pg_temp.act_as(u[1]);
+  v_ids := public.apply_work_breakdown(par, v_mon, v_fri, v_rows);
+  perform pg_temp.service();
+  perform pg_temp.check('apply creates all',
+    cardinality(v_ids) = 7
+    and (select count(*) = 7 from public.general_tasks where parent_id = par)
+    and (select array_agg(g.title order by x.n) from unnest(v_ids) with ordinality x(id, n)
+           join public.general_tasks g on g.id = x.id)
+        = array['Agree the API contract', 'Design the login page', 'Write test cases', 'Build sign-in',
+                'Build the interface', 'Integrate', 'End-to-end tests']
+    and (select count(*) = 7 from public.general_task_assignees where task_id = any(v_ids))
+    and (select array_agg(a.user_id order by x.n) from unnest(v_ids) with ordinality x(id, n)
+           join public.general_task_assignees a on a.task_id = x.id)
+        = array[u[3], u[4], u[5], u[3], u[4], u[5], u[5]]
+    and (select count(*) = 5 from public.general_task_dependencies where task_id = any(v_ids))
+    and exists (select 1 from public.general_task_dependencies where task_id = v_ids[4] and depends_on_id = v_ids[1])
+    and exists (select 1 from public.general_task_dependencies where task_id = v_ids[6] and depends_on_id = v_ids[4])
+    and exists (select 1 from public.general_task_dependencies where task_id = v_ids[6] and depends_on_id = v_ids[5])
+    and exists (select 1 from public.general_task_dependencies where task_id = v_ids[7] and depends_on_id = v_ids[6])
+    and (select array_agg(g.estimated_minutes order by x.n) from unnest(v_ids) with ordinality x(id, n)
+           join public.general_tasks g on g.id = x.id)
+        = array[120, 120, 180, 360, 480, 240, 300]
+    and (select bool_and(g.starts_at = (v_mon + time '00:00') at time zone 'Asia/Manila'
+                         and g.due_at = (v_fri + time '23:59') at time zone 'Asia/Manila'
+                         and g.team_id = team and g.routing_state = 'released')
+           from public.general_tasks g where g.id = any(v_ids))
+    and (select g.description = 'Endpoints and errors' from public.general_tasks g where g.id = v_ids[1])
+    and (select array_agg(a.user_id) = array[u[3]] from public.general_task_assignees a where a.task_id = par)
+    and (select g.team_id = team and g.routing_state = 'released' and g.sent_at = v_sent
+           from public.general_tasks g where g.id = par));
+  perform pg_temp.check('planned flow apply assigns directly',
+    (select bool_and(a.assigned_by = u[1]) from public.general_task_assignees a where a.task_id = any(v_ids))
+    and (select count(*) = 7 from public.general_task_events e
+          where e.task_id = any(v_ids) and e.kind = 'assigned' and e.actor_id = u[1])
+    and (select count(*) = 7 from public.general_task_events e
+          where e.task_id = any(v_ids) and e.kind = 'updated' and e.actor_id = u[1]
+            and e.detail -> 'fields' = '["estimated_minutes"]'::jsonb)
+    and (select count(*) = 2 from public.notifications n
+          where n.user_id = u[4] and n.type = 'general_task_assigned' and n.general_task_id = any(v_ids)));
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('subtasks count in the load',
+    pg_temp.load_of(s, v_mon, v_fri, u[5]) = 120 + 180 + 240 + 300);
+  perform pg_temp.refuse('second apply refused', call, 'This task already has subtasks. Reload it to see them.');
+  perform pg_temp.service();
+  perform pg_temp.check('second apply saves nothing',
+    (select count(*) = 7 from public.general_tasks where parent_id = par));
+
+  -- Open flow: anyone on the project who can hold tasks, applied by a coordinator.
+  update public.general_projects set task_flow = 'open' where id = p;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+    values(p, 'Zz ap open parent', 'released', now(), u[1]) returning id into par2;
+  perform pg_temp.act_as(u[2]);
+  v_ids := public.apply_work_breakdown(par2, v_mon, v_fri, jsonb_build_array(
+    jsonb_build_object('key', 'a', 'title', 'Open first', 'minutes', 60, 'owner', u[6],
+      'depends_on', '[]'::jsonb, 'starts_on', v_mon, 'due_on', v_mon,
+      'shown_load_minutes', pg_temp.load_of(s, v_mon, v_fri, u[6])),
+    jsonb_build_object('key', 'b', 'title', 'Open second', 'minutes', 90, 'owner', u[4],
+      'depends_on', '["a"]'::jsonb, 'starts_on', v_mon + 1, 'due_on', v_fri,
+      'shown_load_minutes', pg_temp.load_of(s, v_mon, v_fri, u[4])),
+    jsonb_build_object('key', 'c', 'title', 'Open unassigned', 'minutes', 30, 'owner', null,
+      'depends_on', '[]'::jsonb, 'starts_on', v_mon, 'due_on', v_fri, 'shown_load_minutes', null)));
+  perform pg_temp.service();
+  perform pg_temp.check('open flow apply',
+    cardinality(v_ids) = 3
+    and (select count(*) = 3 from public.general_tasks where parent_id = par2)
+    and (select array_agg(a.user_id order by x.n) from unnest(v_ids) with ordinality x(id, n)
+           join public.general_task_assignees a on a.task_id = x.id) = array[u[6], u[4]]
+    and not exists (select 1 from public.general_task_assignees where task_id = v_ids[3])
+    and exists (select 1 from public.general_task_dependencies where task_id = v_ids[2] and depends_on_id = v_ids[1])
+    and (select starts_at = ((v_mon + 1) + time '00:00') at time zone 'Asia/Manila'
+           from public.general_tasks where id = v_ids[2])
+    and (select bool_and(assigned_by = u[2]) from public.general_task_assignees where task_id = any(v_ids)));
+end $$;
+
 rollback;
