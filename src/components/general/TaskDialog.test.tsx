@@ -312,3 +312,37 @@ it('saves an estimate that is not a quarter-hour multiple', async () => {
     expect(setTaskEstimate).toHaveBeenCalledWith('task', 66)
   } finally { await act(async () => root.unmount()); container.remove() }
 })
+
+it('entry hidden for members', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  const entry = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent?.trim() === 'Break down and balance')
+  try {
+    const only = (over: Record<string, unknown>) => { const s = workState(over); return { ...s, project: { ...s.project!, space_id: 's' }, tasks: [s.tasks[0]] } as GeneralProjectState }
+    await act(async () => root.render(<TaskDialog state={only({ viewerId: 'worker', myRole: 'member' })} taskId="main" onClose={vi.fn()} />))
+    expect(entry()).toBeUndefined()
+    await act(async () => root.render(<TaskDialog state={only({})} taskId="main" onClose={vi.fn()} />))
+    expect(entry()).toBeDefined()
+    expect(entry()!.disabled).toBe(false)
+    await act(async () => root.render(<TaskDialog state={only({ myRole: 'coordinator' })} taskId="main" onClose={vi.fn()} />))
+    expect(entry()).toBeDefined()
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('entry explains blocked parent', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  const entry = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent?.trim() === 'Break down and balance')
+  try {
+    const s = workState()
+    const planning = { ...s, project: { ...s.project!, space_id: 's', taskFlow: 'planned' }, tasks: [{ ...s.tasks[0], routing_state: 'planning', assignee_ids: [] }] } as GeneralProjectState
+    await act(async () => root.render(<TaskDialog state={planning} taskId="main" onClose={vi.fn()} />))
+    expect(entry()!.disabled).toBe(true)
+    expect(document.body.textContent).toContain('Send it to a team in Plan & route first.')
+    // A parent already split says so.
+    await act(async () => root.render(<TaskDialog state={{ ...s, project: { ...s.project!, space_id: 's' } } as GeneralProjectState} taskId="main" onClose={vi.fn()} />))
+    expect(entry()!.disabled).toBe(true)
+    expect(document.body.textContent).toContain('This task already has subtasks.')
+    // A subtask offers nothing.
+    await act(async () => root.render(<TaskDialog state={{ ...s, project: { ...s.project!, space_id: 's' } } as GeneralProjectState} taskId="sub" onClose={vi.fn()} />))
+    expect(entry()).toBeUndefined()
+  } finally { await act(async () => root.unmount()); container.remove() }
+})

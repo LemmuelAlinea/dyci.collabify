@@ -40,7 +40,7 @@ import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
 import { PRIORITIES } from '../../lib/general/types'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPriority } from '../../lib/general/types'
-import { blockersOf } from '../../lib/general/taskRules'
+import { blockersOf, DEFAULT_TASK_RULES, subtasksOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { formatHours, parseHours } from '../../lib/work/hours'
@@ -56,6 +56,7 @@ import { TaskDependencies } from './TaskDependencies'
 import { TaskAttachmentCard } from './TaskAttachmentCard'
 import { TaskDescription } from './TaskDescription'
 import { TaskSubtasks } from './TaskSubtasks'
+import { WorkloadPlanDialog } from './WorkloadPlanDialog'
 import { PersonBadge } from './RoleBadge'
 import type { GeneralProjectState } from './useGeneralProject'
 import { Linkify } from '../ui/Linkify'
@@ -225,6 +226,7 @@ function TaskBody({
   const [busy, setBusy] = useState(false)
   const [activity, setActivity] = useState<'comments' | 'history' | 'time'>('comments')
   const [attachmentsOpen, setAttachmentsOpen] = useState(true)
+  const [planning, setPlanning] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -287,6 +289,21 @@ function TaskBody({
     (state.myRole === 'qa' || state.myRole === 'pm') &&
     inQa(task, stagesOf(state.project.stages), state.project.qa_stage)
   const canAttach = !readOnly && (holds || state.can('edit_files'))
+  // Break down and balance: the project manager and coordinators, on a top-level
+  // work task. What the client can see is explained here; anything else
+  // (a team without an active lead) comes back from the dialog's context.
+  const canBreakDown = work && !readOnly && !task.parent_id && (state.myRole === 'pm' || state.myRole === 'coordinator')
+  const flow = state.project.taskFlow ?? 'planned'
+  const breakdownBlocked = task.archived_at ? 'This task is archived. Restore it to break it down.'
+    : task.status === 'done' ? 'This task is done. Reopen it to break it down.'
+    : !(state.project.taskRules ?? DEFAULT_TASK_RULES).allowSubtasks
+      ? 'Subtasks are off in this project. The project manager can turn them on in Settings, Tasks.'
+    : unsent ? (flow === 'planned'
+      ? 'This task is still in planning. Send it to a team in Plan & route first.'
+      : 'This task is still in planning. Send it from Plan & route, then break it down.')
+    : flow === 'planned' && !task.team_id ? 'This task has no receiving team. Send it to a team in Plan & route first.'
+    : subtasksOf(state.tasks, task.id).length > 0 ? 'This task already has subtasks. A task is broken down only once.'
+    : null
   /**
    * One write at a time. A second press would match a row the first already
    * removed, and a write that changes nothing comes back as a refusal.
@@ -396,6 +413,37 @@ function TaskBody({
         onSaved={load}
         people={people}
       >
+        {canBreakDown && (
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line surface-sunken px-4 py-3">
+            <p id={`breakdown-${task.id}`} className="min-w-0 flex-1 text-[13px] text-muted">
+              {breakdownBlocked ?? 'Draft subtasks and recommend owners from each person’s skills and hours. You review everything before it is saved.'}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={Boolean(breakdownBlocked)}
+              aria-describedby={`breakdown-${task.id}`}
+              onClick={() => setPlanning(true)}
+            >
+              <Icon name="spark" size={15} />
+              Break down and balance
+            </Button>
+          </section>
+        )}
+        {planning && (
+          <WorkloadPlanDialog
+            parentId={task.id}
+            projectId={task.project_id}
+            spaceId={state.project.space_id}
+            parentEstimateMinutes={task.estimated_minutes ?? null}
+            onClose={() => setPlanning(false)}
+            onSaved={(ids) => {
+              setPlanning(false)
+              show(ids.length === 1 ? '1 subtask created' : `${ids.length} subtasks created`)
+              void Promise.all([state.reload(), load()])
+            }}
+          />
+        )}
         <TaskSubtasks state={state} task={task} busy={busy} act={act} onOpenTask={onOpenTask} />
         <TaskDependencies state={state} task={task} busy={busy} act={act} />
 

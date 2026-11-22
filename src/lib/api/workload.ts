@@ -71,3 +71,83 @@ export async function spacePeopleHours(
   if (error) throw error
   return (data ?? []) as PeopleHours[]
 }
+
+/** What `general_breakdown_context` answers about a parent task. Planners only. */
+export type BreakdownContext = {
+  parent: {
+    id: string
+    project_id: string
+    title: string
+    description: string
+    task_flow: 'planned' | 'open'
+    team_id: string | null
+    routing_state: string
+    starts_at: string | null
+    due_at: string | null
+    has_subtasks: boolean
+    allow_subtasks: boolean
+    allow_dependencies: boolean
+    holder_ids: string[]
+  }
+  /** Why the parent cannot be broken down, or null. */
+  blocked: string | null
+  positions: { id: string; name: string }[]
+  tags: string[]
+  candidates: { user_id: string; name: string; tags: string[]; position_ids: string[] }[]
+}
+
+/** The parent task, the project's labels and who may take its subtasks. `from` and `to` are YYYY-MM-DD. */
+export async function breakdownContext(parentId: string, from: string, to: string): Promise<BreakdownContext> {
+  const { data, error } = await supabase.rpc('general_breakdown_context', { p_parent: parentId, p_from: from, p_to: to })
+  if (error) throw error
+  return data as BreakdownContext
+}
+
+/**
+ * One person's load in a window, per project they may see by name (null: the
+ * rest of the space, as one total). Tasks without an estimate are counted in
+ * `unestimated`, never as minutes.
+ */
+export type PeopleLoad = { user_id: string; project_id: string | null; load_minutes: number; unestimated: number }
+
+export async function spacePeopleLoad(
+  spaceId: string,
+  from: string,
+  to: string,
+  users?: string[],
+): Promise<PeopleLoad[]> {
+  const { data, error } = await supabase.rpc('general_space_people_load', {
+    p_space: spaceId,
+    p_from: from,
+    p_to: to,
+    p_users: users ?? null,
+  })
+  if (error) throw error
+  return (data ?? []) as PeopleLoad[]
+}
+
+/** One reviewed subtask as `apply_work_breakdown` takes it. */
+export type ApplyRow = {
+  key: string
+  title: string
+  description: string
+  minutes: number
+  owner: string | null
+  depends_on: string[]
+  starts_on: string | null
+  due_on: string | null
+  /** The owner's load the review showed; the save is refused when it has risen since. */
+  shown_load_minutes: number | null
+}
+
+/** Saves an approved breakdown in one transaction; the new subtask ids in row order. */
+export async function applyBreakdown(parentId: string, from: string, to: string, rows: ApplyRow[]): Promise<string[]> {
+  const { data, error } = await supabase.rpc('apply_work_breakdown', {
+    p_parent: parentId,
+    p_from: from,
+    p_to: to,
+    p_rows: rows,
+  })
+  if (error) throw error
+  return (data ?? []) as string[]
+}
