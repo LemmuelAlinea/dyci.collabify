@@ -2,6 +2,7 @@
 import { formatDue } from './dates'
 import { ROLE_LABEL } from './permissions'
 import type { ProjectRole } from './permissions'
+import { formatHours } from '../work/hours'
 import { TASK_STATUSES } from './progress'
 import type { GeneralTaskStatus } from './progress'
 import type { GeneralTaskEvent } from './types'
@@ -15,6 +16,7 @@ const FIELD_WORDS: Record<string, string> = {
   team_id: 'team',
   sprint_id: 'sprint',
   weight: 'points',
+  estimated_minutes: 'estimate',
 }
 
 function listOf(words: string[]) {
@@ -123,6 +125,12 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
         }
         if (fields[0] === 'weight' && d.weight_to !== undefined) {
           return `${actor} changed the points from ${d.weight_from} to ${d.weight_to}`
+        }
+        if (fields[0] === 'estimated_minutes' && d.estimate_to !== undefined) {
+          if (d.estimate_to === null) return `${actor} took the estimate off`
+          return d.estimate_from != null
+            ? `${actor} changed the estimate from ${formatHours(d.estimate_from)} to ${formatHours(d.estimate_to)}`
+            : `${actor} set the estimate to ${formatHours(d.estimate_to)}`
         }
       }
 

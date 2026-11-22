@@ -1355,7 +1355,6 @@ export async function listDependencies(projectId: string): Promise<TaskDependenc
 }
 
 export type TaskPatch = Partial<{
-  estimated_minutes: number | null
   title: string
   description: string
   status: GeneralTaskStatus

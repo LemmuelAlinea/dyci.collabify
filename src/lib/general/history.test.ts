@@ -43,6 +43,13 @@ describe('describeEvent', () => {
     expect(describeActivity(row('b'))).toBe('Ana Reyes sent "Design" to a planner')
     expect(describeActivity(row('a'))).toBe('Ana Reyes took on "Design"')
   })
+  it('names an estimate change', () => {
+    const line = (from: number | null, to: number | null) =>
+      describeEvent(event({ kind: 'updated', detail: { fields: ['estimated_minutes'], estimate_from: from, estimate_to: to } }), nameOf)
+    expect(line(null, 360)).toBe('Ana Reyes set the estimate to 6 h')
+    expect(line(360, 480)).toBe('Ana Reyes changed the estimate from 6 h to 8 h')
+    expect(line(360, null)).toBe('Ana Reyes took the estimate off')
+  })
   it('names who created the task', () => {
     expect(describeEvent(event({}), nameOf)).toBe('Ana Reyes created this task')
   })

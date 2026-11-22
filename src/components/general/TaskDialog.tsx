@@ -27,6 +27,7 @@ import {
   setTaskHolders,
   unassignTask,
   updateTask,
+  type TaskPatch,
   uploadTaskFile,
 } from '../../lib/api/general'
 import { trashTaskFile } from '../../lib/api/trash'
@@ -42,6 +43,8 @@ import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPri
 import { blockersOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
+import { formatHours, parseHours } from '../../lib/work/hours'
+import { setTaskEstimate } from '../../lib/api/workload'
 import { assignableTo, canCommentTask, canEditTask, canSetHolders, canUnassign, holderCandidates, keepsCreatorRights } from '../../lib/general/permissions'
 import type { TaskViewer } from '../../lib/general/permissions'
 import { QaActions } from '../work/QaActions'
@@ -601,7 +604,7 @@ function TaskDetails({
     setStarts(toLocalInput(task.starts_at))
     setTeam(task.team_id ?? '')
     setPriority(task.priority ?? 'normal')
-    setEstimate(task.estimated_minutes == null ? '' : String(task.estimated_minutes))
+    setEstimate(task.estimated_minutes == null ? '' : String(Math.round((task.estimated_minutes / 60) * 100) / 100))
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task || !state.project) return null
@@ -611,7 +614,8 @@ function TaskDetails({
   // Priority is for work projects; a task that waits for an open task can't take the last stage.
   const work = !state.project.class_board_id
   const hasEstimateField = work && task.estimated_minutes !== undefined
-  const canEstimate = hasEstimateField && canEdit && (state.myRole === 'pm' || state.myRole === 'coordinator')
+  const holdsTask = Boolean(state.viewerId && task.assignee_ids.includes(state.viewerId))
+  const canEstimate = hasEstimateField && !state.readOnly && (state.myRole === 'pm' || state.myRole === 'coordinator' || holdsTask)
   const waiting = blockersOf(state.dependencies ?? [], state.tasks, task.id).length > 0
   const mobileDetails = (
     <button
@@ -652,7 +656,7 @@ function TaskDetails({
               </div>
               <div><dt className="text-[12px] text-faint">Team</dt><dd className="text-ink">{teamName ?? 'Whole project'}</dd></div>
               <div><dt className="text-[12px] text-faint">Time logged</dt><dd className="text-ink">{formatMinutes(task.logged_minutes ?? 0)}</dd></div>
-              {hasEstimateField && <div><dt className="text-[12px] text-faint">Estimated effort</dt><dd className="text-ink">{task.estimated_minutes == null ? 'Not set' : formatMinutes(task.estimated_minutes)}</dd></div>}
+              {hasEstimateField && <div><dt className="text-[12px] text-faint">Estimated effort</dt><dd className="text-ink">{task.estimated_minutes == null ? 'Not set' : formatHours(task.estimated_minutes)}</dd></div>}
               </dl>
               {!state.readOnly && (
               <p className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-muted">
@@ -672,22 +676,22 @@ function TaskDetails({
     if (!task || saving) return
     setError(null)
     if (canEdit && !title.trim()) return setError('A task needs a title.')
-    const estimatedMinutes = estimate.trim() === '' ? null : Number(estimate)
-    if (canEstimate && estimatedMinutes !== null &&
-      (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 2147483647))
-      return setError('Enter estimated effort in whole minutes.')
+    const estimatedMinutes = parseHours(estimate)
+    if (canEstimate && estimatedMinutes === 'invalid') return setError('Enter the estimate in hours, up to 1000.')
+    const estimateChanged = canEstimate && estimatedMinutes !== 'invalid' && estimatedMinutes !== (task.estimated_minutes ?? null)
     const startsAt = fromLocalInput(starts)
     const dueAt = fromLocalInput(due)
     if (canEditSchedule && startsAt && dueAt && startsAt > dueAt)
       return setError('A task cannot start after it is due. Move one of the two dates.')
     setSaving(true)
     try {
-      await updateTask(task.id, {
-        ...(canEstimate && estimatedMinutes !== (task.estimated_minutes ?? null) ? { estimated_minutes: estimatedMinutes } : {}),
+      const fieldPatch: TaskPatch = {
         ...(canEdit ? { title: title.trim(), status: statusForStage(stage, stages.length) as GeneralTaskStatus, stage, team_id: team || null } : {}),
         ...(canEdit && work && priority !== (task.priority ?? 'normal') ? { priority } : {}),
         ...(canEditSchedule ? { description, due_at: dueAt, starts_at: startsAt } : {}),
-      })
+      }
+      if (Object.keys(fieldPatch).length > 0) await updateTask(task.id, fieldPatch)
+      if (estimateChanged) await setTaskEstimate(task.id, estimatedMinutes as number | null)
       show('Task saved')
       await Promise.all([state.reload(), onSaved()])
     } catch (err) {
@@ -767,11 +771,11 @@ function TaskDetails({
             </Field>
             </div>
             {canEstimate ? (
-              <Field label="Estimated effort (minutes)">
-                {(id) => <Input id={id} type="number" min={1} max={2147483647} step={1} value={estimate} onChange={(e) => setEstimate(e.target.value)} />}
+              <Field label="Estimated effort (hours)" optional>
+                {(id) => <Input id={id} type="number" min={0.25} max={1000} step={0.25} value={estimate} onChange={(e) => setEstimate(e.target.value)} />}
               </Field>
             ) : hasEstimateField && (
-              <p className="mt-4 text-[13px] text-muted">Estimated effort: {task.estimated_minutes == null ? 'Not set' : formatMinutes(task.estimated_minutes)}</p>
+              <p className="mt-4 text-[13px] text-muted">Estimated effort: {task.estimated_minutes == null ? 'Not set' : formatHours(task.estimated_minutes)}</p>
             )}
             <p className="mt-4 flex items-center justify-between border-t border-line pt-4 text-[13px]">
             <span className="text-muted">Time logged</span>

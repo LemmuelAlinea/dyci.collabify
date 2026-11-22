@@ -452,6 +452,8 @@ export type GeneralTaskEvent = {
     starts_to?: string | null
     weight_from?: number
     weight_to?: number
+    estimate_from?: number | null
+    estimate_to?: number | null
     /** What QA asked to have fixed, on a qa_sent_back event. */
     note?: string
     reason?: string
