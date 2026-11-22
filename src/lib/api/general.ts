@@ -1102,23 +1102,17 @@ export async function clearFieldValue(fieldId: string) {
 const EXTRAS_CHUNK = 100
 
 /**
- * Adds priority and parent_id to rows from general_task_overview, which
- * doesn't carry them. One extra query per EXTRAS_CHUNK tasks, never one per task.
+ * Adds priority, parent_id and estimated_minutes to rows from general_task_overview,
+ * which doesn't carry them. One extra query per EXTRAS_CHUNK tasks, never one per task.
  */
 async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
   const tasks = (rows ?? []) as GeneralTask[]
   if (tasks.length === 0) return tasks
   const chunks: string[][] = []
   for (let i = 0; i < tasks.length; i += EXTRAS_CHUNK) chunks.push(tasks.slice(i, i + EXTRAS_CHUNK).map((t) => t.id))
-  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null; estimated_minutes?: number | null }>()
+  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null; estimated_minutes: number | null }>()
   const results = await Promise.all(
-    chunks.map(async (ids) => {
-      const result = await supabase.from('general_tasks').select('id, priority, parent_id, estimated_minutes').in('id', ids)
-      if (result.error?.code === '42703' && result.error.message.includes('estimated_minutes')) {
-        return supabase.from('general_tasks').select('id, priority, parent_id').in('id', ids)
-      }
-      return result
-    }),
+    chunks.map((ids) => supabase.from('general_tasks').select('id, priority, parent_id, estimated_minutes').in('id', ids)),
   )
   for (const { data, error } of results) {
     if (error) throw error
@@ -1128,7 +1122,7 @@ async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
     ...t,
     priority: extras.get(t.id)?.priority ?? 'normal',
     parent_id: extras.get(t.id)?.parent_id ?? null,
-    estimated_minutes: extras.get(t.id)?.estimated_minutes,
+    estimated_minutes: extras.get(t.id)?.estimated_minutes ?? null,
   }))
 }
 

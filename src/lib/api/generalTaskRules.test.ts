@@ -68,7 +68,7 @@ const NOTIFICATION_RULES =
   'general_projects:sprint_end_reminder_days, task_overdue_alerts, milestone_due_reminder_days, task_assignment_notices, sprint_completion_notices'
 const TASK_FLOW = 'general_projects:task_flow'
 const TASKS = 'general_task_overview:*'
-const EXTRAS = 'general_tasks:id, priority, parent_id'
+const EXTRAS = 'general_tasks:id, priority, parent_id, estimated_minutes'
 const DEPS = 'general_task_dependencies:task_id, depends_on_id'
 
 beforeEach(() => {
@@ -268,19 +268,19 @@ describe('task priority and parent side read', () => {
     { id: 't2', title: 'Two' },
   ]
 
-  it('merges priority and parent_id into every task', async () => {
+  it('merges priority, parent_id and the estimate into every task', async () => {
     results.set(TASKS, { data: rows, error: null })
     results.set(EXTRAS, {
       data: [
-        { id: 't1', priority: 'urgent', parent_id: null },
-        { id: 't2', priority: 'low', parent_id: 't1' },
+        { id: 't1', priority: 'urgent', parent_id: null, estimated_minutes: 90 },
+        { id: 't2', priority: 'low', parent_id: 't1', estimated_minutes: null },
       ],
       error: null,
     })
     const tasks = await listTasks('p1')
     expect(tasks).toMatchObject([
-      { id: 't1', title: 'One', priority: 'urgent', parent_id: null },
-      { id: 't2', title: 'Two', priority: 'low', parent_id: 't1' },
+      { id: 't1', title: 'One', priority: 'urgent', parent_id: null, estimated_minutes: 90 },
+      { id: 't2', title: 'Two', priority: 'low', parent_id: 't1', estimated_minutes: null },
     ])
   })
 
@@ -300,15 +300,23 @@ describe('task priority and parent side read', () => {
 
   it('defaults a task the side read did not return', async () => {
     results.set(TASKS, { data: rows, error: null })
-    results.set(EXTRAS, { data: [{ id: 't1', priority: 'high', parent_id: null }], error: null })
+    results.set(EXTRAS, { data: [{ id: 't1', priority: 'high', parent_id: null, estimated_minutes: 60 }], error: null })
     const tasks = await listTasks('p1')
-    expect(tasks[1]).toMatchObject({ id: 't2', priority: 'normal', parent_id: null })
+    expect(tasks[1]).toMatchObject({ id: 't2', priority: 'normal', parent_id: null, estimated_minutes: null })
   })
 
   it('reports missing task columns', async () => {
     results.set(TASKS, { data: rows, error: null })
     results.set(EXTRAS, { data: null, error: missingColumn })
     await expect(listTasks('p1')).rejects.toBe(missingColumn)
+  })
+
+  it('reports a missing estimate column instead of reading without it', async () => {
+    const missingEstimate = { code: '42703', message: 'column general_tasks.estimated_minutes does not exist' }
+    results.set(TASKS, { data: rows, error: null })
+    results.set(EXTRAS, { data: null, error: missingEstimate })
+    await expect(listTasks('p1')).rejects.toBe(missingEstimate)
+    expect(calls.filter((c) => c.key.startsWith('general_tasks:'))).toHaveLength(1)
   })
 
   it('rethrows any other side read error', async () => {
