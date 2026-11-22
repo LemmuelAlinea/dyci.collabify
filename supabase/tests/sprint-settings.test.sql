@@ -100,6 +100,16 @@ begin
   perform pg_temp.must_be('the project manager can save sprint settings',
     (select length_days = 7 and updated_by = a and updated_at is not null
        from public.general_sprint_settings where project_id = p));
+  perform pg_temp.must_be('new settings use Stage and Stages',
+    (select term_singular = 'Stage' and term_plural = 'Stages'
+       from public.general_sprint_settings where project_id = p));
+  update public.general_sprint_settings
+     set term_singular = 'Phase', term_plural = 'Phases' where project_id = p;
+  perform pg_temp.must_be('renaming leaves the saved Sprint 1 and Sprint 2 names untouched',
+    (select count(*) from public.general_sprints
+      where project_id = p and name in ('Sprint 1', 'Sprint 2')) = 2);
+  perform pg_temp.must_refuse('a punctuation label is refused',
+    format('update public.general_sprint_settings set term_singular = %L where project_id = %L', 'Phase;', p));
 
   perform pg_temp.act_as(c);
   update public.general_sprint_settings set length_days = 10 where project_id = p;
@@ -115,6 +125,10 @@ begin
   select count(*) into n from u;
   perform pg_temp.must_be('a member cannot change sprint settings',
     n = 0 and (select length_days = 10 from public.general_sprint_settings where project_id = p));
+  with u as (update public.general_sprint_settings set term_plural = 'Steps' where project_id = p returning 1)
+  select count(*) into n from u;
+  perform pg_temp.must_be('a member cannot rename cycles',
+    n = 0 and (select term_plural = 'Phases' from public.general_sprint_settings where project_id = p));
   perform pg_temp.must_refuse('a member cannot upsert a settings row either',
     format('insert into public.general_sprint_settings (project_id) values (%L) on conflict (project_id) do update set auto_start = true', p));
 
@@ -438,20 +452,20 @@ begin
     (select state = 'completed' from public.general_sprints where id = s1)
     and (select count(*) = 2 from public.general_sprints where project_id = p)
     and exists (select 1 from public.general_sprints
-                 where project_id = p and name = 'Sprint 2' and state = 'planned'
+                 where project_id = p and name = 'Stage 2' and state = 'planned'
                    and starts_on = '2026-11-13' and ends_on = '2026-11-19'
                    and goal = '' and milestone_id is null));
   perform pg_temp.must_be('an automatic finish with carry backlog sends the create notice',
     (select count(*) = 1 from public.notifications
       where general_project_id = p and user_id = a and type = 'sprint_automation'
-        and title = 'Sprint 2 was created on its own'
+         and title = 'Stage 2 was created on its own'
         and preview = 'It runs Nov 13 to Nov 19, 2026.'));
   perform public.run_sprint_automation('2026-11-13 08:59 Asia/Manila', p);
   perform pg_temp.must_be('the created sprint waits for its day',
-    (select state = 'planned' from public.general_sprints where project_id = p and name = 'Sprint 2'));
+    (select state = 'planned' from public.general_sprints where project_id = p and name = 'Stage 2'));
   perform public.run_sprint_automation('2026-11-13 09:00 Asia/Manila', p);
   perform pg_temp.must_be('then starts it when its day comes',
-    (select state = 'active' from public.general_sprints where project_id = p and name = 'Sprint 2'));
+    (select state = 'active' from public.general_sprints where project_id = p and name = 'Stage 2'));
 
   p := pg_temp.team_project(a, c, m, 'Zz auto create too early');
   s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'completed');
@@ -487,7 +501,7 @@ begin
   perform public.run_sprint_automation(v_due, p);
   perform pg_temp.must_be('a sprint that starts on the due date is still created',
     exists (select 1 from public.general_sprints
-             where project_id = p and name = 'Sprint 2' and starts_on = '2026-11-13'));
+             where project_id = p and name = 'Stage 2' and starts_on = '2026-11-13'));
 
   p := pg_temp.team_project(a, c, m, 'Zz auto create after manual');
   s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
@@ -503,7 +517,7 @@ begin
   perform pg_temp.must_be('after a manual finish, the create notice is sent',
     (select count(*) = 1 from public.notifications
       where general_project_id = p and user_id = c and type = 'sprint_automation'
-        and title = 'Sprint 2 was created on its own'
+        and title = 'Stage 2 was created on its own'
         and preview = 'It runs Nov 13 to Nov 26, 2026.'));
   delete from public.general_sprints where project_id = p and state = 'planned';
   perform public.run_sprint_automation(v_due, p);
@@ -530,7 +544,7 @@ begin
   perform pg_temp.must_be('a created sprint that starts today starts in the same run',
     (select state = 'completed' from public.general_sprints where id = s1)
     and exists (select 1 from public.general_sprints s join public.general_tasks t on t.sprint_id = s.id
-                 where s.project_id = p and s.name = 'Sprint 2' and s.state = 'active'
+                 where s.project_id = p and s.name = 'Stage 2' and s.state = 'active'
                    and s.starts_on = '2026-11-11' and s.ends_on = '2026-11-24' and t.id = t1));
 
   select string_agg(name || ':' || state || ':' || starts_on, ',' order by name)
@@ -556,13 +570,13 @@ begin
           where general_project_id = p and type = 'sprint_automation' and user_id = c)
     and (select count(*) = 1 from public.notifications
           where general_project_id = p and type = 'sprint_automation' and user_id = a
-            and title = 'Sprint 1 finished on its own' and preview = '1 unfinished task moved to Sprint 2.')
+            and title = 'Sprint 1 finished on its own' and preview = '1 unfinished task moved to Stage 2.')
     and (select count(*) = 1 from public.notifications
           where general_project_id = p and type = 'sprint_automation' and user_id = a
-            and title = 'Sprint 2 was created on its own' and preview = 'It runs Nov 11 to Nov 24, 2026.')
+            and title = 'Stage 2 was created on its own' and preview = 'It runs Nov 11 to Nov 24, 2026.')
     and (select count(*) = 1 from public.notifications
           where general_project_id = p and type = 'sprint_automation' and user_id = a
-            and title = 'Sprint 2 started on its own'));
+             and title = 'Stage 2 started on its own'));
   perform pg_temp.must_be('members and inactive coordinators are not notified',
     not exists (select 1 from public.notifications
                  where general_project_id = p and type = 'sprint_automation' and user_id in (m, c2)));

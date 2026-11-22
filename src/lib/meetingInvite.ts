@@ -6,10 +6,10 @@
  * says what that was.
  */
 import { PLATFORM_LABEL, detectPlatform } from './meetings'
-import type { MeetingPlatform } from './meetings'
+import type { ExternalMeetingPlatform } from './meetings'
 
 export type MeetingInvite = {
-  platform: MeetingPlatform
+  platform: ExternalMeetingPlatform
   joinUrl: string
   /** Null when the invitation has none, Google's "(No title)" included. */
   title: string | null
@@ -245,7 +245,7 @@ export function readInvitation(text: string, nowMs = Date.now()): MeetingInvite 
 }
 
 /** "Google Meet meeting", for an invitation that names nothing. */
-export const untitledMeeting = (platform: MeetingPlatform) => `${PLATFORM_LABEL[platform]} meeting`
+export const untitledMeeting = (platform: ExternalMeetingPlatform) => `${PLATFORM_LABEL[platform]} meeting`
 
 /** What the person still has to look at after a paste. Start now makes the time moot. */
 export function inviteChecks(invite: MeetingInvite, startNow: boolean, nowMs = Date.now()) {

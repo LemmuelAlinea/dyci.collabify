@@ -6,6 +6,7 @@ import { TasksTab } from './TasksTab'
 import { QaQueue } from '../work/QaQueue'
 import { generalWorkItems } from './workSource'
 import type { GeneralProjectState } from './useGeneralProject'
+import { DEFAULT_SPRINT_SETTINGS } from '../../lib/work/sprintSettings'
 
 vi.stubGlobal('React', React)
 vi.mock('../../lib/supabase', () => ({ supabase: {} }))
@@ -23,6 +24,7 @@ vi.mock('../work/WorkGlance', () => ({ WorkGlance: () => null }))
 const state = {
   project: { id: 'p', class_board_id: null, starts_on: null, ends_on: null },
   viewerId: 'pm', can: () => true, members: [], teams: [], teamMembers: [], sprints: [], milestones: [], nameOf: (id: string) => id,
+  sprintSettings: DEFAULT_SPRINT_SETTINGS,
   tasks: [
     { id: 'live', title: 'Released', routing_state: 'released', status: 'todo', assignee_ids: [], logged_minutes: 0 },
     { id: 'private', title: 'Private plan', routing_state: 'planning', status: 'done', assignee_ids: ['pm'], logged_minutes: 120 },

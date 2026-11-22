@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { Field, Input } from '../ui/Field'
 import { Alert } from '../ui/Alert'
 import { Textarea } from '../ui/Select'
+import { Select } from '../ui/Select'
+import { PRIORITIES } from '../../lib/general/types'
 import type { TaskInput } from '../../lib/api/tasks'
 import type { ProjectTask } from '../../lib/types'
 
@@ -17,21 +19,29 @@ export function TaskForm({
   formId,
   defaults,
   showStart = false,
+  taskTypes = [],
+  defaultPriority = 'normal',
   error,
   onSubmit,
 }: {
   formId: string
   defaults?: Pick<ProjectTask, 'title' | 'details' | 'weight' | 'due_at'> & {
     starts_at?: string | null
+    task_type?: string
+    priority?: ProjectTask['priority']
   }
   /** Students' board only. */
   showStart?: boolean
+  taskTypes?: string[]
+  defaultPriority?: ProjectTask['priority']
   error?: string | null
   onSubmit: (input: TaskInput) => void
 }) {
   const [title, setTitle] = useState(defaults?.title ?? '')
   const [details, setDetails] = useState(defaults?.details ?? '')
   const [weight, setWeight] = useState(defaults?.weight ?? 1)
+  const [taskType, setTaskType] = useState(defaults?.task_type ?? 'Task')
+  const [priority, setPriority] = useState(defaults?.priority ?? defaultPriority)
   const [dueAt, setDueAt] = useState(toLocalInput(defaults?.due_at ?? null))
   const [startsAt, setStartsAt] = useState(toLocalInput(defaults?.starts_at ?? null))
   const [invalid, setInvalid] = useState<string | null>(null)
@@ -48,6 +58,8 @@ export function TaskForm({
       title,
       details,
       weight,
+      taskType,
+      priority,
       dueAt: dueIso,
       ...(showStart && { startsAt: startIso }),
     })
@@ -80,6 +92,14 @@ export function TaskForm({
           />
         )}
       </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Type">{(id) => <Select id={id} value={taskType} onChange={(e) => setTaskType(e.target.value)}
+          options={[{ value: 'Task', label: 'Task' }, ...[...new Set([...taskTypes, taskType])]
+            .filter((name) => name !== 'Task').map((name) => ({ value: name, label: name }))]} />}</Field>
+        <Field label="Priority">{(id) => <Select id={id} value={priority} onChange={(e) => setPriority(e.target.value as ProjectTask['priority'])}
+          options={PRIORITIES.map((option) => ({ value: option.value, label: option.label }))} />}</Field>
+      </div>
 
       {/* With a planned start, Weight sits on its own row so Starts and Due share one. */}
       <div className={showStart ? 'space-y-4' : 'grid gap-4 sm:grid-cols-2'}>

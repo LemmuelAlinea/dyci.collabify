@@ -12,6 +12,8 @@ export const paths = {
   tasks: '/tasks',
   calendar: '/calendar',
   meetings: '/meetings',
+  meetingStart: '/meetings/start',
+  meetingCall: (id: string) => `/meetings/${id}/call`,
   inbox: '/inbox',
   conversation: (id: string) => `/inbox/${id}`,
   settings: '/settings',

@@ -1,5 +1,6 @@
 import type { MilestoneCompletion } from '../general/milestoneRules'
 import type { SprintSettings } from './sprintSettings'
+import type { StageTerms } from './stageTerms'
 import type { WorkStatus } from './timeline'
 
 export type SprintState = 'planned' | 'active' | 'completed'
@@ -53,6 +54,7 @@ export type WorkItem = {
   teamId?: string | null
   /** A bug is a task QA raised. Work projects only; absent means a plain task. */
   kind?: 'task' | 'bug'
+  task_type?: string | null
   created_at: string
 }
 
@@ -69,6 +71,7 @@ export type WorkTeams = {
  * viewer may do, and how to do it. Every action reloads the space when done.
  */
 export type WorkSource = {
+  terms?: StageTerms
   items: WorkItem[]
   sprints: Sprint[]
   /** May create, edit, move and reorder. */
@@ -138,6 +141,7 @@ export type MilestoneGroup = { id: string; name: string; items: WorkItem[] }
 
 /** What a space hands the Milestones view. Every action reloads the space when done. */
 export type MilestoneSource = {
+  terms?: StageTerms
   milestones: Milestone[]
   /** The tasks this viewer can tag (empty for a professor, who reads `groups`). */
   items: WorkItem[]

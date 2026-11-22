@@ -54,7 +54,7 @@ describe('scope', () => {
 
   it('offers the running sprint first, then everything, the backlog and each other sprint by date', () => {
     expect(scopeOptions(all)).toEqual([
-      { value: 'running', label: 'Running sprint · Sprint 2' },
+      { value: 'running', label: 'Running stage · Sprint 2' },
       { value: 'all', label: 'All tasks' },
       { value: 'backlog', label: 'Backlog' },
       { value: 'sprint:f', label: 'Sprint 1 (finished)' },

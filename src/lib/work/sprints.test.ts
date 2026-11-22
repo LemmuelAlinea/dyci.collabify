@@ -108,7 +108,7 @@ describe('days left', () => {
 describe('nextSprintDraft', () => {
   it('starts today when there are no sprints', () => {
     expect(nextSprintDraft([], noon('2026-10-06'))).toEqual({
-      name: 'Sprint 1',
+      name: 'Stage 1',
       goal: '',
       startsOn: '2026-10-06',
       endsOn: '2026-10-19',
@@ -116,9 +116,14 @@ describe('nextSprintDraft', () => {
   })
   it('starts the day after the latest sprint ends', () => {
     const draft = nextSprintDraft([sprint(), sprint({ id: 's2', ends_on: '2026-11-01' })], noon('2026-10-06'))
-    expect(draft.name).toBe('Sprint 3')
+    expect(draft.name).toBe('Stage 3')
     expect(draft.startsOn).toBe('2026-11-02')
     expect(draft.endsOn).toBe('2026-11-15')
+  })
+  it('uses the new term without renaming saved historical cycles', () => {
+    const saved = [sprint({ name: 'Sprint 1', state: 'completed' }), sprint({ id: 's2', name: 'Sprint 2', state: 'completed' })]
+    expect(nextSprintDraft(saved, noon('2026-10-06'), DEFAULT_SPRINT_SETTINGS, undefined, 'Phase').name).toBe('Phase 3')
+    expect(saved.map((s) => s.name)).toEqual(['Sprint 1', 'Sprint 2'])
   })
   it('never starts in the past', () => {
     expect(nextSprintDraft([sprint({ ends_on: '2026-01-10' })], noon('2026-10-06')).startsOn).toBe('2026-10-06')
@@ -174,12 +179,12 @@ describe('sprintTimeline', () => {
 
   it('places today among kickoff, the milestones inside the sprint and its end', () => {
     expect(states([], '2026-10-07')).toEqual([
-      'Kickoff:done', 'Today:today', 'Requirements:upcoming', 'Approvals:upcoming', 'Sprint ends:upcoming',
+      'Kickoff:done', 'Today:today', 'Requirements:upcoming', 'Approvals:upcoming', 'Stage ends:upcoming',
     ])
     expect(nextCheckpoint(run([], '2026-10-07'))?.label).toBe('Requirements')
   })
   it('lets a checkpoint due today stand in for the Today marker', () => {
-    expect(states([], '2026-10-08')).toEqual(['Kickoff:done', 'Requirements:today', 'Approvals:upcoming', 'Sprint ends:upcoming'])
+    expect(states([], '2026-10-08')).toEqual(['Kickoff:done', 'Requirements:today', 'Approvals:upcoming', 'Stage ends:upcoming'])
     expect(nextCheckpoint(run([], '2026-10-08'))?.label).toBe('Requirements')
   })
   it('marks a passed milestone late until it is reached', () => {

@@ -7,6 +7,7 @@ import { ReassignRequestModal } from './ReassignRequestModal'
 import { TaskFileGrid } from './TaskFileGrid'
 import { TaskHistory } from './TaskHistory'
 import { WorkLogList } from './WorkLogList'
+import { TaskExtras } from './TaskExtras'
 import { useNow } from '../../../hooks/useNow'
 import { withdrawReassignment } from '../../../lib/api/reassignments'
 import { DEFAULT_STAGES, stageIndex, statusForStage } from '../../../lib/stages'
@@ -59,6 +60,7 @@ export function TaskDetailBody({
   viewerCanRequest = false,
   stages = DEFAULT_STAGES,
   onStatus,
+  onOpenTask,
   onChanged,
 }: {
   task: TaskDetail
@@ -78,6 +80,7 @@ export function TaskDetailBody({
   /** The project's progress stages. */
   stages?: readonly string[]
   onStatus: (status: TaskStatus, stage: number) => void
+  onOpenTask: (taskId: string) => void
   onChanged: () => Promise<void> | void
 }) {
   const [askOpen, setAskOpen] = useState(false)
@@ -160,6 +163,9 @@ export function TaskDetailBody({
             </p>
           )}
         </section>
+
+        <TaskExtras task={task} role={role} viewerId={viewerId} locked={locked}
+          onOpenTask={onOpenTask} onChanged={onChanged} />
 
         <section>
           <h3 className="text-[14px]">Comments</h3>

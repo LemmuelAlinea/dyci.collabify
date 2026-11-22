@@ -72,7 +72,7 @@ const NOTIFICATIONS: NotificationRow[] = [
   {
     key: 'deadline_reminders',
     label: () => 'Deadline reminders',
-    body: () => 'When a task you hold is due soon or overdue, and when draft files sit unsubmitted for three days. If you run a project, also when a sprint is about to end, a milestone is almost due or overdue, and when its tasks slip past their dates.',
+    body: () => 'When a task you hold is due soon or overdue, and when draft files sit unsubmitted for three days. If you run a project, also when a work cycle is about to end, a milestone is almost due or overdue, and when its tasks slip past their dates.',
     shown: inSomething,
   },
   {
@@ -95,8 +95,8 @@ const NOTIFICATIONS: NotificationRow[] = [
     label: () => 'Project changes and discussions',
     body: (r) =>
       isStudent(r)
-        ? "When a class project's due date moves or it closes, someone starts a discussion, a sprint finishes, a work project you are on is archived or restored, or your role in a space or project changes."
-        : 'When someone starts a discussion, a sprint finishes, a work project you are on is archived or restored, or your role in a space or project changes.',
+        ? "When a class project's due date moves or it closes, someone starts a discussion, a work cycle finishes, a work project you are on is archived or restored, or your role in a space or project changes."
+        : 'When someone starts a discussion, a work cycle finishes, a work project you are on is archived or restored, or your role in a space or project changes.',
     shown: inSomething,
   },
   {

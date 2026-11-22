@@ -4,6 +4,7 @@ import { reachedIn } from '../../lib/work/milestones'
 import { nextCheckpoint, sprintTimeline, toDay } from '../../lib/work/sprints'
 import type { TimelineState } from '../../lib/work/sprints'
 import type { Milestone, Sprint, WorkItem } from '../../lib/work/types'
+import { stageText, type StageTerms } from '../../lib/work/stageTerms'
 import { Icon } from '../ui/Icon'
 
 function shortDay(day: string) {
@@ -50,15 +51,17 @@ export function SprintTimeline({
   milestones,
   items,
   completion,
+  terms,
 }: {
   sprint: Sprint
   milestones: readonly Milestone[]
   items: readonly WorkItem[]
   /** How milestones are reached; automatic when left out. */
   completion?: MilestoneCompletion
+  terms?: StageTerms
 }) {
   const now = useNow()
-  const points = sprintTimeline(sprint, milestones, reachedIn(items, completion), now)
+  const points = sprintTimeline(sprint, milestones, reachedIn(items, completion), now, terms?.singular)
   const next = nextCheckpoint(points)
   const n = points.length
   const today = toDay(now)
@@ -71,7 +74,7 @@ export function SprintTimeline({
       <ol
         className="relative grid"
         style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
-        aria-label={`Sprint timeline: ${points.map((p) => `${p.label}, ${shortDay(p.day)}, ${STATE_LABEL[p.state]}`).join('; ')}`}
+        aria-label={stageText(`Sprint timeline: ${points.map((p) => `${p.label}, ${shortDay(p.day)}, ${STATE_LABEL[p.state]}`).join('; ')}`, terms)}
       >
         <span aria-hidden className="absolute top-[12px] h-1 rounded-full bg-[var(--line-strong)]" style={{ left: inset, right: inset }}>
           <span className="block h-full rounded-full bg-progress" style={{ width: `${fill * 100}%` }} />
@@ -99,7 +102,7 @@ export function SprintTimeline({
             <span className="shrink-0 font-mono text-[12px] text-muted">{shortDay(next.day)}</span>
           </>
         ) : (
-          <span className="text-[12px] text-faint">Every checkpoint has passed. Finish the sprint to move on.</span>
+          <span className="text-[12px] text-faint">{stageText('Every checkpoint has passed. Finish the sprint to move on.', terms)}</span>
         )}
       </figcaption>
     </figure>

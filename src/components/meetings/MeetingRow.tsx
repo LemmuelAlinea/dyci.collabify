@@ -1,14 +1,21 @@
 import { PLATFORM_LABEL, audienceText, canJoin, meetingState, timeRange } from '../../lib/meetings'
 import type { Meeting } from '../../lib/meetings'
+import { Link } from 'react-router-dom'
+import { paths } from '../../lib/paths'
 import { ActionMenu } from '../ui/ActionMenu'
 import { buttonClass } from '../ui/buttonClass'
 import { Icon } from '../ui/Icon'
 
 /** The join link, as a button. Opens the meeting app in a new tab. */
 export function JoinLink({ meeting, size = 'sm' }: { meeting: Meeting; size?: 'sm' | 'md' }) {
+  if (meeting.platform === 'collabify') return (
+    <Link to={paths.meetingCall(meeting.id)} className={buttonClass({ variant: 'primary', size })}>
+      <Icon name="video" size={15} />Join
+    </Link>
+  )
   return (
     <a
-      href={meeting.join_url}
+      href={meeting.join_url ?? undefined}
       target="_blank"
       rel="noopener noreferrer"
       className={buttonClass({ variant: 'primary', size })}
@@ -73,8 +80,16 @@ export function MeetingRow({
           </span>
         )}
         {cancelled && <span className="font-mono text-[11px] text-faint">Cancelled</span>}
-        {canJoin(meeting, now) && <JoinLink meeting={meeting} />}
-        {meeting.can_manage && !cancelled && state !== 'ended' && (
+        {meeting.platform === 'collabify' && state === 'scheduled' && <span className="font-mono text-[11px] text-muted">Scheduled</span>}
+        {meeting.platform === 'collabify' && state === 'starting' && <span className="font-mono text-[11px] text-muted">Starting…</span>}
+        {meeting.platform === 'collabify' && state === 'ended' && <span className="font-mono text-[11px] text-muted">Ended</span>}
+        {meeting.platform === 'collabify' && meeting.can_start && (state === 'scheduled' || state === 'starting') && (
+          <Link to={paths.meetingCall(meeting.id)} className={buttonClass({ variant: 'primary', size: 'sm' })}>
+            {state === 'starting' ? 'Retry start' : 'Start'}
+          </Link>
+        )}
+        {canJoin(meeting, now) && (meeting.platform !== 'collabify' || meeting.can_join) && <JoinLink meeting={meeting} />}
+        {meeting.can_manage && !cancelled && state !== 'ended' && state !== 'starting' && state !== 'live' && (
           <ActionMenu
             label={`Actions for ${meeting.title}`}
             items={[

@@ -77,6 +77,10 @@ create table if not exists public.general_sprint_settings (
   constraint general_sprint_settings_finish_carry check (not (auto_finish and carry = 'ask'))
 );
 
+alter table public.general_sprint_settings
+  add column if not exists term_singular text not null default 'Stage',
+  add column if not exists term_plural text not null default 'Stages';
+
 -- The finished sprint run_sprint_automation last created a successor for, or
 -- decided not to (the start would pass the project due date). Written by the
 -- job only.
@@ -340,7 +344,7 @@ begin
         starts := public.general_next_sprint_start(cfg.project_id, today);
         if cfg.due_on is null or starts <= cfg.due_on then
           insert into public.general_sprints (project_id, name, starts_on, ends_on)
-          select cfg.project_id, 'Sprint ' || (count(*) + 1), starts, starts + cfg.length_days - 1
+          select cfg.project_id, cfg.term_singular || ' ' || (count(*) + 1), starts, starts + cfg.length_days - 1
             from public.general_sprints where project_id = cfg.project_id
           returning * into made;
           perform public.notify_sprint_automation(cfg.project_id,

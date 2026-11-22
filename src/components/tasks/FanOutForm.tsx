@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Alert } from '../ui/Alert'
 import { Icon } from '../ui/Icon'
@@ -8,6 +8,8 @@ import type { Tone } from '../ui/Toast'
 import { TaskForm } from './TaskForm'
 import { setOriginMilestone } from '../../lib/api/milestones'
 import { createProfessorTask, updateProfessorTask } from '../../lib/api/tasks'
+import { getClassTaskSettings } from '../../lib/api/projects'
+import type { ClassTaskSettings } from '../../lib/api/projects'
 import type { ProfessorTaskGroup, TaskInput } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import type { BoardSummary } from '../../lib/types'
@@ -49,6 +51,13 @@ export function FanOutForm({
   }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [settings, setSettings] = useState<ClassTaskSettings | null>(null)
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    getClassTaskSettings(projectId).then((value) => live && setSettings(value)).catch(() => live && setSettings(null))
+    return () => { live = false }
+  }, [projectId, open])
 
   /** Closing drops the form's picks, so a cancelled task leaves nothing behind. */
   function close() {
@@ -95,6 +104,8 @@ export function FanOutForm({
           details: input.details,
           weight: input.weight,
           dueAt: input.dueAt,
+          taskType: input.taskType,
+          priority: input.priority,
           boardId: target || null,
         })
         if (res.result !== 'created') {
@@ -179,7 +190,7 @@ export function FanOutForm({
         )}
 
         <TaskForm
-          key={editing?.origin_id ?? 'new'}
+          key={`${editing?.origin_id ?? 'new'}-${settings?.default_priority ?? 'normal'}`}
           formId={FORM_ID}
           defaults={
             editing
@@ -188,9 +199,13 @@ export function FanOutForm({
                   details: editing.details,
                   weight: editing.weight,
                   due_at: editing.due_at,
+                  task_type: editing.task_type,
+                  priority: editing.priority,
                 }
               : undefined
           }
+          taskTypes={settings?.task_types}
+          defaultPriority={settings?.default_priority}
           onSubmit={save}
         />
       </div>

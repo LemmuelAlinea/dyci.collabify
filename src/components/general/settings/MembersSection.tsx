@@ -41,7 +41,7 @@ export function MembersSection({ state }: { state: GeneralProjectState }) {
       <JoinRequestsPanel state={state} />
       <MemberList state={state} />
       <MemberOptionsPanel state={state} />
-      <RoleGuide memberRules={state.project?.memberRules} />
+      <RoleGuide memberRules={state.project?.memberRules} terms={state.sprintSettings?.terms} />
       <StructurePanel state={state} />
       {importOpen && canImport && <MemberImportDialog key={state.project!.id} state={state} onClose={() => setImportOpen(false)} />}
       <Modal open={requestsOpen} onClose={() => setRequestsOpen(false)} title={state.canGrant && !state.archived ? 'Access requests' : 'Your access'} size="md">

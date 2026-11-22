@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { NotificationsSection } from './NotificationsSection'
 import type { GeneralProjectState } from '../useGeneralProject'
+import { DEFAULT_SPRINT_SETTINGS } from '../../../lib/work/sprintSettings'
 import { updateGeneralProject } from '../../../lib/api/general'
 import { DEFAULT_NOTIFICATION_RULES } from '../../../lib/general/notificationRules'
 import { useToast } from '../../ui/Toast'
@@ -30,7 +31,7 @@ function makeState(over: Record<string, unknown> = {}, project: Record<string, u
       milestoneRules: { completion: 'automatic', requireDue: true, allowDependencies: true, overdueAlerts: true },
       ...project,
     },
-    myRole: 'pm', myOpenRequests: [], myGrants: [], can: () => true, readOnly: false, archived: false, reload,
+    myRole: 'pm', myOpenRequests: [], myGrants: [], can: () => true, readOnly: false, archived: false, reload, sprintSettings: DEFAULT_SPRINT_SETTINGS,
     ...over,
   } as unknown as GeneralProjectState
 }
@@ -64,14 +65,14 @@ const choose = (el: HTMLSelectElement, value: string) =>
     el.dispatchEvent(new Event('change', { bubbles: true }))
   })
 
-const SWITCHES = ['Overdue task alerts', 'Overdue milestone alerts', 'Task assignment notices', 'Sprint completion notices']
+const SWITCHES = ['Overdue task alerts', 'Overdue milestone alerts', 'Task assignment notices', 'Stage completion notices']
 
 it('shows the help, both selects with their choices and the four switches, in order', async () => {
   await show(makeState())
   expect(host.textContent).toContain(
     'These decide what this project sends. Each person can still turn notices off for themselves in Account → Notifications.',
   )
-  expect([...select('Sprint ending reminder')!.options].map((o) => o.textContent)).toEqual([
+  expect([...select('Stage ending reminder')!.options].map((o) => o.textContent)).toEqual([
     'Off', '1 day before', '2 days before', '3 days before',
   ])
   expect([...select('Milestone due reminder')!.options].map((o) => o.textContent)).toEqual([
@@ -81,8 +82,8 @@ it('shows the help, both selects with their choices and the four switches, in or
   expect(host.textContent).toContain('The project manager and coordinators are told the morning after a missed due date.')
   const text = host.textContent ?? ''
   const order = [
-    'Sprint ending reminder', 'Overdue task alerts', 'Milestone due reminder',
-    'Overdue milestone alerts', 'Task assignment notices', 'Sprint completion notices',
+    'Stage ending reminder', 'Overdue task alerts', 'Milestone due reminder',
+    'Overdue milestone alerts', 'Task assignment notices', 'Stage completion notices',
   ].map((t) => text.indexOf(t))
   expect(order.every((i) => i >= 0)).toBe(true)
   expect(order).toEqual([...order].sort((a, b) => a - b))
@@ -95,14 +96,14 @@ it('starts from the saved rules of the project', async () => {
       milestoneRules: { completion: 'automatic', requireDue: true, allowDependencies: true, overdueAlerts: false },
     }),
   )
-  expect(select('Sprint ending reminder')!.value).toBe('3')
+  expect(select('Stage ending reminder')!.value).toBe('3')
   expect(select('Milestone due reminder')!.value).toBe('7')
   for (const name of SWITCHES) expect(labelled(name)!.getAttribute('aria-checked')).toBe('false')
 })
 
 it('saves the six columns in one call, then reloads and says so', async () => {
   await show(makeState())
-  await choose(select('Sprint ending reminder')!, '3')
+  await choose(select('Stage ending reminder')!, '3')
   await choose(select('Milestone due reminder')!, '7')
   await act(async () => labelled('Overdue task alerts')!.click())
   await act(async () => labelled('Overdue milestone alerts')!.click())
@@ -122,7 +123,7 @@ it('saves the six columns in one call, then reloads and says so', async () => {
 
 it('saves Off as null for both reminders', async () => {
   await show(makeState())
-  await choose(select('Sprint ending reminder')!, '')
+  await choose(select('Stage ending reminder')!, '')
   await choose(select('Milestone due reminder')!, '')
   await act(async () => button('Save notification settings')!.click())
   expect(updateGeneralProject).toHaveBeenCalledWith(
@@ -141,7 +142,7 @@ it('shows the error and skips the reload when saving fails', async () => {
 
 it('disables every control and offers no save to somebody who cannot edit', async () => {
   await show(makeState({ can: () => false, myRole: 'member' }))
-  expect(select('Sprint ending reminder')!.disabled).toBe(true)
+  expect(select('Stage ending reminder')!.disabled).toBe(true)
   expect(select('Milestone due reminder')!.disabled).toBe(true)
   for (const name of SWITCHES) expect(labelled(name)!.disabled).toBe(true)
   expect(button('Save notification settings')).toBeUndefined()
@@ -149,15 +150,15 @@ it('disables every control and offers no save to somebody who cannot edit', asyn
 
 it('reads only while the project is archived or read-only', async () => {
   await show(makeState({ readOnly: true, archived: true }))
-  expect(select('Sprint ending reminder')!.disabled).toBe(true)
+  expect(select('Stage ending reminder')!.disabled).toBe(true)
   expect(button('Save notification settings')).toBeUndefined()
 })
 
 it('keeps unsaved choices through unrelated project updates and resets for a new project', async () => {
   await show(makeState())
-  await choose(select('Sprint ending reminder')!, '3')
+  await choose(select('Stage ending reminder')!, '3')
   await show(makeState({}, { updated_at: 't2' }))
-  expect(select('Sprint ending reminder')!.value).toBe('3')
+  expect(select('Stage ending reminder')!.value).toBe('3')
   await show(makeState({}, { id: 'p2', updated_at: 't2' }))
-  expect(select('Sprint ending reminder')!.value).toBe(String(DEFAULT_NOTIFICATION_RULES.sprintEndDays))
+  expect(select('Stage ending reminder')!.value).toBe(String(DEFAULT_NOTIFICATION_RULES.sprintEndDays))
 })

@@ -455,8 +455,8 @@ export const ROLE_MATRIX: {
     action: 'See the project, tasks, sprints, milestones, files and meetings',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes', stakeholder: 'read' },
   },
-  { action: 'Edit project details and stages, archive and delete', roles: { pm: 'yes' } },
-  { action: 'Mark the QA stage', roles: { pm: 'yes' } },
+  { action: 'Edit project details and workflow steps, archive and delete', roles: { pm: 'yes' } },
+  { action: 'Mark the QA workflow step', roles: { pm: 'yes' } },
   {
     action: 'Invite and remove people, and set roles (not project manager)',
     roles: { pm: 'yes', coordinator: 'yes' },
@@ -479,7 +479,7 @@ export const ROLE_MATRIX: {
   },
   { action: 'Start, finish and reopen sprints', roles: { pm: 'yes', coordinator: 'yes' } },
   {
-    action: 'Move a task out of the QA stage (QA, when the project has QA)',
+    action: 'Move a task out of the QA workflow step (QA, when the project has QA)',
     roles: { pm: 'yes', qa: 'yes' },
   },
   {

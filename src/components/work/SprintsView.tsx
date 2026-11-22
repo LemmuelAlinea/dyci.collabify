@@ -20,6 +20,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { daysLeft, daysLeftLabel, finishedSprints, plannedSprints, runningSprints, sprintCounts } from '../../lib/work/sprints'
 import { reopenFinishNotice } from '../../lib/work/sprintSettings'
 import type { Milestone, Sprint, WorkSource } from '../../lib/work/types'
+import { stageText } from '../../lib/work/stageTerms'
 
 const COLUMN_TONE = {
   todo: 'text-pending-ink',
@@ -29,6 +30,7 @@ const COLUMN_TONE = {
 
 /** Running the sprint, then looking back at the finished ones. */
 export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { source: WorkSource; milestones?: readonly Milestone[]; onPlan: () => void; archiveHref?: string }) {
+  const txt = (copy: string) => stageText(copy, source.terms)
   const now = useNow()
   const { show } = useToast()
   const [finishing, setFinishing] = useState(false)
@@ -59,9 +61,9 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
     setChanging(id)
     try {
       await source.archiveSprint(id, archive)
-      show(archive ? 'Sprint archived' : 'Sprint restored')
+      show(txt(archive ? 'Sprint archived' : 'Sprint restored'))
     } catch (err) {
-      show(authErrorMessage(err, archive ? 'Could not archive the sprint.' : 'Could not restore the sprint.'), 'error')
+      show(txt(authErrorMessage(err, txt(archive ? 'Could not archive the sprint.' : 'Could not restore the sprint.'))), 'error')
     } finally {
       setChanging(null)
     }
@@ -89,7 +91,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                       <button type="button" onClick={() => source.openTask(i.id)} className="text-left text-[13px] text-ink hover:underline">
                         {i.title}
                       </button>
-                      <BugBadge kind={i.kind} />
+                      <BugBadge kind={i.kind} taskType={i.task_type} />
                     </li>
                   ))}
                   {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}
@@ -116,7 +118,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
 
   return (
     <div className="space-y-6">
-      {source.readOnlyReason && <Alert tone="info">{source.readOnlyReason}</Alert>}
+      {source.readOnlyReason && <Alert tone="info">{txt(source.readOnlyReason)}</Alert>}
 
       {blocked.map((s) => (
         <p key={s.id} className="text-[13px] text-warning-700 dark:text-warning-300">
@@ -124,7 +126,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
         </p>
       ))}
 
-      <RunningSprintTabs tabs={tabs} activeKey={activeKey} onPick={pick} />
+      <RunningSprintTabs tabs={tabs} activeKey={activeKey} onPick={pick} terms={source.terms} />
 
       {running ? (
         (() => {
@@ -136,7 +138,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
             <section className="card space-y-5 p-4 shadow-card sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="eyebrow">Running sprint{organization === 'streams' && teamOf(running) ? ` · ${teamOf(running)}` : ''}</p>
+                  <p className="eyebrow">{txt('Running sprint')}{organization === 'streams' && teamOf(running) ? ` · ${teamOf(running)}` : ''}</p>
                   <h2 className="mt-1">{running.name}</h2>
                   <p className="mt-1 font-mono text-[12px] text-faint">
                     {dateRange(running.starts_on, running.ends_on)} ·{' '}
@@ -147,7 +149,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                 {canRun(running) && (
                   <Button size="sm" className="!rounded-lg" onClick={() => setFinishing(true)}>
                     <Icon name="checkCircle" size={15} />
-                    Finish sprint
+                    {txt('Finish sprint')}
                   </Button>
                 )}
               </div>
@@ -176,8 +178,8 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
 
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
                 <div>
-                  <h3 className="mb-3 text-[14px]">Sprint timeline</h3>
-                  <SprintTimeline sprint={running} milestones={milestones} items={source.items} completion={source.milestoneCompletion} />
+                  <h3 className="mb-3 text-[14px]">{txt('Sprint timeline')}</h3>
+                  <SprintTimeline sprint={running} milestones={milestones} items={source.items} completion={source.milestoneCompletion} terms={source.terms} />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   {TASK_STATUSES.map((s) => {
@@ -199,7 +201,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                               >
                                 {i.title}
                               </button>
-                              <BugBadge kind={i.kind} />
+                              <BugBadge kind={i.kind} taskType={i.task_type} />
                             </li>
                           ))}
                           {column.length === 0 && <li className="text-[12px] text-faint">Nothing here</li>}
@@ -215,8 +217,8 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
       ) : (
         <EmptyState
           icon="target"
-          title="No sprint is running"
-          body={source.canPlan ? 'Plan one in Backlog, then start it.' : 'When a sprint starts, it shows here.'}
+          title={txt('No sprint is running')}
+          body={source.canPlan ? 'Plan one in Backlog, then start it.' : txt('When a sprint starts, it shows here.')}
           action={
             <Button variant="outline" className="!rounded-xl" onClick={onPlan}>
               Go to Backlog
@@ -227,7 +229,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3>Finished sprints</h3>
+          <h3>{txt('Finished sprints')}</h3>
           {archiveHref && archived.length > 0 && (
             <Link to={archiveHref} className="text-[13px] text-muted hover:text-ink hover:underline">
               Project archive ({archived.length})
@@ -237,15 +239,15 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
         {finished.length === 0 ? (
           <p className="text-[13px] text-muted">
             {archived.length
-              ? archiveHref ? 'All finished sprints are in the project archive.' : 'All finished sprints are archived.'
-              : 'None yet. A sprint lands here once it is finished.'}
+              ? archiveHref ? txt('All finished sprints are in the project archive.') : txt('All finished sprints are archived.')
+              : txt('None yet. A sprint lands here once it is finished.')}
           </p>
         ) : history(finished, false)}
       </section>
 
       {!archiveHref && archived.length > 0 && (
         <details className="border-t border-line pt-5">
-          <summary className="cursor-pointer font-semibold text-ink">Archived sprints ({archived.length})</summary>
+          <summary className="cursor-pointer font-semibold text-ink">{txt('Archived sprints')} ({archived.length})</summary>
           <div className="mt-3">{history(archived, true)}</div>
         </details>
       )}
@@ -255,23 +257,23 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
           open
           tone="primary"
           title={`Reopen ${reopening.name}?`}
-          confirmLabel="Reopen sprint"
+          confirmLabel={txt('Reopen sprint')}
           onClose={() => setReopening(null)}
           onConfirm={async () => {
             try {
               await source.reopenSprint?.(reopening.id)
             } catch (err) {
-              throw new Error(authErrorMessage(err, 'Could not reopen the sprint.'), { cause: err })
+              throw new Error(authErrorMessage(err, txt('Could not reopen the sprint.')), { cause: err })
             }
             show(`${reopening.name} is running again`)
           }}
           body={
             <div className="space-y-2">
-              <p>{organization === 'sequential' ? 'It becomes the running sprint again.' : 'It runs again.'}</p>
+              <p>{organization === 'sequential' ? txt('It becomes the running sprint again.') : 'It runs again.'}</p>
               {displaced && (
                 <p>
                   <strong className="text-ink">{displaced.name}</strong> stops running and goes back to Backlog as a planned
-                  sprint. Its tasks stay in it.
+                  {txt('sprint. Its tasks stay in it.')}
                 </p>
               )}
               <p>Unfinished tasks that moved out of {reopening.name} when it finished stay where they are.</p>

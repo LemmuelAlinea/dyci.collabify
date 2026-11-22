@@ -71,6 +71,8 @@ export function destination(n: AppNotification, role: Role | null, teaches: bool
     case 'meeting_changed':
     case 'meeting_cancelled':
       return n.meeting_id ? `${paths.meetings}?meeting=${n.meeting_id}` : paths.meetings
+    case 'meeting_started':
+      return n.meeting_id ? paths.meetingCall(n.meeting_id) : paths.meetings
     case 'board_submitted':
       // A hand-in is answered on the class project's groups; without a project, from Waiting.
       if (teaches && n.project_id) return paths.classProject(n.project_id)

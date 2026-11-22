@@ -68,7 +68,7 @@ export function ProjectsView({ data, onOpenTask }: { data: AnalyticsData; onOpen
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Section title="Sprints" subtitle="What each sprint finished inside its own dates, what came after, and what is still open.">
+        <Section title="Work cycles" subtitle="What each cycle finished inside its own dates, what came after, and what is still open.">
           <SprintReport data={data} />
         </Section>
         <Section title="Stuck work" subtitle="In progress for a week or more. Usually a blocker nobody has said out loud.">

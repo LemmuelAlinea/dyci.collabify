@@ -8,7 +8,7 @@ begin;
 -- (can_estimate_work_task, general_breakdown_context) and its one write
 -- (apply_work_breakdown).
 -- Work projects and work spaces only. Stored in minutes.
--- Runs after project-open-tasks.sql and before anon-lockdown.sql. Idempotent.
+-- Runs after section-students.sql and before anon-lockdown.sql. Idempotent.
 -- Redefines nothing another file owns. Suite: supabase/tests/work-workload.test.sql.
 
 ------------------------------------------------------------ estimates

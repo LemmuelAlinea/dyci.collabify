@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Icon, Spinner } from '../ui/Icon'
 import { useAuth } from '../../context/AuthContext'
@@ -30,6 +31,9 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<AppNotification[] | null>(null)
   const [unread, setUnread] = useState(0)
+  const [meetingNotice, setMeetingNotice] = useState<AppNotification | null>(null)
+  const joinedAt = useRef(0)
+  const shownMeetings = useRef(new Set<string>())
   const ref = useRef<HTMLDivElement>(null)
 
   // `open` is the caller's intent; `render` is what is on screen, staying true
@@ -59,6 +63,9 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
   const profileId = profile?.id
   useEffect(() => {
     seen.current = null
+    joinedAt.current = Date.now()
+    shownMeetings.current.clear()
+    setMeetingNotice(null)
   }, [profileId])
 
   const refreshCount = useCallback(async () => {
@@ -74,17 +81,30 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
     }
   }, [profile])
 
-  // A new notification lights the badge within a second; an open panel
-  // refreshes its list too.
+  // Meeting rows also trigger this refresh, so a started call is visible at once.
   const refresh = useCallback(async () => {
     await refreshCount()
-    if (open && profile) {
-      await listNotifications(profile.id)
-        .then(setItems)
-        .catch(() => undefined)
-    }
+    if (!profile) return
+    try {
+      const next = await listNotifications(profile.id)
+      if (open) setItems(next)
+      const recent = next.find((n) =>
+        (n.type === 'meeting_started' || n.type === 'meeting_scheduled') && !n.read_at &&
+        Date.parse(n.created_at) > joinedAt.current && Date.now() - Date.parse(n.created_at) < 120_000 &&
+        !shownMeetings.current.has(n.id))
+      if (recent) {
+        shownMeetings.current.add(recent.id)
+        setMeetingNotice(recent)
+      }
+    } catch { /* The badge still works if the list cannot load. */ }
   }, [open, profile, refreshCount])
-  useLive(refresh, ['notifications'], { every: 60_000, enabled: Boolean(profile) })
+  useLive(refresh, ['notifications', 'meetings'], { every: 60_000, enabled: Boolean(profile) })
+
+  useEffect(() => {
+    if (!meetingNotice) return
+    const timer = setTimeout(() => setMeetingNotice(null), 15_000)
+    return () => clearTimeout(timer)
+  }, [meetingNotice])
 
   useEffect(() => {
     if (!open || !profile) return
@@ -112,6 +132,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
 
   async function openNotification(n: AppNotification) {
     setOpen(false)
+    setMeetingNotice(null)
     if (!n.read_at) {
       await markRead([n.id])
       void refreshCount()
@@ -122,6 +143,13 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
 
   return (
     <div className="relative" ref={ref}>
+      {meetingNotice && createPortal(
+        <div role="alert" className="fixed right-3 top-[calc(var(--app-bar,52px)+0.75rem)] z-[60] flex w-[min(25rem,calc(100vw-1.5rem))] items-start gap-3 rounded-xl border border-toast-info-line bg-toast-info p-4 text-toast-info-ink shadow-lift">
+          <Icon name="video" size={20} className="mt-0.5 shrink-0" />
+          <div className="min-w-0 flex-1"><p className="font-semibold">{meetingNotice.title}</p><p className="mt-1 text-sm">{meetingNotice.preview}</p></div>
+          <button type="button" onClick={() => void openNotification(meetingNotice)} className="shrink-0 font-semibold underline">{meetingNotice.type === 'meeting_started' ? 'Join' : 'View'}</button>
+          <button type="button" onClick={() => setMeetingNotice(null)} aria-label="Dismiss meeting notification" className="shrink-0"><Icon name="x" size={17} /></button>
+        </div>, document.body)}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

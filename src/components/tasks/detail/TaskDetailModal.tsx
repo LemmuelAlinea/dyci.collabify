@@ -37,8 +37,10 @@ export function TaskDetailModal({
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()
+  const [focusedId, setFocusedId] = useState(taskId)
+  useEffect(() => setFocusedId(taskId), [taskId])
   const { task, comments, events, files, worklog, loading, error, reload } =
-    useTaskDetail(taskId)
+    useTaskDetail(focusedId)
   const [ask, setAsk] = useState<ReassignmentRow | null>(null)
   // The project's own stage names, read beside the task.
   const [stages, setStages] = useState<string[] | null>(null)
@@ -82,13 +84,13 @@ export function TaskDetailModal({
   // RLS decides what comes back: a student sees only their own request, the
   // professor sees any on their classes, and the person it is about sees none.
   const loadAsk = useCallback(async () => {
-    if (!taskId) return setAsk(null)
+    if (!focusedId) return setAsk(null)
     try {
-      setAsk(await pendingReassignment(taskId))
+      setAsk(await pendingReassignment(focusedId))
     } catch {
       setAsk(null)
     }
-  }, [taskId])
+  }, [focusedId])
 
   useEffect(() => {
     void loadAsk()
@@ -140,6 +142,7 @@ export function TaskDetailModal({
           viewerCanRequest={role !== 'professor'}
           stages={stagesOf(stages)}
           onStatus={(status, stage) => void move(status, stage)}
+          onOpenTask={setFocusedId}
           onChanged={async () => {
             await refresh()
             await onChanged()

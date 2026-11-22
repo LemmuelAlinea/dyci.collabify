@@ -884,7 +884,7 @@ begin
           starts := public.general_next_sprint_start(cfg.project_id, today);
           if cfg.due_on is null or starts <= cfg.due_on then
             insert into public.general_sprints (project_id, name, starts_on, ends_on)
-            select cfg.project_id, 'Sprint ' || (count(*) + 1), starts, starts + cfg.length_days - 1
+            select cfg.project_id, cfg.term_singular || ' ' || (count(*) + 1), starts, starts + cfg.length_days - 1
               from public.general_sprints where project_id = cfg.project_id
             returning * into made;
             perform public.notify_sprint_automation(cfg.project_id,
@@ -952,7 +952,7 @@ begin
             starts := public.general_next_sprint_start(cfg.project_id, today, v_team.id);
             if cfg.due_on is null or starts <= cfg.due_on then
               insert into public.general_sprints (project_id, team_id, name, starts_on, ends_on)
-              select cfg.project_id, v_team.id, left(v_team.name, 64) || ' sprint ' || (count(*) + 1),
+              select cfg.project_id, v_team.id, left(v_team.name, 64) || ' ' || lower(cfg.term_singular) || ' ' || (count(*) + 1),
                      starts, starts + cfg.length_days - 1
                 from public.general_sprints where team_id = v_team.id
               returning * into made;

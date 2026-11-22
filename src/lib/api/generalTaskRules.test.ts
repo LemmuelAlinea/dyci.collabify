@@ -66,9 +66,9 @@ const MILESTONE_RULES =
   'general_projects:milestone_completion, require_milestone_due, allow_milestone_dependencies, milestone_overdue_alerts'
 const NOTIFICATION_RULES =
   'general_projects:sprint_end_reminder_days, task_overdue_alerts, milestone_due_reminder_days, task_assignment_notices, sprint_completion_notices'
-const TASK_FLOW = 'general_projects:task_flow'
+const TASK_FLOW = 'general_projects:task_flow, task_types'
 const TASKS = 'general_task_overview:*'
-const EXTRAS = 'general_tasks:id, priority, parent_id, estimated_minutes'
+const EXTRAS = 'general_tasks:id, priority, parent_id, task_type, estimated_minutes'
 const DEPS = 'general_task_dependencies:task_id, depends_on_id'
 
 beforeEach(() => {
@@ -230,7 +230,7 @@ describe('createMemberTask', () => {
     expect(rpcCalls).toEqual([
       {
         name: 'create_general_member_task',
-        args: { p_project: 'p1', p_title: 'Draft the survey', p_description: 'Notes', p_due_at: '2026-11-05T00:00:00Z', p_team: 't1' },
+        args: { p_project: 'p1', p_title: 'Draft the survey', p_description: 'Notes', p_due_at: '2026-11-05T00:00:00Z', p_team: 't1', p_type: null },
       },
     ])
   })
@@ -238,7 +238,7 @@ describe('createMemberTask', () => {
   it('defaults the description, due date and team', async () => {
     results.set('rpc:create_general_member_task', { data: 'task-9', error: null })
     await createMemberTask('p1', 'Plan')
-    expect(rpcCalls[0].args).toEqual({ p_project: 'p1', p_title: 'Plan', p_description: '', p_due_at: null, p_team: null })
+    expect(rpcCalls[0].args).toEqual({ p_project: 'p1', p_title: 'Plan', p_description: '', p_due_at: null, p_team: null, p_type: null })
   })
 
   it('throws what the database refuses with', async () => {
@@ -272,14 +272,14 @@ describe('task priority and parent side read', () => {
     results.set(TASKS, { data: rows, error: null })
     results.set(EXTRAS, {
       data: [
-        { id: 't1', priority: 'urgent', parent_id: null, estimated_minutes: 90 },
+        { id: 't1', priority: 'urgent', parent_id: null, task_type: 'Research', estimated_minutes: 90 },
         { id: 't2', priority: 'low', parent_id: 't1', estimated_minutes: null },
       ],
       error: null,
     })
     const tasks = await listTasks('p1')
     expect(tasks).toMatchObject([
-      { id: 't1', title: 'One', priority: 'urgent', parent_id: null, estimated_minutes: 90 },
+      { id: 't1', title: 'One', priority: 'urgent', parent_id: null, task_type: 'Research', estimated_minutes: 90 },
       { id: 't2', title: 'Two', priority: 'low', parent_id: 't1', estimated_minutes: null },
     ])
   })
@@ -424,7 +424,7 @@ describe('open task flow', () => {
     expect(id).toBe('t1')
     expect(rpcCalls).toEqual([{ name: 'create_general_open_task', args: {
       p_project: 'p1', p_title: 'Fix login', p_description: 'Body', p_starts_at: null, p_due_at: '2026-12-01T00:00:00Z',
-      p_team: 'g1', p_priority: 'high', p_kind: 'task', p_holders: ['u2'],
+      p_team: 'g1', p_priority: 'high', p_kind: 'task', p_holders: ['u2'], p_type: null,
     } }])
   })
 

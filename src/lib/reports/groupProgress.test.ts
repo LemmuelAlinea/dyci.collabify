@@ -84,10 +84,15 @@ describe('groupProgressDoc, one group', () => {
     expect(t.rows[0][4]).toEqual({ value: 'On time', tone: 'success', exportValue: 0 })
   })
   it('lists sprints, with carried over only once a sprint has ended', () => {
-    expect(table(doc, 'Sprints')?.rows).toEqual([
+    expect(table(doc, 'Stages')?.rows).toEqual([
       ['Sprint 1', '2026-09-28', '2026-10-04', 3, 1, 2],
       ['Sprint 2', '2026-10-12', '2026-10-18', 2, 0, null],
     ])
+  })
+  it('uses the board term in headings while keeping old saved cycle names', () => {
+    const report = groupProgressDoc({ ...base, boards: [{ ...b1, term_singular: 'Phase', term_plural: 'Phases' }], single: true })
+    expect(table(report, 'Phases')?.rows.map((row) => row[0])).toEqual(['Sprint 1', 'Sprint 2'])
+    expect(table(report, 'Phases')?.columns[0].label).toBe('Phase')
   })
   it('lists every answer and the current hand-in, oldest first', () => {
     const t = table(doc, 'Feedback history')!
@@ -133,7 +138,7 @@ describe('groupProgressDoc, edges', () => {
     expect(texts).toEqual(expect.arrayContaining([
       'No tasks on this board yet, so there is nothing to chart.',
       "This project has no milestones. Add them on the project's Work tab.",
-      'No sprints planned yet. Sprints appear once a group plans one on its board.',
+      'No stages planned yet. Stages appear once a group plans one on its board.',
       'Nothing handed in or answered yet.',
     ]))
     expect(tableBlocks(doc).map((t) => t.title)).toEqual([])
@@ -161,7 +166,7 @@ describe('groupProgressDoc, fix round 1', () => {
   })
   it('shows carried over as empty on the last day of an active sprint', () => {
     const doc = groupProgressDoc({ ...base, boards: [b1], single: true, sprints: [sprint({ ends_on: today, state: 'active' })] })
-    expect(table(doc, 'Sprints')?.rows[0][5]).toBeNull()
+    expect(table(doc, 'Stages')?.rows[0][5]).toBeNull()
   })
   it('sorts group names by number', () => {
     const g10 = { ...b2, board_id: 'b10', name: 'Group 10' }

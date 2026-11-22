@@ -46,6 +46,7 @@ do $$
 declare
   v_class uuid; v_prof uuid; v_a uuid; v_b uuid;
   v_set uuid; v_group uuid; v_proj uuid; v_proj2 uuid; v_board uuid; v_board2 uuid;
+  v_solo uuid; v_solo_board uuid;
   s1 uuid; s2 uuid; s_other uuid; s3 uuid; s4 uuid; s5 uuid;
   t_todo uuid; t_started uuid; t_done uuid; t_arch uuid; t_live uuid; t_parked uuid;
   n int;
@@ -82,6 +83,49 @@ begin
   select id into v_board from public.project_boards where project_id = v_proj limit 1;
   select id into v_board2 from public.project_boards where project_id = v_proj2 limit 1;
 
+  ------------------------------------------------------------ stage names
+  perform pg_temp.must_be('a new board defaults to Stage and Stages',
+    (select term_singular = 'Stage' and term_plural = 'Stages' from public.project_boards where id = v_board));
+  perform pg_temp.act_as(v_b);
+  perform pg_temp.must_refuse('a group member who is not the leader cannot rename cycles',
+    format('select public.set_board_stage_terms(%L, %L, %L)', v_board, 'Phase', 'Phases'));
+  perform pg_temp.act_as(v_a);
+  perform public.set_group_leader(v_group, v_a);
+  perform public.set_board_stage_terms(v_board, 'Phase', 'Phases');
+  perform pg_temp.must_be('the group leader can rename cycles',
+    (select term_singular = 'Phase' and term_plural = 'Phases' from public.project_boards where id = v_board));
+  perform public.set_group_leader(v_group, v_b);
+  perform pg_temp.must_refuse('the previous leader loses naming rights',
+    format('select public.set_board_stage_terms(%L, %L, %L)', v_board, 'Step', 'Steps'));
+  perform pg_temp.act_as(v_b);
+  perform public.set_board_stage_terms(v_board, 'Step', 'Steps');
+  perform pg_temp.must_be('the new leader gains naming rights',
+    (select term_singular = 'Step' from public.project_boards where id = v_board));
+  perform pg_temp.act_as(v_prof);
+  perform public.set_board_stage_terms(v_board, 'Phase', 'Phases');
+  perform pg_temp.must_be('teaching faculty may rename without joining the board',
+    (select term_plural = 'Phases' from public.project_boards where id = v_board));
+  perform pg_temp.must_refuse('a label with code punctuation is refused',
+    format('select public.set_board_stage_terms(%L, %L, %L)', v_board, 'Phase;', 'Phases'));
+
+  insert into public.projects
+    (class_id, created_by, title, type, start_week, end_week, audience, due_at, release_at)
+  values (v_class, v_prof, 'zz-cplan-solo-label', 'activity', 1, 2, 'individual',
+          now() + interval '30 days', now() - interval '1 day')
+  returning id into v_solo;
+  perform public.ensure_project_boards(v_solo);
+  select id into v_solo_board from public.project_boards where project_id = v_solo and student_id = v_a;
+  perform pg_temp.act_as(v_a);
+  perform public.set_board_stage_terms(v_solo_board, 'Phase', 'Phases');
+  perform pg_temp.must_be('an individual board owner can rename cycles',
+    (select term_singular = 'Phase' from public.project_boards where id = v_solo_board));
+  perform pg_temp.act_as(v_b);
+  perform pg_temp.must_refuse('another student cannot rename an individual board',
+    format('select public.set_board_stage_terms(%L, %L, %L)', v_solo_board, 'Step', 'Steps'));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('anon cannot call the naming function',
+    not has_function_privilege('anon', 'public.set_board_stage_terms(uuid, text, text)', 'execute'));
+
   ------------------------------------------------------------ creating
   perform pg_temp.act_as(v_a);
   insert into public.board_sprints (board_id, name, starts_on, ends_on, state)
@@ -90,6 +134,9 @@ begin
     (select state from public.board_sprints where id = s1) = 'planned');
   insert into public.board_sprints (board_id, name, starts_on, ends_on)
   values (v_board, 'Sprint 2', current_date + 7, current_date + 13) returning id into s2;
+  perform pg_temp.must_be('renaming the board keeps both saved Sprint names',
+    (select count(*) from public.board_sprints
+      where board_id = v_board and name in ('Sprint 1', 'Sprint 2')) = 2);
   insert into public.board_sprints (board_id, name, starts_on, ends_on)
   values (v_board2, 'Other board', current_date, current_date + 6) returning id into s_other;
 
@@ -190,6 +237,8 @@ begin
   ------------------------------------------------------------ handed in
   perform pg_temp.act_as(v_a);
   perform public.set_board_submitted(v_board, true);
+  perform pg_temp.must_refuse('a handed-in board cannot change its cycle label',
+    format('select public.set_board_stage_terms(%L, %L, %L)', v_board, 'Phase', 'Phases'));
   perform pg_temp.must_refuse('a handed-in board cannot plan a sprint',
     format($q$insert into public.board_sprints (board_id, name, starts_on, ends_on)
               values (%L, 'Late plan', current_date, current_date + 1)$q$, v_board));

@@ -297,4 +297,30 @@ end $$;
 
 do $$ begin raise notice 'meetings: all passed'; end $$;
 
+-- Internal calls require an enabled release flag and no external link.
+do $$
+declare
+  prof uuid := (select v from fx where k = 'prof');
+  cls uuid := (select v from fx where k = 'class');
+  internal public.meetings;
+  external public.meetings;
+begin
+  perform pg_temp.act_as_service();
+  update public.organization_settings set meeting_calls_enabled = false where id;
+  perform pg_temp.act_as(prof);
+  perform pg_temp.must_refuse('internal scheduling is off by default',
+    format('select public.create_meeting(''class'', %L, ''Call'', '''', null, now(), 60)', cls));
+  perform pg_temp.act_as_service();
+  update public.organization_settings set meeting_calls_enabled = true where id;
+  perform pg_temp.act_as(prof);
+  internal := public.create_meeting('class', cls, 'Call', '', null, now(), 60);
+  perform pg_temp.must_be('an internal call has no external URL',
+    internal.platform = 'collabify' and internal.join_url is null);
+  external := public.create_meeting('class', cls, 'External', '',
+    'https://zoom.us/j/1234567890', now(), 60);
+  perform pg_temp.must_be('external platform still derives from its URL', external.platform = 'zoom');
+  perform pg_temp.must_refuse('external meeting cannot lose its URL',
+    format('select public.update_meeting(%L, ''External'', '''', null, now(), 60)', external.id));
+end $$;
+
 rollback;

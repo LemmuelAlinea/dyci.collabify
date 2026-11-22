@@ -17,12 +17,14 @@ import {
   createSection,
   listSectionFaculty,
   listSectionOverview,
+  listSectionStudents,
   setSectionFaculty,
+  setSectionStudents,
   updateSection,
 } from '../../../lib/api/program'
 import { authErrorMessage } from '../../../lib/authError'
 import { currentSchoolYear, sectionKey } from '../../../lib/program'
-import type { ProgramClass, SectionFaculty, SectionOverview } from '../../../lib/program'
+import type { ProgramClass, SectionFaculty, SectionOverview, SectionStudent } from '../../../lib/program'
 import { YEAR_LEVELS, fullName } from '../../../lib/types'
 import type { Account, ProfessorAccount, YearLevel } from '../../../lib/types'
 
@@ -49,7 +51,9 @@ export default function Sections() {
   const [classes, setClasses] = useState<ProgramClass[]>([])
   const [advisers, setAdvisers] = useState<Account[]>([])
   const [teachers, setTeachers] = useState<ProfessorAccount[]>([])
+  const [students, setStudents] = useState<Account[]>([])
   const [assigned, setAssigned] = useState<SectionFaculty[]>([])
+  const [sectionStudents, setSectionStudentsList] = useState<SectionStudent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [level, setLevel] = useState<YearLevel>('1st')
@@ -58,23 +62,27 @@ export default function Sections() {
   const [saving, setSaving] = useState(false)
   const [archiving, setArchiving] = useState<SectionOverview | null>(null)
   const [assigning, setAssigning] = useState<SectionOverview | null>(null)
+  const [assigningStudents, setAssigningStudents] = useState<SectionOverview | null>(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<SectionOverview | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const [sections, cls, people, faculty, links] = await Promise.all([
+      const [sections, cls, people, faculty, links, roster] = await Promise.all([
         listSectionOverview(),
         programClasses(),
         listAccounts(),
         listProfessorAccounts(),
         listSectionFaculty(),
+        listSectionStudents(),
       ])
       setRows(sections)
       setClasses(cls)
       setAdvisers(people.filter((a) => a.role === 'member' && a.can_teach && a.status === 'active'))
       setTeachers(faculty.filter((f) => f.status === 'active' && f.can_teach))
+      setStudents(people.filter((a) => a.role === 'student' && a.status === 'active'))
       setAssigned(links)
+      setSectionStudentsList(roster)
       setYear((y) => y || currentSchoolYear(cls))
       setError(null)
     } catch (err) {
@@ -88,7 +96,7 @@ export default function Sections() {
     void load()
   }, [load])
 
-  useLive(load, ['program_sections', 'program_section_faculty', 'classes', 'profiles'])
+  useLive(load, ['program_sections', 'program_section_faculty', 'program_section_students', 'classes', 'profiles'])
 
   /**
    * Sections that classes are using but the registry has never heard of. This
@@ -387,13 +395,15 @@ export default function Sections() {
                   </span>
 
                   <span className="shrink-0 font-mono text-[12px] text-faint">
-                    {s.classes} {s.classes === 1 ? 'class' : 'classes'} · {s.students} students
+                    {s.classes} {s.classes === 1 ? 'class' : 'classes'} ·{' '}
+                    {sectionStudents.filter((link) => link.section_id === s.section_id).length} assigned students
                   </span>
 
                   <span className="flex shrink-0 items-center">
                     <ActionMenu
                       label={`Actions for ${s.name}`}
                       items={[
+                        { label: 'Assign students', icon: 'users', onSelect: () => setAssigningStudents(s) },
                         { label: 'Assign faculty', icon: 'users', onSelect: () => setAssigning(s) },
                         { label: 'Edit section', icon: 'edit', onSelect: () => openEdit(s) },
                         { label: 'Archive', icon: 'archive', separated: true, onSelect: () => setArchiving(s) },
@@ -412,6 +422,16 @@ export default function Sections() {
         teachers={teachers}
         current={assigning ? (facultyOf.get(assigning.section_id) ?? []).map((f) => f.id) : []}
         onClose={() => setAssigning(null)}
+        onSaved={load}
+      />
+
+      <AssignStudentsDialog
+        section={assigningStudents}
+        students={students}
+        current={sectionStudents
+          .filter((link) => link.section_id === assigningStudents?.section_id && students.some((student) => student.id === link.student_id))
+          .map((link) => link.student_id)}
+        onClose={() => setAssigningStudents(null)}
         onSaved={load}
       />
 
@@ -571,6 +591,116 @@ function AssignFacultyDialog({
               {shown.length === 0 && (
                 <li className="text-[13px] text-muted">Nobody matches that search.</li>
               )}
+            </ul>
+          </>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function AssignStudentsDialog({
+  section,
+  students,
+  current,
+  onClose,
+  onSaved,
+}: {
+  section: SectionOverview | null
+  students: Account[]
+  current: string[]
+  onClose: () => void
+  onSaved: () => Promise<void>
+}) {
+  const { show } = useToast()
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [query, setQuery] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const sectionId = section?.section_id
+  const currentKey = current.join(',')
+
+  useEffect(() => {
+    if (!sectionId) return
+    setPicked(new Set(currentKey ? currentKey.split(',') : []))
+    setQuery('')
+    setError(null)
+  }, [sectionId, currentKey])
+
+  const sorted = useMemo(
+    () => [...students].sort((a, b) => fullName(a).localeCompare(fullName(b))),
+    [students],
+  )
+  const q = query.trim().toLowerCase()
+  const shown = q
+    ? sorted.filter((student) => `${fullName(student)} ${student.email}`.toLowerCase().includes(q))
+    : sorted
+
+  async function save() {
+    if (!section) return
+    setBusy(true)
+    setError(null)
+    try {
+      await setSectionStudents(section.section_id, [...picked])
+      await onSaved()
+      show(`${section.name} has ${picked.size} assigned ${picked.size === 1 ? 'student' : 'students'}`)
+      onClose()
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not save the student roster.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={section !== null}
+      onClose={() => { if (!busy) onClose() }}
+      title={`Students in ${section?.name ?? 'section'}`}
+      description="Assigned students join new classes automatically. Adding them also enrolls them in existing classes unless a teacher removed them. Clearing an assignment keeps class memberships."
+      size="md"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button className="!rounded-xl" loading={busy} onClick={save}>Save</Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        {error && <Alert tone="error">{error}</Alert>}
+        {students.length === 0 ? (
+          <p className="text-[13px] text-muted">No active student accounts yet.</p>
+        ) : (
+          <>
+            {students.length > 6 && (
+              <Field label="Find student">
+                {(id) => <Input id={id} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name or email" />}
+              </Field>
+            )}
+            <p className="font-mono text-[12px] text-faint">{picked.size} of {students.length} selected</p>
+            <ul className="max-h-[calc(50vh/var(--zoom,1))] space-y-2 overflow-y-auto">
+              {shown.map((student) => (
+                <li key={student.id}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line px-3.5 py-2.5 hover:bg-[var(--surface-sunken)]">
+                    <input
+                      type="checkbox"
+                      checked={picked.has(student.id)}
+                      disabled={busy}
+                      onChange={(e) => setPicked((previous) => {
+                        const next = new Set(previous)
+                        if (e.target.checked) next.add(student.id)
+                        else next.delete(student.id)
+                        return next
+                      })}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[14px] text-ink">{fullName(student)}</span>
+                      <span className="block truncate text-[12px] text-muted">{student.email}</span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+              {shown.length === 0 && <li className="text-[13px] text-muted">Nobody matches that search.</li>}
             </ul>
           </>
         )}

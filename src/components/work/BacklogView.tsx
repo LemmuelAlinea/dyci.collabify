@@ -17,6 +17,7 @@ import { dateRange, formatDue, isOverdue } from '../../lib/general/dates'
 import { backlogItems, rankForMove, sprintItems } from '../../lib/work/backlog'
 import { filterByTeam, teamSelection } from '../../lib/work/teamFilter'
 import { canStartSprint, nextSprintDraft, plannedSprints, runningSprints, sprintTargetLabel } from '../../lib/work/sprints'
+import { stageText } from '../../lib/work/stageTerms'
 import type { Sprint, WorkItem, WorkSource } from '../../lib/work/types'
 import type { SprintTeamField } from './SprintDialog'
 
@@ -28,6 +29,7 @@ const BACKLOG = ''
  * time, or several checked), and up and down within a list.
  */
 export function BacklogView({ source }: { source: WorkSource }) {
+  const txt = (copy: string) => stageText(copy, source.terms)
   const { show } = useToast()
   const now = useNow()
   const [checked, setChecked] = useState<Set<string>>(new Set())
@@ -71,7 +73,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
           draftFor: streams
             ? (id) => {
                 const team = liveTeams.find((t) => t.id === id)
-                return nextSprintDraft(source.sprints, now, source.sprintSettings, team)
+                return nextSprintDraft(source.sprints, now, source.sprintSettings, team, source.terms?.singular)
               }
             : undefined,
         }
@@ -84,7 +86,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
     try {
       await action()
     } catch (err) {
-      show(authErrorMessage(err, failure), 'error')
+      show(txt(authErrorMessage(err, failure)), 'error')
     }
   }
 
@@ -132,6 +134,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
             onOpen={() => source.openTask(item.id)}
             targets={targetsFor(item)}
             needsTeam={streams && !item.teamId && item.sprint_id === null}
+            terms={source.terms}
             onMove={(to) => void run(() => source.moveToSprint([item.id], to || null), 'Could not move that task.')}
             onStep={(dir) => {
               const rank = rankForMove(items, index, dir)
@@ -146,7 +149,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
 
   return (
     <div className="space-y-6">
-      {source.readOnlyReason && <Alert tone="info">{source.readOnlyReason}</Alert>}
+      {source.readOnlyReason && <Alert tone="info">{txt(source.readOnlyReason)}</Alert>}
 
       {source.teams && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -178,7 +181,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
             <h3>
               Backlog <span className="font-mono text-[13px] font-normal text-faint">{backlog.length}</span>
             </h3>
-            <p className="mt-0.5 text-[13px] text-muted">Every unfinished task that is not in a sprint. The top is what comes next.</p>
+            <p className="mt-0.5 text-[13px] text-muted">{txt('Every unfinished task that is not in a sprint. The top is what comes next.')}</p>
           </div>
           {source.canPlan && live.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
@@ -203,7 +206,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
         <div className="card overflow-hidden shadow-card">
           {list(backlog) ?? (
             <p className="px-4 py-6 text-center text-[13px] text-muted">
-              The backlog is empty. Every unfinished task is in a sprint.
+              {txt('The backlog is empty. Every unfinished task is in a sprint.')}
             </p>
           )}
           {source.canAdd && (
@@ -228,7 +231,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
         <div>
           <h3>Coming up</h3>
           <p className="mt-0.5 text-[13px] text-muted">
-            Sprints that have not started. Move tasks in from the backlog, then start one when the team is ready.
+            {txt('Sprints that have not started. Move tasks in from the backlog, then start one when the team is ready.')}
           </p>
         </div>
         {source.canPlan && (
@@ -237,20 +240,20 @@ export function BacklogView({ source }: { source: WorkSource }) {
               setCreating(true)
             }}>
             <Icon name="plus" size={15} />
-            Create sprint
+            {txt('Create sprint')}
           </Button>
         )}
       </div>
 
       {planned.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-          No sprint is planned. {source.canPlan ? 'Create one, then move tasks into it.' : 'Nothing to show yet.'}
+          {txt('No sprint is planned.')} {source.canPlan ? 'Create one, then move tasks into it.' : 'Nothing to show yet.'}
         </p>
       ) : (
         planned.map((s) => {
           const items = sprintItems(visible, s.id)
           const team = s.team_id ? teamName(s.team_id) : undefined
-          const blocked = canStartSprint(s, source.sprints, organization, { teamName, items: source.items })
+          const blocked = canStartSprint(s, source.sprints, organization, { teamName, items: source.items, terms: source.terms })
           return (
             <section key={s.id} className="card overflow-hidden shadow-card">
               <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
@@ -276,10 +279,10 @@ export function BacklogView({ source }: { source: WorkSource }) {
                         className="!rounded-lg"
                         disabled={Boolean(blocked)}
                         title={blocked ?? undefined}
-                        onClick={() => void run(() => source.startSprint(s.id), 'Could not start the sprint.')}
+                        onClick={() => void run(() => source.startSprint(s.id), txt('Could not start the sprint.'))}
                       >
                         <Icon name="target" size={15} />
-                        Start sprint
+                        {txt('Start sprint')}
                       </Button>
                     )}
                     {source.canPlan && (
@@ -305,7 +308,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
                   </div>
                 )}
               </header>
-              {list(items) ?? <p className="px-4 py-5 text-[13px] text-faint">No tasks in this sprint yet.</p>}
+              {list(items) ?? <p className="px-4 py-5 text-[13px] text-faint">{txt('No tasks in this sprint yet.')}</p>}
             </section>
           )
         })
@@ -315,9 +318,10 @@ export function BacklogView({ source }: { source: WorkSource }) {
         key={createKey}
         open={creating}
         onClose={() => setCreating(false)}
-        title="New sprint"
-        submitLabel="Create sprint"
-        initial={nextSprintDraft(source.sprints, now, source.sprintSettings)}
+        title={txt('New sprint')}
+        submitLabel={txt('Create sprint')}
+        initial={nextSprintDraft(source.sprints, now, source.sprintSettings, undefined, source.terms?.singular)}
+        terms={source.terms}
         team={teamField()}
         onSubmit={(input) => source.createSprint(input)}
       />
@@ -327,7 +331,8 @@ export function BacklogView({ source }: { source: WorkSource }) {
           open
           onClose={() => setEditing(null)}
           title={`Edit ${editing.name}`}
-          submitLabel="Save sprint"
+          submitLabel={txt('Save sprint')}
+          terms={source.terms}
           initial={{ name: editing.name, goal: editing.goal, startsOn: editing.starts_on, endsOn: editing.ends_on, teamId: editing.team_id ?? null }}
           team={teamField(editing) && { ...teamField(editing)!, draftFor: undefined }}
           onSubmit={(input) => source.updateSprint(editing.id, input)}
@@ -339,9 +344,9 @@ export function BacklogView({ source }: { source: WorkSource }) {
         onConfirm={async () => {
           if (deleting) await source.deleteSprint(deleting.id)
         }}
-        title={`Delete ${deleting?.name ?? 'this sprint'}?`}
+        title={`Delete ${deleting?.name ?? txt('this sprint')}?`}
         body="Its tasks go back to the backlog. Nothing else changes."
-        confirmLabel="Delete sprint"
+        confirmLabel={txt('Delete sprint')}
         tone="danger"
       />
     </div>
@@ -357,6 +362,7 @@ function ItemRow({
   onOpen,
   targets,
   needsTeam,
+  terms,
   onMove,
   onStep,
   first,
@@ -370,6 +376,7 @@ function ItemRow({
   onOpen: () => void
   targets: { value: string; label: string }[]
   needsTeam: boolean
+  terms: WorkSource['terms']
   onMove: (to: string) => void
   onStep: (dir: -1 | 1) => void
   first: boolean
@@ -400,7 +407,7 @@ function ItemRow({
           >
             {item.title}
           </button>
-          <BugBadge kind={item.kind} />
+          <BugBadge kind={item.kind} taskType={item.task_type} />
         </div>
         <p className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-faint">
           <span className={item.holders.length ? '' : 'text-warning-700 dark:text-warning-300'}>
@@ -409,7 +416,7 @@ function ItemRow({
           {item.due_at && (
             <span className={`font-mono ${overdue ? 'text-danger-600 dark:text-danger-400' : ''}`}>{formatDue(item.due_at)}</span>
           )}
-          {needsTeam && canPlan && <span>Give the task a team before planning it into a sprint.</span>}
+          {needsTeam && canPlan && <span>{stageText('Give the task a team before planning it into a sprint.', terms)}</span>}
         </p>
       </div>
       {(canPlan || canStep) && (

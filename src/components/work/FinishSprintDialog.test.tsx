@@ -48,7 +48,7 @@ it('starts on the backlog when the project sends unfinished tasks there', async 
 
 it('starts on the planned sprint when the project carries tasks to the next one', async () => {
   const text = await checkedChoice(sourceOf([sprint({}), planned], { ...DEFAULT_SPRINT_SETTINGS, carry: 'next' }))
-  expect(text).toContain('Into a planned sprint')
+  expect(text).toContain('Into a planned stage')
 })
 
 it('falls back to the backlog when carrying to the next sprint but none is planned', async () => {
@@ -58,5 +58,5 @@ it('falls back to the backlog when carrying to the next sprint but none is plann
 
 it('keeps today\'s choice when the project asks each time', async () => {
   const text = await checkedChoice(sourceOf([sprint({}), planned], { ...DEFAULT_SPRINT_SETTINGS, carry: 'ask' }))
-  expect(text).toContain('Into a planned sprint')
+  expect(text).toContain('Into a planned stage')
 })

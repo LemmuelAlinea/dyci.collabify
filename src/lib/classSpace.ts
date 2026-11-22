@@ -28,11 +28,11 @@ const SHARED: ClassTab[] = ['overview', 'projects', 'people', 'syllabus']
 const TEACHING: ClassTab[] = ['overview', 'projects', 'reports', 'syllabus', 'settings']
 
 /** A teacher's class Settings, one section at a time. */
-export type ClassSettingsSection = 'general' | 'members' | 'groups'
+export type ClassSettingsSection = 'general' | 'members' | 'groups' | 'tasks'
 
 /** The open Settings section; General unless `?section=` names another. */
 export function readClassSettingsSection(value: string | null): ClassSettingsSection {
-  return value === 'members' || value === 'groups' ? value : 'general'
+  return value === 'members' || value === 'groups' || value === 'tasks' ? value : 'general'
 }
 
 /**

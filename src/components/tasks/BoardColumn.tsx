@@ -65,8 +65,8 @@ export function BoardColumn({
       {isOver && refusal && active.phase === 'dragging' && (
         <motion.p
           role="status"
-          initial={reduce ? false : { opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={reduce ? false : { opacity: 0, transform: 'translateY(-4px)' }}
+          animate={{ opacity: 1, transform: 'translateY(0)' }}
           transition={{ duration: reduce ? 0 : 0.14 }}
           className="surface absolute inset-x-1.5 top-11 z-20 rounded-xl border border-warning-300 px-3 py-2 text-[12px] text-warning-700 shadow-lift dark:border-warning-400/50 dark:text-warning-300"
         >

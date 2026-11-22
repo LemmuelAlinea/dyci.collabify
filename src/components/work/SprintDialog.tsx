@@ -6,6 +6,7 @@ import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { authErrorMessage } from '../../lib/authError'
 import type { SprintInput } from '../../lib/work/types'
+import { stageText, type StageTerms } from '../../lib/work/stageTerms'
 
 /** The Team picker, on a work project with teams. */
 export type SprintTeamField = {
@@ -29,6 +30,7 @@ export function SprintDialog({
   submitLabel,
   initial,
   team,
+  terms,
   onSubmit,
 }: {
   open: boolean
@@ -37,8 +39,10 @@ export function SprintDialog({
   submitLabel: string
   initial: SprintInput
   team?: SprintTeamField
+  terms?: StageTerms
   onSubmit: (input: SprintInput) => Promise<unknown>
 }) {
+  const txt = (copy: string) => stageText(copy, terms)
   const [name, setName] = useState(initial.name)
   const [goal, setGoal] = useState(initial.goal)
   const [startsOn, setStartsOn] = useState(initial.startsOn)
@@ -60,16 +64,16 @@ export function SprintDialog({
 
   async function save() {
     setError(null)
-    if (!name.trim()) return setError('A sprint needs a name.')
-    if (!startsOn || !endsOn) return setError('A sprint needs a start and an end date.')
-    if (endsOn < startsOn) return setError('A sprint cannot end before it starts. Move one of the two dates.')
-    if (team?.required && !teamId) return setError('Choose the team this sprint is for.')
+    if (!name.trim()) return setError(txt('A sprint needs a name.'))
+    if (!startsOn || !endsOn) return setError(txt('A sprint needs a start and an end date.'))
+    if (endsOn < startsOn) return setError(txt('A sprint cannot end before it starts. Move one of the two dates.'))
+    if (team?.required && !teamId) return setError(txt('Choose the team this sprint is for.'))
     setBusy(true)
     try {
       await onSubmit({ name, goal, startsOn, endsOn, ...(team ? { teamId: teamId || null } : {}) })
       onClose()
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not save the sprint.'))
+      setError(txt(authErrorMessage(err, txt('Could not save the sprint.'))))
     } finally {
       setBusy(false)
     }
@@ -123,7 +127,7 @@ export function SprintDialog({
             {(id) => <Input id={id} type="date" value={endsOn} onChange={(e) => { setEndsOn(e.target.value); setEdited(true) }} />}
           </Field>
         </div>
-        <Field label="Goal" optional hint={<span className="text-[12px] text-faint">What this sprint should get done, in a sentence.</span>}>
+        <Field label="Goal" optional hint={<span className="text-[12px] text-faint">{txt('What this sprint should get done, in a sentence.')}</span>}>
           {(id) => <Textarea id={id} rows={3} maxLength={500} value={goal} onChange={(e) => setGoal(e.target.value)} />}
         </Field>
       </div>

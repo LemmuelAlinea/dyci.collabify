@@ -63,7 +63,7 @@ const CATALOGUE: ReportGroup[] = [
       {
         kind: 'progress',
         label: 'Group progress report',
-        body: 'One group, or every group, on a project: how far along, who did the work, milestones, sprints and every answer you gave.',
+        body: 'One group, or every group, on a project: how far along, who did the work, milestones, work cycles and every answer you gave.',
       },
       {
         kind: 'deliverables',

@@ -193,7 +193,7 @@ export async function getGeneralProject(projectId: string) {
     // Its own query, so the project still loads before project-notification-rules.sql adds these columns.
     supabase.from('general_projects').select(NOTIFICATION_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
     // Its own query, so the project still loads before project-open-tasks.sql adds the column.
-    supabase.from('general_projects').select('task_flow').eq('id', projectId).maybeSingle(),
+    supabase.from('general_projects').select('task_flow, task_types').eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
@@ -227,6 +227,7 @@ export async function getGeneralProject(projectId: string) {
     visibility: (fields?.visibility as ProjectVisibility | undefined) ?? 'private',
     taskRules: ruleRow ? taskRulesOf(ruleRow) : DEFAULT_TASK_RULES,
     taskFlow,
+    taskTypes: (flowOption.data?.task_types as string[] | undefined) ?? [],
     memberRules: memberRow
       ? { manageMilestones: memberRow.members_manage_milestones, createTasks: memberRow.members_create_tasks }
       : DEFAULT_MEMBER_RULES,
@@ -458,6 +459,7 @@ export type ProjectPatch = Partial<{
   allow_multiple_assignees: boolean
   require_assignee: boolean
   require_subtasks_done: boolean
+  task_types: string[]
   /** The member options (project manager only). */
   members_manage_milestones: boolean
   members_create_tasks: boolean
@@ -1110,18 +1112,19 @@ async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
   if (tasks.length === 0) return tasks
   const chunks: string[][] = []
   for (let i = 0; i < tasks.length; i += EXTRAS_CHUNK) chunks.push(tasks.slice(i, i + EXTRAS_CHUNK).map((t) => t.id))
-  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null; estimated_minutes: number | null }>()
+  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null; task_type: string | null; estimated_minutes: number | null }>()
   const results = await Promise.all(
-    chunks.map((ids) => supabase.from('general_tasks').select('id, priority, parent_id, estimated_minutes').in('id', ids)),
+    chunks.map((ids) => supabase.from('general_tasks').select('id, priority, parent_id, task_type, estimated_minutes').in('id', ids)),
   )
   for (const { data, error } of results) {
     if (error) throw error
-    for (const row of data ?? []) extras.set(row.id, row)
+    for (const row of (data ?? []) as { id: string; priority: TaskPriority; parent_id: string | null; task_type: string | null; estimated_minutes: number | null }[]) extras.set(row.id, row)
   }
   return tasks.map((t) => ({
     ...t,
     priority: extras.get(t.id)?.priority ?? 'normal',
     parent_id: extras.get(t.id)?.parent_id ?? null,
+    task_type: extras.get(t.id)?.task_type ?? null,
     estimated_minutes: extras.get(t.id)?.estimated_minutes ?? null,
   }))
 }
@@ -1214,6 +1217,7 @@ export async function createTask(input: {
   sprintId?: string | null
   /** 'bug' for a task QA raised; left out, a plain task. */
   kind?: TaskKind
+  taskType?: string | null
   /** Left out, the project's default priority. */
   priority?: TaskPriority
 }) {
@@ -1232,6 +1236,7 @@ export async function createTask(input: {
       sprint_id: input.sprintId ?? null,
       ...(project.class_board_id === null ? { routing_state: 'planning' } : {}),
       ...(input.kind ? { kind: input.kind } : {}),
+      ...(input.taskType ? { task_type: input.taskType } : {}),
       ...(input.priority ? { priority: input.priority } : {}),
     })
     .select('id')
@@ -1251,6 +1256,7 @@ export async function createMemberTask(
   description = '',
   dueAt: string | null = null,
   teamId?: string | null,
+  taskType?: string | null,
 ) {
   const { data, error } = await supabase.rpc('create_general_member_task', {
     p_project: projectId,
@@ -1258,6 +1264,7 @@ export async function createMemberTask(
     p_description: description,
     p_due_at: dueAt,
     p_team: teamId ?? null,
+    p_type: taskType ?? null,
   })
   if (error) throw error
   return data as string
@@ -1277,6 +1284,7 @@ export async function createOpenTask(input: {
   /** Null: the project's default priority. */
   priority: TaskPriority | null
   kind: TaskKind
+  taskType?: string | null
   holderIds: string[]
 }) {
   const { data, error } = await supabase.rpc('create_general_open_task', {
@@ -1288,6 +1296,7 @@ export async function createOpenTask(input: {
     p_team: input.teamId,
     p_priority: input.priority,
     p_kind: input.kind,
+    p_type: input.taskType ?? null,
     p_holders: input.holderIds,
   })
   if (error) throw error
@@ -1358,6 +1367,7 @@ export type TaskPatch = Partial<{
   starts_at: string | null
   team_id: string | null
   priority: TaskPriority
+  task_type: string | null
 }>
 
 export async function updateTask(taskId: string, patch: TaskPatch) {

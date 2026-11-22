@@ -330,7 +330,7 @@ export function ProjectForm({
       return fail('Say what the work is. Students see this as the brief.')
     }
     const stageProblem = checkStages(stages)
-    if (stageProblem) return fail(`Progress stages: ${stageProblem}`)
+    if (stageProblem) return fail(`Task workflow steps: ${stageProblem}`)
 
     // A half-filled row is worse than no row: it marks against a criterion
     // nobody named, or names one worth nothing.
@@ -569,7 +569,7 @@ export function ProjectForm({
           </Field>
 
           <div className="space-y-2">
-            <p className="text-[13px] font-medium text-ink">Progress stages</p>
+            <p className="text-[13px] font-medium text-ink">Task workflow steps</p>
             <p className="text-[12px] text-muted">
               The columns every board on this project moves its tasks through.
             </p>

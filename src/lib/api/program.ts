@@ -7,6 +7,7 @@ import type {
   ProgramSection,
   SectionFaculty,
   SectionOverview,
+  SectionStudent,
 } from '../program'
 import type { YearLevel } from '../types'
 
@@ -181,6 +182,21 @@ export async function setSectionFaculty(sectionId: string, facultyIds: string[])
   const { error } = await supabase.rpc('set_section_faculty', {
     p_section: sectionId,
     p_faculty: facultyIds,
+  })
+  if (error) throw error
+}
+
+/** Student rosters belong to the program office. */
+export async function listSectionStudents() {
+  const { data, error } = await supabase.from('program_section_students').select('section_id, student_id')
+  if (error) throw error
+  return (data ?? []) as SectionStudent[]
+}
+
+export async function setSectionStudents(sectionId: string, studentIds: string[]) {
+  const { error } = await supabase.rpc('set_section_students', {
+    p_section: sectionId,
+    p_students: studentIds,
   })
   if (error) throw error
 }

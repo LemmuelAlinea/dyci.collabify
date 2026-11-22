@@ -54,14 +54,6 @@ export default function Login() {
       kicker="Welcome back"
       title="Sign in"
       subtitle="Pick up where your group left off."
-      footer={
-        <>
-          Don't have an account?{' '}
-          <Link to="/register" className="font-semibold text-ink hover:underline">
-            Create one
-          </Link>
-        </>
-      }
     >
       <form onSubmit={onSubmit} className="space-y-4">
         {!configured && (

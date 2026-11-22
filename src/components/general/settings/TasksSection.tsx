@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { Alert } from '../../ui/Alert'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { Toggle } from '../../ui/Field'
+import { Input, Toggle } from '../../ui/Field'
 import { Select } from '../../ui/Select'
 import { useToast } from '../../ui/Toast'
 import { previewTaskFlow, setTaskFlow, updateGeneralProject } from '../../../lib/api/general'
@@ -25,9 +25,73 @@ export function TasksSection({ state }: { state: GeneralProjectState }) {
   return (
     <div className="space-y-6">
       {state.project && !state.project.class_board_id && <TaskFlowPanel state={state} />}
+      {state.project && !state.project.class_board_id && <TaskTypesPanel state={state} />}
       <StagesPanel state={state} />
       <TaskRulesPanel state={state} />
     </div>
+  )
+}
+
+function TaskTypesPanel({ state }: { state: GeneralProjectState }) {
+  const { show } = useToast()
+  const p = state.project
+  const saved = p?.taskTypes ?? []
+  const editable = state.myRole === 'pm' && !state.readOnly
+  const [names, setNames] = useState<string[]>(saved)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const savedKey = JSON.stringify(saved)
+  useEffect(() => setNames(saved), [p?.id, savedKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!p) return null
+
+  async function save() {
+    if (!p) return
+    const next = names.map((name) => name.trim())
+    if (next.some((name) => !name || name.length > 40 || ['task', 'bug'].includes(name.toLowerCase()))
+      || new Set(next.map((name) => name.toLowerCase())).size !== next.length) {
+      setError('Use distinct names of 1 to 40 characters, apart from Task and Bug.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await updateGeneralProject(p.id, { task_types: next })
+      await state.reload()
+      show('Task types saved')
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not save the task types.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card p-4 shadow-card sm:p-5">
+      <header className="mb-4">
+        <h2>Task types</h2>
+        <p className="mt-0.5 text-[12px] text-muted">Add choices alongside Task and Bug. Existing tasks keep a type you remove.</p>
+      </header>
+      {error && <div className="mb-3"><Alert tone="error">{error}</Alert></div>}
+      <div className="space-y-2">
+        <p className="text-[13px] text-muted">Built in: Task · Bug</p>
+        {names.map((name, index) => (
+          <div key={index} className="flex max-w-md gap-2">
+            <Input
+              aria-label={`Custom task type ${index + 1}`}
+              value={name}
+              maxLength={40}
+              disabled={!editable || busy}
+              onChange={(event) => setNames((current) => current.map((value, i) => i === index ? event.target.value : value))}
+            />
+            {editable && <Button variant="ghost" onClick={() => setNames((current) => current.filter((_, i) => i !== index))} disabled={busy}>Remove</Button>}
+          </div>
+        ))}
+      </div>
+      {editable && <div className="mt-5 flex flex-wrap justify-between gap-2 border-t border-line pt-4">
+        <Button variant="outline" onClick={() => setNames((current) => [...current, ''])} disabled={busy || names.length >= 20}>Add type</Button>
+        <Button onClick={() => void save()} loading={busy} disabled={JSON.stringify(names) === savedKey}>Save task types</Button>
+      </div>}
+    </section>
   )
 }
 
@@ -157,13 +221,13 @@ function StagesPanel({ state }: { state: GeneralProjectState }) {
     <section className="card p-4 shadow-card sm:p-5">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2>Stages</h2>
+          <h2>Task workflow steps</h2>
           <p className="mt-0.5 text-[12px] text-muted">The columns this project's tasks move through.</p>
         </div>
         {!editable ? (
           <RequestAccessButton state={state} permission="edit_project" />
         ) : (
-          !open && <EditButton label="Edit stages" onClick={() => setEditing(true)} />
+          !open && <EditButton label="Edit workflow steps" onClick={() => setEditing(true)} />
         )}
       </header>
       {open ? <StagesForm state={state} onDone={() => setEditing(false)} /> : <StagesView state={state} />}
@@ -194,7 +258,7 @@ function StagesForm({ state, onDone }: { state: GeneralProjectState; onDone: () 
     if (!p) return
     setError(null)
     const stageProblem = checkStages(stages)
-    if (stageProblem) return setError(`Progress stages: ${stageProblem}`)
+    if (stageProblem) return setError(`Task workflow steps: ${stageProblem}`)
     setBusy(true)
     try {
       await updateGeneralProject(p.id, {
@@ -226,7 +290,7 @@ function StagesForm({ state, onDone }: { state: GeneralProjectState; onDone: () 
           Cancel
         </Button>
         <Button onClick={() => void save()} loading={busy}>
-          Save stages
+          Save workflow steps
         </Button>
       </div>
     </div>

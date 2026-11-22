@@ -4,6 +4,7 @@
  * so a sprint ending "the 18th" ends on the 18th wherever the reader is.
  */
 import { startWeekdayOf, type SprintOrganization, type SprintSettings } from './sprintSettings'
+import { stageText, type StageTerms } from './stageTerms'
 import type { Milestone, Sprint, SprintInput, WorkItem } from './types'
 
 export const SPRINT_DAYS = 14
@@ -51,20 +52,21 @@ export function canStartSprint(
   context: {
     teamName?: (id: string) => string | undefined
     items?: readonly Pick<WorkItem, 'sprint_id' | 'status' | 'teamId'>[]
+    terms?: StageTerms
   } = {},
 ): string | null {
   if (organization === 'parallel') return null
   const others = sprints.filter((s) => s.state === 'active' && s.id !== sprint.id)
   if (organization === 'sequential') return others[0] ? `Finish ${others[0].name} first.` : null
 
-  if (!sprint.team_id) return 'Give this sprint a team first.'
+  if (!sprint.team_id) return stageText('Give this sprint a team first.', context.terms)
   const same = others.find((s) => s.team_id === sprint.team_id)
   if (same) return `${context.teamName?.(sprint.team_id) ?? 'This team'} is already running ${same.name}.`
   const foreign = (context.items ?? []).filter(
     (i) => i.sprint_id === sprint.id && i.status !== 'done' && (i.teamId ?? null) !== sprint.team_id,
   ).length
-  if (foreign === 1) return '1 task in this sprint belongs to another team. Move it out first.'
-  if (foreign > 1) return `${foreign} tasks in this sprint belong to another team. Move them out first.`
+  if (foreign === 1) return stageText('1 task in this sprint belongs to another team. Move it out first.', context.terms)
+  if (foreign > 1) return stageText(`${foreign} tasks in this sprint belong to another team. Move them out first.`, context.terms)
   return null
 }
 
@@ -153,6 +155,7 @@ export function nextSprintDraft(
   now = Date.now(),
   settings?: SprintSettings,
   team?: { id: string; name: string },
+  term = settings?.terms.singular ?? 'Stage',
 ): SprintInput {
   const chain = team ? sprints.filter((s) => s.team_id === team.id) : sprints
   const today = toDay(now)
@@ -164,7 +167,7 @@ export function nextSprintDraft(
     startsOn = addDays(startsOn, (weekday - new Date(y, m - 1, d).getDay() + 7) % 7)
   }
   return {
-    name: team ? `${team.name} sprint ${chain.length + 1}` : `Sprint ${chain.length + 1}`,
+    name: team ? `${team.name} ${term.toLowerCase()} ${chain.length + 1}` : `${term} ${chain.length + 1}`,
     goal: '',
     startsOn,
     endsOn: addDays(startsOn, (settings?.lengthDays ?? SPRINT_DAYS) - 1),
@@ -191,6 +194,7 @@ export function sprintTimeline<M extends Pick<Milestone, 'id' | 'name' | 'due_on
   milestones: readonly M[],
   reached: (m: M) => boolean,
   now = Date.now(),
+  term = 'Stage',
 ): TimelinePoint[] {
   const today = toDay(now)
   const ahead = (day: string): TimelineState => (day === today ? 'today' : 'upcoming')
@@ -204,7 +208,7 @@ export function sprintTimeline<M extends Pick<Milestone, 'id' | 'name' | 'due_on
         label: m.name,
         state: reached(m) ? ('done' as const) : day < today ? ('late' as const) : ahead(day),
       })),
-    { day: sprint.ends_on, label: 'Sprint ends', state: sprint.ends_on < today ? 'done' : ahead(sprint.ends_on) },
+    { day: sprint.ends_on, label: `${term} ends`, state: sprint.ends_on < today ? 'done' : ahead(sprint.ends_on) },
   ]
   if (today > sprint.starts_on && today < sprint.ends_on && !points.some((p) => p.day === today)) {
     const at = points.findIndex((p) => p.day > today)

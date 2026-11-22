@@ -72,7 +72,7 @@ export async function studentDashboard(studentId: string): Promise<StudentDashbo
 
 export async function boardsFor(projectIds: string[]) {
   // Past 1000 rows the server cuts a response short, so the read pages, in a stable order.
-  return pageAllIn<BoardSummary>(projectIds, async (chunk, from, to) => {
+  const boards = await pageAllIn<BoardSummary>(projectIds, async (chunk, from, to) => {
     const { data, error } = await supabase
       .from('task_board_overview')
       .select('*')
@@ -82,6 +82,16 @@ export async function boardsFor(projectIds: string[]) {
     if (error) throw error
     return (data ?? []) as BoardSummary[]
   })
+  if (boards.length === 0) return boards
+  const ids = boards.map((b) => b.id)
+  const terms = await pageAllIn<{ id: string; term_singular: string; term_plural: string }>(ids, async (chunk, from, to) => {
+    const { data, error } = await supabase.from('project_boards')
+      .select('id, term_singular, term_plural').in('id', chunk).order('id').range(from, to)
+    if (error) throw error
+    return data ?? []
+  })
+  const byId = new Map(terms.map((row) => [row.id, row]))
+  return boards.map((board) => ({ ...board, ...byId.get(board.id) }))
 }
 
 /** The viewer's own row on every board, with the project it belongs to. */

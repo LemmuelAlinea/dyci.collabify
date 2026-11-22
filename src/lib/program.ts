@@ -230,6 +230,11 @@ export type SectionFaculty = {
   faculty_id: string
 }
 
+export type SectionStudent = {
+  section_id: string
+  student_id: string
+}
+
 /** program_section_overview: the same, with what is running in it. */
 export type SectionOverview = Omit<ProgramSection, 'created_at'> & {
   section_id: string

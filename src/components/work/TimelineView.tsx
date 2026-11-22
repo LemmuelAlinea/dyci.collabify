@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
+import type { StageTerms } from '../../lib/work/stageTerms'
 import { formatDue, isOverdue } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import {
@@ -97,6 +98,7 @@ export function TimelineView({
   onOpen,
   bands = [],
   marks = [],
+  terms,
 }: {
   tasks: TimelineTask[]
   groups: readonly { id: string; name: string }[]
@@ -108,6 +110,7 @@ export function TimelineView({
   bands?: Band[]
   /** Milestones, as diamonds in a row of their own. */
   marks?: Mark[]
+  terms?: StageTerms
 }) {
   const range = useMemo(
     () => dataRange(tasks, [...marks.map((m) => m.at), ...bands.flatMap((b) => [b.start, b.end - 1])], span),
@@ -224,7 +227,7 @@ export function TimelineView({
     lines.push({
       key: 'sprints',
       height: 'h-8',
-      name: <span className="eyebrow">Sprints</span>,
+      name: <span className="eyebrow">{terms?.plural ?? 'Stages'}</span>,
       track: placedBands.map(({ band, place }) => (
         <span
           key={band.id}

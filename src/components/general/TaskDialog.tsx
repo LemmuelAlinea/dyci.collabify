@@ -38,7 +38,7 @@ import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stage
 import { QA_PASSES, inQa, qaStageIndex } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
-import { PRIORITIES } from '../../lib/general/types'
+import { PRIORITIES, taskTypeOf, taskTypeOptions } from '../../lib/general/types'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPriority } from '../../lib/general/types'
 import { blockersOf, DEFAULT_TASK_RULES, subtasksOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
@@ -149,7 +149,7 @@ export function TaskDialog({
       description={
         task ? (
           <span className="inline-flex flex-wrap items-center gap-2">
-            <BugBadge kind={task.kind} onBanner />
+            <BugBadge kind={task.kind} taskType={task.task_type} onBanner />
             {stageName(state.project?.stages, task)}
             {!state.project?.class_board_id && <>
               <span aria-hidden="true">·</span>
@@ -644,6 +644,7 @@ function TaskDetails({
   // Suggest estimate: busy, then the model's reason or why it failed.
   const [suggesting, setSuggesting] = useState(false)
   const [suggestion, setSuggestion] = useState<{ reason: string } | { error: string } | null>(null)
+  const [taskType, setTaskType] = useState(task ? taskTypeOf(task) : 'task')
   const [error, setError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -658,6 +659,7 @@ function TaskDetails({
     setTeam(task.team_id ?? '')
     setPriority(task.priority ?? 'normal')
     setEstimate(task.estimated_minutes == null ? '' : String(Math.round((task.estimated_minutes / 60) * 100) / 100))
+    setTaskType(taskTypeOf(task))
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task || !state.project) return null
@@ -669,6 +671,9 @@ function TaskDetails({
   const hasEstimateField = work && task.estimated_minutes !== undefined
   const holdsTask = Boolean(state.viewerId && task.assignee_ids.includes(state.viewerId))
   const canEstimate = hasEstimateField && !state.readOnly && (state.myRole === 'pm' || state.myRole === 'coordinator' || holdsTask)
+  const typeOptions = task.kind === 'bug'
+    ? [{ value: 'bug', label: 'Bug' }]
+    : taskTypeOptions([...new Set([...(state.project.taskTypes ?? []), ...(task.task_type ? [task.task_type] : [])])]).filter((option) => option.value !== 'bug')
   const waiting = blockersOf(state.dependencies ?? [], state.tasks, task.id).length > 0
   const mobileDetails = (
     <button
@@ -698,8 +703,9 @@ function TaskDetails({
             <div id={`task-properties-${task.id}`} className={detailsOpen ? 'block' : 'hidden lg:block'}>
               <h3 className="hidden lg:block">Details</h3>
               <dl className="mt-4 grid gap-3 text-[13px] sm:grid-cols-2 lg:grid-cols-1">
-              <div><dt className="text-[12px] text-faint">Stage</dt><dd className="text-ink">{stageName(stages, task)}</dd></div>
+              <div><dt className="text-[12px] text-faint">Workflow step</dt><dd className="text-ink">{stageName(stages, task)}</dd></div>
               {work && <div><dt className="text-[12px] text-faint">Priority</dt><dd className="text-ink">{PRIORITIES.find((p) => p.value === (task.priority ?? 'normal'))?.label}</dd></div>}
+              {work && <div><dt className="text-[12px] text-faint">Type</dt><dd className="text-ink">{taskTypeOf(task) === 'task' ? 'Task' : taskTypeOf(task) === 'bug' ? 'Bug' : taskTypeOf(task)}</dd></div>}
               <div><dt className="text-[12px] text-faint">Starts</dt><dd className="text-ink">{task.starts_at ? formatDue(task.starts_at) : 'Not set'}</dd></div>
               <div>
                 <dt className="text-[12px] text-faint">Due</dt>
@@ -761,6 +767,7 @@ function TaskDetails({
       const fieldPatch: TaskPatch = {
         ...(canEdit ? { title: title.trim(), status: statusForStage(stage, stages.length) as GeneralTaskStatus, stage, team_id: team || null } : {}),
         ...(canEdit && work && priority !== (task.priority ?? 'normal') ? { priority } : {}),
+        ...(canEdit && work && task.kind !== 'bug' && taskType !== taskTypeOf(task) ? { task_type: taskType === 'task' ? null : taskType } : {}),
         ...(canEditSchedule ? { description, due_at: dueAt, starts_at: startsAt } : {}),
       }
       if (Object.keys(fieldPatch).length > 0) await updateTask(task.id, fieldPatch)
@@ -790,7 +797,7 @@ function TaskDetails({
             <h3 className="hidden lg:block">Details</h3>
             <div className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
-              <Field label="Stage" hint={gatedStages ? <span className="text-[12px] text-faint">{QA_PASSES}</span> : undefined}>
+              <Field label="Workflow step" hint={gatedStages ? <span className="text-[12px] text-faint">{QA_PASSES}</span> : undefined}>
                 {(id) => (
                   <Select
                     id={id}
@@ -815,6 +822,17 @@ function TaskDetails({
                       options={PRIORITIES.map((p) => ({ value: p.value, label: p.label }))}
                     />
                   )}
+                </Field>
+              )}
+              {work && (
+                <Field label="Type">
+                  {(id) => <Select
+                    id={id}
+                    disabled={!canEdit || task.kind === 'bug'}
+                    value={taskType}
+                    onChange={(e) => setTaskType(e.target.value)}
+                    options={typeOptions}
+                  />}
                 </Field>
               )}
             </div>

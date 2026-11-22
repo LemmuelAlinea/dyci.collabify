@@ -1,4 +1,8 @@
 import { StackedBar } from '../charts/StackedBar'
+import { useEffect, useState } from 'react'
+import { getBoardStageTerms } from '../../lib/api/stageTerms'
+import { DEFAULT_STAGE_TERMS, stageText } from '../../lib/work/stageTerms'
+import type { StageTerms } from '../../lib/work/stageTerms'
 import { shortDay } from '../charts/format'
 import type { AnalyticsData } from '../../pages/app/analytics/useAnalytics'
 
@@ -9,20 +13,30 @@ const STATE = { planned: 'Planned', active: 'Running', completed: 'Completed' } 
  * the start is not recorded, so it is not claimed.
  */
 export function SprintReport({ data }: { data: AnalyticsData }) {
+  const boardId = data.scope.boardId
+  const [naming, setNaming] = useState<{ id: string; terms: StageTerms } | null>(null)
+  useEffect(() => {
+    if (!boardId) return
+    let live = true
+    void getBoardStageTerms(boardId).then((terms) => { if (live) setNaming({ id: boardId, terms }) }).catch(() => {})
+    return () => { live = false }
+  }, [boardId])
+  const terms = naming?.id === boardId ? naming.terms : DEFAULT_STAGE_TERMS
+  const txt = (copy: string) => stageText(copy, terms)
   if (!data.scope.boardId) {
-    return <p className="text-[13px] text-muted">Choose a group in the scope bar to see its sprints.</p>
+    return <p className="text-[13px] text-muted">Choose a group in the scope bar to see its work cycles.</p>
   }
   if (data.shownSprints.length === 0) {
-    return <p className="text-[13px] text-muted">This group has not planned any sprints.</p>
+    return <p className="text-[13px] text-muted">{txt('This group has not planned any sprints.')}</p>
   }
   const max = Math.max(1, ...data.shownSprints.map((s) => s.tasks))
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] text-[13px]">
-        <caption className="sr-only">Sprints and what each finished in its window</caption>
+        <caption className="sr-only">{txt('Sprints and what each finished in its window')}</caption>
         <thead>
           <tr className="border-b border-line text-left text-[12px] text-faint">
-            <th scope="col" className="px-2 py-2 font-medium">Sprint</th>
+            <th scope="col" className="px-2 py-2 font-medium">{terms.singular}</th>
             <th scope="col" className="px-2 py-2 font-medium">Dates</th>
             <th scope="col" className="px-2 py-2 font-medium">State</th>
             <th scope="col" className="px-2 py-2 font-medium">In window · after · open</th>

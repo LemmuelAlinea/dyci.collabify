@@ -5395,6 +5395,48 @@ accepted." from the setting; no failed requests.
   holders at once can put back someone the other took off; the open writers read `task_flow` and holder membership
   without a lock, so a create racing a switch back to Planned, or a holder turning QA mid-change, can slip through.
 
+## Custom work task types (2026-11-21)
+
+- Settings → Tasks lets the project manager add, rename and remove up to 20 custom task types alongside Task and Bug. Existing tasks keep removed type names.
+- Custom types are available in planned, Member and open creation, task editing and the Type filter. QA still creates Bug only; changing a task's type does not change its QA kind.
+- `supabase/project-task-types.sql` runs after `stage-terminology.sql` and before `anon-lockdown.sql`. It was applied live, then `anon-lockdown.sql` was rerun. Re-run it after `project-member-rules.sql` or `project-open-tasks.sql` to restore the typed task creators. Suite: `supabase/tests/project-task-types.test.sql`.
+
+## Class task settings (2026-11-21)
+
+- After custom work task types were pushed to `main` as `fcceb7ef`, the class phase added Settings → Tasks for professors. They choose a class project and edit its task workflow steps, task types, and task rules.
+- Class tasks now carry a type and priority. Their detail window edits due date, type and priority, adds one-level subtasks, and links same-board dependencies. The database enforces holder limits, completion blockers, and dependency cycles.
+- `supabase/class-task-settings.sql` runs after `project-task-types.sql` and before `anon-lockdown.sql`. It was applied live with `anon-lockdown.sql` after it. Re-run it after `tasks.sql`, `task-stages.sql`, or `class-schedule.sql`. Suite: `supabase/tests/class-task-settings.test.sql`.
+
+## Collabify video calls — live trial (2026-11-21)
+
+- The Meetings page defaults new calls to Collabify and retains Google Meet and Zoom. The in-app room includes
+  device preview, host controls, chat, screen sharing, recording, mic status and speaker highlighting. The
+  implementation and restore order are in `docs/superpowers/plans/2026-11-20-collabify-video-meetings.md` and
+  `docs/07-backup.md`: run `project-stakeholders.sql` after `meetings.sql`, then the later-owner suffix,
+  `meeting-calls.sql` and `anon-lockdown.sql` last.
+- LiveKit dependencies: `livekit-client` 2.20.1, `@livekit/components-react` 2.9.25 and
+  `@livekit/track-processors` 0.8.3. Supabase has the `meeting-call` and `meeting-call-events` functions,
+  `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `MEETING_RECORDINGS_S3_ACCESS_KEY`,
+  `MEETING_RECORDINGS_S3_SECRET_KEY` and `MEETING_CALL_CRON_SECRET` secrets, and the matching Vault cron secret.
+  The `meeting-recordings` bucket is private. The minute reconciler and daily cleanup jobs are active.
+- Before the live-site push, `npm run check` passed (2,802 unit tests, build, lint, contrast, accessibility and
+  schema checks). The live `meeting-calls.test.sql`, `meetings.test.sql`, `project-stakeholders.test.sql` and
+  `anon-lockdown.test.sql` suites passed in rollback transactions. All eight stored LiveKit webhook events had
+  `processed_at`; the latest minute reconciler run succeeded. The daily cleanup had not reached its first run.
+- The complete legacy SQL gate is not green: `accounts.test.sql` fails independently on its unchanged fixture,
+  and several other batches stopped at unrelated legacy assertions. Do not report the 122 suites as passing.
+  Separate-account project/class/group, stakeholder and revoked-member browser checks, a 100-person simulation,
+  recording start/playback/expiry and school recording-policy review remain before calling this a full release.
+  Provider cost has not been measured for these scenarios. The shared `meeting_calls_enabled` flag is on for
+  this live trial.
+
+## Stage and Phase terminology (2026-11-21)
+
+- Dated sprints now read as Stages by default across work projects and class boards. Each work project's Stage settings or class board's Plan view can set a singular and plural name such as Phase/Phases. Existing saved names, including finished Sprint 1 and Sprint 2, stay untouched; new defaults continue the count under the current name.
+- Task-column “stages” now read as task workflow steps. Internal sprint table, API, notification type and URL names remain stable for existing links and records. Mixed-board reports use a neutral Work cycles heading and identify each board's term.
+- `supabase/stage-terminology.sql` adds the two labels and a narrow board-naming RPC. The live database has the migration and `anon-lockdown.sql`; the affected class-planning, sprint-settings, sprint-organization, project-notification-rules, task-stages and anon-lockdown SQL suites passed. The shared `work-ai` Edge Function was deployed with the chosen-term prompt.
+- `npm run check` passed with 2,821 tests, typecheck, lint, build, contrast, accessibility, schema drift and motion checks. A final Vitest run after the role-guide change passed 2,822 tests. The 122-suite legacy SQL gate was not rerun. Live role and layout checks remain for the owner after the frontend push.
+
 ## Space workload, phase 1: Demo (2026-11-23)
 
 - Planners break a released task into subtasks and balance them across the team. In the task dialog, **Break down and

@@ -487,6 +487,8 @@ begin
   insert into public.general_teams (project_id, name) values (p, 'Design');
   insert into public.general_sprint_settings (project_id, organization, auto_finish, auto_start, carry, length_days)
   values (p, 'streams', true, true, 'next', 14);
+  update public.general_sprint_settings
+     set term_singular = 'Phase', term_plural = 'Phases' where project_id = p;
   perform set_config('collabify.sprint_automation', 'on', true);
   update public.general_sprint_settings set auto_start_since = '2026-10-01' where project_id = p;
   perform set_config('collabify.sprint_automation', 'off', true);
@@ -499,8 +501,8 @@ begin
     and (select state = 'active' from public.general_sprints where id = s2)
     and (select count(*) = 1 from public.general_sprints
           where project_id = p and team_id = front and state = 'active'
-            and name = 'Frontend sprint 2' and starts_on = '2026-11-11' and ends_on = '2026-11-24')
-    and (select s.name = 'Frontend sprint 2' from public.general_tasks t
+            and name = 'Frontend phase 2' and starts_on = '2026-11-11' and ends_on = '2026-11-24')
+    and (select s.name = 'Frontend phase 2' from public.general_tasks t
            join public.general_sprints s on s.id = t.sprint_id where t.id = t1));
   perform pg_temp.must_be('a team without sprint history gets no sprint of its own',
     (select count(*) = 3 from public.general_sprints where project_id = p));
@@ -510,7 +512,7 @@ begin
                and title = 'Frontend: Front 1 finished on its own')
     and exists (select 1 from public.notifications
                  where general_project_id = p and user_id = a and type = 'sprint_automation'
-                   and title = 'Frontend sprint 2 started on its own'));
+                   and title = 'Frontend phase 2 started on its own'));
   select count(*) into n from public.notifications where general_project_id = p;
   perform pg_temp.must_be('a second streams run changes nothing',
     public.run_sprint_automation('2026-11-11 09:00 Asia/Manila', p) = 0
@@ -612,8 +614,8 @@ begin
     (select state = 'completed' and next_auto_created from public.general_sprints where id = s1)
     and (select auto_created_after = s1 from public.general_sprint_settings where project_id = p)
     and (select count(*) = 1 from public.general_sprints
-          where project_id = p and name = 'Sprint 2' and state = 'active')
-    and (select s.name = 'Sprint 2' from public.general_tasks t
+          where project_id = p and name = 'Stage 2' and state = 'active')
+    and (select s.name = 'Stage 2' from public.general_tasks t
            join public.general_sprints s on s.id = t.sprint_id where t.id = t1)
     and exists (select 1 from public.notifications
                  where general_project_id = p and user_id = a and type = 'sprint_automation'

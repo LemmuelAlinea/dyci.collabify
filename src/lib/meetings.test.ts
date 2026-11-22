@@ -49,6 +49,18 @@ describe('meetingState and canJoin', () => {
     expect(meetingState(c, start)).toBe('cancelled')
     expect(canJoin(c, start)).toBe(false)
   })
+
+  it('uses the actual lifecycle for Collabify calls', () => {
+    const call = { ...m, platform: 'collabify' as const, call_state: 'scheduled' as const }
+    expect(meetingState(call, start + 3_600_000)).toBe('scheduled')
+    expect(canJoin(call, start + 3_600_000)).toBe(false)
+    expect(meetingState({ ...call, call_state: 'starting' }, start + 3_600_000)).toBe('starting')
+    expect(canJoin({ ...call, call_state: 'starting' }, start + 3_600_000)).toBe(false)
+    expect(meetingState({ ...call, call_state: 'live' }, start - 3_600_000)).toBe('live')
+    expect(canJoin({ ...call, call_state: 'live' }, start - 3_600_000)).toBe(true)
+    expect(meetingState({ ...call, call_state: 'ended' }, start)).toBe('ended')
+    expect(canJoin({ ...call, call_state: 'ended' }, start)).toBe(false)
+  })
 })
 
 describe('scopeOf', () => {

@@ -62,7 +62,7 @@ describe('canStartSprint', () => {
   })
 
   it('needs a team in streams', () => {
-    expect(canStartSprint(sprint({ id: 'p' }), [], 'streams')).toBe('Give this sprint a team first.')
+    expect(canStartSprint(sprint({ id: 'p' }), [], 'streams')).toBe('Give this stage a team first.')
   })
 
   it('allows one running sprint per team in streams', () => {
@@ -77,11 +77,11 @@ describe('canStartSprint', () => {
   it('counts open tasks of another team in streams', () => {
     const one = [item({ teamId: 'b' }), item({ id: 'd', teamId: 'b', status: 'done' })]
     expect(canStartSprint(planned, [planned], 'streams', { items: one })).toBe(
-      '1 task in this sprint belongs to another team. Move it out first.',
+      '1 task in this stage belongs to another team. Move it out first.',
     )
     const two = [item({ teamId: 'b' }), item({ id: 'n', teamId: null })]
     expect(canStartSprint(planned, [planned], 'streams', { items: two })).toBe(
-      '2 tasks in this sprint belong to another team. Move them out first.',
+      '2 tasks in this stage belong to another team. Move them out first.',
     )
     expect(canStartSprint(planned, [planned], 'streams', { items: [item({ teamId: 'f' })] })).toBeNull()
   })
@@ -94,7 +94,7 @@ describe('nextSprintDraft for a team', () => {
       sprint({ id: 'b', team_id: 'b', ends_on: '2026-12-31' }),
     ]
     const draft = nextSprintDraft(list, new Date(2026, 9, 1).getTime(), DEFAULT_SPRINT_SETTINGS, { id: 'f', name: 'Frontend' })
-    expect(draft.name).toBe('Frontend sprint 2')
+    expect(draft.name).toBe('Frontend stage 2')
     expect(draft.teamId).toBe('f')
     expect(draft.startsOn >= '2026-11-02').toBe(true)
     expect(draft.startsOn < '2026-12-01').toBe(true)
@@ -173,6 +173,6 @@ describe('scope with several running sprints', () => {
   it('stays as it was with one running sprint', () => {
     expect(defaultScope([soon])).toBe('running')
     expect(readScope('running', [soon])).toBe('running')
-    expect(scopeOptions([soon])[0]).toEqual({ value: 'running', label: 'Running sprint · One' })
+    expect(scopeOptions([soon])[0]).toEqual({ value: 'running', label: 'Running stage · One' })
   })
 })

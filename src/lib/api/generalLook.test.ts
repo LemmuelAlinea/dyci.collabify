@@ -35,7 +35,7 @@ beforeEach(() => {
   results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
   results.set(STAGES, { data: { stages: ['A', 'B'], qa_stage: null, class_board_id: null }, error: null })
   results.set(MEMBER_RULES, { data: { members_manage_milestones: false, members_create_tasks: false }, error: null })
-  results.set('general_projects:task_flow', { data: { task_flow: 'planned' }, error: null })
+  results.set('general_projects:task_flow, task_types', { data: { task_flow: 'planned', task_types: [] }, error: null })
   results.set(MILESTONE_RULES, {
     data: { milestone_completion: 'automatic', require_milestone_due: true, allow_milestone_dependencies: true, milestone_overdue_alerts: true },
     error: null,

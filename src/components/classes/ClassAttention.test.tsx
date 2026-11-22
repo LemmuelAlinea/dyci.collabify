@@ -59,7 +59,14 @@ it('shows the two tiles once a student has joined', async () => {
   expect(text).toContain('Waiting on you here')
   expect(text).toContain('3hand-ins to answer')
   expect(text).toContain('1reassignment to decide')
-  expect(text).toContain('Nothing is behind')
+  expect(text).toContain('No groups behind')
+})
+
+it('shows designed empty panels for waiting and groups', async () => {
+  m.counts.mockResolvedValue({ handIns: 0, requests: 0 })
+  const text = await render(cls(1))
+  expect(text).toContain("You're all caught up")
+  expect(text).toContain('Groups that fall behind will appear here.')
 })
 
 it('shows the two tiles once a project exists', async () => {

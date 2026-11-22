@@ -395,7 +395,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   write with claims cleared and redefine no guard, so edit rights don't widen. Open-created tasks keep `sent_at` null,
   so their creator keeps the creator rule. Plan & route shows in an open project only while work waits in planning
   (`showsRouting`). Suite: `supabase/tests/project-open-tasks.test.sql`.
-- Space workload (`supabase/work-workload.sql`, after `project-open-tasks.sql`, before `anon-lockdown.sql`): owns
+- Custom work task types (`supabase/project-task-types.sql`, after `stage-terminology.sql`, before
+  `anon-lockdown.sql`): a project manager sets extra names alongside Task and Bug; removed names stay on old
+  tasks. `kind` still enforces the QA Bug rule. Re-run this file after `project-member-rules.sql` or
+  `project-open-tasks.sql` to restore typed task creation. Suite: `supabase/tests/project-task-types.test.sql`.
+- Class task settings (`supabase/class-task-settings.sql`, after `project-task-types.sql`, before
+  `anon-lockdown.sql`): each class project has workflow steps, custom task types, and task rules.
+  Class tasks gain priority, one-level subtasks, and same-board dependencies. Re-run this file after
+  `class-schedule.sql`, `task-stages.sql`, or `tasks.sql` to restore the task view, defaults, and
+  typed professor RPCs. Suite: `supabase/tests/class-task-settings.test.sql`.
+- Space workload (`supabase/work-workload.sql`, after `section-students.sql`, before `anon-lockdown.sql`): owns
   `general_tasks.estimated_minutes` (1-60000, work projects only; a signed-in change goes through `set_work_task_estimate`
   under `collabify.estimate_write`, planners or the holder, one `updated` history row), `general_space_capacity` (weekly
   minutes per work-space member, null is "Not set", never 0; `set_space_weekly_minutes`) and `user_time_off` (own rows only,

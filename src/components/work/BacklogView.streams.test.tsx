@@ -109,7 +109,7 @@ it('offers a task only its own team sprints in streams', async () => {
 it('offers a team-less task only the backlog in streams and says why', async () => {
   await render(source('streams', [front, back], [item({ id: 't1', title: 'Loose' })]))
   expect(moveOptions('Loose')).toEqual(['Backlog'])
-  expect(host.textContent).toContain('Give the task a team before planning it into a sprint.')
+  expect(host.textContent).toContain('Give the task a team before planning it into a stage.')
 })
 
 it('offers every sprint outside streams, naming running teams', async () => {
@@ -120,19 +120,19 @@ it('offers every sprint outside streams, naming running teams', async () => {
 it('blocks Start sprint only by the mode rule, with its message', async () => {
   const running = sprint({ id: 'sr', name: 'Front 0', team_id: 'f', state: 'active' })
   await render(source('streams', [front, running], []))
-  const start = button('Start sprint')!
+  const start = button('Start stage')!
   expect(start.disabled).toBe(true)
   expect(start.title).toBe('Frontend is already running Front 0.')
 })
 
 it('lets another team start while one team runs in streams', async () => {
   await render(source('streams', [front, back], []))
-  expect(button('Start sprint')!.disabled).toBe(false)
+  expect(button('Start stage')!.disabled).toBe(false)
 })
 
 it('lets a team lead without planning rights start their sprint', async () => {
   await render(source('streams', [front], [], { canPlan: false, canRunSprints: false, canRunSprint: (s) => s.team_id === 'f' }))
-  expect(button('Start sprint')).toBeDefined()
+  expect(button('Start stage')).toBeDefined()
 })
 
 it('says why a sprint could not start on its own', async () => {
@@ -143,10 +143,10 @@ it('says why a sprint could not start on its own', async () => {
 it('requires a team for a new sprint in streams and names it after the team', async () => {
   const s = source('streams', [], [])
   await render(s)
-  await act(async () => button('Create sprint')!.click())
-  const dialogSave = [...document.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Create sprint').at(-1)!
+  await act(async () => button('Create stage')!.click())
+  const dialogSave = [...document.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Create stage').at(-1)!
   await act(async () => dialogSave.click())
-  expect(document.body.textContent).toContain('Choose the team this sprint is for.')
+  expect(document.body.textContent).toContain('Choose the team this stage is for.')
   expect(s.createSprint).not.toHaveBeenCalled()
 
   const label = [...document.querySelectorAll('label')].filter((l) => l.textContent?.trim() === 'Team').at(-1)!
@@ -156,14 +156,14 @@ it('requires a team for a new sprint in streams and names it after the team', as
     select.dispatchEvent(new Event('change', { bubbles: true }))
   })
   await act(async () => dialogSave.click())
-  expect(s.createSprint).toHaveBeenCalledWith(expect.objectContaining({ name: 'Frontend sprint 1', teamId: 'f' }))
+  expect(s.createSprint).toHaveBeenCalledWith(expect.objectContaining({ name: 'Frontend stage 1', teamId: 'f' }))
 })
 
 it('leaves the team optional outside streams', async () => {
   const s = source('sequential', [], [])
   await render(s)
-  await act(async () => button('Create sprint')!.click())
-  const dialogSave = [...document.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Create sprint').at(-1)!
+  await act(async () => button('Create stage')!.click())
+  const dialogSave = [...document.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Create stage').at(-1)!
   await act(async () => dialogSave.click())
   expect(s.createSprint).toHaveBeenCalledWith(expect.objectContaining({ teamId: null }))
 })
@@ -175,7 +175,7 @@ it('shows one running sprint at a time, with the team in its heading, on the Spr
   await act(async () => root.render(<SprintsView source={source('streams', [a, b], [])} onPlan={() => {}} />))
   expect([...host.querySelectorAll('[role="tab"]')].map((t) => t.textContent)).toEqual(['Backend', 'Frontend'])
   expect(host.querySelector('h2')?.textContent).toBe('Back 1')
-  expect(host.textContent).toContain('Running sprint · Backend')
+  expect(host.textContent).toContain('Running stage · Backend')
 })
 
 it('hides Finish from a lead of another team', async () => {
@@ -183,5 +183,5 @@ it('hides Finish from a lead of another team', async () => {
   await act(async () =>
     root.render(<SprintsView source={source('streams', [a], [], { canRunSprints: false, canRunSprint: (s) => s.team_id === 'b' })} onPlan={() => {}} />),
   )
-  expect(button('Finish sprint')).toBeUndefined()
+  expect(button('Finish stage')).toBeUndefined()
 })

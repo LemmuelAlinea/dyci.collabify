@@ -35,6 +35,7 @@ const PATHS = {
   monitor: 'M3 4h18v12H3zM8 20h8M12 16v4',
   // A camera body and its lens hood: meetings.
   video: 'M3 6h12v12H3zM15 10l6-3.5v11L15 14',
+  videoOff: 'M3 6h12v12H3zM15 10l6-3.5v11L15 14M2 2l20 20',
   bell: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
   lock: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4',
   // The same body with the shackle swung open, so the pair reads as one state.
@@ -78,6 +79,7 @@ const PATHS = {
   // A clock turning back: the archive of past things, not the act of archiving.
   history: 'M3 12a9 9 0 102.6-6.4L3 8M3 3v5h5M12 7v5l3 2',
   pin: 'M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z',
+  hand: 'M8 13V5a1.5 1.5 0 013 0v6-8a1.5 1.5 0 013 0v8-6a1.5 1.5 0 013 0v7-4a1.5 1.5 0 013 0v7c0 4-3 7-7 7h-2c-3 0-5-2-6-4l-2-4a1.5 1.5 0 012.5-1.5L8 15',
   download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
   dots: 'M12 6h.01M12 12h.01M12 18h.01',
   // Four rings in a square: pick how the same items are laid out.
@@ -86,6 +88,8 @@ const PATHS = {
   // Two arrows passing each other: trade one view for the other.
   swap: 'M7 4L3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7',
   mic: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3',
+  micOff: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3M3 3l18 18',
+  walkieTalkie: 'M9 6V2M7 6h10v15H7zM9 9h6v4H9zM11 17h2M17 15h2v4h-2',
   // Attach: the composer's menu of files, polls and voice on a phone.
   clip: 'M21.4 11.6l-8.8 8.8a5.5 5.5 0 01-7.8-7.8l8.8-8.8a3.7 3.7 0 015.2 5.2l-8.8 8.8a1.8 1.8 0 01-2.6-2.6l8.1-8.1',
   // The group's leader.

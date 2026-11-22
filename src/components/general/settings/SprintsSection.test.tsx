@@ -66,9 +66,9 @@ it('shows every control disabled to somebody who cannot change them', async () =
   const controls = host.querySelectorAll<HTMLInputElement>('input, select, button[role="switch"], button[role="radio"]')
   expect(controls.length).toBeGreaterThan(6)
   for (const c of controls) expect(c.disabled).toBe(true)
-  expect(button('Save sprint settings')).toBeUndefined()
-  expect(control<HTMLInputElement>('Default sprint length').value).toBe('10')
-  expect(button('Finish sprints automatically')!.getAttribute('aria-checked')).toBe('true')
+  expect(button('Save stage settings')).toBeUndefined()
+  expect(control<HTMLInputElement>('Default stage length').value).toBe('10')
+  expect(button('Finish stages automatically')!.getAttribute('aria-checked')).toBe('true')
   expect(host.textContent).toContain(
     'Only the project manager and coordinators can change these. Changes apply to this project only.',
   )
@@ -76,48 +76,48 @@ it('shows every control disabled to somebody who cannot change them', async () =
 
 it('disables the controls while the project is read-only', async () => {
   await render(makeState({ readOnly: true }))
-  expect(button('Finish sprints automatically')!.disabled).toBe(true)
+  expect(button('Finish stages automatically')!.disabled).toBe(true)
 })
 
 it('moves unfinished tasks to the next sprint when auto-finish turns on over "Ask on finish"', async () => {
   await render(makeState())
   const carry = control<HTMLSelectElement>('Unfinished tasks at finish')
   expect(carry.value).toBe('ask')
-  await act(async () => button('Finish sprints automatically')!.click())
+  await act(async () => button('Finish stages automatically')!.click())
   expect(carry.value).toBe('next')
   expect([...carry.options].find((o) => o.value === 'ask')!.disabled).toBe(true)
-  expect(host.textContent).toContain('Unfinished tasks will move to the next sprint. You can choose the backlog instead.')
-  await act(async () => button('Finish sprints automatically')!.click())
+  expect(host.textContent).toContain('Unfinished tasks will move to the next stage. You can choose the backlog instead.')
+  await act(async () => button('Finish stages automatically')!.click())
   expect([...carry.options].find((o) => o.value === 'ask')!.disabled).toBe(false)
   expect(carry.value).toBe('next')
 })
 
 it('saves the edited values, keeping the start day derived when it is untouched', async () => {
   await render(makeState())
-  await act(async () => button('Start the next sprint automatically')!.click())
+  await act(async () => button('Start the next stage automatically')!.click())
   await pick(control<HTMLSelectElement>('Unfinished tasks at finish'), 'backlog')
-  await type(control<HTMLInputElement>('Default sprint length'), '7')
+  await type(control<HTMLInputElement>('Default stage length'), '7')
   await pick(control<HTMLSelectElement>('Start and finish time'), '17:30')
-  await act(async () => button('Save sprint settings')!.click())
+  await act(async () => button('Save stage settings')!.click())
   expect(saveSprintSettings).toHaveBeenCalledWith('p1', {
-    organization: 'sequential', autoFinish: false, autoStart: true, carry: 'backlog', lengthDays: 7, startWeekday: null, runAt: '17:30',
+    organization: 'sequential', autoFinish: false, autoStart: true, carry: 'backlog', lengthDays: 7, startWeekday: null, runAt: '17:30', terms: { singular: 'Stage', plural: 'Stages' },
   })
   expect(reload).toHaveBeenCalled()
-  expect(show).toHaveBeenCalledWith('Sprint settings saved')
+  expect(show).toHaveBeenCalledWith('Stage settings saved')
 })
 
 it('saves a start day once somebody picks one', async () => {
   await render(makeState())
-  expect(control<HTMLSelectElement>('Sprint start day').value).toBe('1')
-  await pick(control<HTMLSelectElement>('Sprint start day'), '3')
-  await act(async () => button('Save sprint settings')!.click())
+  expect(control<HTMLSelectElement>('Stage start day').value).toBe('1')
+  await pick(control<HTMLSelectElement>('Stage start day'), '3')
+  await act(async () => button('Save stage settings')!.click())
   expect(saveSprintSettings).toHaveBeenCalledWith('p1', expect.objectContaining({ startWeekday: 3 }))
 })
 
 it('never sends auto-finish together with "Ask on finish"', async () => {
   await render(makeState())
-  await act(async () => button('Finish sprints automatically')!.click())
-  await act(async () => button('Save sprint settings')!.click())
+  await act(async () => button('Finish stages automatically')!.click())
+  await act(async () => button('Save stage settings')!.click())
   expect(saveSprintSettings).toHaveBeenCalledWith('p1', expect.objectContaining({ autoFinish: true, carry: 'next' }))
 })
 
@@ -130,8 +130,8 @@ it('keeps a saved time that is not on the half hour', async () => {
 
 it('refuses a length outside 1 to 90 days', async () => {
   await render(makeState())
-  await type(control<HTMLInputElement>('Default sprint length'), '91')
-  await act(async () => button('Save sprint settings')!.click())
+  await type(control<HTMLInputElement>('Default stage length'), '91')
+  await act(async () => button('Save stage settings')!.click())
   expect(host.textContent).toContain('Use a length from 1 to 90 days.')
   expect(saveSprintSettings).not.toHaveBeenCalled()
 })
@@ -139,8 +139,8 @@ it('refuses a length outside 1 to 90 days', async () => {
 it('shows what went wrong when the save fails', async () => {
   vi.mocked(saveSprintSettings).mockRejectedValueOnce(new Error('Those sprint settings did not save.'))
   await render(makeState())
-  await act(async () => button('Save sprint settings')!.click())
-  expect(host.textContent).toContain('Those sprint settings did not save.')
+  await act(async () => button('Save stage settings')!.click())
+  expect(host.textContent).toContain('Those stage settings did not save.')
   expect(show).not.toHaveBeenCalled()
 })
 
@@ -148,15 +148,15 @@ it('offers the three organizations live and selects the saved one', async () => 
   await render(makeState({}, { organization: 'streams' }))
   expect(button('Sequential')!.disabled).toBe(false)
   expect(button('Flexible parallel')!.disabled).toBe(false)
-  expect(button('Multiple sprint streams')!.getAttribute('aria-checked')).toBe('true')
-  expect(host.textContent).toContain('Each team runs its own sprint, one at a time per team.')
+  expect(button('Multiple stage streams')!.getAttribute('aria-checked')).toBe('true')
+  expect(host.textContent).toContain('Each team runs its own stage, one at a time per team.')
 })
 
 it('confirms a mode change, says what changes, and saves only then', async () => {
   await render(makeState())
-  await act(async () => button('Multiple sprint streams')!.click())
+  await act(async () => button('Multiple stage streams')!.click())
   expect(saveSprintSettings).not.toHaveBeenCalled()
-  expect(document.body.textContent).toContain('A sprint holds only its team')
+  expect(document.body.textContent).toContain('A stage holds only its team')
   const confirm = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Switch')!
   await act(async () => confirm.click())
   expect(saveSprintSettings).toHaveBeenCalledWith('p1', expect.objectContaining({ organization: 'streams' }))
@@ -169,12 +169,12 @@ it('shows a refused mode change as the alert and keeps the saved mode', async ()
   await act(async () => button('Sequential')!.click())
   const confirm = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Switch')!
   await act(async () => confirm.click())
-  expect(host.textContent).toContain('Finish all but one running sprint first.')
+  expect(host.textContent).toContain('Finish all but one running stage first.')
   expect(button('Flexible parallel')!.getAttribute('aria-checked')).toBe('true')
 })
 
 it('sends the saved mode with the other settings', async () => {
   await render(makeState({}, { organization: 'parallel' }))
-  await act(async () => button('Save sprint settings')!.click())
+  await act(async () => button('Save stage settings')!.click())
   expect(saveSprintSettings).toHaveBeenCalledWith('p1', expect.objectContaining({ organization: 'parallel' }))
 })

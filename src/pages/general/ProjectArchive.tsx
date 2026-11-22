@@ -39,6 +39,7 @@ import { archiveSprint } from '../../lib/api/sprints'
 import { dateRange, formatDue } from '../../lib/general/dates'
 import { buildTree, isKeep } from '../../lib/general/files'
 import { finishedSprints } from '../../lib/work/sprints'
+import { stageText } from '../../lib/work/stageTerms'
 import type { TreeNode } from '../../lib/general/files'
 import { stageName } from '../../lib/stages'
 import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, GeneralTeam, RemovedGeneralRepoPath } from '../../lib/general/types'
@@ -51,6 +52,7 @@ export default function ProjectArchive() {
   const { show } = useToast()
   const { reportProjectSpace } = useGeneralNavigation()
   const state = useGeneralProject(projectId, profile?.id)
+  const txt = (copy: string) => stageText(copy, state.sprintSettings.terms)
   const [tasks, setTasks] = useState<GeneralTask[] | null>(null)
   const [teams, setTeams] = useState<GeneralTeam[] | null>(null)
   const [files, setFiles] = useState<ArchivedGeneralFile[] | null>(null)
@@ -141,7 +143,7 @@ export default function ProjectArchive() {
       show(success)
       await Promise.all([load(), state.reload()])
     } catch (err) {
-      show(authErrorMessage(err, failure), 'error')
+      show(txt(authErrorMessage(err, failure)), 'error')
     } finally {
       setBusy(null)
     }
@@ -162,7 +164,7 @@ export default function ProjectArchive() {
       <DirectoryHero
         title="Project"
         accent="archive."
-        description="Archived teams, sprints, tasks, draft files, folders and removed paths stay recoverable."
+        description={txt('Archived teams, sprints, tasks, draft files, folders and removed paths stay recoverable.')}
       />
 
       {(error || state.error) && <Alert tone="error">{error ?? state.error}</Alert>}
@@ -176,7 +178,7 @@ export default function ProjectArchive() {
         <EmptyState
           icon="archive"
           title="Nothing archived"
-          body="Archived teams, sprints, tasks, task files, draft files, folders and removed file paths will appear here."
+          body={txt('Archived teams, sprints, tasks, task files, draft files, folders and removed file paths will appear here.')}
         />
       ) : (
         <div className="space-y-5">
@@ -211,9 +213,9 @@ export default function ProjectArchive() {
             )}
           </ArchiveSection>
 
-          <ArchiveSection title="Archived sprints" count={archivedSprints.length}>
+          <ArchiveSection title={txt('Archived sprints')} count={archivedSprints.length}>
             {archivedSprints.length === 0 ? (
-              <p className="px-4 py-5 text-[13px] text-faint">No archived sprints.</p>
+              <p className="px-4 py-5 text-[13px] text-faint">{txt('No archived sprints.')}</p>
             ) : (
               <ul className="divide-y divide-line">
                 {archivedSprints.map((sprint) => (
@@ -233,8 +235,8 @@ export default function ProjectArchive() {
                           onSelect: () => void run(
                             sprint.id,
                             () => archiveSprint({ kind: 'work', projectId }, sprint.id, false),
-                            'Sprint restored',
-                            'Could not restore that sprint.',
+                            txt('Sprint restored'),
+                            txt('Could not restore that sprint.'),
                           ),
                         }]}
                       />

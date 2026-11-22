@@ -34,6 +34,7 @@ import {
 } from '../../lib/work/notesPlan'
 import type { PlanMilestone, PlanSprint } from '../../lib/work/notesPlan'
 import type { Milestone, Sprint } from '../../lib/work/types'
+import { stageText, type StageTerms } from '../../lib/work/stageTerms'
 import type { GeneralProjectState } from './useGeneralProject'
 
 /** A drafted task, plus the sprint and milestone it joins (keys from lib/work/notesPlan). */
@@ -87,6 +88,7 @@ export function TasksFromNotes({
   onSave,
   plan: planOverride,
   mayAssign: mayAssignOverride,
+  terms: termsOverride,
 }: {
   state: GeneralProjectState
   open: boolean
@@ -95,7 +97,10 @@ export function TasksFromNotes({
   onSave?: (rows: NoteTaskRow[], shared: DraftSharedFile[], plan: NotePlan) => Promise<string>
   plan?: NotesPlanScope
   mayAssign?: boolean
+  terms?: StageTerms
 }) {
+  const terms = termsOverride ?? state.sprintSettings.terms
+  const txt = (copy: string) => stageText(copy, terms)
   const { show } = useToast()
   const [source, setSource] = useState<Source>('paste')
   const [text, setText] = useState('')
@@ -225,12 +230,12 @@ export function TasksFromNotes({
       setSprints(shaped.sprints)
       setMilestones(shaped.milestones)
       const said: string[] = []
-      if ((res.sprints?.length ?? 0) > 0 && !scope.maySprint) said.push(scope.noSprints)
+      if ((res.sprints?.length ?? 0) > 0 && !scope.maySprint) said.push(txt(scope.noSprints))
       if (shaped.reused > 0) {
         said.push(
           shaped.reused === 1
-            ? 'One sprint in the file is already here, so its tasks join it.'
-            : `${shaped.reused} sprints in the file are already here, so their tasks join them.`,
+            ? txt('One sprint in the file is already here, so its tasks join it.')
+            : txt(`${shaped.reused} sprints in the file are already here, so their tasks join them.`),
         )
       }
       if (((res.milestones?.length ?? 0) > 0 && !scope.mayTag) || shaped.skippedMilestones > 0) said.push(scope.noMilestones)
@@ -251,12 +256,12 @@ export function TasksFromNotes({
     const keep = (rows ?? []).filter((r) => r.keep && r.title.trim())
     if (keep.length === 0) return
     const problem = planProblem(sprints, milestones)
-    if (problem) return setError(problem)
+    if (problem) return setError(txt(problem))
     setSaving(true)
     setError(null)
     if (onSave) {
       try {
-        show(await onSave(keep, shared, { sprints, milestones }))
+        show(txt(await onSave(keep, shared, { sprints, milestones })))
         onClose()
       } catch (err) {
         setError(authErrorMessage(err, 'Those tasks could not be saved.'))
@@ -298,7 +303,7 @@ export function TasksFromNotes({
         }
       }
       show(
-        addedMessage(keep.length, sprints.filter((s) => s.keep).length, milestones.filter((m) => m.keep).length) +
+        txt(addedMessage(keep.length, sprints.filter((s) => s.keep).length, milestones.filter((m) => m.keep).length)) +
           (missed > 0 ? `. ${missed} ${missed === 1 ? 'file' : 'files'} could not be added to ${missed === 1 ? 'its task' : 'their tasks'}.` : '') +
           (untagged > 0 ? `. ${untagged} could not be put on their milestone; tag them from Milestones.` : ''),
       )
@@ -348,7 +353,7 @@ export function TasksFromNotes({
   const teams = state.teams.map((t) => ({ value: t.name, label: t.name }))
   const sprintOptions = [
     ...scope.sprints.filter((s) => s.state !== 'completed').map((s) => ({ value: s.id, label: s.name })),
-    ...sprints.filter((s) => s.keep).map((s) => ({ value: s.key, label: `${s.name || 'Unnamed sprint'} (new)` })),
+    ...sprints.filter((s) => s.keep).map((s) => ({ value: s.key, label: `${s.name || txt('Unnamed sprint')} (new)` })),
   ]
   const milestoneOptions = [
     ...scope.milestones.map((m) => ({ value: m.id, label: m.name })),
@@ -365,7 +370,7 @@ export function TasksFromNotes({
       open={open}
       onClose={onClose}
       title="Tasks from notes"
-      description="Paste minutes or notes, upload a task list or sprint plan, or pick a saved discussion, and keep what you want."
+      description={txt('Paste minutes or notes, upload a task list or sprint plan, or pick a saved discussion, and keep what you want.')}
       size="lg"
       footer={
         <>
@@ -392,7 +397,7 @@ export function TasksFromNotes({
           busy ? (
             <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
               <Spinner size={16} />
-              {source === 'file' ? 'Reading the file for tasks, sprints and milestones…' : 'Reading for action items…'}
+              {source === 'file' ? txt('Reading the file for tasks, sprints and milestones…') : 'Reading for action items…'}
             </div>
           ) : (
             <>
@@ -431,7 +436,7 @@ export function TasksFromNotes({
                     onPick={(f) => void pick(f)}
                     accept={NOTES_FILE_ACCEPT}
                     maxSize={NOTES_FILE_MAX}
-                    hint={`A task list or sprint plan · PDF, Word, Excel, CSV or text · up to ${NOTES_FILE_MAX} MB`}
+                    hint={txt(`A task list or sprint plan · PDF, Word, Excel, CSV or text · up to ${NOTES_FILE_MAX} MB`)}
                   />
                   {reading ? (
                     <p className="flex items-center gap-2 text-[13px] text-muted">
@@ -467,8 +472,7 @@ export function TasksFromNotes({
               )}
               <p className="text-[12px] text-faint">
                 Dates in the notes are kept. Missing start and due dates are estimated from the work and project schedule.
-                Review them before adding tasks. Sprints and milestones are drafted only when the text names them;
-                any other task goes to the backlog. Nothing is added until you choose.
+                {txt('Review them before adding tasks. Sprints and milestones are drafted only when the text names them; any other task goes to the backlog. Nothing is added until you choose.')}
               </p>
             </>
           )
@@ -490,8 +494,8 @@ export function TasksFromNotes({
             ))}
 
             {sprints.length > 0 && (
-              <section aria-label="Sprints to create" className="space-y-2">
-                <p className="eyebrow">Sprints</p>
+              <section aria-label={txt('Sprints to create')} className="space-y-2">
+                <p className="eyebrow">{terms.plural}</p>
                 <ul className="space-y-2">
                   {sprints.map((s) => (
                     <li key={s.key} className={`rounded-xl border border-line p-3 ${s.keep ? '' : 'opacity-50'}`}>
@@ -504,7 +508,7 @@ export function TasksFromNotes({
                                 value={s.name}
                                 maxLength={80}
                                 onChange={(e) => patchSprint(s.key, { name: e.target.value })}
-                                aria-label="Sprint name"
+                                aria-label={txt('Sprint name')}
                                 className="!h-10 font-medium"
                               />
                             </div>
@@ -579,8 +583,8 @@ export function TasksFromNotes({
                                 <Select
                                   value=""
                                   onChange={(e) => e.target.value && addSprintTo(m.key, e.target.value)}
-                                  placeholder="+ Add sprint"
-                                  aria-label={`Add a sprint to ${m.name}`}
+                                  placeholder={txt('+ Add sprint')}
+                                  aria-label={`Add a ${terms.singular.toLowerCase()} to ${m.name}`}
                                   options={sprintOptions.filter((o) => !m.sprints.includes(o.value))}
                                   className="!h-8 !w-auto max-w-[260px] !text-[12px]"
                                 />
@@ -674,7 +678,7 @@ export function TasksFromNotes({
                               value={shown(r.sprintKey, sprintOptions)}
                               onChange={(e) => patch(i, { sprintKey: e.target.value })}
                               placeholder="Backlog"
-                              aria-label={`Task ${i + 1} sprint`}
+                              aria-label={`Task ${i + 1} ${terms.singular.toLowerCase()}`}
                               options={sprintOptions}
                               className="!h-10 !text-[13px]"
                             />

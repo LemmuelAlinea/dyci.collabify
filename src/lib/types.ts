@@ -207,6 +207,7 @@ export type AppNotification = {
     | 'project_updated'
     | 'membership_changed'
     | 'meeting_scheduled'
+    | 'meeting_started'
     | 'meeting_changed'
     | 'meeting_cancelled'
     | 'peer_round_opened'
@@ -757,6 +758,8 @@ export type TaskEventKind =
 /** Where work happens: one group's board, or one student's for a solo project. */
 export type ProjectBoard = {
   id: string
+  term_singular?: string
+  term_plural?: string
   project_id: string
   group_id: string | null
   student_id: string | null
@@ -842,6 +845,9 @@ export type ProjectTask = {
   /** Set on the copies of one professor task handed to several groups. */
   origin_id: string | null
   title: string
+  task_type: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  parent_id: string | null
   details: string
   weight: number
   status: TaskStatus

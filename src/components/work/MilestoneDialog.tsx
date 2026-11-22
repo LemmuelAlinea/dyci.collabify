@@ -7,9 +7,11 @@ import { Textarea } from '../ui/Select'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDay } from '../../lib/general/dates'
 import type { MilestoneInput, Sprint } from '../../lib/work/types'
+import { stageText, type StageTerms } from '../../lib/work/stageTerms'
 
 /** What creating one milestone per sprint needs; left out when editing or with no sprints. */
 export type PerSprint = {
+  terms?: StageTerms
   sprints: Sprint[]
   /** The milestone a sprint already counts toward, by name. */
   nameOf: (milestoneId: string) => string | undefined
@@ -44,6 +46,7 @@ export function MilestoneDialog({
   requireDue?: boolean
 }) {
   const [mode, setMode] = useState<'one' | 'sprints'>('one')
+  const txt = (copy: string) => stageText(copy, perSprint?.terms)
   const [name, setName] = useState(initial.name)
   const [dueOn, setDueOn] = useState(initial.dueOn)
   const [description, setDescription] = useState(initial.description)
@@ -81,7 +84,7 @@ export function MilestoneDialog({
   }
 
   async function saveEach() {
-    if (!perSprint || chosen.length === 0) return setError('Pick at least one sprint.')
+    if (!perSprint || chosen.length === 0) return setError(txt('Pick at least one sprint.'))
     setBusy(true)
     const done: string[] = []
     try {
@@ -148,7 +151,7 @@ export function MilestoneDialog({
                   mode === value ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
                 }`}
               >
-                {label}
+                {txt(label)}
               </button>
             ))}
           </div>
@@ -156,7 +159,7 @@ export function MilestoneDialog({
         {bySprint ? (
           <div>
             <p className="mb-2 text-[13px] text-muted">
-              Each sprint gets a milestone with its name, due the day it ends. Its tasks count toward it.
+              {txt('Each sprint gets a milestone with its name, due the day it ends. Its tasks count toward it.')}
             </p>
             <ul className="max-h-[calc(40vh/var(--zoom,1))] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
               {perSprint.sprints.map((s) => (

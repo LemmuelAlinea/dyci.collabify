@@ -5,6 +5,7 @@ import { Modal } from '../ui/Modal'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDay } from '../../lib/general/dates'
 import type { Milestone, MilestoneSource } from '../../lib/work/types'
+import { stageText } from '../../lib/work/stageTerms'
 
 /**
  * Pick sprints to count toward a milestone: every task in them, and any that
@@ -21,6 +22,7 @@ export function AddSprintDialog({
   milestone: Milestone
   source: MilestoneSource
 }) {
+  const txt = (copy: string) => stageText(copy, source.terms)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +47,7 @@ export function AddSprintDialog({
       for (const s of chosen) await source.linkSprint(s.id, milestone.id)
       onClose()
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not add that sprint.'))
+      setError(txt(authErrorMessage(err, 'Could not add that sprint.')))
     } finally {
       setBusy(false)
     }
@@ -55,15 +57,15 @@ export function AddSprintDialog({
     <Modal
       open={open}
       onClose={busy ? () => {} : onClose}
-      title={`Sprints for ${milestone.name}`}
-      description="Every task in the sprint counts toward the milestone, including tasks added later. When they are all done, the milestone is reached."
+      title={`${source.terms?.plural ?? 'Stages'} for ${milestone.name}`}
+      description={txt('Every task in the sprint counts toward the milestone, including tasks added later. When they are all done, the milestone is reached.')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button onClick={() => void save()} loading={busy} disabled={chosen.length === 0}>
-            {chosen.length === 0 ? 'Add sprint' : `Add ${chosen.length} ${chosen.length === 1 ? 'sprint' : 'sprints'}`}
+            {txt(chosen.length === 0 ? 'Add sprint' : `Add ${chosen.length} ${chosen.length === 1 ? 'sprint' : 'sprints'}`)}
           </Button>
         </>
       }
@@ -72,7 +74,7 @@ export function AddSprintDialog({
         {error && <Alert tone="error">{error}</Alert>}
         {candidates.length === 0 ? (
           <p className="text-[14px] text-muted">
-            No planned or running sprints to add. Create one in Backlog first.
+            {txt('No planned or running sprints to add. Create one in Backlog first.')}
           </p>
         ) : (
           <ul className="max-h-[calc(50vh/var(--zoom,1))] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">

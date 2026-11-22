@@ -134,6 +134,8 @@ export async function setTaskRank(home: SprintHome, taskId: string, rank: number
 }
 
 type SettingsRow = {
+  term_singular?: string
+  term_plural?: string
   organization?: SprintOrganization
   auto_finish: boolean
   auto_start: boolean
@@ -160,12 +162,14 @@ export async function getSprintSettings(projectId: string): Promise<SprintSettin
   const read = (columns: string) =>
     supabase.from('general_sprint_settings').select(columns).eq('project_id', projectId).maybeSingle()
   const columns = 'auto_finish, auto_start, carry, length_days, start_weekday, run_at'
-  let { data, error } = await read('organization, ' + columns)
+  let { data, error } = await read('organization, term_singular, term_plural, ' + columns)
+  if (error && /term_singular|term_plural/.test(error.message)) ({ data, error } = await read('organization, ' + columns))
   if (error && isMissingOrganizationColumn(error)) ({ data, error } = await read(columns))
   if (error) throw error
   if (!data) return DEFAULT_SPRINT_SETTINGS
   const row = data as unknown as SettingsRow
   return {
+    terms: { singular: row.term_singular ?? 'Stage', plural: row.term_plural ?? 'Stages' },
     organization: row.organization ?? 'sequential',
     autoFinish: row.auto_finish,
     autoStart: row.auto_start,
@@ -185,6 +189,8 @@ export async function saveSprintSettings(projectId: string, s: SprintSettings) {
       {
         project_id: projectId,
         organization: s.organization,
+        term_singular: s.terms.singular,
+        term_plural: s.terms.plural,
         auto_finish: s.autoFinish,
         auto_start: s.autoStart,
         carry: s.carry,
@@ -198,6 +204,6 @@ export async function saveSprintSettings(projectId: string, s: SprintSettings) {
   if (error) throw error
   touched(
     data,
-    'Those sprint settings did not save. You may not be allowed to change them, or the project is archived. Reload to see where things stand.',
+    'Those stage settings did not save. You may not be allowed to change them, or the project is archived. Reload to see where things stand.',
   )
 }
