@@ -5430,7 +5430,16 @@ accepted." from the setting; no failed requests.
   after "Change window or people" returns to the review as it was. The breakdown schema leaves out tags and position when
   the project has none (`breakdownRowProperties`). An Open-flow owner who can no longer take tasks reads "can no longer take
   tasks in this project"; Planned keeps "from this team". `work-ai` redeployed.
-- The browser demo walk (desktop and 375 px) is the controller's step and is not recorded here.
+- **Walked live** on 2026-11-23 on the dev server, signed in as the project manager of Capstone 2 → Collabify (Open
+  flow), with the live `work-ai`. Demo data: Wilson (Auth), Ivan (UI) and Keneth (Testing) at 16 h a week, existing
+  work 6 / 4 / 2 h, a released "Develop Login Module" they hold (seed and cleanup SQL were throwaway scratch files).
+  Desktop: the AI drafted 7 subtasks (24 h) in four dependency groups; owners came out 13 / 16, 7 / 16 and 16 / 16 h.
+  Bottleneck: 4 h of time off for Wilson (2 h on two days) gave 12 h available; with 6 h existing plus 6 h placed, the
+  4 h sign-in call stayed unassigned with "has 2 h free". Stale save: raising Ivan's existing work behind the dialog
+  refused Create with "Ivan's work changed since you reviewed it. Review again.", 0 subtasks saved; Review again showed
+  14 / 16 h and Create saved 7 subtasks with the right holders, estimates, Mon 00:00 to Fri 23:59 Manila dates and links,
+  the parent's three holders untouched. Phone (375 px): setup and review fit with no sideways scroll, hours above the
+  rows. Not walked in the browser: a Planned-flow project (the SQL suite covers it).
 
 **Deferred**
 - Phases 2 and 3 remain. Phase 2, Views: hours in the holder picker, the space Workload tab, the Open-flow estimate field and
