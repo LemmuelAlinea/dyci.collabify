@@ -72,7 +72,9 @@ describe('balanceWorkPlan', () => {
     // C now carries 600 before the rest: integration no longer fits after e2e.
     expect(picks.find(p => p.key === 'auth')).toMatchObject({ owner: 'a', reason: 'fit' })
     expect(picks.find(p => p.key === 'e2e')).toMatchObject({ owner: 'c', reason: 'fit' })
-    expect(picks.find(p => p.key === 'integration')).toMatchObject({ owner: null, reason: 'no_room' })
+    expect(picks.find(p => p.key === 'integration')).toEqual({
+      key: 'integration', owner: null, reason: 'no_room', note: 'Only C is tagged Testing, and has 1 h free.',
+    })
     // A pin to nobody stays empty.
     const empty = balanceWorkPlan(rows.map(r => (r.key === 'auth' ? { ...r, pinned: true } : r)), people)
     expect(empty.find(p => p.key === 'auth')).toMatchObject({ owner: null, reason: 'pinned' })

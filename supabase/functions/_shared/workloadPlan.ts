@@ -136,7 +136,8 @@ export function balanceWorkPlan(rows: PlanRow[], people: Candidate[]): Pick[] {
     } else {
       reason = 'no_room'
       const only = qualified[0]
-      const free = Math.max(0, (only.availableMinutes ?? 0) - only.loadMinutes)
+      // Free now: after pins and the rows already placed in this run.
+      const free = Math.max(0, (only.availableMinutes ?? 0) - loads.get(only.id)!)
       note = kind === 'tagged'
         ? qualified.length === 1
           ? `Only ${only.name} ${hasLabel(row)}, and has ${hours(free)} free.`
