@@ -1046,4 +1046,124 @@ $$;
 revoke all on function public.apply_work_breakdown(uuid, date, date, jsonb) from public, anon;
 grant execute on function public.apply_work_breakdown(uuid, date, date, jsonb) to authenticated;
 
+------------------------------------------------------------ open flow: room for holders
+
+-- In an Open project a Member can't add someone else as holder when that
+-- person has no room for the task in its weeks. The Open writers clear the
+-- caller's claims but record assigned_by, so the check reads the caller from
+-- the row. It is deferred to commit, so a change of several holders is judged
+-- on its final state (and refused as a whole), and an estimate set in the same
+-- transaction (create_work_open_task) counts. A task with no estimate, or a
+-- holder with no weekly hours, is not checked. The project manager,
+-- coordinators and the holder adding themselves are never checked here.
+create or replace function public.guard_work_holder_room()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t public.general_tasks%rowtype;
+  gp public.general_projects%rowtype;
+  v_from date;
+  v_to date;
+  v_avail int;
+  v_load numeric;
+  v_name text;
+begin
+  if new.assigned_by is null or new.assigned_by = new.user_id then
+    return null;
+  end if;
+  if not exists (select 1 from public.general_task_assignees a
+                  where a.task_id = new.task_id and a.user_id = new.user_id) then
+    return null;
+  end if;
+  select * into t from public.general_tasks where id = new.task_id;
+  select * into gp from public.general_projects where id = t.project_id;
+  if gp.id is null or gp.class_board_id is not null or gp.space_id is null
+     or coalesce(gp.task_flow, 'planned') <> 'open'
+     or coalesce(public.general_role_of(gp.id, new.assigned_by)::text, '') <> 'member'
+     or t.estimated_minutes is null then
+    return null;
+  end if;
+  select w.from_on, w.to_on into v_from, v_to from public.work_task_weeks(t.id) w;
+  v_avail := public.work_person_available(gp.space_id, new.user_id, v_from, v_to);
+  if v_avail is null then
+    return null;
+  end if;
+  select coalesce(sum(l.load_minutes), 0) into v_load
+    from public.work_person_load(gp.space_id, new.user_id, v_from, v_to) l;
+  if v_load > v_avail then
+    select first_name into v_name from public.profiles where id = new.user_id;
+    if v_to - v_from <= 6 then
+      raise exception '% has no room this week. Pick someone else or ask a project manager.',
+        coalesce(nullif(v_name, ''), 'This person') using errcode = 'check_violation';
+    end if;
+    raise exception '% has no room in those weeks. Pick someone else or ask a project manager.',
+      coalesce(nullif(v_name, ''), 'This person') using errcode = 'check_violation';
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function public.guard_work_holder_room() from public, anon, authenticated;
+
+drop trigger if exists general_task_assignees_room on public.general_task_assignees;
+create constraint trigger general_task_assignees_room
+after insert on public.general_task_assignees
+deferrable initially deferred
+for each row execute function public.guard_work_holder_room();
+
+-- Adds a task in an Open project with its estimate, in one transaction, so the
+-- holder room check at commit sees the estimate. Calls create_general_open_task
+-- unchanged, then sets the estimate with the history row set_work_task_estimate
+-- writes. p_estimate_minutes null leaves the task unestimated.
+create or replace function public.create_work_open_task(
+  p_project uuid, p_title text, p_description text, p_starts_at timestamptz, p_due_at timestamptz,
+  p_team uuid, p_priority text, p_kind text, p_holders uuid[], p_task_type text, p_estimate_minutes int)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  v_id uuid;
+  v_status text;
+  prior_claims text := current_setting('request.jwt.claims', true);
+  prior_sub    text := current_setting('request.jwt.claim.sub', true);
+begin
+  if p_estimate_minutes is not null and (p_estimate_minutes < 1 or p_estimate_minutes > 60000) then
+    raise exception 'Estimates run between 1 minute and 1000 hours. Enter a value in that range.'
+      using errcode = 'check_violation';
+  end if;
+  v_id := public.create_general_open_task(p_project, p_title, p_description, p_starts_at, p_due_at,
+    p_team, p_priority, p_kind, p_holders, p_task_type);
+  if p_estimate_minutes is not null then
+    -- The creator may not hold the task, so the estimate is written with the
+    -- caller's claims cleared, as the Open writers write; no guard widens.
+    begin
+      perform set_config('request.jwt.claims', '', true);
+      perform set_config('request.jwt.claim.sub', '', true);
+      update public.general_tasks set estimated_minutes = p_estimate_minutes where id = v_id
+        returning status into v_status;
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+    exception when others then
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+      raise;
+    end;
+    insert into public.general_task_events (task_id, project_id, actor_id, kind, detail)
+    values (v_id, p_project, me, 'updated',
+            jsonb_build_object('status', v_status, 'fields', jsonb_build_array('estimated_minutes'),
+                               'estimate_from', null, 'estimate_to', p_estimate_minutes));
+  end if;
+  return v_id;
+end;
+$$;
+
+revoke all on function public.create_work_open_task(uuid, text, text, timestamptz, timestamptz, uuid, text, text, uuid[], text, int) from public, anon;
+grant execute on function public.create_work_open_task(uuid, text, text, timestamptz, timestamptz, uuid, text, text, uuid[], text, int) to authenticated;
+
 commit;

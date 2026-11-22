@@ -1012,4 +1012,167 @@ begin
   perform pg_temp.service();
 end $$;
 
+------------------------------------------------------------ phase 2: overload
+-- The room check is deferred to commit; these helpers run a statement and then
+-- fire pending deferred checks at once, as a commit would.
+create or replace function pg_temp.refuse_at_commit(p_label text, p_sql text, p_needle text) returns void language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    set constraints all immediate;
+  exception when others then
+    set constraints all deferred;
+    if position(p_needle in sqlerrm) > 0 then
+      raise notice 'PASS %', p_label;
+      return;
+    end if;
+    raise exception 'FAIL % (refused for another reason: %)', p_label, sqlerrm;
+  end;
+  set constraints all deferred;
+  raise exception 'FAIL % (not refused)', p_label;
+end $$;
+
+create or replace function pg_temp.commit_checks() returns void language plpgsql as $$
+begin
+  set constraints all immediate;
+  set constraints all deferred;
+end $$;
+
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid()];
+  -- 1 pm, 2 Member Mia, 3 Ben (16 h, 15 h held), 4 Cy (16 h, free), 5 coordinator
+  s uuid; p uuid; pl uuid; tm uuid; x uuid; t uuid; t2 uuid; nt uuid; lt uuid;
+  v_anchor date := (now() at time zone 'Asia/Manila')::date
+    + case extract(isodow from (now() at time zone 'Asia/Manila')::date)::int when 6 then 2 when 7 then 1 else 0 end;
+  v_mon date; v_fri date; st timestamptz; du timestamptz;
+begin
+  v_mon := v_anchor - (extract(isodow from v_anchor)::int - 1);
+  v_fri := v_mon + 4;
+  st := (v_mon + time '09:00') at time zone 'Asia/Manila';
+  du := (v_fri + time '17:00') at time zone 'Asia/Manila';
+  for k in 1..5 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-over-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-over-'||k||'@example.test', (array['Pat','Mia','Ben','Cy','Coe'])[k], 'Zz',
+        'member', 'active', false, k = 1)
+      on conflict(id) do update set role = 'member', status = 'active', first_name = excluded.first_name,
+        can_teach = false, can_manage_projects = excluded.can_manage_projects;
+  end loop;
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz over space', '')).id;
+  p := (public.create_general_project('Zz over open', '', null, null, null, null, s)).id;
+  pl := (public.create_general_project('Zz over planned', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role)
+    select s, u[k], 'member' from generate_series(2, 5) k;
+  insert into public.general_members(project_id, user_id, role)
+    select q, u[k], (case when k = 5 then 'coordinator' else 'member' end)::public.general_role
+      from generate_series(2, 5) k, unnest(array[p, pl]) q;
+  perform pg_temp.act_as(u[1]);
+  perform public.set_general_task_flow(p, 'open');
+  perform pg_temp.service();
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[3], 960), (s, u[4], 960);
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes)
+    values (p, 'Zz over held', 'released', now(), st, du, u[1], 900) returning id into x;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (x, p, u[3], u[1]);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes)
+    values (p, 'Zz over target', 'released', now(), st, du, u[1], 180) returning id into t;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by)
+    values (p, 'Zz over no estimate', 'released', now(), st, du, u[1]) returning id into nt;
+  perform set_config('collabify.estimate_write', 'off', true);
+  perform pg_temp.commit_checks();
+
+  -- A Member can't load Ben, who has 1 h left this week.
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse_at_commit('member over capacity refused',
+    format('select public.create_work_open_task(%L, %L, %L, %L, %L, null, null, %L, %L::uuid[], null, 180)',
+      p, 'Zz over new', '', st, du, 'task', array[u[3]]),
+    'Ben has no room this week. Pick someone else or ask a project manager.');
+  perform pg_temp.service();
+  perform pg_temp.check('refused task not saved',
+    not exists (select 1 from public.general_tasks where project_id = p and title = 'Zz over new'));
+
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse_at_commit('member set holders refused',
+    format('select public.set_general_task_holders(%L, %L::uuid[])', t, array[u[3]]),
+    'Ben has no room this week.');
+  perform pg_temp.refuse_at_commit('member multi-holder refused whole',
+    format('select public.set_general_task_holders(%L, %L::uuid[])', t, array[u[4], u[3]]),
+    'Ben has no room this week.');
+  perform pg_temp.service();
+  perform pg_temp.check('holders unchanged after refusal',
+    not exists (select 1 from public.general_task_assignees where task_id = t));
+
+  -- Cy has room; a Member may add Cy.
+  perform pg_temp.act_as(u[2]);
+  perform public.set_general_task_holders(t, array[u[4]]);
+  perform pg_temp.commit_checks();
+  perform pg_temp.service();
+  perform pg_temp.check('member adds holder with room',
+    exists (select 1 from public.general_task_assignees where task_id = t and user_id = u[4]));
+
+  -- Picking yourself is allowed even when full.
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[2], 60);
+  perform pg_temp.act_as(u[2]);
+  perform public.set_general_task_holders(t, array[u[4], u[2]]);
+  perform pg_temp.commit_checks();
+  perform pg_temp.service();
+  perform pg_temp.check('member picks self over capacity',
+    exists (select 1 from public.general_task_assignees where task_id = t and user_id = u[2]));
+
+  -- A coordinator may assign over capacity.
+  perform pg_temp.act_as(u[5]);
+  perform public.set_general_task_holders(t, array[u[3]]);
+  perform pg_temp.commit_checks();
+  perform pg_temp.service();
+  perform pg_temp.check('planner over capacity allowed',
+    exists (select 1 from public.general_task_assignees where task_id = t and user_id = u[3]));
+
+  -- No estimate, or no weekly hours: nothing to check.
+  perform pg_temp.act_as(u[2]);
+  perform public.set_general_task_holders(nt, array[u[3]]);
+  perform pg_temp.commit_checks();
+  perform pg_temp.service();
+  delete from public.general_space_capacity where space_id = s and user_id = u[3];
+  perform pg_temp.act_as(u[2]);
+  perform public.set_general_task_holders(t, array[u[3], u[4]]);
+  perform pg_temp.commit_checks();
+  perform pg_temp.service();
+  perform pg_temp.check('unknown never blocks',
+    exists (select 1 from public.general_task_assignees where task_id = nt and user_id = u[3])
+    and exists (select 1 from public.general_task_assignees where task_id = t and user_id = u[3]));
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[3], 960);
+
+  -- A Planned project's holders are not checked.
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes)
+    values (pl, 'Zz over planned task', 'released', now(), st, du, u[1], 600) returning id into lt;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (lt, pl, u[3], u[2]);
+  perform pg_temp.commit_checks();
+  perform pg_temp.check('planned project untouched',
+    exists (select 1 from public.general_task_assignees where task_id = lt and user_id = u[3]));
+
+  -- The wrapper saves the estimate with a history row.
+  perform pg_temp.act_as(u[2]);
+  t2 := public.create_work_open_task(p, 'Zz over with estimate', '', st, du, null, null, 'task', array[u[4]], null, 90);
+  perform pg_temp.commit_checks();
+  perform pg_temp.service();
+  perform pg_temp.check('wrapper sets estimate',
+    (select estimated_minutes = 90 from public.general_tasks where id = t2)
+    and exists (select 1 from public.general_task_events where task_id = t2 and kind = 'updated'
+                 and detail ->> 'estimate_to' = '90' and actor_id = u[2]));
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('wrapper refuses a bad estimate',
+    format('select public.create_work_open_task(%L, %L, %L, null, null, null, null, %L, %L::uuid[], null, 0)',
+      p, 'Zz over zero', '', 'task', '{}'::uuid[]),
+    'Estimates run between 1 minute and 1000 hours.');
+  perform pg_temp.service();
+end $$;
+
 rollback;
