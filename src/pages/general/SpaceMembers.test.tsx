@@ -28,6 +28,12 @@ const api = vi.hoisted(() => ({
 }))
 vi.mock('../../lib/api/spaces', () => api)
 
+const workload = vi.hoisted(() => ({
+  setSpaceWeeklyMinutes: vi.fn(),
+  spacePeopleHours: vi.fn(),
+}))
+vi.mock('../../lib/api/workload', () => workload)
+
 let space: Record<string, unknown> = {}
 const reload = vi.fn()
 vi.mock('../../context/generalNavigation', () => ({
@@ -58,6 +64,8 @@ beforeEach(() => {
   api.previewSpaceRole.mockResolvedValue({ project_count: 0, task_count: 0, qa_start_count: 0 })
   api.setSpaceRole.mockResolvedValue(0)
   api.handOverSpace.mockResolvedValue(undefined)
+  workload.spacePeopleHours.mockResolvedValue([])
+  workload.setSpaceWeeklyMinutes.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -68,8 +76,17 @@ async function renderAs(
   role: string,
   members: ReturnType<typeof person>[],
   check: (c: HTMLElement) => void | Promise<void>,
+  spaceOverrides: Record<string, unknown> = {},
 ) {
-  space = { id: 's', name: 'Capstone', kind: 'work', class_id: null, archived_at: null, my_role: role }
+  space = {
+    id: 's',
+    name: 'Capstone',
+    kind: 'work',
+    class_id: null,
+    archived_at: null,
+    my_role: role,
+    ...spaceOverrides,
+  }
   api.listSpaceMembers.mockResolvedValue(members)
   const container = document.createElement('div')
   document.body.append(container)
@@ -224,7 +241,7 @@ it('passes the chosen role through the invite dialog', async () => {
       ])
       expect(select.value).toBe('member')
       await choose(select, 'qa')
-      const input = document.querySelector<HTMLInputElement>('input')!
+      const input = document.querySelector<HTMLInputElement>('[role="dialog"] input')!
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Ana')
         input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -264,4 +281,73 @@ it('names the invited role on a pending invitation', async () => {
   await renderAs('pm', people, (c) => {
     expect(row(c, 'Ivy').textContent).toContain('QA')
   })
+})
+
+const hours = (user_id: string, weekly_minutes: number | null) => ({
+  user_id,
+  weekly_minutes,
+  available_minutes: weekly_minutes,
+  time_off_minutes: weekly_minutes === null ? null : 0,
+})
+const hoursInput = (el: Element) => el.querySelector<HTMLInputElement>('input[aria-label^="Weekly hours"]')
+const typeInto = (input: HTMLInputElement, value: string) =>
+  act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+
+it('shows weekly hours or Not set on a work space', async () => {
+  workload.spacePeopleHours.mockResolvedValue([hours('me', 960), hours('m1', null), hours('c1', 600)])
+  await renderAs('member', [person('me', 'Me', 'member'), people[1], people[2]], (c) => {
+    expect(c.textContent).toContain('Weekly hours')
+    expect(row(c, 'Cora').textContent).toContain('10 h')
+    expect(row(c, 'Mia').textContent).toContain('Not set')
+    expect(workload.spacePeopleHours).toHaveBeenCalledWith('s', expect.any(String), expect.any(String))
+  })
+})
+
+it('lets the project manager edit every row and saves minutes', async () => {
+  workload.spacePeopleHours.mockResolvedValue([hours('me', 960), hours('m1', null)])
+  await renderAs('pm', people, async (c) => {
+    for (const name of ['Me', 'Cora', 'Mia', 'Stu']) expect(hoursInput(row(c, name))).not.toBeNull()
+    expect(hoursInput(row(c, 'Me'))!.value).toBe('16')
+    await typeInto(hoursInput(row(c, 'Mia'))!, '16')
+    await act(async () => button('Save hours', row(c, 'Mia')).click())
+    expect(workload.setSpaceWeeklyMinutes).toHaveBeenCalledWith('s', 'm1', 960)
+  })
+})
+
+it('lets a coordinator edit every row', async () => {
+  await renderAs('coordinator', [person('me', 'Me', 'coordinator'), people[2]], (c) => {
+    expect(hoursInput(row(c, 'Me'))).not.toBeNull()
+    expect(hoursInput(row(c, 'Mia'))).not.toBeNull()
+  })
+})
+
+it('lets a member edit only their own row', async () => {
+  await renderAs('member', [person('me', 'Me', 'member'), people[2]], (c) => {
+    expect(hoursInput(row(c, 'Me'))).not.toBeNull()
+    expect(hoursInput(row(c, 'Mia'))).toBeNull()
+  })
+})
+
+it('clears weekly hours when the field is emptied', async () => {
+  workload.spacePeopleHours.mockResolvedValue([hours('me', 960)])
+  await renderAs('pm', people, async (c) => {
+    await typeInto(hoursInput(row(c, 'Me'))!, '')
+    await act(async () => button('Save hours', row(c, 'Me')).click())
+    expect(workload.setSpaceWeeklyMinutes).toHaveBeenCalledWith('s', 'me', null)
+  })
+})
+
+it('shows no weekly hours on a class space', async () => {
+  await renderAs(
+    'pm',
+    people,
+    (c) => {
+      expect(c.textContent).not.toContain('Weekly hours')
+      expect(workload.spacePeopleHours).not.toHaveBeenCalled()
+    },
+    { kind: 'education', class_id: 'k1' },
+  )
 })

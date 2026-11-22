@@ -23,7 +23,10 @@ import {
   setSpaceRole,
   withdrawSpaceInvitation,
 } from '../../lib/api/spaces'
+import { setSpaceWeeklyMinutes, spacePeopleHours } from '../../lib/api/workload'
+import type { PeopleHours } from '../../lib/api/workload'
 import { authErrorMessage } from '../../lib/authError'
+import { formatHours, parseHours, workWeek } from '../../lib/work/hours'
 import {
   ROLE_LABEL,
   SPACE_ROLES,
@@ -34,6 +37,70 @@ import type { ProjectRole } from '../../lib/general/permissions'
 import type { SpaceInvitation, SpacePerson } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
+
+/** One person's weekly hours: a label, or an input with Save where the viewer may change it. */
+function WeeklyHoursCell({
+  person,
+  minutes,
+  known,
+  editable,
+  onSave,
+}: {
+  person: SpacePerson
+  minutes: number | null
+  known: boolean
+  editable: boolean
+  onSave: (minutes: number | null | 'invalid') => Promise<void>
+}) {
+  const saved = minutes === null ? '' : String(Math.round((minutes / 60) * 10) / 10)
+  const [text, setText] = useState(saved)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => setText(saved), [saved])
+
+  if (!editable) {
+    return (
+      <span className="w-[6.5rem] text-[13px] text-muted">
+        {!known ? '—' : minutes === null ? 'Not set' : formatHours(minutes)}
+      </span>
+    )
+  }
+  const dirty = text.trim() !== saved
+  return (
+    <span className="flex w-[11rem] items-center gap-1.5">
+      <input
+        value={text}
+        inputMode="decimal"
+        placeholder="Not set"
+        aria-label={`Weekly hours for ${person.first_name} ${person.last_name}`}
+        onChange={(e) => setText(e.target.value)}
+        className="h-9 w-[5.5rem] rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-3 text-[13px] text-ink placeholder:text-faint"
+      />
+      <span className="text-[13px] text-muted">h</span>
+      {dirty && (
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              const parsed = parseHours(text)
+              if (parsed === 'invalid') {
+                await onSave(Number.NaN)
+              } else {
+                await onSave(parsed)
+              }
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          Save hours
+        </Button>
+      )}
+    </span>
+  )
+}
 
 type PendingRole = {
   person: SpacePerson
@@ -68,11 +135,14 @@ export default function SpaceMembers() {
   const [handingOver, setHandingOver] = useState<SpacePerson | null>(null)
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
   const [leaving, setLeaving] = useState(false)
+  const [hours, setHours] = useState<Map<string, PeopleHours>>(new Map())
 
   const archived = Boolean(space?.archived_at)
   const mine = space?.my_role ?? null
   const seesInvites = !archived && canEditSpace(mine)
   const isPm = mine === 'pm' && !archived
+  const isWork = space?.kind === 'work'
+  const plansHours = mine === 'pm' || mine === 'coordinator'
   const inviteRoles = mine === 'pm' ? SPACE_ROLES : SPACE_ROLES.filter((r) => r !== 'coordinator')
 
   useEffect(() => {
@@ -83,6 +153,16 @@ export default function SpaceMembers() {
     if (!spaceId || !space) return
     try {
       setMembers(await listSpaceMembers(spaceId))
+      if (space.kind === 'work') {
+        // Only the rows the viewer may see come back; the rest show a dash.
+        try {
+          const week = workWeek()
+          const rows = await spacePeopleHours(spaceId, week.from, week.to)
+          setHours(new Map(rows.map((r) => [r.user_id, r])))
+        } catch {
+          setHours(new Map())
+        }
+      }
       // Only somebody who may invite can read these, so they are asked for
       // separately and their refusal is not the page's failure.
       if (!space.archived_at && canEditSpace(space.my_role ?? null)) {
@@ -108,6 +188,21 @@ export default function SpaceMembers() {
     await setSpaceRole(spaceId, person.user_id, role)
     show(`${person.first_name} is now ${ROLE_LABEL[role]} in this space`)
     await Promise.all([load(), reloadNavigation()])
+  }
+
+  async function saveHours(person: SpacePerson, minutes: number | null | 'invalid') {
+    if (!spaceId) return
+    if (minutes === 'invalid') {
+      show('Enter weekly hours as a number from 0.1 to 1000, like 16 or 12.5.', 'error')
+      return
+    }
+    try {
+      await setSpaceWeeklyMinutes(spaceId, person.user_id, minutes)
+      show(`${person.first_name}'s weekly hours saved`)
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not save weekly hours. Try again.'), 'error')
+    }
   }
 
   async function changeRole(person: SpacePerson, role: ProjectRole) {
@@ -260,6 +355,12 @@ export default function SpaceMembers() {
               <h2 className="text-[15px]">In this space</h2>
               <span className="font-mono text-[12px] text-faint">{members.length}</span>
             </header>
+            {isWork && (
+              <p className="border-b border-line px-4 py-2 text-[12px] text-muted sm:px-5">
+                Weekly hours are what each person has for work in this space, spread over Monday to
+                Friday. Time off lowers them for the days it covers.
+              </p>
+            )}
             <ul className="divide-y divide-line">
               {members.map((m) => {
                 const own = m.user_id === profile?.id
@@ -276,6 +377,15 @@ export default function SpaceMembers() {
                       {m.first_name} {m.last_name}
                       {own && <span className="text-faint"> · you</span>}
                     </span>
+                    {isWork && (
+                      <WeeklyHoursCell
+                        person={m}
+                        minutes={hours.get(m.user_id)?.weekly_minutes ?? null}
+                        known={hours.has(m.user_id)}
+                        editable={!archived && (plansHours || own)}
+                        onSave={(minutes) => saveHours(m, minutes)}
+                      />
+                    )}
                     {choices.length > 0 ? (
                       <Select
                         value={role}
