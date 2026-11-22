@@ -1110,18 +1110,25 @@ async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
   if (tasks.length === 0) return tasks
   const chunks: string[][] = []
   for (let i = 0; i < tasks.length; i += EXTRAS_CHUNK) chunks.push(tasks.slice(i, i + EXTRAS_CHUNK).map((t) => t.id))
-  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null }>()
+  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null; estimated_minutes?: number | null }>()
   const results = await Promise.all(
-    chunks.map((ids) => supabase.from('general_tasks').select('id, priority, parent_id').in('id', ids)),
+    chunks.map(async (ids) => {
+      const result = await supabase.from('general_tasks').select('id, priority, parent_id, estimated_minutes').in('id', ids)
+      if (result.error?.code === '42703' && result.error.message.includes('estimated_minutes')) {
+        return supabase.from('general_tasks').select('id, priority, parent_id').in('id', ids)
+      }
+      return result
+    }),
   )
   for (const { data, error } of results) {
     if (error) throw error
-    for (const row of (data ?? []) as { id: string; priority: TaskPriority; parent_id: string | null }[]) extras.set(row.id, row)
+    for (const row of data ?? []) extras.set(row.id, row)
   }
   return tasks.map((t) => ({
     ...t,
     priority: extras.get(t.id)?.priority ?? 'normal',
     parent_id: extras.get(t.id)?.parent_id ?? null,
+    estimated_minutes: extras.get(t.id)?.estimated_minutes,
   }))
 }
 
@@ -1348,6 +1355,7 @@ export async function listDependencies(projectId: string): Promise<TaskDependenc
 }
 
 export type TaskPatch = Partial<{
+  estimated_minutes: number | null
   title: string
   description: string
   status: GeneralTaskStatus

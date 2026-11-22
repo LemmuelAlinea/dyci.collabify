@@ -588,6 +588,7 @@ function TaskDetails({
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('normal')
+  const [estimate, setEstimate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -600,6 +601,7 @@ function TaskDetails({
     setStarts(toLocalInput(task.starts_at))
     setTeam(task.team_id ?? '')
     setPriority(task.priority ?? 'normal')
+    setEstimate(task.estimated_minutes == null ? '' : String(task.estimated_minutes))
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task || !state.project) return null
@@ -608,6 +610,8 @@ function TaskDetails({
   const gatedStages = stages.some((_, i) => i !== current && state.qaBlocks(current, i))
   // Priority is for work projects; a task that waits for an open task can't take the last stage.
   const work = !state.project.class_board_id
+  const hasEstimateField = work && task.estimated_minutes !== undefined
+  const canEstimate = hasEstimateField && canEdit && (state.myRole === 'pm' || state.myRole === 'coordinator')
   const waiting = blockersOf(state.dependencies ?? [], state.tasks, task.id).length > 0
   const mobileDetails = (
     <button
@@ -648,6 +652,7 @@ function TaskDetails({
               </div>
               <div><dt className="text-[12px] text-faint">Team</dt><dd className="text-ink">{teamName ?? 'Whole project'}</dd></div>
               <div><dt className="text-[12px] text-faint">Time logged</dt><dd className="text-ink">{formatMinutes(task.logged_minutes ?? 0)}</dd></div>
+              {hasEstimateField && <div><dt className="text-[12px] text-faint">Estimated effort</dt><dd className="text-ink">{task.estimated_minutes == null ? 'Not set' : formatMinutes(task.estimated_minutes)}</dd></div>}
               </dl>
               {!state.readOnly && (
               <p className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-muted">
@@ -667,6 +672,10 @@ function TaskDetails({
     if (!task || saving) return
     setError(null)
     if (canEdit && !title.trim()) return setError('A task needs a title.')
+    const estimatedMinutes = estimate.trim() === '' ? null : Number(estimate)
+    if (canEstimate && estimatedMinutes !== null &&
+      (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 2147483647))
+      return setError('Enter estimated effort in whole minutes.')
     const startsAt = fromLocalInput(starts)
     const dueAt = fromLocalInput(due)
     if (canEditSchedule && startsAt && dueAt && startsAt > dueAt)
@@ -674,6 +683,7 @@ function TaskDetails({
     setSaving(true)
     try {
       await updateTask(task.id, {
+        ...(canEstimate && estimatedMinutes !== (task.estimated_minutes ?? null) ? { estimated_minutes: estimatedMinutes } : {}),
         ...(canEdit ? { title: title.trim(), status: statusForStage(stage, stages.length) as GeneralTaskStatus, stage, team_id: team || null } : {}),
         ...(canEdit && work && priority !== (task.priority ?? 'normal') ? { priority } : {}),
         ...(canEditSchedule ? { description, due_at: dueAt, starts_at: startsAt } : {}),
@@ -756,6 +766,13 @@ function TaskDetails({
               )}
             </Field>
             </div>
+            {canEstimate ? (
+              <Field label="Estimated effort (minutes)">
+                {(id) => <Input id={id} type="number" min={1} max={2147483647} step={1} value={estimate} onChange={(e) => setEstimate(e.target.value)} />}
+              </Field>
+            ) : hasEstimateField && (
+              <p className="mt-4 text-[13px] text-muted">Estimated effort: {task.estimated_minutes == null ? 'Not set' : formatMinutes(task.estimated_minutes)}</p>
+            )}
             <p className="mt-4 flex items-center justify-between border-t border-line pt-4 text-[13px]">
             <span className="text-muted">Time logged</span>
             <span className="font-mono text-ink">{formatMinutes(task.logged_minutes ?? 0)}</span>

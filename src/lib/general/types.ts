@@ -368,6 +368,7 @@ export type GeneralTask = {
   comment_count: number
   file_count: number
   logged_minutes: number
+  estimated_minutes?: number | null
   archived_at: string | null
   archived_by: string | null
   /** The sprint it is in; null while it sits in the backlog. */
