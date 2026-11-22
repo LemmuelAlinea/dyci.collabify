@@ -39,6 +39,10 @@ export function TimeOffSetting() {
       setError('Enter hours as a number, like 4 or 2.5, or leave it empty for the whole day.')
       return
     }
+    if (minutes !== null && minutes > 1440) {
+      setError('Enter up to 24 hours for one day.')
+      return
+    }
     setBusy(true)
     try {
       await saveTimeOff(date, minutes)

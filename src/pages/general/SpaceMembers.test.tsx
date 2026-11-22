@@ -351,3 +351,30 @@ it('shows no weekly hours on a class space', async () => {
     { kind: 'education', class_id: 'k1' },
   )
 })
+
+it('refuses weekly hours that are not a number and keeps the saved value', async () => {
+  workload.spacePeopleHours.mockResolvedValue([hours('me', 960)])
+  await renderAs('pm', people, async (c) => {
+    await typeInto(hoursInput(row(c, 'Me'))!, 'abc')
+    await act(async () => button('Save hours', row(c, 'Me')).click())
+    expect(workload.setSpaceWeeklyMinutes).not.toHaveBeenCalled()
+    expect(show).toHaveBeenCalledWith('Enter weekly hours as a number, like 16 or 12.5.', 'error')
+  })
+})
+
+it('refuses more than 168 weekly hours', async () => {
+  await renderAs('pm', people, async (c) => {
+    await typeInto(hoursInput(row(c, 'Mia'))!, '169')
+    await act(async () => button('Save hours', row(c, 'Mia')).click())
+    expect(workload.setSpaceWeeklyMinutes).not.toHaveBeenCalled()
+    expect(show).toHaveBeenCalledWith('Enter weekly hours up to 168.', 'error')
+  })
+})
+
+it('saves 0 weekly hours as 0, not as Not set', async () => {
+  await renderAs('pm', people, async (c) => {
+    await typeInto(hoursInput(row(c, 'Mia'))!, '0')
+    await act(async () => button('Save hours', row(c, 'Mia')).click())
+    expect(workload.setSpaceWeeklyMinutes).toHaveBeenCalledWith('s', 'm1', 0)
+  })
+})

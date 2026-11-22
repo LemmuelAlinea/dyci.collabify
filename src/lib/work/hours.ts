@@ -53,3 +53,15 @@ export function formatDayLabel(date: string): string {
   const day = new Date(Date.UTC(y, m - 1, d))
   return `${DAYS[day.getUTCDay()]} ${d} ${MONTHS[m - 1]}`
 }
+
+/**
+ * Weekly hours typed in a person's row, as whole minutes. Empty is null (not
+ * set); 0 is allowed and means no hours; more than 168 is 'too_many'.
+ */
+export function parseWeeklyHours(text: string): number | null | 'invalid' | 'too_many' {
+  const t = text.trim()
+  if (t === '') return null
+  if (!/^\d+(\.\d+)?$/.test(t)) return 'invalid'
+  const hours = Number(t)
+  return hours > 168 ? 'too_many' : Math.round(hours * 60)
+}

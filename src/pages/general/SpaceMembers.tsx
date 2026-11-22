@@ -26,7 +26,7 @@ import {
 import { setSpaceWeeklyMinutes, spacePeopleHours } from '../../lib/api/workload'
 import type { PeopleHours } from '../../lib/api/workload'
 import { authErrorMessage } from '../../lib/authError'
-import { formatHours, parseHours, workWeek } from '../../lib/work/hours'
+import { formatHours, parseWeeklyHours, workWeek } from '../../lib/work/hours'
 import {
   ROLE_LABEL,
   SPACE_ROLES,
@@ -50,7 +50,7 @@ function WeeklyHoursCell({
   minutes: number | null
   known: boolean
   editable: boolean
-  onSave: (minutes: number | null | 'invalid') => Promise<void>
+  onSave: (minutes: number | null | 'invalid' | 'too_many') => Promise<void>
 }) {
   const saved = minutes === null ? '' : String(Math.round((minutes / 60) * 10) / 10)
   const [text, setText] = useState(saved)
@@ -84,12 +84,7 @@ function WeeklyHoursCell({
           onClick={async () => {
             setBusy(true)
             try {
-              const parsed = parseHours(text)
-              if (parsed === 'invalid') {
-                await onSave(Number.NaN)
-              } else {
-                await onSave(parsed)
-              }
+              await onSave(parseWeeklyHours(text))
             } finally {
               setBusy(false)
             }
@@ -190,10 +185,14 @@ export default function SpaceMembers() {
     await Promise.all([load(), reloadNavigation()])
   }
 
-  async function saveHours(person: SpacePerson, minutes: number | null | 'invalid') {
+  async function saveHours(person: SpacePerson, minutes: number | null | 'invalid' | 'too_many') {
     if (!spaceId) return
     if (minutes === 'invalid') {
-      show('Enter weekly hours as a number from 0.1 to 1000, like 16 or 12.5.', 'error')
+      show('Enter weekly hours as a number, like 16 or 12.5.', 'error')
+      return
+    }
+    if (minutes === 'too_many') {
+      show('Enter weekly hours up to 168.', 'error')
       return
     }
     try {

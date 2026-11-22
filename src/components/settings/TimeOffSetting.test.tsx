@@ -82,3 +82,12 @@ it('says planners see only the hours, never a reason', async () => {
   await draw()
   expect(host.textContent).toContain('see only the hours you have off, never a reason')
 })
+
+it('refuses more than 24 hours for one day', async () => {
+  await draw()
+  await typeInto(dateInput(), '2026-11-26')
+  await typeInto(hoursInput(), '25')
+  await act(async () => button('Add time off').click())
+  expect(saveTimeOff).not.toHaveBeenCalled()
+  expect(host.textContent).toContain('Enter up to 24 hours for one day.')
+})
