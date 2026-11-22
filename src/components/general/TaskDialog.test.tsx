@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 import { TaskDialog } from './TaskDialog'
+import { setTaskEstimate } from '../../lib/api/workload'
 import { listTaskEvents, setTaskHolders, updateTask } from '../../lib/api/general'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -14,6 +15,7 @@ vi.mock('../ui/Toast', () => ({ useToast: () => ({ show }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RoleBadge', () => ({ PersonBadge: () => null }))
 vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
+vi.mock('../../lib/api/workload', () => ({ setTaskEstimate: vi.fn(async () => {}) }))
 vi.mock('../../lib/api/general', async importOriginal => ({ ...await importOriginal<object>(), listComments: async () => [], listFiles: async () => [], listLogs: async () => [], listTaskEvents: vi.fn(async () => []), updateTask: vi.fn(), setTaskHolders: vi.fn(async () => {}) }))
 
 it('locks dates and description for a holder but lets the receiving lead edit them before assignment', async () => {
@@ -293,5 +295,20 @@ it('also asks to reopen work in a stage after QA in an open project', async () =
     await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, stages: ['Todo', 'Doing', 'Testing', 'Revision', 'Done'] } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
     expect(document.querySelector('[aria-label="Assign someone"]')).toBeNull()
     expect(document.body.textContent).toContain('Reopen it before changing who holds it.')
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('saves an estimate that is not a quarter-hour multiple', async () => {
+  const task = { id: 'task', title: 'Build page', project_id: 'p', created_by: 'pm', team_id: null, routing_state: 'released', assignee_ids: [], status: 'todo', stage: 0, description: '', starts_at: null, due_at: null, archived_at: null, estimated_minutes: null }
+  const state = { project: { id: 'p', class_board_id: null, stages: ['Todo', 'Done'] }, viewerId: 'pm', myRole: 'pm', readOnly: false, teams: [], teamMembers: [], members: [], tasks: [task],
+    can: () => true, leadsUser: () => false, nameOf: (id: string) => id, roleOf: () => 'pm', qaBlocks: () => false, reload: vi.fn().mockResolvedValue(undefined) } as unknown as GeneralProjectState
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={state} taskId="task" onClose={vi.fn()} />))
+    const input = [...document.querySelectorAll<HTMLInputElement>('input[type="number"]')].find(i => i.step === 'any')!
+    expect(input).toBeTruthy()
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '1.1'); input.dispatchEvent(new Event('input', { bubbles: true })) })
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === 'Save changes')!.click())
+    expect(setTaskEstimate).toHaveBeenCalledWith('task', 66)
   } finally { await act(async () => root.unmount()); container.remove() }
 })

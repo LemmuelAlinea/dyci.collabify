@@ -772,7 +772,7 @@ function TaskDetails({
             </div>
             {canEstimate ? (
               <Field label="Estimated effort (hours)" optional>
-                {(id) => <Input id={id} type="number" min={0.25} max={1000} step={0.25} value={estimate} onChange={(e) => setEstimate(e.target.value)} />}
+                {(id) => <Input id={id} type="number" min={0.25} max={1000} step="any" value={estimate} onChange={(e) => setEstimate(e.target.value)} />}
               </Field>
             ) : hasEstimateField && (
               <p className="mt-4 text-[13px] text-muted">Estimated effort: {task.estimated_minutes == null ? 'Not set' : formatHours(task.estimated_minutes)}</p>
