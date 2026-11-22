@@ -106,7 +106,8 @@ export async function breakdownContext(parentId: string, from: string, to: strin
 /**
  * One person's load in a window, per project they may see by name (null: the
  * rest of the space, as one total). Tasks without an estimate are counted in
- * `unestimated`, never as minutes.
+ * `unestimated`, never as minutes. `skipTaskId` leaves one task out (Break down
+ * and balance passes the parent, which stops counting once it has subtasks).
  */
 export type PeopleLoad = { user_id: string; project_id: string | null; load_minutes: number; unestimated: number }
 
@@ -115,12 +116,14 @@ export async function spacePeopleLoad(
   from: string,
   to: string,
   users?: string[],
+  skipTaskId?: string,
 ): Promise<PeopleLoad[]> {
   const { data, error } = await supabase.rpc('general_space_people_load', {
     p_space: spaceId,
     p_from: from,
     p_to: to,
     p_users: users ?? null,
+    p_skip_task: skipTaskId ?? null,
   })
   if (error) throw error
   return (data ?? []) as PeopleLoad[]

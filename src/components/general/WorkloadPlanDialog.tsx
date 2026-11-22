@@ -34,6 +34,7 @@ import {
 
 type Window = { from: string; to: string }
 type ReviewRow = PlanRow & { hoursText: string; startsOn: string; dueOn: string }
+type Unestimated = { id: string; count: number }
 
 const MIN_ROWS = 2
 const MAX_ROWS = 12
@@ -58,10 +59,15 @@ const hoursNumber = (minutes: number) => String(Math.round((minutes / 60) * 10) 
 const names = (list: string[]) =>
   list.length <= 1 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`
 
-/** Each person's numbers for the review: tags, position names, load and available minutes. */
+/**
+ * Each person's numbers for the review: tags, position names, load and available
+ * minutes, and how many open tasks they hold with no estimate. The parent is left
+ * out: once its subtasks exist it stops counting, and apply_work_breakdown's
+ * recheck leaves it out the same way.
+ */
 async function loadPeople(spaceId: string, ctx: BreakdownContext, ids: string[], win: Window) {
   const [load, hours] = await Promise.all([
-    spacePeopleLoad(spaceId, win.from, win.to, ids),
+    spacePeopleLoad(spaceId, win.from, win.to, ids, ctx.parent.id),
     spacePeopleHours(spaceId, win.from, win.to, ids),
   ])
   const positionName = new Map(ctx.positions.map((p) => [p.id, p.name]))
@@ -75,7 +81,10 @@ async function loadPeople(spaceId: string, ctx: BreakdownContext, ids: string[],
       loadMinutes: load.filter((l) => l.user_id === c.user_id).reduce((sum, l) => sum + l.load_minutes, 0),
       availableMinutes: hours.find((h) => h.user_id === c.user_id)?.available_minutes ?? null,
     }))
-  const unestimated = load.reduce((sum, l) => sum + l.unestimated, 0)
+  // Counted per person: the load rows can't tell when two people hold the same task.
+  const unestimated: Unestimated[] = people
+    .map((p) => ({ id: p.id, count: load.filter((l) => l.user_id === p.id).reduce((sum, l) => sum + l.unestimated, 0) }))
+    .filter((u) => u.count > 0)
   return { people, unestimated }
 }
 
@@ -114,7 +123,7 @@ export function WorkloadPlanDialog({
   // The window the rows were drafted for; Create saves against it.
   const [win, setWin] = useState<Window | null>(null)
   const [people, setPeople] = useState<Candidate[]>([])
-  const [unestimated, setUnestimated] = useState(0)
+  const [unestimated, setUnestimated] = useState<Unestimated[]>([])
   const [rows, setRows] = useState<ReviewRow[]>([])
   const [notes, setNotes] = useState<Record<string, Pick>>({})
   const [openRow, setOpenRow] = useState<string | null>(null)
@@ -144,6 +153,16 @@ export function WorkloadPlanDialog({
 
   const close = () => {
     if (!saving) onClose()
+  }
+
+  /** Cancel in setup after "Change window or people": back to the review as it was. */
+  function backToReview() {
+    if (!win) return
+    setFrom(win.from)
+    setTo(win.to)
+    setSelected(people.map((p) => p.id))
+    setError(null)
+    setStep('review')
   }
 
   const chosenIds = ctx ? ctx.candidates.map((c) => c.user_id).filter((id) => selected.includes(id)) : []
@@ -344,7 +363,7 @@ export function WorkloadPlanDialog({
     </>
   ) : (
     <>
-      <Button variant="ghost" onClick={close}>Cancel</Button>
+      <Button variant="ghost" onClick={win ? backToReview : close} disabled={busy && Boolean(win)}>Cancel</Button>
       {win ? (
         <Button onClick={() => void refresh({ reloadContext: false })} loading={busy}>Update the review</Button>
       ) : (
@@ -500,7 +519,7 @@ function Setup({
 type ReviewProps = {
   ctx: BreakdownContext
   people: Candidate[]
-  unestimated: number
+  unestimated: Unestimated[]
   rows: ReviewRow[]
   notes: Record<string, Pick>
   openRow: string | null
@@ -569,11 +588,10 @@ function Review(props: ReviewProps) {
                 <PersonBar key={t.id} name={people.find((p) => p.id === t.id)?.name ?? ''} {...t} />
               ))}
             </ul>
-            {unestimated > 0 && (
+            {unestimated.length > 0 && (
               <p className="border-t border-line pt-3 text-[12px] text-muted">
-                {unestimated === 1
-                  ? '1 open task in this space has no estimate.'
-                  : `${unestimated} open tasks in this space have no estimate.`}
+                Open tasks with no estimate:{' '}
+                {unestimated.map((u) => `${people.find((p) => p.id === u.id)?.name ?? 'Unnamed member'} holds ${u.count}`).join(', ')}.
               </p>
             )}
           </div>

@@ -404,8 +404,13 @@ grant execute on function public.general_space_people_hours(uuid, date, date, uu
 -- on today. Today means the next weekday on or after today (a weekend reads as
 -- Monday). A span with no weekdays puts the whole share on its first day.
 -- Tasks with no estimate are counted in unestimated, never as minutes.
+-- p_skip_task leaves one task out: Break down and balance passes the parent,
+-- which stops counting once its subtasks exist, so the review and
+-- apply_work_breakdown's recheck never count it beside the new rows.
+-- The first version had no p_skip_task; drop it so one overload remains.
+drop function if exists public.general_space_people_load(uuid, date, date, uuid[]);
 create or replace function public.general_space_people_load(
-  p_space uuid, p_from date, p_to date, p_users uuid[] default null)
+  p_space uuid, p_from date, p_to date, p_users uuid[] default null, p_skip_task uuid default null)
 returns table(user_id uuid, project_id uuid, load_minutes int, unestimated int)
 language plpgsql
 stable
@@ -445,6 +450,7 @@ begin
        and pr.archived_at is null and pr.trashed_at is null
        and t.routing_state = 'released' and t.status <> 'done'
        and t.archived_at is null and t.trashed_at is null
+       and (p_skip_task is null or t.id <> p_skip_task)
        and not exists (select 1 from public.general_tasks st
                         where st.parent_id = t.id and st.archived_at is null and st.trashed_at is null)
   ),
@@ -478,8 +484,8 @@ begin
 end;
 $$;
 
-revoke all on function public.general_space_people_load(uuid, date, date, uuid[]) from public, anon;
-grant execute on function public.general_space_people_load(uuid, date, date, uuid[]) to authenticated;
+revoke all on function public.general_space_people_load(uuid, date, date, uuid[], uuid) from public, anon;
+grant execute on function public.general_space_people_load(uuid, date, date, uuid[], uuid) to authenticated;
 
 ------------------------------------------------------------ break down and balance
 
@@ -659,8 +665,9 @@ grant execute on function public.general_breakdown_context(uuid, date, date) to 
 -- Locks the parent, then rechecks the caller and parent through
 -- general_breakdown_context (so the review and the save never disagree), the
 -- rows as validateBreakdown (workloadPlan.ts) checks them, every owner against
--- the current candidates, and every owner's load in the window against the
--- load the review showed (the smallest shown for them; missing reads as 0).
+-- the current candidates, and every owner's load in the window (without the
+-- parent, as the review reads it) against the load the review showed (the
+-- smallest shown for them; missing reads as 0).
 -- Then it creates each subtask through create_general_subtask (Manila start
 -- and end of day), sets its estimate through set_work_task_estimate, adds the
 -- owner under collabify.work_task_handoff and adds the links through
@@ -826,11 +833,15 @@ begin
     v_name := coalesce(v_name, 'This person');
     if not exists (select 1 from jsonb_array_elements(ctx -> 'candidates') c
                     where (c ->> 'user_id')::uuid = o.uid) then
+      if ctx -> 'parent' ->> 'task_flow' = 'open' then
+        raise exception '% can no longer take tasks in this project. Review again.', v_name
+          using errcode = 'check_violation';
+      end if;
       raise exception '% can no longer take tasks from this team. Review again.', v_name
         using errcode = 'check_violation';
     end if;
     select coalesce(sum(l.load_minutes), 0) into v_load
-      from public.general_space_people_load(v_space, p_from, p_to, array[o.uid]) l;
+      from public.general_space_people_load(v_space, p_from, p_to, array[o.uid], p_parent) l;
     if v_load > o.shown then
       raise exception '%''s work changed since you reviewed it. Review again.', v_name
         using errcode = 'check_violation';

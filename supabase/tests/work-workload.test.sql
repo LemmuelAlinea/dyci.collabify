@@ -655,10 +655,16 @@ end $$;
 ------------------------------------------------------------ apply a breakdown
 -- The defense fixture: A (Auth, 360 min load), B (UI, 240), C (Testing, 120),
 -- 960 a week each; seven rows owned A, B, C, A, B, C, C with five links.
-create or replace function pg_temp.load_of(p_space uuid, p_from date, p_to date, p_user uuid)
+create or replace function pg_temp.load_of(p_space uuid, p_from date, p_to date, p_user uuid, p_skip uuid default null)
 returns int language sql as $$
   select coalesce(sum(load_minutes), 0)::int
-    from public.general_space_people_load(p_space, p_from, p_to, array[p_user]);
+    from public.general_space_people_load(p_space, p_from, p_to, array[p_user], p_skip);
+$$;
+
+create or replace function pg_temp.unest_of(p_space uuid, p_from date, p_to date, p_user uuid, p_skip uuid default null)
+returns int language sql as $$
+  select coalesce(sum(unestimated), 0)::int
+    from public.general_space_people_load(p_space, p_from, p_to, array[p_user], p_skip);
 $$;
 
 create or replace function pg_temp.defense_rows(a uuid, b uuid, c uuid, p_space uuid, p_from date, p_to date)
@@ -824,7 +830,24 @@ begin
   perform pg_temp.service();
   update public.general_projects set allow_subtasks = true where id = p;
 
-  -- The plan saves whole.
+  -- The parent, dated in the window, counts in Ana's load until it has
+  -- subtasks; the review and the recheck both leave it out.
+  update public.general_tasks set starts_at = v_start, due_at = v_due where id = par;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('unestimated parent skipped',
+    pg_temp.unest_of(s, v_mon, v_fri, u[3]) = 1
+    and pg_temp.unest_of(s, v_mon, v_fri, u[3], par) = 0
+    and pg_temp.load_of(s, v_mon, v_fri, u[3], par) = 360);
+  perform pg_temp.service();
+  update public.general_tasks set estimated_minutes = 600 where id = par;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('estimated parent skipped in the review load',
+    pg_temp.load_of(s, v_mon, v_fri, u[3]) = 960
+    and pg_temp.load_of(s, v_mon, v_fri, u[3], par) = 360
+    and pg_temp.unest_of(s, v_mon, v_fri, u[3], par) = 0
+    and pg_temp.load_of(s, v_mon, v_fri, u[4], par) = 240);
+
+  -- The plan saves whole, against the loads the review showed without the parent.
   perform pg_temp.act_as(u[1]);
   v_ids := public.apply_work_breakdown(par, v_mon, v_fri, v_rows);
   perform pg_temp.service();
@@ -877,6 +900,11 @@ begin
   insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
     values(p, 'Zz ap open parent', 'released', now(), u[1]) returning id into par2;
   perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('open flow QA owner refused',
+    format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par2, v_mon, v_fri, jsonb_build_array(
+      jsonb_build_object('key', 'a', 'title', 'Open first', 'minutes', 60, 'owner', u[7], 'depends_on', '[]'::jsonb),
+      jsonb_build_object('key', 'b', 'title', 'Open second', 'minutes', 60, 'owner', null, 'depends_on', '[]'::jsonb))),
+    'Quinn can no longer take tasks in this project. Review again.');
   v_ids := public.apply_work_breakdown(par2, v_mon, v_fri, jsonb_build_array(
     jsonb_build_object('key', 'a', 'title', 'Open first', 'minutes', 60, 'owner', u[6],
       'depends_on', '[]'::jsonb, 'starts_on', v_mon, 'due_on', v_mon,

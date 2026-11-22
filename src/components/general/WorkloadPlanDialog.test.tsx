@@ -117,7 +117,8 @@ async function openAndDraft() {
 it('no writes before Create', async () => {
   await openAndDraft()
   expect(draftBreakdown).toHaveBeenCalledWith('p', 'parent', '2026-11-23', '2026-11-27')
-  expect(spacePeopleLoad).toHaveBeenCalledWith('s', '2026-11-23', '2026-11-27', ['a', 'b', 'c'])
+  // The parent is left out of the load, as apply_work_breakdown's recheck leaves it out.
+  expect(spacePeopleLoad).toHaveBeenCalledWith('s', '2026-11-23', '2026-11-27', ['a', 'b', 'c'], 'parent')
   await type('Hours for Prepare test cases', '4')
   await choose('Owner of Prepare test cases', 'b')
   await click('Rebalance')
@@ -131,7 +132,7 @@ it('shows the defense totals', async () => {
   expect(count('14 / 16 h')).toBe(3)
   expect(text()).toContain('Can start now')
   expect(text()).toContain('After Define sign-in contract')
-  expect(text()).toContain('3 open tasks in this space have no estimate.')
+  expect(text()).toContain('Open tasks with no estimate: B holds 2, C holds 1.')
   expect(field<HTMLSelectElement>('Owner of Auth and session handling').value).toBe('a')
   expect(field<HTMLSelectElement>('Owner of End-to-end checks').value).toBe('c')
   expect(button('Create and assign 7 subtasks')).toBeTruthy()
@@ -236,4 +237,36 @@ it('shows why a parent is blocked', async () => {
     <WorkloadPlanDialog parentId="parent" projectId="p" spaceId="s" onClose={onClose} onSaved={onSaved} />))
   expect(text()).toContain('This task is done. Reopen it to break it down.')
   expect(button('Draft the breakdown')).toBeUndefined()
+})
+
+it('leaves out the unestimated footer when everyone has estimates', async () => {
+  vi.mocked(spacePeopleLoad).mockResolvedValue(loads().map(l => ({ ...l, unestimated: 0 })))
+  await openAndDraft()
+  expect(text()).not.toContain('no estimate')
+})
+
+it('Cancel after Change window or people returns to the review as it was', async () => {
+  await openAndDraft()
+  await type('Hours for Prepare test cases', '4')
+  await click('Change window or people')
+  await type('Window end', '2026-11-26')
+  const boxes = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+  await act(async () => boxes[1].click())
+  await click('Cancel')
+  expect(onClose).not.toHaveBeenCalled()
+  expect(text()).toContain('Fri 27 Nov')
+  expect(field<HTMLInputElement>('Hours for Prepare test cases').value).toBe('4')
+  expect(button('Create and assign 7 subtasks')).toBeTruthy()
+  // The setup shows the review's window and people again.
+  await click('Change window or people')
+  expect(field<HTMLInputElement>('Window end').value).toBe('2026-11-27')
+  expect([...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].map(b => b.checked)).toEqual([true, true, true])
+  expect(spacePeopleLoad).toHaveBeenCalledTimes(1)
+})
+
+it('Cancel before any draft closes the dialog', async () => {
+  await act(async () => root.render(
+    <WorkloadPlanDialog parentId="parent" projectId="p" spaceId="s" onClose={onClose} onSaved={onSaved} />))
+  await click('Cancel')
+  expect(onClose).toHaveBeenCalledTimes(1)
 })
