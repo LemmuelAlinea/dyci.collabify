@@ -253,4 +253,193 @@ begin
     (select count(*) = 1 from public.user_time_off where user_id = u[3]));
 end $$;
 
+------------------------------------------------------------ load
+-- The window is next Monday to Friday in Manila (2026-11-23 to 2026-11-27 when
+-- run on 2026-11-22), so the tasks below stay inside it on any run date.
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid(), gen_random_uuid()];
+  -- 1 space pm (pm of Q), 2 space coordinator (on no project), 3 A, 4 B, 5 C (developers),
+  -- 6 X: a space member who is the pm of P
+  s uuid; p uuid; q uuid; ta uuid; t uuid;
+  v_today date := (now() at time zone 'Asia/Manila')::date;
+  v_mon date;
+  v_fri date;
+  v_start timestamptz;
+  v_due timestamptz;
+  v_class uuid; v_syl uuid;
+begin
+  v_mon := v_today + (8 - extract(isodow from v_today)::int);
+  v_fri := v_mon + 4;
+  v_start := (v_mon + time '09:00') at time zone 'Asia/Manila';
+  v_due := (v_fri + time '17:00') at time zone 'Asia/Manila';
+
+  perform pg_temp.service();
+  for k in 1..6 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-wl-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-wl-'||k||'@example.test', 'Wl', k::text, 'member', 'active', false, k in (1, 6))
+      on conflict(id) do update set role = excluded.role, status = 'active',
+        can_teach = excluded.can_teach, can_manage_projects = excluded.can_manage_projects;
+  end loop;
+
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz wl space', '')).id;
+  q := (public.create_general_project('Zz wl other', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role) values
+    (s, u[2], 'coordinator'), (s, u[3], 'member'), (s, u[4], 'member'), (s, u[5], 'member'), (s, u[6], 'member');
+  perform pg_temp.act_as(u[6]);
+  p := (public.create_general_project('Zz wl project', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  update public.general_projects set visibility = 'private' where id in (p, q);
+  insert into public.general_members(project_id, user_id, role) values
+    (p, u[3], 'member'), (p, u[4], 'member'), (p, u[5], 'member'), (q, u[3], 'member');
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values
+    (s, u[3], 960), (s, u[4], 960), (s, u[5], 960);
+  insert into public.user_time_off(user_id, off_on, minutes) values (u[3], v_mon + 1, 240);
+
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl A', 'released', u[6], 360, v_start, v_due) returning id into ta;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(ta, p, u[3], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl B', 'released', u[6], 240, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[4], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl C', 'released', u[6], 120, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[5], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, starts_at, due_at)
+    values(p, 'Zz wl C unestimated', 'released', u[6], v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[5], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl A and B', 'released', u[6], 120, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values
+    (t, p, u[3], u[6]), (t, p, u[4], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, status, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl done', 'released', 'done', u[6], 600, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[3], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl planning', 'planning', u[6], 600, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[3], u[6]);
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, 'Zz wl trashed', 'released', u[6], 600, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[3], u[6]);
+  update public.general_tasks
+     set archived_at = now(), archived_by = u[6], trashed_at = now(), trashed_by = u[6] where id = t;
+  perform pg_temp.check('trashed seed holds',
+    (select trashed_at is not null from public.general_tasks where id = t));
+
+  perform pg_temp.act_as(u[1]);
+  -- Weekly 960 is 192 a weekday; 240 off on one day removes that day's 192, never more.
+  perform pg_temp.check('available with time off',
+    (select available_minutes = 768 and time_off_minutes = 192 and weekly_minutes = 960
+       from public.general_space_people_hours(s, v_mon, v_fri) where user_id = u[3])
+    and (select available_minutes = 960 and time_off_minutes = 0
+           from public.general_space_people_hours(s, v_mon, v_fri) where user_id = u[4]));
+  perform pg_temp.check('not set stays null',
+    (select weekly_minutes is null and available_minutes is null
+       from public.general_space_people_hours(s, v_mon, v_fri) where user_id = u[6]));
+  perform pg_temp.check('load sums estimates',
+    (select sum(load_minutes) = 420 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[3])
+    and (select sum(load_minutes) = 300 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[4])
+    and (select sum(load_minutes) = 120 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[5]));
+  perform pg_temp.check('unestimated counted',
+    (select unestimated = 1 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[5])
+    and (select sum(unestimated) = 0 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[3]));
+
+  perform pg_temp.service();
+  insert into public.general_tasks(project_id, parent_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(p, ta, 'Zz wl A sub', 'released', u[6], 60, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, p, u[3], u[6]);
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('parent with subtasks ignored',
+    (select sum(load_minutes) = 120 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[3]));
+
+  perform pg_temp.check('weekend window',
+    (select count(*) = 3 and bool_and(available_minutes = 0)
+       from public.general_space_people_hours(s, v_mon + 5, v_mon + 6) where weekly_minutes is not null)
+    and not exists(select 1 from public.general_space_people_load(s, v_mon + 5, v_mon + 6)));
+  perform pg_temp.refuse('work_weekdays not granted',
+    format('select public.work_weekdays(%L, %L)', v_mon, v_fri), 'permission denied');
+  perform pg_temp.service();
+  perform pg_temp.check('work_weekdays',
+    public.work_weekdays(v_mon, v_fri) = 5 and public.work_weekdays(v_mon, v_mon + 13) = 10
+    and public.work_weekdays(v_mon + 5, v_mon + 6) = 0 and public.work_weekdays(v_fri, v_mon) = 0
+    and public.work_weekdays(v_mon + 4, v_mon + 7) = 2);
+
+  perform pg_temp.service();
+  insert into public.user_time_off(user_id, off_on)
+    select u[5], d::date from generate_series(v_mon, v_fri, interval '1 day') d;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('time off floors at zero',
+    (select available_minutes = 0 and time_off_minutes = 960
+       from public.general_space_people_hours(s, v_mon, v_fri) where user_id = u[5]));
+
+  -- A's other work, in Q (the space pm's project).
+  perform pg_temp.service();
+  insert into public.general_tasks(project_id, title, routing_state, created_by, estimated_minutes, starts_at, due_at)
+    values(q, 'Zz wl A other', 'released', u[1], 90, v_start, v_due) returning id into t;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values(t, q, u[3], u[1]);
+
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.check('layered: a member sees only themselves',
+    (select count(*) > 0 and bool_and(user_id = u[4] and project_id = p)
+       from public.general_space_people_load(s, v_mon, v_fri))
+    and (select array_agg(user_id) = array[u[4]] from public.general_space_people_hours(s, v_mon, v_fri)));
+
+  perform pg_temp.act_as(u[6]);
+  perform pg_temp.check('layered: a project pm sees their people',
+    (select count(distinct user_id) = 3 from public.general_space_people_load(s, v_mon, v_fri))
+    and (select load_minutes = 120 from public.general_space_people_load(s, v_mon, v_fri)
+          where user_id = u[3] and project_id = p)
+    and (select load_minutes = 90 from public.general_space_people_load(s, v_mon, v_fri)
+          where user_id = u[3] and project_id is null)
+    and not exists(select 1 from public.general_space_people_load(s, v_mon, v_fri) where project_id = q)
+    and (select count(*) = 4 and bool_and(user_id = any(array[u[3], u[4], u[5], u[6]]))
+           from public.general_space_people_hours(s, v_mon, v_fri)));
+
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('layered: a space coordinator gets private projects folded',
+    (select count(distinct user_id) = 3 and bool_and(project_id is null)
+       from public.general_space_people_load(s, v_mon, v_fri))
+    and (select load_minutes = 210 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[3])
+    and (select count(*) = 6 from public.general_space_people_hours(s, v_mon, v_fri)));
+
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('layered: the space pm sees every project named',
+    (select load_minutes = 120 from public.general_space_people_load(s, v_mon, v_fri)
+      where user_id = u[3] and project_id = p)
+    and (select load_minutes = 90 from public.general_space_people_load(s, v_mon, v_fri)
+          where user_id = u[3] and project_id = q)
+    and not exists(select 1 from public.general_space_people_load(s, v_mon, v_fri) where project_id is null));
+  perform pg_temp.check('users filter',
+    (select array_agg(distinct user_id) = array[u[4]]
+       from public.general_space_people_load(s, v_mon, v_fri, array[u[4]]))
+    and (select array_agg(user_id) = array[u[4]]
+           from public.general_space_people_hours(s, v_mon, v_fri, array[u[4]])));
+
+  -- Class spaces are refused.
+  perform pg_temp.service();
+  insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
+    values (u[1], 'syllabus', 'Zz wl syllabus', 'x/wl.pdf', 'wl.pdf') returning id into v_syl;
+  update public.profiles set can_teach = true where id = u[1];
+  perform pg_temp.act_as(u[1]);
+  insert into public.classes
+    (professor_id, name, initial, code, section, year_level, semester, school_year, syllabus_id)
+  values (u[1], 'Zz wl class', 'ZZW', 'ZZWL-CLASS', 'BSIT 1A', '1st', '1st', '2026-2027', v_syl)
+  returning id into v_class;
+  perform pg_temp.refuse('class space refused',
+    format('select * from public.general_space_people_load((select space_id from public.classes where id = %L), %L, %L)',
+      v_class, v_mon, v_fri), 'work spaces only');
+  perform pg_temp.refuse('class space hours refused',
+    format('select * from public.general_space_people_hours((select space_id from public.classes where id = %L), %L, %L)',
+      v_class, v_mon, v_fri), 'work spaces only');
+  perform pg_temp.service();
+  perform pg_temp.refuse('signed out refused',
+    format('select * from public.general_space_people_load(%L, %L, %L)', s, v_mon, v_fri), 'Sign in');
+end $$;
+
 rollback;
