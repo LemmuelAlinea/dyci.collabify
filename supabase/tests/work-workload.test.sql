@@ -161,6 +161,30 @@ begin
   perform pg_temp.service();
   perform pg_temp.refuse('class board refused for the service role too',
     format('update public.general_tasks set estimated_minutes = 60 where id = %L', t_class), 'work projects only');
+  insert into public.general_members(project_id, user_id) values (cb, u[6]) on conflict do nothing;
+  perform pg_temp.act_as(u[6]);
+  perform pg_temp.check('context blocks a class board',
+    (public.general_breakdown_context(t_class, date '2026-11-23', date '2026-11-27') ->> 'blocked')
+      like '%work projects only%'
+    and public.general_breakdown_context(t_class, date '2026-11-23', date '2026-11-27') -> 'candidates' = '[]'::jsonb);
+  perform pg_temp.service();
+
+  -- Who may estimate, asked before Suggest estimate runs.
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('can estimate: pm', public.can_estimate_work_task(t));
+  perform pg_temp.check('can estimate: archived task is no',
+    not public.can_estimate_work_task(t_arch));
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('can estimate: coordinator', public.can_estimate_work_task(t));
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('can estimate: holder', public.can_estimate_work_task(t));
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.check('can estimate: non-holder is no', not public.can_estimate_work_task(t));
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.check('can estimate: class board is no', not public.can_estimate_work_task(t_class));
+  perform pg_temp.check('can estimate: missing task is no', not public.can_estimate_work_task(gen_random_uuid()));
+  perform pg_temp.service();
+  perform pg_temp.check('can estimate: signed out is no', not public.can_estimate_work_task(t));
 
   perform pg_temp.act_as(u[1]);
   perform public.set_work_task_estimate(t, null);
@@ -473,6 +497,159 @@ begin
   perform pg_temp.service();
   perform pg_temp.refuse('signed out refused',
     format('select * from public.general_space_people_load(%L, %L, %L)', s, v_mon, v_fri), 'Sign in');
+end $$;
+
+------------------------------------------------------------ breakdown context
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
+  -- 1 pm, 2 coordinator, 3 team lead, 4 team member, 5 member on no team,
+  -- 6 QA on the team, 7 stakeholder, 8 member outside the space
+  s uuid; p uuid; team uuid; par uuid; pos uuid; sub uuid;
+  ctx jsonb;
+  w_from date := date '2026-11-23';
+  w_to date := date '2026-11-27';
+begin
+  perform pg_temp.service();
+  for k in 1..8 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-bd-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-bd-'||k||'@example.test', 'Bd', k::text, 'member', 'active', false, k = 1)
+      on conflict(id) do update set role = excluded.role, status = 'active',
+        can_teach = excluded.can_teach, can_manage_projects = excluded.can_manage_projects;
+  end loop;
+
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz bd space', '')).id;
+  p := (public.create_general_project('Zz bd project', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role) values
+    (s, u[2], 'coordinator'), (s, u[3], 'member'), (s, u[4], 'member'), (s, u[5], 'member'),
+    (s, u[6], 'qa'), (s, u[7], 'stakeholder');
+  insert into public.general_members(project_id, user_id, role) values
+    (p, u[2], 'coordinator'), (p, u[3], 'member'), (p, u[4], 'member'), (p, u[5], 'member'),
+    (p, u[6], 'qa'), (p, u[7], 'stakeholder'), (p, u[8], 'member');
+  -- Joining the project seats u8 in the space too; take that seat away again.
+  delete from public.general_space_members where space_id = s and user_id = u[8];
+  perform pg_temp.check('u8 stays on the project outside the space',
+    exists (select 1 from public.general_members where project_id = p and user_id = u[8]));
+  insert into public.general_teams(project_id, name) values (p, 'Zz bd team') returning id into team;
+  insert into public.general_team_members(project_id, team_id, user_id) values
+    (p, team, u[3]), (p, team, u[4]), (p, team, u[6]);
+  update public.general_teams set leader_id = u[3] where id = team;
+  insert into public.general_member_skills(project_id, user_id, tag) values
+    (p, u[3], 'Auth'), (p, u[4], 'auth'), (p, u[4], 'UI');
+  insert into public.general_positions(project_id, name) values (p, 'Developer') returning id into pos;
+  insert into public.general_position_holders(position_id, project_id, user_id) values (pos, p, u[3]);
+  insert into public.general_tasks(project_id, title, description, team_id, routing_state, created_by)
+    values (p, 'Zz bd login', 'Build the login module', team, 'planning', u[1]) returning id into par;
+
+  perform pg_temp.act_as(u[1]);
+  ctx := public.general_breakdown_context(par, w_from, w_to);
+  perform pg_temp.check('context blocks unreleased planned parent',
+    (ctx ->> 'blocked') like '%Plan & route%'
+    and ctx -> 'parent' ->> 'routing_state' = 'planning');
+
+  perform pg_temp.service();
+  update public.general_tasks set routing_state = 'released', sent_at = now() where id = par;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (par, p, u[4], u[3]);
+
+  perform pg_temp.act_as(u[1]);
+  ctx := public.general_breakdown_context(par, w_from, w_to);
+  perform pg_temp.check('context for a released planned parent',
+    ctx -> 'blocked' = 'null'::jsonb
+    and ctx -> 'parent' ->> 'title' = 'Zz bd login'
+    and ctx -> 'parent' ->> 'description' = 'Build the login module'
+    and ctx -> 'parent' ->> 'task_flow' = 'planned'
+    and (ctx -> 'parent' ->> 'team_id')::uuid = team
+    and ctx -> 'parent' -> 'has_subtasks' = 'false'::jsonb
+    and ctx -> 'parent' -> 'allow_subtasks' = 'true'::jsonb
+    and ctx -> 'parent' -> 'holder_ids' = jsonb_build_array(u[4])
+    and ctx -> 'tags' = '["Auth", "UI"]'::jsonb
+    and ctx -> 'positions' = jsonb_build_array(jsonb_build_object('id', pos, 'name', 'Developer')));
+  perform pg_temp.check('planned candidates are receiving team only',
+    (select array_agg((c ->> 'user_id')::uuid order by c ->> 'user_id')
+       from jsonb_array_elements(ctx -> 'candidates') c)
+      = (select array_agg(x order by x::text) from unnest(array[u[3], u[4]]) x)
+    and exists (select 1 from jsonb_array_elements(ctx -> 'candidates') c
+                 where (c ->> 'user_id')::uuid = u[3] and c ->> 'name' = 'Bd 3'
+                   and c -> 'tags' = '["Auth"]'::jsonb and c -> 'position_ids' = jsonb_build_array(pos))
+    and exists (select 1 from jsonb_array_elements(ctx -> 'candidates') c
+                 where (c ->> 'user_id')::uuid = u[4] and c -> 'tags' = '["auth", "UI"]'::jsonb
+                   and c -> 'position_ids' = '[]'::jsonb));
+
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('context for a coordinator',
+    public.general_breakdown_context(par, w_from, w_to) -> 'blocked' = 'null'::jsonb);
+
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.refuse('context refuses member',
+    format('select public.general_breakdown_context(%L, %L, %L)', par, w_from, w_to),
+    'Only the project manager or coordinators break down tasks.');
+  perform pg_temp.act_as(u[7]);
+  perform pg_temp.refuse('context refuses stakeholder',
+    format('select public.general_breakdown_context(%L, %L, %L)', par, w_from, w_to),
+    'Only the project manager or coordinators break down tasks.');
+  perform pg_temp.service();
+  perform pg_temp.refuse('context refuses signed out',
+    format('select public.general_breakdown_context(%L, %L, %L)', par, w_from, w_to), 'Sign in');
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('context refuses a bad window',
+    format('select public.general_breakdown_context(%L, %L, %L)', par, w_to, w_from), 'start date on or before');
+  perform pg_temp.refuse('context refuses a missing task',
+    format('select public.general_breakdown_context(%L, %L, %L)', gen_random_uuid(), w_from, w_to), 'Task not found');
+
+  perform pg_temp.service();
+  update public.general_teams set leader_id = null where id = team;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('context blocks a team with no active lead',
+    (public.general_breakdown_context(par, w_from, w_to) ->> 'blocked') like '%no active lead%');
+  perform pg_temp.service();
+  update public.general_teams set leader_id = u[3] where id = team;
+  update public.profiles set status = 'pending' where id = u[3];
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('context blocks a team whose lead is inactive',
+    (public.general_breakdown_context(par, w_from, w_to) ->> 'blocked') like '%no active lead%');
+  perform pg_temp.service();
+  update public.profiles set status = 'active' where id = u[3];
+
+  update public.general_projects set task_flow = 'open' where id = p;
+  perform pg_temp.act_as(u[1]);
+  ctx := public.general_breakdown_context(par, w_from, w_to);
+  perform pg_temp.check('context candidates exclude QA and stakeholder',
+    ctx -> 'blocked' = 'null'::jsonb
+    and ctx -> 'parent' ->> 'task_flow' = 'open'
+    and (select array_agg((c ->> 'user_id')::uuid order by c ->> 'user_id')
+           from jsonb_array_elements(ctx -> 'candidates') c)
+        = (select array_agg(x order by x::text) from unnest(array[u[1], u[2], u[3], u[4], u[5]]) x));
+  perform pg_temp.check('open candidates are space members only',
+    not exists (select 1 from jsonb_array_elements(ctx -> 'candidates') c where (c ->> 'user_id')::uuid = u[8]));
+
+  perform pg_temp.service();
+  update public.general_tasks set status = 'done' where id = par;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('context blocks a done parent',
+    (public.general_breakdown_context(par, w_from, w_to) ->> 'blocked') like '%done%');
+  perform pg_temp.service();
+  update public.general_tasks set status = 'todo' where id = par;
+  update public.general_projects set allow_subtasks = false where id = p;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('context blocks when subtasks are off',
+    (public.general_breakdown_context(par, w_from, w_to) ->> 'blocked') like 'Subtasks are off%');
+  perform pg_temp.service();
+  update public.general_projects set allow_subtasks = true where id = p;
+  insert into public.general_tasks(project_id, parent_id, title, routing_state, created_by)
+    values (p, par, 'Zz bd sub', 'released', u[1]) returning id into sub;
+  perform pg_temp.act_as(u[1]);
+  ctx := public.general_breakdown_context(par, w_from, w_to);
+  perform pg_temp.check('context blocks a parent with subtasks',
+    (ctx ->> 'blocked') like '%already has subtasks%'
+    and ctx -> 'parent' -> 'has_subtasks' = 'true'::jsonb);
+  perform pg_temp.check('context blocks a subtask',
+    (public.general_breakdown_context(sub, w_from, w_to) ->> 'blocked') like 'This is a subtask%');
 end $$;
 
 rollback;

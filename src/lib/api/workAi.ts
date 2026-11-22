@@ -1,4 +1,5 @@
 import { invokeFunction } from './functions'
+import type { PlanRow } from '../../../supabase/functions/_shared/workloadPlan.ts'
 
 /**
  * The work-project AI helpers. Each returns a draft or an answer; nothing is
@@ -100,6 +101,18 @@ export const draftTeamRoutes = (projectId: string) =>
 
 export const draftLeadAssignees = (projectId: string) =>
   call<{ picks: AssignPickOut[]; left: number; empty?: 'no_structure' | 'no_tasks' }>('assign', projectId, { mode: 'lead' })
+
+/**
+ * A released parent task broken into 2 to 12 subtask rows for the review, with
+ * no owners: Recommend owners (`balanceWorkPlan`) picks those in the browser.
+ * `from` and `to` are the window's YYYY-MM-DD dates.
+ */
+export const draftBreakdown = (projectId: string, parentId: string, from: string, to: string) =>
+  call<{ rows: PlanRow[] }>('breakdown', projectId, { parent_id: parentId, from, to })
+
+/** A suggested estimate for one task, from its title and description. Nothing is saved. */
+export const suggestEstimate = (projectId: string, taskId: string) =>
+  call<{ minutes: number; reason: string }>('estimate', projectId, { task_id: taskId })
 
 export const askFiles =(projectId: string, question: string) =>
   call<{ answer: string; found: boolean; sources: string[]; skipped: number }>('ask', projectId, { question })

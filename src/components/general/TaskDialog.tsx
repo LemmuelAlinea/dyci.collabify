@@ -45,6 +45,7 @@ import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { formatHours, parseHours } from '../../lib/work/hours'
 import { setTaskEstimate } from '../../lib/api/workload'
+import { suggestEstimate } from '../../lib/api/workAi'
 import { assignableTo, canCommentTask, canEditTask, canSetHolders, canUnassign, holderCandidates, keepsCreatorRights } from '../../lib/general/permissions'
 import type { TaskViewer } from '../../lib/general/permissions'
 import { QaActions } from '../work/QaActions'
@@ -592,12 +593,16 @@ function TaskDetails({
   const [team, setTeam] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('normal')
   const [estimate, setEstimate] = useState('')
+  // Suggest estimate: busy, then the model's reason or why it failed.
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ reason: string } | { error: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
   const updatedAt = task?.updated_at
   useEffect(() => {
     if (!task) return
+    setSuggestion(null)
     setDescription(task.description)
     setStage(stageIndex(task.status, task.stage, stagesOf(state.project?.stages).length))
     setDue(toLocalInput(task.due_at))
@@ -670,6 +675,26 @@ function TaskDetails({
         </aside>
       </div>
     )
+  }
+
+  // Fills the field from the saved title and description; nothing is saved.
+  async function suggest() {
+    if (!task || !state.project || suggesting) return
+    setSuggesting(true)
+    setSuggestion(null)
+    try {
+      const res = await suggestEstimate(state.project.id, task.id)
+      if (res.result === 'ok') {
+        setEstimate(String(Math.round((res.minutes / 60) * 100) / 100))
+        setSuggestion({ reason: res.reason })
+      } else {
+        setSuggestion({ error: res.message })
+      }
+    } catch (err) {
+      setSuggestion({ error: authErrorMessage(err, 'Could not suggest an estimate. Try again.') })
+    } finally {
+      setSuggesting(false)
+    }
   }
 
   async function save() {
@@ -771,8 +796,28 @@ function TaskDetails({
             </Field>
             </div>
             {canEstimate ? (
-              <Field label="Estimated effort (hours)" optional>
-                {(id) => <Input id={id} type="number" min={0.25} max={1000} step="any" value={estimate} onChange={(e) => setEstimate(e.target.value)} />}
+              <Field
+                label="Estimated effort (hours)"
+                optional
+                hint={
+                  <Button type="button" variant="ghost" size="sm" loading={suggesting} onClick={() => void suggest()}>
+                    {!suggesting && <Icon name="spark" size={15} />}
+                    Suggest estimate
+                  </Button>
+                }
+                error={suggestion && 'error' in suggestion ? suggestion.error : undefined}
+              >
+                {(id) => (
+                  <>
+                    <Input id={id} type="number" min={0.25} max={1000} step="any" value={estimate} onChange={(e) => setEstimate(e.target.value)} />
+                    {suggestion && 'reason' in suggestion && (
+                      <p className="text-[12px] leading-snug text-muted">
+                        Suggested from the title and description. Check it before saving.
+                        {suggestion.reason && <span className="mt-1 block text-faint">{suggestion.reason}</span>}
+                      </p>
+                    )}
+                  </>
+                )}
               </Field>
             ) : hasEstimateField && (
               <p className="mt-4 text-[13px] text-muted">Estimated effort: {task.estimated_minutes == null ? 'Not set' : formatHours(task.estimated_minutes)}</p>

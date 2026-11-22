@@ -3,7 +3,9 @@ begin;
 -- supabase/work-workload.sql
 -- Space workload, phase 1: task estimates (written only through
 -- set_work_task_estimate, with a history row), weekly hours per work-space
--- membership (set_space_weekly_minutes) and personal time off (user_time_off).
+-- membership (set_space_weekly_minutes) and personal time off (user_time_off);
+-- the space load and hours functions; and Break down and balance's reads
+-- (can_estimate_work_task, general_breakdown_context).
 -- Work projects and work spaces only. Stored in minutes.
 -- Runs after project-open-tasks.sql and before anon-lockdown.sql. Idempotent.
 -- Redefines nothing another file owns. Suite: supabase/tests/work-workload.test.sql.
@@ -477,5 +479,177 @@ $$;
 
 revoke all on function public.general_space_people_load(uuid, date, date, uuid[]) from public, anon;
 grant execute on function public.general_space_people_load(uuid, date, date, uuid[]) to authenticated;
+
+------------------------------------------------------------ break down and balance
+
+-- Whether the caller may change this task's estimate: the same rule as
+-- set_work_task_estimate (planners, or a holder, who can write; a live task in
+-- a live work project). work-ai's Suggest estimate asks before the model runs.
+create or replace function public.can_estimate_work_task(p_task uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((
+    select public.general_can_write(t.project_id)
+       and (coalesce(public.general_role_of(t.project_id, auth.uid())::text, '') in ('pm', 'coordinator')
+            or exists (select 1 from public.general_task_assignees a
+                        where a.task_id = t.id and a.user_id = auth.uid()))
+      from public.general_tasks t
+      join public.general_projects p on p.id = t.project_id
+     where t.id = p_task
+       and auth.uid() is not null
+       and p.class_board_id is null
+       and p.archived_at is null and p.trashed_at is null
+       and t.archived_at is null and t.trashed_at is null
+  ), false);
+$$;
+
+revoke all on function public.can_estimate_work_task(uuid) from public, anon;
+grant execute on function public.can_estimate_work_task(uuid) to authenticated;
+
+-- What work-ai's breakdown and the review need about a parent task. Only the
+-- project manager and coordinators who can write get it. `blocked` is the
+-- reason the parent cannot be broken down, or null. Candidates are active
+-- project members who can hold tasks (never QA or stakeholders) and are in the
+-- project's space: in Planned, only the receiving team's members (as
+-- general_handoff_assign_context(p, true) picks them); in Open, everyone on
+-- the project who can hold tasks. Names are for the review; work-ai never
+-- sends them to the model. Writes nothing.
+create or replace function public.general_breakdown_context(p_parent uuid, p_from date, p_to date)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  t         public.general_tasks%rowtype;
+  gp        public.general_projects%rowtype;
+  v_blocked text;
+  v_subs    boolean;
+  v_lead    boolean;
+  v_parent  jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Sign in to break down tasks.' using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into t from public.general_tasks where id = p_parent;
+  if not found or not public.is_general_member(t.project_id) then
+    raise exception 'Task not found. Refresh the page and try again.' using errcode = 'no_data_found';
+  end if;
+  select * into gp from public.general_projects where id = t.project_id;
+
+  if p_from is null or p_to is null or p_to < p_from then
+    raise exception 'Choose a start date on or before the end date.' using errcode = 'invalid_parameter_value';
+  end if;
+  if p_to - p_from > 366 then
+    raise exception 'Choose a window of a year or less.' using errcode = 'invalid_parameter_value';
+  end if;
+
+  v_subs := exists (select 1 from public.general_tasks st
+                     where st.parent_id = t.id and st.archived_at is null and st.trashed_at is null);
+  v_parent := jsonb_build_object(
+    'id', t.id, 'project_id', t.project_id, 'title', t.title,
+    'description', coalesce(t.description, ''), 'task_flow', gp.task_flow, 'team_id', t.team_id,
+    'routing_state', t.routing_state, 'starts_at', t.starts_at, 'due_at', t.due_at,
+    'has_subtasks', v_subs, 'allow_subtasks', gp.allow_subtasks,
+    'allow_dependencies', gp.allow_dependencies,
+    'holder_ids', coalesce((select jsonb_agg(a.user_id order by a.user_id)
+                              from public.general_task_assignees a where a.task_id = t.id), '[]'::jsonb));
+
+  if gp.class_board_id is not null then
+    return jsonb_build_object('parent', v_parent,
+      'blocked', 'Break down and balance is for work projects only.',
+      'positions', '[]'::jsonb, 'tags', '[]'::jsonb, 'candidates', '[]'::jsonb);
+  end if;
+
+  if not (public.general_can_write(gp.id)
+          and coalesce(public.general_role_of(gp.id, auth.uid())::text, '') in ('pm', 'coordinator')) then
+    raise exception 'Only the project manager or coordinators break down tasks.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- An active lead: a member of the team, active, not a stakeholder (the rule
+  -- send_work_tasks_to_teams applies).
+  v_lead := t.team_id is not null and exists (
+    select 1 from public.general_teams g
+      join public.general_team_members tm on tm.team_id = g.id and tm.user_id = g.leader_id and tm.project_id = gp.id
+      join public.general_members m on m.project_id = gp.id and m.user_id = g.leader_id
+      join public.profiles pr on pr.id = m.user_id
+     where g.id = t.team_id and g.project_id = gp.id and g.archived_at is null
+       and pr.status = 'active' and m.role <> 'stakeholder');
+
+  v_blocked := case
+    when gp.archived_at is not null or gp.trashed_at is not null then
+      'This project is archived. The project manager can restore it to make changes.'
+    when t.archived_at is not null or t.trashed_at is not null then
+      'This task is archived. Restore it to break it down.'
+    when t.parent_id is not null then
+      'This is a subtask. Break down its parent task instead.'
+    when t.status = 'done' then
+      'This task is done. Reopen it to break it down.'
+    when not gp.allow_subtasks then
+      'Subtasks are off in this project. The project manager can turn them on in Settings, Tasks.'
+    when t.routing_state <> 'released' then
+      'This task is still in planning. Send it from Plan & route, then break it down.'
+    when gp.task_flow = 'planned' and t.team_id is null then
+      'This task has no receiving team. Send it to a team in Plan & route first.'
+    when gp.task_flow = 'planned' and not v_lead then
+      'Its receiving team has no active lead. Give the team a lead, or reroute the task in Plan & route.'
+    when v_subs then
+      'This task already has subtasks. A task is broken down only once.'
+  end;
+
+  return jsonb_build_object(
+    'parent', v_parent,
+    'blocked', v_blocked,
+    'positions', coalesce((
+      select jsonb_agg(jsonb_build_object('id', p.id, 'name', p.name) order by p.sort, p.name, p.id)
+        from public.general_positions p
+        left join public.general_teams g on g.id = p.team_id
+       where p.project_id = gp.id and (p.team_id is null or g.archived_at is null)), '[]'::jsonb),
+    'tags', coalesce((
+      select jsonb_agg(x.tag order by lower(x.tag))
+        from (select min(s.tag collate "C") as tag from public.general_member_skills s
+               where s.project_id = gp.id group by lower(s.tag)) x), '[]'::jsonb),
+    'candidates', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'user_id', c.user_id,
+               'name', c.name,
+               'tags', coalesce((select jsonb_agg(s.tag order by lower(s.tag))
+                                   from public.general_member_skills s
+                                  where s.project_id = gp.id and s.user_id = c.user_id), '[]'::jsonb),
+               'position_ids', coalesce((select jsonb_agg(h.position_id order by h.position_id)
+                                           from public.general_position_holders h
+                                           join public.general_positions p on p.id = h.position_id
+                                           left join public.general_teams g on g.id = p.team_id
+                                          where h.project_id = gp.id and h.user_id = c.user_id
+                                            and (p.team_id is null or g.archived_at is null)), '[]'::jsonb)
+             ) order by c.name, c.user_id)
+        from (
+          select m.user_id, btrim(coalesce(pr.first_name, '') || ' ' || coalesce(pr.last_name, '')) as name
+            from public.general_members m
+            join public.profiles pr on pr.id = m.user_id
+           where m.project_id = gp.id
+             and m.role in ('pm', 'coordinator', 'member')
+             and pr.status = 'active'
+             and exists (select 1 from public.general_space_members sm
+                          where sm.space_id = gp.space_id and sm.user_id = m.user_id)
+             and (gp.task_flow = 'open'
+                  or exists (select 1 from public.general_team_members tm
+                               join public.general_teams g on g.id = tm.team_id
+                              where tm.team_id = t.team_id and tm.project_id = gp.id
+                                and tm.user_id = m.user_id and g.archived_at is null))
+        ) c), '[]'::jsonb)
+  );
+end;
+$$;
+
+revoke all on function public.general_breakdown_context(uuid, date, date) from public, anon;
+grant execute on function public.general_breakdown_context(uuid, date, date) to authenticated;
 
 commit;
