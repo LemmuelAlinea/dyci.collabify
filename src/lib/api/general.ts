@@ -1286,8 +1286,10 @@ export async function createOpenTask(input: {
   kind: TaskKind
   taskType?: string | null
   holderIds: string[]
+  /** Saved with the task in one step, so the holders' room check counts it. */
+  estimateMinutes?: number | null
 }) {
-  const { data, error } = await supabase.rpc('create_general_open_task', {
+  const { data, error } = await supabase.rpc('create_work_open_task', {
     p_project: input.projectId,
     p_title: input.title.trim(),
     p_description: input.description,
@@ -1296,8 +1298,9 @@ export async function createOpenTask(input: {
     p_team: input.teamId,
     p_priority: input.priority,
     p_kind: input.kind,
-    p_type: input.taskType ?? null,
     p_holders: input.holderIds,
+    p_task_type: input.taskType ?? null,
+    p_estimate_minutes: input.estimateMinutes ?? null,
   })
   if (error) throw error
   return data as string

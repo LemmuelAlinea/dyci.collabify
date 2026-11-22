@@ -12,6 +12,7 @@ import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
+import { useHolderHours, type HolderViewer } from '../../lib/work/useHolderHours'
 import {
   addComment,
   addLog,
@@ -253,6 +254,19 @@ function TaskBody({
 
   useLive(load, ['general_task_comments', 'general_task_files', 'general_task_logs', 'general_task_events'])
 
+  // Hours beside names in the holder picker: planners and the task's team lead
+  // see hours, a Member in an Open project sees only who has no room.
+  const holderViewer: HolderViewer = !task || !state.project || state.project.class_board_id || state.readOnly ? 'none'
+    : state.myRole === 'pm' || state.myRole === 'coordinator'
+      || state.teams.some((t) => t.id === task.team_id && t.leader_id === state.viewerId) ? 'planner'
+    : state.myRole === 'member' && state.project.taskFlow === 'open' ? 'member' : 'none'
+  const holderLabels = useHolderHours({
+    spaceId: state.project?.space_id,
+    userIds: state.members.map((m) => m.user_id),
+    taskId: task?.id ?? null,
+    viewer: holderViewer,
+  })
+
   if (!task || !state.project) return null
 
   const me = state.viewerId
@@ -354,6 +368,12 @@ function TaskBody({
         ))}
         {task.assignee_ids.length === 0 && <li className="text-[13px] text-faint">Nobody holds this yet.</li>}
       </ul>
+      {holderViewer === 'planner' && task.assignee_ids.filter((id) => holderLabels.get(id)?.tone === 'danger').map((id) => (
+        <p key={id} className="mt-2 flex items-center gap-1 text-[12px] text-warning-700 dark:text-warning-300">
+          <Icon name="alert" size={12} />
+          {state.nameOf(id)} goes over available hours this week.
+        </p>
+      ))}
       {openLocked && <p className="mt-2 text-[12px] text-muted">Reopen it before changing who holds it.</p>}
       {!unsent && assignable.length > 0 && (
         <div className="mt-2 max-w-[16rem]">
@@ -371,7 +391,10 @@ function TaskBody({
             placeholder={openFlow
               ? (oneHolder && task.assignee_ids.length > 0 ? 'Reassign to...' : 'Assign someone...')
               : assignmentViewer.manageTasks ? 'Assign someone...' : work ? 'Assign a receiving-team member...' : 'Assign someone you lead...'}
-            options={assignable.map((id) => ({ value: id, label: state.nameOf(id) }))}
+            options={assignable.map((id) => {
+              const hours = holderLabels.get(id)
+              return { value: id, label: hours ? `${state.nameOf(id)} · ${hours.text}` : state.nameOf(id) }
+            })}
             className="!h-9 !text-[13px]"
           />
         </div>

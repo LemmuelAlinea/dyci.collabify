@@ -20,6 +20,11 @@ vi.mock('../../lib/api/general', () => ({
   createOpenTask: vi.fn(async () => 'open-task'),
   updateTask: vi.fn(async () => {}),
 }))
+vi.mock('../../lib/api/workAi', () => ({ suggestEstimateFromText: vi.fn() }))
+const holderHours = vi.hoisted(() => ({ labels: new Map<string, { text: string; tone: string }>(), calls: [] as unknown[] }))
+vi.mock('../../lib/work/useHolderHours', () => ({
+  useHolderHours: (opts: unknown) => { holderHours.calls.push(opts); return holderHours.labels },
+}))
 
 const reload = vi.fn(async () => {})
 const onCreated = vi.fn()
@@ -94,11 +99,57 @@ it('lets a Member in an open project add a live task with holders and a priority
   await act(async () => button('Add task')!.click())
   expect(createOpenTask).toHaveBeenCalledWith({
     projectId: 'p1', title: 'Fix login', description: '', startsAt: null, dueAt: null, teamId: null,
-    priority: 'urgent', kind: 'task', taskType: null, holderIds: ['b'],
+    priority: 'urgent', kind: 'task', taskType: null, holderIds: ['b'], estimateMinutes: null,
   })
   expect(createTask).not.toHaveBeenCalled()
   expect(toast).toHaveBeenCalledWith('Task added')
   expect(onCreated).toHaveBeenCalledWith('open-task')
+})
+
+it('saves an estimate with an open task', async () => {
+  await open(makeState('member'))
+  await act(async () => type(control('Title')!, 'Fix login'))
+  await act(async () => type(control('Estimated effort (hours)')!, '1.5'))
+  await act(async () => button('Add task')!.click())
+  expect(createOpenTask).toHaveBeenCalledWith(expect.objectContaining({ estimateMinutes: 90 }))
+})
+
+it('suggests an estimate from the title before the task exists', async () => {
+  const { suggestEstimateFromText } = await import('../../lib/api/workAi')
+  vi.mocked(suggestEstimateFromText).mockResolvedValueOnce({ result: 'ok', minutes: 120, reason: 'A small form change.' })
+  await open(makeState('member'))
+  await act(async () => type(control('Title')!, 'Fix login'))
+  await act(async () => button('Suggest estimate')!.click())
+  expect(suggestEstimateFromText).toHaveBeenCalledWith('p1', 'Fix login', '')
+  expect((control('Estimated effort (hours)') as HTMLInputElement).value).toBe('2')
+  expect(document.body.textContent).toContain('A small form change.')
+})
+
+it('refuses an estimate that is not hours', async () => {
+  await open(makeState('member'))
+  await act(async () => type(control('Title')!, 'Fix login'))
+  await act(async () => type(control('Estimated effort (hours)')!, '1001'))
+  await act(async () => button('Add task')!.click())
+  expect(createOpenTask).not.toHaveBeenCalled()
+  expect(document.body.textContent).toContain('Enter the estimate in hours, up to 1000.')
+})
+
+it('shows the no-room refusal as the error', async () => {
+  vi.mocked(createOpenTask).mockRejectedValueOnce(new Error('Ben has no room this week. Pick someone else or ask a project manager.'))
+  await open(makeState('member'))
+  await act(async () => type(control('Title')!, 'Fix login'))
+  await act(async () => button('Add task')!.click())
+  expect(document.body.textContent).toContain('Ben has no room this week. Pick someone else or ask a project manager.')
+})
+
+it('shows a planner hours beside each holder', async () => {
+  holderHours.labels = new Map([['b', { text: '14 / 16 h this week', tone: 'warning' }]]); holderHours.calls = []
+  try {
+    await open(makeState('pm', { space_id: 's' }))
+    const people = holderBoxes().map((b) => b.closest('label')?.textContent?.trim())
+    expect(people).toContain('Person b · 14 / 16 h this week')
+    expect(holderHours.calls.at(-1)).toMatchObject({ spaceId: 's', taskId: null, viewer: 'planner' })
+  } finally { holderHours.labels = new Map() }
 })
 
 it('offers the project manager\'s custom types without changing QA kind', async () => {

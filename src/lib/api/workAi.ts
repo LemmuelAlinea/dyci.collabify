@@ -114,6 +114,10 @@ export const draftBreakdown = (projectId: string, parentId: string, from: string
 export const suggestEstimate = (projectId: string, taskId: string) =>
   call<{ minutes: number; reason: string }>('estimate', projectId, { task_id: taskId })
 
+/** An estimate for a task not yet created, from its title and description. */
+export const suggestEstimateFromText = (projectId: string, title: string, description: string) =>
+  call<{ minutes: number; reason: string }>('estimate', projectId, { title, description })
+
 export const askFiles =(projectId: string, question: string) =>
   call<{ answer: string; found: boolean; sources: string[]; skipped: number }>('ask', projectId, { question })
 

@@ -1145,8 +1145,21 @@ ${VOICE}`,
  * One task -> a suggested estimate in minutes and why, from its title and
  * description. Only someone who may change the estimate asks; nothing is saved.
  */
-async function estimateAction(ctx: Ctx) {
-  const taskId = String(ctx.body.task_id ?? '')
+/** The text to estimate: a task the caller may estimate, or (no task_id) a new task's title and description. */
+async function estimateSource(ctx: Ctx): Promise<{ title: string; description: string }> {
+  if (!ctx.body.task_id) {
+    // A task not created yet: whoever may add tasks to this live work project may ask.
+    const [membership, project] = await Promise.all([
+      ctx.caller.from('general_members').select('role').eq('project_id', ctx.projectId).eq('user_id', ctx.userId).maybeSingle(),
+      ctx.caller.from('general_projects').select('class_board_id, archived_at').eq('id', ctx.projectId).maybeSingle(),
+    ])
+    if (membership.error || project.error || !project.data || project.data.class_board_id !== null ||
+      project.data.archived_at !== null || !['pm', 'coordinator', 'member'].includes(membership.data?.role)) {
+      throw new Refused('Only people who add tasks to this project can ask for an estimate.', 403)
+    }
+    return { title: String(ctx.body.title ?? '').trim().slice(0, 200), description: String(ctx.body.description ?? '').trim() }
+  }
+  const taskId = String(ctx.body.task_id)
   // Read through the caller's token, so only a task they may see comes back.
   const { data: task } = await ctx.caller
     .from('general_tasks')
@@ -1158,8 +1171,11 @@ async function estimateAction(ctx: Ctx) {
   if (error || allowed !== true) {
     throw new Refused('Only the project manager, coordinators or the task\'s holder can change the estimate.', 403)
   }
-  const title = String(task.title ?? '').trim()
-  const description = String(task.description ?? '').trim()
+  return { title: String(task.title ?? '').trim(), description: String(task.description ?? '').trim() }
+}
+
+async function estimateAction(ctx: Ctx) {
+  const { title, description } = await estimateSource(ctx)
   if (!title) throw new Refused('Give the task a title first.')
   const out = await ask(
     ctx.anthropic,

@@ -415,16 +415,16 @@ describe('open task flow', () => {
     expect((await getGeneralProject('p1'))?.taskFlow).toBe('planned')
   })
 
-  it('adds an open task through create_general_open_task with a trimmed title', async () => {
-    results.set('rpc:create_general_open_task', { data: 't1', error: null })
+  it('adds an open task with its estimate through create_work_open_task with a trimmed title', async () => {
+    results.set('rpc:create_work_open_task', { data: 't1', error: null })
     const id = await createOpenTask({
       projectId: 'p1', title: '  Fix login  ', description: 'Body', startsAt: null, dueAt: '2026-12-01T00:00:00Z',
-      teamId: 'g1', priority: 'high', kind: 'task', holderIds: ['u2'],
+      teamId: 'g1', priority: 'high', kind: 'task', holderIds: ['u2'], estimateMinutes: 90,
     })
     expect(id).toBe('t1')
-    expect(rpcCalls).toEqual([{ name: 'create_general_open_task', args: {
+    expect(rpcCalls).toEqual([{ name: 'create_work_open_task', args: {
       p_project: 'p1', p_title: 'Fix login', p_description: 'Body', p_starts_at: null, p_due_at: '2026-12-01T00:00:00Z',
-      p_team: 'g1', p_priority: 'high', p_kind: 'task', p_holders: ['u2'], p_type: null,
+      p_team: 'g1', p_priority: 'high', p_kind: 'task', p_holders: ['u2'], p_task_type: null, p_estimate_minutes: 90,
     } }])
   })
 

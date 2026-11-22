@@ -16,6 +16,10 @@ vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RoleBadge', () => ({ PersonBadge: () => null }))
 vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
 vi.mock('../../lib/api/workload', () => ({ setTaskEstimate: vi.fn(async () => {}) }))
+const holderHours = vi.hoisted(() => ({ labels: new Map<string, { text: string; tone: string }>(), calls: [] as unknown[] }))
+vi.mock('../../lib/work/useHolderHours', () => ({
+  useHolderHours: (opts: unknown) => { holderHours.calls.push(opts); return holderHours.labels },
+}))
 vi.mock('../../lib/api/general', async importOriginal => ({ ...await importOriginal<object>(), listComments: async () => [], listFiles: async () => [], listLogs: async () => [], listTaskEvents: vi.fn(async () => []), updateTask: vi.fn(), setTaskHolders: vi.fn(async () => {}) }))
 
 it('locks dates and description for a holder but lets the receiving lead edit them before assignment', async () => {
@@ -286,6 +290,40 @@ it('gives QA and stakeholders no holder picker in an open project', async () => 
       expect(document.querySelector('[aria-label="Assign someone"]')).toBeNull()
     }
   } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('shows a planner hours beside each name in the holder picker', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  holderHours.labels = new Map([['c', { text: '14 / 16 h this week', tone: 'warning' }]]); holderHours.calls = []
+  try {
+    const state = openState({}, { viewerId: 'c', myRole: 'coordinator' })
+    await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, space_id: 's' } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
+    const select = document.querySelector<HTMLSelectElement>('[aria-label="Assign someone"]')!
+    expect([...select.options].map(o => o.textContent)).toContain('Person c · 14 / 16 h this week')
+    expect(holderHours.calls.at(-1)).toMatchObject({ spaceId: 's', taskId: 'open', viewer: 'planner' })
+  } finally { await act(async () => root.unmount()); container.remove(); holderHours.labels = new Map() }
+})
+
+it('shows a Member only who has no room', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  holderHours.labels = new Map([['c', { text: 'No room this week', tone: 'danger' }]]); holderHours.calls = []
+  try {
+    const state = openState({})
+    await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, space_id: 's' } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
+    const select = document.querySelector<HTMLSelectElement>('[aria-label="Assign someone"]')!
+    expect([...select.options].map(o => o.textContent)).toContain('Person c · No room this week')
+    expect(holderHours.calls.at(-1)).toMatchObject({ viewer: 'member', taskId: 'open' })
+  } finally { await act(async () => root.unmount()); container.remove(); holderHours.labels = new Map() }
+})
+
+it('warns a planner when a holder goes over available hours', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  holderHours.labels = new Map([['b', { text: '18 / 16 h this week', tone: 'danger' }]])
+  try {
+    const state = openState({}, { viewerId: 'c', myRole: 'coordinator' })
+    await act(async () => root.render(<TaskDialog state={{ ...state, project: { ...state.project!, space_id: 's' } } as GeneralProjectState} taskId="open" onClose={vi.fn()} />))
+    expect(document.body.textContent).toContain('Person b goes over available hours this week.')
+  } finally { await act(async () => root.unmount()); container.remove(); holderHours.labels = new Map() }
 })
 
 it('also asks to reopen work in a stage after QA in an open project', async () => {

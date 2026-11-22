@@ -20,6 +20,9 @@ import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { createMemberTask, createOpenTask, createTask, updateTask } from '../../lib/api/general'
+import { suggestEstimateFromText } from '../../lib/api/workAi'
+import { parseHours } from '../../lib/work/hours'
+import { useHolderHours } from '../../lib/work/useHolderHours'
 import { authErrorMessage } from '../../lib/authError'
 import { stageText } from '../../lib/work/stageTerms'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
@@ -842,6 +845,10 @@ export function NewTaskDialog({
   const [pickedType, setPickedType] = useState('task')
   const [pickedPriority, setPickedPriority] = useState<TaskPriority | ''>('')
   const [holders, setHolders] = useState<string[]>([])
+  const [estimate, setEstimate] = useState('')
+  // Suggest estimate: busy, then the model's reason or why it failed.
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ reason: string } | { error: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const project = state.project
@@ -860,6 +867,35 @@ export function NewTaskDialog({
   const rules = project?.taskRules ?? DEFAULT_TASK_RULES
   const priority: TaskPriority = pickedPriority || rules.defaultPriority
   const candidates = showHolders ? holderCandidates(state.members, state.roleOf) : []
+  // Planners see hours beside holders; there is no task yet, so a Member sees no room status here
+  // and learns of a full person from the refusal when the task is added.
+  const holderLabels = useHolderHours({
+    spaceId: project?.space_id,
+    userIds: candidates,
+    taskId: null,
+    viewer: showHolders && (state.myRole === 'pm' || state.myRole === 'coordinator') ? 'planner' : 'none',
+  })
+  const holderName = (uid: string) => {
+    const hours = holderLabels.get(uid)
+    return hours ? `${state.nameOf(uid)} · ${hours.text}` : state.nameOf(uid)
+  }
+
+  async function suggest() {
+    if (!project || suggesting) return
+    setSuggesting(true)
+    setSuggestion(null)
+    try {
+      const out = await suggestEstimateFromText(project.id, title.trim(), description)
+      if (out.result === 'ok') {
+        setEstimate(String(Math.round((out.minutes / 60) * 100) / 100))
+        setSuggestion({ reason: out.reason })
+      } else setSuggestion({ error: out.message })
+    } catch (err) {
+      setSuggestion({ error: authErrorMessage(err, 'Could not suggest an estimate. Try again.') })
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   async function create() {
     if (!project) return
@@ -870,6 +906,8 @@ export function NewTaskDialog({
     const dueAt = fromLocalInput(due)
     if (startsAt && dueAt && startsAt > dueAt)
       return setError('A task cannot start after it is due. Move one of the two dates.')
+    const estimateMinutes = isOpen ? parseHours(estimate) : null
+    if (estimateMinutes === 'invalid') return setError('Enter the estimate in hours, up to 1000.')
     setBusy(true)
     try {
       if (isMember) {
@@ -896,6 +934,7 @@ export function NewTaskDialog({
             kind,
             taskType,
             holderIds: showHolders ? holders : [],
+            estimateMinutes,
           })
         : await createTask({
             projectId: project.id,
@@ -919,6 +958,8 @@ export function NewTaskDialog({
       setPickedType('task')
       setPickedPriority('')
       setHolders([])
+      setEstimate('')
+      setSuggestion(null)
       onClose()
       await state.reload()
       onCreated(id)
@@ -1011,7 +1052,7 @@ export function NewTaskDialog({
                   value={holders[0] ?? ''}
                   onChange={(e) => setHolders(e.target.value ? [e.target.value] : [])}
                   placeholder="Nobody yet"
-                  options={candidates.map((uid) => ({ value: uid, label: state.nameOf(uid) }))}
+                  options={candidates.map((uid) => ({ value: uid, label: holderName(uid) }))}
                 />
               )}
             </Field>
@@ -1037,7 +1078,7 @@ export function NewTaskDialog({
             </p>
             <CheckboxList
               label="Holders"
-              items={candidates.map((uid) => ({ id: uid, label: state.nameOf(uid) }))}
+              items={candidates.map((uid) => ({ id: uid, label: holderName(uid) }))}
               selected={holders}
               onChange={setHolders}
               searchable
@@ -1045,6 +1086,31 @@ export function NewTaskDialog({
               maxHeight={160}
             />
           </div>
+        )}
+        {isOpen && (
+          <Field
+            label="Estimated effort (hours)"
+            optional
+            hint={
+              <Button type="button" variant="ghost" size="sm" loading={suggesting} disabled={!title.trim()} onClick={() => void suggest()}>
+                {!suggesting && <Icon name="spark" size={15} />}
+                Suggest estimate
+              </Button>
+            }
+            error={suggestion && 'error' in suggestion ? suggestion.error : undefined}
+          >
+            {(id) => (
+              <>
+                <Input id={id} type="number" min={0.25} max={1000} step="any" value={estimate} onChange={(e) => setEstimate(e.target.value)} />
+                {suggestion && 'reason' in suggestion && (
+                  <p className="text-[12px] leading-snug text-muted">
+                    Suggested from the title and description. Check it before adding the task.
+                    {suggestion.reason && <span className="mt-1 block text-faint">{suggestion.reason}</span>}
+                  </p>
+                )}
+              </>
+            )}
+          </Field>
         )}
         <Field label="Description" optional>
           {(id) => (

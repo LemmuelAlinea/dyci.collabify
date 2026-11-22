@@ -129,6 +129,16 @@ export async function spacePeopleLoad(
   return (data ?? []) as PeopleLoad[]
 }
 
+/** Room for a task: 'full' when it would put the person past their hours in its weeks. Never hours. */
+export type HolderRoom = { user_id: string; room: 'ok' | 'full' | 'unknown' }
+
+/** Whether each person has room for this task (`general_task_holder_room`). */
+export async function holderRoom(taskId: string, userIds: string[]): Promise<HolderRoom[]> {
+  const { data, error } = await supabase.rpc('general_task_holder_room', { p_task: taskId, p_users: userIds })
+  if (error) throw error
+  return (data ?? []) as HolderRoom[]
+}
+
 /** One reviewed subtask as `apply_work_breakdown` takes it. */
 export type ApplyRow = {
   key: string
