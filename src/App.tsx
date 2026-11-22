@@ -88,6 +88,7 @@ const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail')
 const SpaceLayout = lazy(() => import('./pages/general/SpaceLayout'))
 const SpaceHome = lazy(() => import('./pages/general/SpaceHome'))
 const SpaceProjects = lazy(() => import('./pages/general/SpaceProjects'))
+const SpaceWorkload = lazy(() => import('./pages/general/SpaceWorkload'))
 const Projects = lazy(() => import('./pages/app/projects/Projects'))
 const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
 const SpaceLegacyRedirect = lazy(() => import('./pages/general/SpaceLegacyRedirect'))
@@ -186,6 +187,7 @@ export default function App() {
                 <Route path="teams" element={<SpaceLegacyRedirect section="teams" />} />
                 <Route path="teams/archive" element={<SpaceLegacyRedirect section="teams" archived />} />
                 <Route path="archive" element={<SpaceLegacyRedirect section="archive" />} />
+                <Route path="workload" element={<SpaceWorkload />} />
                 <Route path="reports" element={<GeneralReports />} />
                 <Route path="settings" element={<SpaceSettings />} />
               </Route>

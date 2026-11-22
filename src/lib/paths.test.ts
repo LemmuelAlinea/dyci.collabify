@@ -16,6 +16,7 @@ describe('paths', () => {
     expect(paths.conversation('c1')).toBe('/inbox/c1')
     expect(paths.space('s1')).toBe('/spaces/s1')
     expect(paths.spaceReports('s1')).toBe('/spaces/s1/reports')
+    expect(paths.spaceWorkload('s1')).toBe('/spaces/s1/workload')
     expect(paths.project('p1')).toBe('/projects/p1')
     expect(paths.classProject('p1')).toBe('/class-projects/p1')
     expect(paths.classProjectBoard('p1', 'b1')).toBe('/class-projects/p1/boards/b1')

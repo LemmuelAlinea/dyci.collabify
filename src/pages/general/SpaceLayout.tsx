@@ -17,11 +17,12 @@ import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
 import type { SpaceOutlet } from './spaceOutlet'
 
-type SpaceTab = 'overview' | 'projects' | 'reports' | 'settings'
+type SpaceTab = 'overview' | 'projects' | 'workload' | 'reports' | 'settings'
 
 const TABS: { id: SpaceTab; label: string; icon: IconName; to: (id: string) => string }[] = [
   { id: 'overview', label: 'Overview', icon: 'info', to: paths.space },
   { id: 'projects', label: 'Projects', icon: 'board', to: paths.spaceProjects },
+  { id: 'workload', label: 'Workload', icon: 'clock', to: paths.spaceWorkload },
   { id: 'reports', label: 'Reports', icon: 'chart', to: paths.spaceReports },
   { id: 'settings', label: 'Settings', icon: 'settings', to: paths.spaceSettings },
 ]

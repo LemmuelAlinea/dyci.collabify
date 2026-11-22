@@ -139,6 +139,26 @@ export async function holderRoom(taskId: string, userIds: string[]): Promise<Hol
   return (data ?? []) as HolderRoom[]
 }
 
+/** A task counted in one person's load for a window, from a project the viewer may see by name. */
+export type PersonTask = { task_id: string; project_id: string; title: string; minutes: number; unestimated: boolean }
+
+/** The tasks behind one person's load (`general_space_person_tasks`). */
+export async function spacePersonTasks(spaceId: string, userId: string, from: string, to: string): Promise<PersonTask[]> {
+  const { data, error } = await supabase.rpc('general_space_person_tasks', { p_space: spaceId, p_user: userId, p_from: from, p_to: to })
+  if (error) throw error
+  return (data ?? []) as PersonTask[]
+}
+
+export type WorkloadSummary = { unestimated_tasks: number; people_without_hours: number }
+
+/** Unestimated tasks (each once) and people without weekly hours, over the people the viewer sees. */
+export async function spaceWorkloadSummary(spaceId: string, from: string, to: string): Promise<WorkloadSummary> {
+  const { data, error } = await supabase.rpc('general_space_workload_summary', { p_space: spaceId, p_from: from, p_to: to })
+  if (error) throw error
+  const row = ((data ?? []) as WorkloadSummary[])[0]
+  return row ?? { unestimated_tasks: 0, people_without_hours: 0 }
+}
+
 /** One reviewed subtask as `apply_work_breakdown` takes it. */
 export type ApplyRow = {
   key: string
