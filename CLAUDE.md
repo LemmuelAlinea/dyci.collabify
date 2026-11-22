@@ -395,6 +395,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   write with claims cleared and redefine no guard, so edit rights don't widen. Open-created tasks keep `sent_at` null,
   so their creator keeps the creator rule. Plan & route shows in an open project only while work waits in planning
   (`showsRouting`). Suite: `supabase/tests/project-open-tasks.test.sql`.
+- Space workload (`supabase/work-workload.sql`, after `project-open-tasks.sql`, before `anon-lockdown.sql`): owns
+  `general_tasks.estimated_minutes` (1-60000, work projects only; a signed-in change goes through `set_work_task_estimate`
+  under `collabify.estimate_write`, planners or the holder, one `updated` history row), `general_space_capacity` (weekly
+  minutes per work-space member, null is "Not set", never 0; `set_space_weekly_minutes`) and `user_time_off` (own rows only,
+  capped at the day's share). `general_space_people_hours` and `general_space_people_load` give hours and load over a Manila
+  window (weekly hours spread Monday to Friday; unestimated tasks counted, never summed as 0), `general_breakdown_context`
+  and `apply_work_breakdown` read and save a Break down and balance plan in one transaction (stale shown load refuses it, the
+  parent is untouched; `WorkloadPlanDialog`, `work-ai` with `_shared/workloadPlan.ts`, which never sees names, hours or
+  skills). It redefines nothing another file owns. Re-running it means re-running `anon-lockdown.sql` after it. Suite:
+  `supabase/tests/work-workload.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone

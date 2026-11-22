@@ -5394,3 +5394,57 @@ accepted." from the setting; no failed requests.
 - Review minors: the task dialog sends a full holder list built from what it last loaded, so two people changing
   holders at once can put back someone the other took off; the open writers read `task_flow` and holder membership
   without a lock, so a create racing a switch back to Planned, or a holder turning QA mid-change, can slip through.
+
+## Space workload, phase 1: Demo (2026-11-23)
+
+- Planners break a released task into subtasks and balance them across the team. In the task dialog, **Break down and
+  balance** opens `WorkloadPlanDialog`: set the window, review the owner and hours per row (live warnings as the plan is
+  edited, bars per person against their available hours), then Create saves the subtasks, holders, links and history in one
+  step. The parent task is untouched. A row that no one has room for stays unassigned with a note. A stale load (someone's
+  work changed since the dialog read it) refuses the save and nothing is written.
+- Estimates: the task dialog has an hours field (stored as minutes, 1 to 60000) with **Suggest estimate**. The project
+  manager, coordinators and the task's holder set it through `set_work_task_estimate`; each change writes an `updated`
+  history row. Tasks without an estimate are counted, never summed as 0.
+- Available hours: Settings → Members has weekly hours per person (`set_space_weekly_minutes`; null shows "Not set", never 0)
+  and a person's own time off (`user_time_off`; capped at the day's share). Weekly hours spread over Monday to Friday;
+  dates are Asia/Manila. Overdue and undated work counts in the current week, anchored to the next weekday on weekends.
+- SQL `supabase/work-workload.sql` (after `project-open-tasks.sql`, before `anon-lockdown.sql`), applied live with
+  `anon-lockdown.sql` after it; it redefines nothing another file owns. Functions: `general_space_people_hours`,
+  `general_space_people_load`, `general_breakdown_context`, `apply_work_breakdown`, `set_work_task_estimate`,
+  `set_space_weekly_minutes`. Suite `supabase/tests/work-workload.test.sql` (99 checks, all PASS).
+- `work-ai` gained the breakdown and estimate actions (`supabase/functions/_shared/workloadPlan.ts`, `assignPick.ts`); the
+  model never gets names, user ids, hours, time off or skills. Deployed with `supabase functions deploy work-ai`
+  (project jublbxdqzcjmbunukxct); deno is not installed here, so there was no separate `deno check`, only the deploy bundling.
+- Spec `docs/superpowers/specs/2026-11-22-space-workload-balancing-design.md`, plan
+  `docs/superpowers/plans/2026-11-22-space-workload-phase-1.md`. Branch `codex/workload-balancing`, committed, not merged
+  or pushed.
+- Known failures that are not from this work: suites project-task-rules ("class boards are unaffected") and project-qa
+  ("a class-board member adds a task") fail on live class data, and `src/lib/api/generalTaskRules.test.ts` has 7 failures that
+  also fail at the phase's starting commit `d52a0cbc`. `node scripts/schema-drift.mjs` lists 24 hints to check by hand and
+  none involves `work-workload.sql`.
+- The browser demo walk (desktop and 375 px) is the controller's step and is not recorded here.
+
+**Deferred**
+- Phases 2 and 3 remain. Phase 2, Views: hours in the holder picker, the space Workload tab, the Open-flow estimate field and
+  the overload block for Members. Phase 3, Daily: task timer, estimated against spent, estimate accuracy, My load on Home.
+- No AI rationale per row; the visible reason is the allocator note. Positions match by name, so same-named positions across
+  teams merge. The no-room note uses the person's free hours at that point of the run.
+- Estimates: the field's native minimum (0.25) blocks estimates under 15 minutes, which AI suggestions could hit; hours show
+  "0 h" under 3 minutes; Suggest estimate reads the saved task text, not unsaved edits.
+- Load function: no tests for a project coordinator, the Workspace-visibility positive branch or a non-space-member getting
+  zero rows; planners see stakeholders' and QA's hours; inactive profiles are still listed; the window caps at 367 days;
+  rows rounding to 0 minutes survive; `docs/07-backup.md` doesn't name the new load functions; no tests for an archived
+  space or project, or QA or a stakeholder setting an estimate; `off_on` has no bound; re-adding the estimate constraint rescans
+  the table.
+- Settings → Members: no unit tests for the Manila date helpers; the read-only and editable hours cells differ in width; past
+  dates can be typed for time off; the window start isn't refreshed across midnight.
+- Breakdown save: no test for a refusal in the write phase; no per-owner lock across different parents; "already has
+  subtasks" wins over other blocked reasons; a null shown load counts as 0; a non-candidate owner's first name can appear in
+  an error; "this team" wording in the Open flow; database refusals always show as 403 in the function.
+- Breakdown dialog: Cancel after "Change window or people" discards the review; Create stays enabled when Review again returns
+  a blocked reason (the server refuses anyway); the save-error panel copies Alert classes; copy is wrong when parent dates give
+  an invalid window; the unestimated count double-counts shared tasks; no test that Rebalance moves an unpinned row; the file
+  is 818 lines with four components.
+- Function: dependency keys aren't sliced to 40 like keys; an empty tag or position schema falls back to free text; the window
+  length is in the user message, not the system prompt; a task read error shows as "not available"; class-board context returns
+  the parent payload before the role check.
