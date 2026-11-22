@@ -1175,4 +1175,82 @@ begin
   perform pg_temp.service();
 end $$;
 
+------------------------------------------------------------ phase 2: workload tab reads
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid()];
+  -- 1 space pm, 2 pm of project A only, 3 Ben (A and private B), 4 Cy (A), 5 space coordinator
+  s uuid; a uuid; b uuid; ta uuid; tb uuid; tu uuid;
+  v_anchor date := (now() at time zone 'Asia/Manila')::date
+    + case extract(isodow from (now() at time zone 'Asia/Manila')::date)::int when 6 then 2 when 7 then 1 else 0 end;
+  v_mon date; v_fri date; st timestamptz; du timestamptz;
+begin
+  v_mon := v_anchor - (extract(isodow from v_anchor)::int - 1);
+  v_fri := v_mon + 4;
+  st := (v_mon + time '09:00') at time zone 'Asia/Manila';
+  du := (v_fri + time '17:00') at time zone 'Asia/Manila';
+  for k in 1..5 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-tab-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-tab-'||k||'@example.test', 'Tab', k::text, 'member', 'active', false, k in (1, 2))
+      on conflict(id) do update set role = 'member', status = 'active', can_teach = false,
+        can_manage_projects = excluded.can_manage_projects;
+  end loop;
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz tab space', '')).id;
+  b := (public.create_general_project('Zz tab private B', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role) values
+    (s, u[2], 'member'), (s, u[3], 'member'), (s, u[4], 'member'), (s, u[5], 'coordinator');
+  insert into public.general_projects(name, space_id, created_by) values ('Zz tab A', s, u[2]) returning id into a;
+  insert into public.general_members(project_id, user_id, role) values
+    (a, u[2], 'pm'), (a, u[3], 'member'), (a, u[4], 'member'), (b, u[3], 'member')
+    on conflict (project_id, user_id) do update set role = excluded.role;
+  update public.general_projects set visibility = 'private' where id = b;
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[3], 960);
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes)
+    values (a, 'Zz tab A work', 'released', now(), st, du, u[2], 300) returning id into ta;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes)
+    values (b, 'Zz tab B secret', 'released', now(), st, du, u[1], 360) returning id into tb;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by)
+    values (a, 'Zz tab A unestimated', 'released', now(), st, du, u[2]) returning id into tu;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values
+    (ta, a, u[3], u[2]), (tb, b, u[3], u[1]), (tu, a, u[3], u[2]), (tu, a, u[4], u[2]);
+
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('person tasks for planner',
+    (select array_agg(title order by title) from public.general_space_person_tasks(s, u[3], v_mon, v_fri))
+      = array['Zz tab A unestimated', 'Zz tab A work', 'Zz tab B secret']
+    and (select minutes from public.general_space_person_tasks(s, u[3], v_mon, v_fri) where title = 'Zz tab A work') = 300
+    and (select unestimated from public.general_space_person_tasks(s, u[3], v_mon, v_fri) where title = 'Zz tab A unestimated'));
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('tab tasks hidden outside reads',
+    (select array_agg(title order by title) from public.general_space_person_tasks(s, u[3], v_mon, v_fri))
+      = array['Zz tab A unestimated', 'Zz tab A work']);
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.check('coordinator folds a private project',
+    not exists (select 1 from public.general_space_person_tasks(s, u[3], v_mon, v_fri) where project_id = b));
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('member own tasks',
+    (select count(*) from public.general_space_person_tasks(s, u[3], v_mon, v_fri)) = 3);
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.refuse('member refused for others',
+    format('select * from public.general_space_person_tasks(%L, %L, %L, %L)', s, u[3], v_mon, v_fri),
+    'You can''t see this person''s workload.');
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('summary distinct',
+    (select unestimated_tasks from public.general_space_workload_summary(s, v_mon, v_fri)) = 1
+    and (select people_without_hours from public.general_space_workload_summary(s, v_mon, v_fri)) = 4);
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.check('summary no hours',
+    (select unestimated_tasks from public.general_space_workload_summary(s, v_mon, v_fri)) = 1
+    and (select people_without_hours from public.general_space_workload_summary(s, v_mon, v_fri)) = 1);
+  perform pg_temp.service();
+end $$;
+
 rollback;

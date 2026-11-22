@@ -648,6 +648,66 @@ $$;
 revoke all on function public.general_task_holder_room(uuid, uuid[]) from public, anon;
 grant execute on function public.general_task_holder_room(uuid, uuid[]) to authenticated;
 
+-- The tasks counted in one person's load for the window (the space Workload
+-- tab's expanded row), only in projects the caller may see named on that load;
+-- the rest stays in the load function's unnamed total. Refuses a person the
+-- caller may not see.
+create or replace function public.general_space_person_tasks(p_space uuid, p_user uuid, p_from date, p_to date)
+returns table(task_id uuid, project_id uuid, title text, minutes int, unestimated boolean)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+begin
+  perform public.work_workload_check(p_space, p_from, p_to);
+  if not exists (select 1 from public.work_workload_people(p_space) v where v.v = p_user) then
+    raise exception 'You can''t see this person''s workload.' using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+  select po.task_id, po.project_id, t.title, round(po.mins)::int, po.unest
+    from public.work_load_portions(p_space, p_from, p_to, array[p_user]) po
+    join public.general_tasks t on t.id = po.task_id
+   where (po.mins > 0 or po.unest)
+     and public.work_workload_names(p_space, po.project_id, p_user)
+   order by po.mins desc, t.title;
+end;
+$$;
+
+revoke all on function public.general_space_person_tasks(uuid, uuid, date, date) from public, anon;
+grant execute on function public.general_space_person_tasks(uuid, uuid, date, date) to authenticated;
+
+-- Over the people the caller sees: open tasks with no estimate in the window
+-- (each task once, however many hold it) and people with no weekly hours.
+create or replace function public.general_space_workload_summary(p_space uuid, p_from date, p_to date)
+returns table(unestimated_tasks int, people_without_hours int)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+begin
+  perform public.work_workload_check(p_space, p_from, p_to);
+
+  return query
+  with vis as (select v.v as uid from public.work_workload_people(p_space) v)
+  select (select count(distinct po.task_id)::int
+            from public.work_load_portions(p_space, p_from, p_to,
+                   coalesce((select array_agg(vis.uid) from vis), '{}'::uuid[])) po
+           where po.unest),
+         (select count(*)::int
+            from vis
+            left join public.general_space_capacity c on c.space_id = p_space and c.user_id = vis.uid
+           where c.weekly_minutes is null);
+end;
+$$;
+
+revoke all on function public.general_space_workload_summary(uuid, date, date) from public, anon;
+grant execute on function public.general_space_workload_summary(uuid, date, date) to authenticated;
+
 ------------------------------------------------------------ break down and balance
 
 -- Whether the caller may change this task's estimate: the same rule as
