@@ -927,4 +927,89 @@ begin
     and (select bool_and(assigned_by = u[2]) from public.general_task_assignees where task_id = any(v_ids)));
 end $$;
 
+------------------------------------------------------------ phase 2: helper and room
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
+  -- 1 space pm + project pm, 2 member M, 3 B (team 1, 16 h), 4 C (16 h),
+  -- 5 lead L of team 1, 6 stakeholder, 7 team 2 member with no hours
+  s uuid; p uuid; t1 uuid; t2 uuid; x uuid; y uuid; z uuid; w uuid;
+  v_anchor date := (now() at time zone 'Asia/Manila')::date
+    + case extract(isodow from (now() at time zone 'Asia/Manila')::date)::int when 6 then 2 when 7 then 1 else 0 end;
+  v_mon date; v_fri date; st timestamptz; du timestamptz;
+begin
+  v_mon := v_anchor - (extract(isodow from v_anchor)::int - 1);
+  v_fri := v_mon + 4;
+  st := (v_mon + time '09:00') at time zone 'Asia/Manila';
+  du := (v_fri + time '17:00') at time zone 'Asia/Manila';
+  for k in 1..7 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-room-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-room-'||k||'@example.test', (array['Pat','Mia','Ben','Cy','Lee','Sol','Quin'])[k], 'Zz',
+        'member', 'active', false, k = 1)
+      on conflict(id) do update set role = 'member', status = 'active', first_name = excluded.first_name,
+        can_teach = false, can_manage_projects = excluded.can_manage_projects;
+  end loop;
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz room space', '')).id;
+  p := (public.create_general_project('Zz room project', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role)
+    select s, u[k], 'member' from generate_series(2, 7) k;
+  insert into public.general_members(project_id, user_id, role)
+    select p, u[k], (case when k = 6 then 'stakeholder' else 'member' end)::public.general_role from generate_series(2, 7) k;
+  insert into public.general_teams(project_id, name) values (p, 'Zz team one') returning id into t1;
+  insert into public.general_teams(project_id, name) values (p, 'Zz team two') returning id into t2;
+  insert into public.general_team_members(team_id, project_id, user_id) values (t1, p, u[3]), (t1, p, u[5]), (t2, p, u[7]);
+  update public.general_teams set leader_id = u[5] where id = t1;
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[3], 960), (s, u[4], 960);
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes, team_id)
+    values (p, 'Zz room held', 'released', now(), st, du, u[1], 840, t1) returning id into x;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (x, p, u[3], u[1]);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes, team_id)
+    values (p, 'Zz room target', 'released', now(), st, du, u[1], 180, t1) returning id into y;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by)
+    values (p, 'Zz room no estimate', 'released', now(), st, du, u[1]) returning id into z;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, starts_at, due_at, created_by, estimated_minutes)
+    values (p, 'Zz room shared', 'released', now(), st, du, u[1], 180) returning id into w;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (w, p, u[4], u[1]), (w, p, u[7], u[1]);
+  perform set_config('collabify.estimate_write', 'off', true);
+
+  -- The lead of team one sees that team's members, the project named, and nobody else.
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.check('lead sees team',
+    exists (select 1 from public.general_space_people_load(s, v_mon, v_fri) l where l.user_id = u[3] and l.project_id = p)
+    and exists (select 1 from public.general_space_people_hours(s, v_mon, v_fri) h where h.user_id = u[3]));
+  perform pg_temp.check('lead not other teams',
+    not exists (select 1 from public.general_space_people_load(s, v_mon, v_fri) l where l.user_id in (u[4], u[7]))
+    and not exists (select 1 from public.general_space_people_hours(s, v_mon, v_fri) h where h.user_id in (u[2], u[4], u[7])));
+
+  -- Room for the 3 h target task this week.
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('room ok',
+    (select room from public.general_task_holder_room(y, array[u[4]])) = 'ok');
+  perform pg_temp.check('room full',
+    (select room from public.general_task_holder_room(y, array[u[3]])) = 'full');
+  perform pg_temp.check('room unknown no estimate',
+    (select room from public.general_task_holder_room(z, array[u[4]])) = 'unknown');
+  perform pg_temp.check('room unknown no hours',
+    (select room from public.general_task_holder_room(y, array[u[7]])) = 'unknown');
+  perform pg_temp.check('room counts shared share',
+    (select room from public.general_task_holder_room(w, array[u[3]])) = 'ok');
+  perform pg_temp.check('room only project members',
+    (select count(*) from public.general_task_holder_room(y, array[u[3], gen_random_uuid()])) = 1);
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.check('room for a lead',
+    (select room from public.general_task_holder_room(y, array[u[3]])) = 'full');
+  perform pg_temp.act_as(u[6]);
+  perform pg_temp.refuse('room refuses stakeholder',
+    format('select * from public.general_task_holder_room(%L, %L)', y, array[u[3]]),
+    'You can''t assign tasks in this project.');
+  perform pg_temp.service();
+end $$;
+
 rollback;

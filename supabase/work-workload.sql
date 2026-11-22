@@ -291,7 +291,8 @@ revoke all on function public.work_workload_check(uuid, date, date) from public,
 
 -- The space members the caller sees in workload: the space's project manager
 -- and coordinators see everyone; a project manager or coordinator of a live work
--- project in the space sees that project's members; everyone sees themselves.
+-- project in the space sees that project's members; the lead of a live team in
+-- such a project sees that team's members; everyone sees themselves.
 create or replace function public.work_workload_people(p_space uuid)
 returns setof uuid
 language sql
@@ -314,6 +315,13 @@ as $$
                    where pl.user_id = auth.uid() and pl.role in ('pm', 'coordinator')
                      and q.space_id = p_space and q.class_board_id is null
                      and q.archived_at is null and q.trashed_at is null)
+       or exists (select 1
+                    from public.general_teams tm
+                    join public.general_projects q on q.id = tm.project_id
+                    join public.general_team_members tmm on tmm.team_id = tm.id and tmm.user_id = m.user_id
+                   where tm.leader_id = auth.uid() and tm.archived_at is null
+                     and q.space_id = p_space and q.class_board_id is null
+                     and q.archived_at is null and q.trashed_at is null)
      );
 $$;
 
@@ -321,7 +329,8 @@ revoke all on function public.work_workload_people(uuid) from public, anon, auth
 
 -- Whether the caller sees project p named on u's load (else it folds into
 -- "other work in this space"): their own load, the space's project manager,
--- a project they plan, or, for a space coordinator, a project they can read.
+-- a project they plan, a project where they lead u's team, or, for a space
+-- coordinator, a project they can read.
 create or replace function public.work_workload_names(p_space uuid, p_project uuid, p_user uuid)
 returns boolean
 language sql
@@ -335,6 +344,9 @@ as $$
       or exists (select 1 from public.general_members pl
                   where pl.project_id = p_project and pl.user_id = auth.uid()
                     and pl.role in ('pm', 'coordinator'))
+      or exists (select 1 from public.general_teams tm
+                   join public.general_team_members tmm on tmm.team_id = tm.id and tmm.user_id = p_user
+                  where tm.project_id = p_project and tm.leader_id = auth.uid() and tm.archived_at is null)
       or (exists (select 1 from public.general_space_members me
                    where me.space_id = p_space and me.user_id = auth.uid() and me.role = 'coordinator')
           and coalesce(public.can_read_general_project(p_project), false));
@@ -342,10 +354,61 @@ $$;
 
 revoke all on function public.work_workload_names(uuid, uuid, uuid) from public, anon, authenticated;
 
--- Each visible person's weekly minutes and available minutes in the window:
--- weekly / 5 a weekday, less that day's time off (a full day removes all of it,
--- hours never more than the day's share), floored at zero, rounded at the end.
--- Null weekly minutes means not set: available and time off stay null.
+-- One person's weekly, available and time-off minutes in the window, with no
+-- visibility (internal): weekly / 5 a weekday, less that day's time off (a full
+-- day removes all of it, hours never more than the day's share), floored at
+-- zero, rounded at the end. Null weekly minutes means not set: available and
+-- time off stay null.
+create or replace function public.work_person_hours(p_space uuid, p_user uuid, p_from date, p_to date)
+returns table(weekly_minutes int, available_minutes int, time_off_minutes int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with cap as (
+    select c.weekly_minutes as wk, c.weekly_minutes / 5.0 as share
+      from (select 1) one
+      left join public.general_space_capacity c on c.space_id = p_space and c.user_id = p_user
+  ),
+  days as (
+    select d::date as day
+      from generate_series(p_from, p_to, interval '1 day') d
+     where extract(isodow from d) < 6
+  )
+  select cap.wk,
+         case when cap.wk is not null then round(x.avail)::int end,
+         case when cap.wk is not null then round(x.off)::int end
+    from cap
+    cross join lateral (
+      select coalesce(sum(greatest(cap.share - r.removed, 0)), 0) as avail,
+             coalesce(sum(r.removed), 0) as off
+        from days
+        left join public.user_time_off o on o.user_id = p_user and o.off_on = days.day
+        cross join lateral (
+          select case when o.id is null then 0
+                      when o.minutes is null then cap.share
+                      else least(o.minutes, cap.share) end as removed
+        ) r
+    ) x;
+$$;
+
+revoke all on function public.work_person_hours(uuid, uuid, date, date) from public, anon, authenticated;
+
+-- A person's available minutes in the window; null when weekly hours are not set.
+create or replace function public.work_person_available(p_space uuid, p_user uuid, p_from date, p_to date)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select h.available_minutes from public.work_person_hours(p_space, p_user, p_from, p_to) h;
+$$;
+
+revoke all on function public.work_person_available(uuid, uuid, date, date) from public, anon, authenticated;
+
+-- Each visible person's weekly, available and time-off minutes in the window.
 create or replace function public.general_space_people_hours(
   p_space uuid, p_from date, p_to date, p_users uuid[] default null)
 returns table(user_id uuid, weekly_minutes int, available_minutes int, time_off_minutes int)
@@ -359,55 +422,111 @@ begin
   perform public.work_workload_check(p_space, p_from, p_to);
 
   return query
-  with vis as (
-    select v.v as uid
-      from public.work_workload_people(p_space) v
-     where p_users is null or v.v = any(p_users)
-  ),
-  cap as (
-    select vis.uid, c.weekly_minutes as wk, c.weekly_minutes / 5.0 as share
-      from vis
-      left join public.general_space_capacity c on c.space_id = p_space and c.user_id = vis.uid
-  ),
-  days as (
-    select d::date as day
-      from generate_series(p_from, p_to, interval '1 day') d
-     where extract(isodow from d) < 6
-  )
-  select cap.uid, cap.wk,
-         case when cap.wk is not null then round(x.avail)::int end,
-         case when cap.wk is not null then round(x.off)::int end
-    from cap
-    cross join lateral (
-      select coalesce(sum(greatest(cap.share - r.removed, 0)), 0) as avail,
-             coalesce(sum(r.removed), 0) as off
-        from days
-        left join public.user_time_off o on o.user_id = cap.uid and o.off_on = days.day
-        cross join lateral (
-          select case when o.id is null then 0
-                      when o.minutes is null then cap.share
-                      else least(o.minutes, cap.share) end as removed
-        ) r
-    ) x;
+  select v.v, h.weekly_minutes, h.available_minutes, h.time_off_minutes
+    from public.work_workload_people(p_space) v
+    cross join lateral public.work_person_hours(p_space, v.v, p_from, p_to) h
+   where p_users is null or v.v = any(p_users);
 end;
 $$;
 
 revoke all on function public.general_space_people_hours(uuid, date, date, uuid[]) from public, anon;
 grant execute on function public.general_space_people_hours(uuid, date, date, uuid[]) to authenticated;
 
+-- Today in Manila for workload spans, moved to Monday on a weekend so overdue
+-- and undated work lands on a working day.
+create or replace function public.work_today()
+returns date
+language sql
+stable
+set search_path = public
+as $$
+  select (now() at time zone 'Asia/Manila')::date
+    + case extract(isodow from (now() at time zone 'Asia/Manila')::date)::int
+        when 6 then 2 when 7 then 1 else 0 end;
+$$;
+
+revoke all on function public.work_today() from public, anon, authenticated;
+
+-- Every holder's share of every counted task in the window, with no visibility
+-- (internal). Counts open, live, released tasks held in the space's live work
+-- projects (a parent with live subtasks stops counting). A task's estimate
+-- splits evenly among its holders and spreads over the weekdays from its start
+-- (or release, or creation; today if later) to its due date; overdue or undated
+-- work falls on work_today(). A span with no weekdays puts the whole share on
+-- its first day. A task with no estimate gives mins 0, and unest when its span
+-- touches the window. p_users limits the holders (null: everyone); p_skip_task
+-- leaves one task out.
+create or replace function public.work_load_portions(
+  p_space uuid, p_from date, p_to date, p_users uuid[] default null, p_skip_task uuid default null)
+returns table(user_id uuid, project_id uuid, task_id uuid, mins numeric, unest boolean)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with tasks as (
+    select t.id, t.project_id as pid, t.estimated_minutes as est, sp.a, greatest(sp.e, sp.a) as e,
+           (select count(*) from public.general_task_assignees h where h.task_id = t.id) as holders
+      from public.general_tasks t
+      join public.general_projects pr on pr.id = t.project_id
+      cross join lateral (
+        select (t.due_at at time zone 'Asia/Manila')::date as due,
+               (coalesce(t.starts_at, t.sent_at, t.created_at) at time zone 'Asia/Manila')::date as st,
+               public.work_today() as today
+      ) dt
+      cross join lateral (
+        select case when dt.due is null or dt.due < dt.today then dt.today else greatest(dt.st, dt.today) end as a,
+               case when dt.due is null or dt.due < dt.today then dt.today else dt.due end as e
+      ) sp
+     where pr.space_id = p_space and pr.class_board_id is null
+       and pr.archived_at is null and pr.trashed_at is null
+       and t.routing_state = 'released' and t.status <> 'done'
+       and t.archived_at is null and t.trashed_at is null
+       and (p_skip_task is null or t.id <> p_skip_task)
+       and not exists (select 1 from public.general_tasks st
+                        where st.parent_id = t.id and st.archived_at is null and st.trashed_at is null)
+  )
+  select h.user_id, tk.pid, tk.id,
+         case
+           when tk.est is null then 0
+           when public.work_weekdays(tk.a, tk.e) = 0 then
+             case when tk.a between p_from and p_to then tk.est::numeric / tk.holders else 0 end
+           else tk.est::numeric / tk.holders
+                * public.work_weekdays(greatest(tk.a, p_from), least(tk.e, p_to))
+                / public.work_weekdays(tk.a, tk.e)
+         end,
+         (tk.est is null and tk.a <= p_to and tk.e >= p_from)
+    from tasks tk
+    join public.general_task_assignees h on h.task_id = tk.id
+   where p_users is null or h.user_id = any(p_users);
+$$;
+
+revoke all on function public.work_load_portions(uuid, date, date, uuid[], uuid) from public, anon, authenticated;
+
+-- One person's load in the window per project, with no visibility (internal).
+create or replace function public.work_person_load(
+  p_space uuid, p_user uuid, p_from date, p_to date, p_skip_task uuid default null)
+returns table(project_id uuid, load_minutes numeric, unestimated int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select po.project_id, sum(po.mins), (count(*) filter (where po.unest))::int
+    from public.work_load_portions(p_space, p_from, p_to, array[p_user], p_skip_task) po
+   group by po.project_id
+  having sum(po.mins) > 0 or count(*) filter (where po.unest) > 0;
+$$;
+
+revoke all on function public.work_person_load(uuid, uuid, date, date, uuid) from public, anon, authenticated;
+
 -- Each visible person's load in the window, one row per (person, project) with
 -- work; project_id null is "other work in this space" the caller may not name.
--- Counts open, live, released tasks they hold in the space's live work projects
--- (a parent with live subtasks stops counting). A task's estimate splits evenly
--- among its holders and spreads over the weekdays from its start (or release,
--- or creation; today if later) to its due date; overdue or undated work falls
--- on today. Today means the next weekday on or after today (a weekend reads as
--- Monday). A span with no weekdays puts the whole share on its first day.
--- Tasks with no estimate are counted in unestimated, never as minutes.
--- p_skip_task leaves one task out: Break down and balance passes the parent,
--- which stops counting once its subtasks exist, so the review and
--- apply_work_breakdown's recheck never count it beside the new rows.
--- The first version had no p_skip_task; drop it so one overload remains.
+-- The counting rules are work_load_portions'. p_skip_task leaves one task out:
+-- Break down and balance passes the parent, which stops counting once its
+-- subtasks exist, so the review and apply_work_breakdown's recheck never count
+-- it beside the new rows. The first version had no p_skip_task; drop it so one
+-- overload remains.
 drop function if exists public.general_space_people_load(uuid, date, date, uuid[]);
 create or replace function public.general_space_people_load(
   p_space uuid, p_from date, p_to date, p_users uuid[] default null, p_skip_task uuid default null)
@@ -418,12 +537,6 @@ security definer
 set search_path = public
 as $$
 #variable_conflict use_column
-declare
-  -- Today in Manila, moved to Monday on a weekend so overdue and undated work
-  -- lands on a working day.
-  v_today date := (now() at time zone 'Asia/Manila')::date
-    + case extract(isodow from (now() at time zone 'Asia/Manila')::date)::int
-        when 6 then 2 when 7 then 1 else 0 end;
 begin
   perform public.work_workload_check(p_space, p_from, p_to);
 
@@ -433,46 +546,12 @@ begin
       from public.work_workload_people(p_space) v
      where p_users is null or v.v = any(p_users)
   ),
-  tasks as (
-    select t.id, t.project_id as pid, t.estimated_minutes as est, sp.a, greatest(sp.e, sp.a) as e,
-           (select count(*) from public.general_task_assignees h where h.task_id = t.id) as holders
-      from public.general_tasks t
-      join public.general_projects pr on pr.id = t.project_id
-      cross join lateral (
-        select (t.due_at at time zone 'Asia/Manila')::date as due,
-               (coalesce(t.starts_at, t.sent_at, t.created_at) at time zone 'Asia/Manila')::date as st
-      ) dt
-      cross join lateral (
-        select case when dt.due is null or dt.due < v_today then v_today else greatest(dt.st, v_today) end as a,
-               case when dt.due is null or dt.due < v_today then v_today else dt.due end as e
-      ) sp
-     where pr.space_id = p_space and pr.class_board_id is null
-       and pr.archived_at is null and pr.trashed_at is null
-       and t.routing_state = 'released' and t.status <> 'done'
-       and t.archived_at is null and t.trashed_at is null
-       and (p_skip_task is null or t.id <> p_skip_task)
-       and not exists (select 1 from public.general_tasks st
-                        where st.parent_id = t.id and st.archived_at is null and st.trashed_at is null)
-  ),
-  portions as (
-    select h.user_id as uid, tk.pid,
-           case
-             when tk.est is null then 0
-             when public.work_weekdays(tk.a, tk.e) = 0 then
-               case when tk.a between p_from and p_to then tk.est::numeric / tk.holders else 0 end
-             else tk.est::numeric / tk.holders
-                  * public.work_weekdays(greatest(tk.a, p_from), least(tk.e, p_to))
-                  / public.work_weekdays(tk.a, tk.e)
-           end as mins,
-           (tk.est is null and tk.a <= p_to and tk.e >= p_from) as unest
-      from tasks tk
-      join public.general_task_assignees h on h.task_id = tk.id
-      join vis on vis.uid = h.user_id
-  ),
   per_project as (
-    select po.uid, po.pid, sum(po.mins) as mins, count(*) filter (where po.unest) as unest
-      from portions po
-     group by po.uid, po.pid
+    select po.user_id as uid, po.project_id as pid, sum(po.mins) as mins,
+           count(*) filter (where po.unest) as unest
+      from public.work_load_portions(p_space, p_from, p_to,
+             coalesce((select array_agg(vis.uid) from vis), '{}'::uuid[]), p_skip_task) po
+     group by po.user_id, po.project_id
     having sum(po.mins) > 0 or count(*) filter (where po.unest) > 0
   )
   select pp.uid,
@@ -486,6 +565,88 @@ $$;
 
 revoke all on function public.general_space_people_load(uuid, date, date, uuid[], uuid) from public, anon;
 grant execute on function public.general_space_people_load(uuid, date, date, uuid[], uuid) to authenticated;
+
+-- The weeks a task's work falls in: Monday of the week holding its span's start
+-- to Friday of the week holding its end (work_load_portions' span rules, so
+-- overdue or undated work is this week).
+create or replace function public.work_task_weeks(p_task uuid)
+returns table(from_on date, to_on date)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with dt as (
+    select (t.due_at at time zone 'Asia/Manila')::date as due,
+           (coalesce(t.starts_at, t.sent_at, t.created_at) at time zone 'Asia/Manila')::date as st,
+           public.work_today() as today
+      from public.general_tasks t where t.id = p_task
+  ),
+  sp as (
+    select case when due is null or due < today then today else greatest(st, today) end as a,
+           case when due is null or due < today then today else greatest(due, st, today) end as e
+      from dt
+  )
+  select a - (extract(isodow from a)::int - 1), e - (extract(isodow from e)::int - 1) + 4 from sp;
+$$;
+
+revoke all on function public.work_task_weeks(uuid) from public, anon, authenticated;
+
+-- Whether each person has room for this task in its weeks: 'full' when their
+-- load there plus their share of this task (its estimate over the holders it
+-- would have with them) passes their available minutes; 'unknown' when the task
+-- has no estimate or they have no weekly hours; else 'ok'. Never gives minutes.
+-- For whoever may assign the task: its project's manager, a coordinator or a
+-- Member, or the lead of the task's team. Only project members get a row.
+create or replace function public.general_task_holder_room(p_task uuid, p_users uuid[])
+returns table(user_id uuid, room text)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  t public.general_tasks%rowtype;
+  gp public.general_projects%rowtype;
+  v_role text;
+  v_from date;
+  v_to date;
+begin
+  select * into t from public.general_tasks where id = p_task;
+  select * into gp from public.general_projects where id = t.project_id;
+  if t.id is null or gp.class_board_id is not null or gp.space_id is null then
+    raise exception 'Choose a live task in this project.' using errcode = 'check_violation';
+  end if;
+  v_role := case when auth.uid() is not null and public.general_viewer_active()
+                 then public.general_role_of(gp.id, auth.uid())::text end;
+  if coalesce(v_role, '') not in ('pm', 'coordinator', 'member')
+     and not exists (select 1 from public.general_teams tm
+                      where tm.id = t.team_id and tm.leader_id = auth.uid() and tm.archived_at is null) then
+    raise exception 'You can''t assign tasks in this project.' using errcode = 'insufficient_privilege';
+  end if;
+  select w.from_on, w.to_on into v_from, v_to from public.work_task_weeks(t.id) w;
+
+  return query
+  select m.user_id,
+         case
+           when t.estimated_minutes is null or av.minutes is null then 'unknown'
+           when coalesce((select sum(l.load_minutes)
+                            from public.work_person_load(gp.space_id, m.user_id, v_from, v_to, t.id) l), 0)
+                + t.estimated_minutes::numeric
+                  / ((select count(*) from public.general_task_assignees h
+                       where h.task_id = t.id and h.user_id <> m.user_id) + 1)
+                > av.minutes then 'full'
+           else 'ok'
+         end
+    from public.general_members m
+    cross join lateral (select public.work_person_available(gp.space_id, m.user_id, v_from, v_to) as minutes) av
+   where m.project_id = gp.id and m.user_id = any(p_users);
+end;
+$$;
+
+revoke all on function public.general_task_holder_room(uuid, uuid[]) from public, anon;
+grant execute on function public.general_task_holder_room(uuid, uuid[]) to authenticated;
 
 ------------------------------------------------------------ break down and balance
 
