@@ -1073,9 +1073,16 @@ write with the request's claims cleared. Re-running it is safe; re-run `anon-loc
 `general_tasks_work_estimate` (a signed-in change goes through `set_work_task_estimate`, under the transaction flag
 `collabify.estimate_write`), `set_work_task_estimate` (the project manager, coordinators or the task's holder; one
 `updated` history row per change), the table `general_space_capacity` (weekly minutes per work-space membership, RLS on
-with no policies, written by `set_space_weekly_minutes`) and the table `user_time_off` (a person's own rows only). It
-redefines nothing another file owns. Re-running it is safe; re-run `anon-lockdown.sql` after it. Suite:
-`supabase/tests/work-workload.test.sql`.
+with no policies, written by `set_space_weekly_minutes`) and the table `user_time_off` (a person's own rows only).
+It also owns the space reads `general_space_people_hours(space, from, to, users)` (weekly, available and time-off
+minutes in a Manila window) and `general_space_people_load(space, from, to, users, skip_task)` (load and unestimated
+counts per person and project; `skip_task` leaves one task out, and the file drops the older four-argument
+signature so one overload remains), with the internal `work_weekdays`, `work_workload_check`, `work_workload_people`
+and `work_workload_names`; and Break down and balance's `can_estimate_work_task`, `general_breakdown_context`
+(the parent, why it is blocked, labels and candidates) and its one write, `apply_work_breakdown` (rechecks
+through the context and the load without the parent, then creates the subtasks with estimates, owners and links
+in one transaction). It redefines nothing another file owns. Re-running it is safe; re-run `anon-lockdown.sql`
+after it. Suite: `supabase/tests/work-workload.test.sql`.
 
 ## Peer round delete
 

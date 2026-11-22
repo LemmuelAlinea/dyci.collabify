@@ -402,7 +402,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   capped at the day's share). `general_space_people_hours` and `general_space_people_load` give hours and load over a Manila
   window (weekly hours spread Monday to Friday; unestimated tasks counted, never summed as 0), `general_breakdown_context`
   and `apply_work_breakdown` read and save a Break down and balance plan in one transaction (stale shown load refuses it, the
-  parent is untouched; `WorkloadPlanDialog`, `work-ai` with `_shared/workloadPlan.ts`, which never sees names, hours or
+  parent is untouched, and the review and the recheck both leave the parent out of the load through `p_skip_task`; `WorkloadPlanDialog`, `work-ai` with `_shared/workloadPlan.ts`, which never sees names, hours or
   skills). It redefines nothing another file owns. Re-running it means re-running `anon-lockdown.sql` after it. Suite:
   `supabase/tests/work-workload.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab

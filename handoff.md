@@ -5411,7 +5411,7 @@ accepted." from the setting; no failed requests.
 - SQL `supabase/work-workload.sql` (after `project-open-tasks.sql`, before `anon-lockdown.sql`), applied live with
   `anon-lockdown.sql` after it; it redefines nothing another file owns. Functions: `general_space_people_hours`,
   `general_space_people_load`, `general_breakdown_context`, `apply_work_breakdown`, `set_work_task_estimate`,
-  `set_space_weekly_minutes`. Suite `supabase/tests/work-workload.test.sql` (99 checks, all PASS).
+  `set_space_weekly_minutes`. Suite `supabase/tests/work-workload.test.sql` (102 checks, all PASS).
 - `work-ai` gained the breakdown and estimate actions (`supabase/functions/_shared/workloadPlan.ts`, `assignPick.ts`); the
   model never gets names, user ids, hours, time off or skills. Deployed with `supabase functions deploy work-ai`
   (project jublbxdqzcjmbunukxct); deno is not installed here, so there was no separate `deno check`, only the deploy bundling.
@@ -5419,9 +5419,17 @@ accepted." from the setting; no failed requests.
   `docs/superpowers/plans/2026-11-22-space-workload-phase-1.md`. Branch `codex/workload-balancing`, committed, not merged
   or pushed.
 - Known failures that are not from this work: suites project-task-rules ("class boards are unaffected") and project-qa
-  ("a class-board member adds a task") fail on live class data, and `src/lib/api/generalTaskRules.test.ts` has 7 failures that
-  also fail at the phase's starting commit `d52a0cbc`. `node scripts/schema-drift.mjs` lists 24 hints to check by hand and
-  none involves `work-workload.sql`.
+  ("a class-board member adds a task") fail on live class data. An earlier note here called the 7
+  `src/lib/api/generalTaskRules.test.ts` failures pre-existing; they came from this branch (the task side read gained
+  `estimated_minutes`) and are fixed, so `npx vitest run` is green. `node scripts/schema-drift.mjs` lists 24 hints to check
+  by hand and none involves `work-workload.sql`.
+- Final review fixes: the parent no longer counts twice in Break down and balance. `general_space_people_load` takes a
+  fifth argument, `p_skip_task` (the four-argument signature is dropped first, so one overload remains); the dialog and
+  `apply_work_breakdown`'s recheck both pass the parent. The unestimated footer now counts per person ("Open tasks with no
+  estimate: Ana holds 2, Ben holds 1."), since the load rows can't tell when two people hold the same task. Cancel in setup
+  after "Change window or people" returns to the review as it was. The breakdown schema leaves out tags and position when
+  the project has none (`breakdownRowProperties`). An Open-flow owner who can no longer take tasks reads "can no longer take
+  tasks in this project"; Planned keeps "from this team". `work-ai` redeployed.
 - The browser demo walk (desktop and 375 px) is the controller's step and is not recorded here.
 
 **Deferred**
@@ -5433,18 +5441,17 @@ accepted." from the setting; no failed requests.
   "0 h" under 3 minutes; Suggest estimate reads the saved task text, not unsaved edits.
 - Load function: no tests for a project coordinator, the Workspace-visibility positive branch or a non-space-member getting
   zero rows; planners see stakeholders' and QA's hours; inactive profiles are still listed; the window caps at 367 days;
-  rows rounding to 0 minutes survive; `docs/07-backup.md` doesn't name the new load functions; no tests for an archived
+  rows rounding to 0 minutes survive; no tests for an archived
   space or project, or QA or a stakeholder setting an estimate; `off_on` has no bound; re-adding the estimate constraint rescans
   the table.
 - Settings → Members: no unit tests for the Manila date helpers; the read-only and editable hours cells differ in width; past
   dates can be typed for time off; the window start isn't refreshed across midnight.
 - Breakdown save: no test for a refusal in the write phase; no per-owner lock across different parents; "already has
   subtasks" wins over other blocked reasons; a null shown load counts as 0; a non-candidate owner's first name can appear in
-  an error; "this team" wording in the Open flow; database refusals always show as 403 in the function.
-- Breakdown dialog: Cancel after "Change window or people" discards the review; Create stays enabled when Review again returns
-  a blocked reason (the server refuses anyway); the save-error panel copies Alert classes; copy is wrong when parent dates give
-  an invalid window; the unestimated count double-counts shared tasks; no test that Rebalance moves an unpinned row; the file
-  is 818 lines with four components.
-- Function: dependency keys aren't sliced to 40 like keys; an empty tag or position schema falls back to free text; the window
+  an error; database refusals always show as 403 in the function.
+- Breakdown dialog: Create stays enabled when Review again returns a blocked reason (the server refuses anyway); the
+  save-error panel copies Alert classes; copy is wrong when parent dates give an invalid window; no test that Rebalance moves
+  an unpinned row; the file is over 800 lines with four components.
+- Function: dependency keys aren't sliced to 40 like keys; the window
   length is in the user message, not the system prompt; a task read error shows as "not available"; class-board context returns
   the parent payload before the role check.
