@@ -1123,6 +1123,13 @@ through the context and the load without the parent, then creates the subtasks w
 in one transaction). It redefines nothing another file owns. Re-running it is safe; re-run `anon-lockdown.sql`
 after it. Suite: `supabase/tests/work-workload.test.sql`.
 
+Phase 2 adds, in the same file: the internal `work_today`, `work_load_portions`, `work_person_load`,
+`work_person_hours`, `work_person_available` and `work_task_weeks` (the load and hours functions now read
+through them); `general_task_holder_room(task, users)`; the constraint trigger `general_task_assignees_room`
+(deferred, on `general_task_assignees` inserts, function `guard_work_holder_room`); `create_work_open_task`
+(wraps the 10-argument `create_general_open_task`, which stays owned by `project-task-types.sql`);
+`general_space_person_tasks(space, user, from, to)` and `general_space_workload_summary(space, from, to)`.
+
 ## Peer round delete
 
 `peer-round-delete.sql` runs after `class-look.sql` and before `anon-lockdown.sql`. It owns only

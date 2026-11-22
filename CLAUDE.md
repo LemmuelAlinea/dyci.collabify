@@ -413,7 +413,13 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   and `apply_work_breakdown` read and save a Break down and balance plan in one transaction (stale shown load refuses it, the
   parent is untouched, and the review and the recheck both leave the parent out of the load through `p_skip_task`; `WorkloadPlanDialog`, `work-ai` with `_shared/workloadPlan.ts`, which never sees names, hours or
   skills). It redefines nothing another file owns. Re-running it means re-running `anon-lockdown.sql` after it. Suite:
-  `supabase/tests/work-workload.test.sql`.
+  `supabase/tests/work-workload.test.sql`. Phase 2: the counting rules live once in the internal `work_load_portions`
+  (`work_person_load`, `work_person_hours`, `work_task_weeks`, `work_today`); a team's active lead also sees that
+  team's members; `general_task_holder_room` gives ok/full/unknown (never hours) to whoever may assign the task;
+  the deferred constraint trigger `general_task_assignees_room` refuses a Member who adds someone else with no room
+  in an Open project (it reads `assigned_by`, since the Open writers clear claims); `create_work_open_task` wraps
+  `create_general_open_task` and sets the estimate in the same transaction; `general_space_person_tasks` and
+  `general_space_workload_summary` feed the space Workload tab (`SpaceWorkload`). Holder pickers use `useHolderHours`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone

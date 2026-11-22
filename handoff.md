@@ -5512,3 +5512,37 @@ accepted." from the setting; no failed requests.
 - Function: dependency keys aren't sliced to 40 like keys; the window
   length is in the user message, not the system prompt; a task read error shows as "not available"; class-board context returns
   the parent payload before the role check.
+
+## Space workload, phase 2: Views (2026-11-23)
+
+- **Holder pickers show hours.** In a work task's dialog, the project manager, coordinators and the task's team lead
+  see "14 / 16 h this week" (or "Not set") beside each name in the holder picker, and a warning line when a holder goes
+  over available hours. A Member in an Open project sees only "No room this week" beside a full person. New task in an
+  Open project shows the same hours to planners (`useHolderHours`).
+- **No room, refused.** In an Open project a Member can't add someone else as holder when that person has no room for
+  the task in its weeks: "Ben has no room this week. Pick someone else or ask a project manager." Planners get a warning,
+  never a block; picking yourself is allowed; no estimate or no weekly hours means no check. Enforced by the deferred
+  constraint trigger `general_task_assignees_room`, which reads `assigned_by` because the Open writers clear the
+  caller's claims; nothing existing was redefined.
+- **Estimate on new Open tasks.** New task in an Open project has "Estimated effort (hours)" with Suggest estimate (the
+  `work-ai` `estimate` action now also takes a title and description for a task not created yet). It saves through
+  `create_work_open_task`, which wraps `create_general_open_task` and sets the estimate in the same transaction.
+- **Workload tab.** A work space's tabs are Overview, Projects, Workload, Reports, Settings. People by week for four
+  Monday–Friday weeks (arrows move a week), bars in success/warning/danger and pending for "Not set", time off hatched.
+  A row expands to that week's tasks from projects the viewer may read; other work is one "Other work in this space"
+  total. Footer counts tasks with no estimate (each once) and people with no weekly hours. One week at a time on a phone.
+- **Visibility.** A team's active lead now sees that team's members' load (that project named, the rest folded).
+- SQL: `supabase/work-workload.sql` (same place, after `section-students.sql`), applied live with `anon-lockdown.sql`.
+  Suite 131 checks; `project-open-tasks`, `project-task-types`, `work-task-handoff`, `anon-lockdown` pass. `work-ai`
+  redeployed. 2913 Vitest tests and the build pass.
+- **Walked** on the dev server as the Capstone 2 project manager: the Workload tab (29 people, Wilson's 12 h week with
+  time off hatched, footer counts), the holder picker hours, New task's estimate field, and Suggest estimate from text
+  against the live function (4 h with its reason; nothing saved), desktop and 375 px. Not walked: signed in as a Member
+  (the refusal and "No room" status are covered by the SQL suite and component tests).
+- Spec `docs/superpowers/specs/2026-11-22-space-workload-balancing-design.md`, plan
+  `docs/superpowers/plans/2026-11-23-space-workload-phase-2.md`.
+
+**Deferred**
+- Phase 3: the task timer, estimated against spent, estimate accuracy, and My load on Home.
+- New task shows a Member no room status (no task exists yet); they learn from the refusal.
+- The room check covers adding holders only; raising an estimate on an existing task can still put a holder over.
