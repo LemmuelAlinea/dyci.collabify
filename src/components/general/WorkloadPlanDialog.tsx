@@ -244,8 +244,27 @@ export function WorkloadPlanDialog({
     setNotes(next.notes)
   }
 
-  const update = (key: string, patch: Partial<ReviewRow>) =>
+  /**
+   * Allocator notes describe the plan as it was balanced. A change to who
+   * carries how much (minutes, owner, an owned row removed) makes any of them
+   * stale, so all go until the next Rebalance; a label change drops only that
+   * row's. Live capacity warnings on the rows never go stale.
+   */
+  const dropNotes = (key?: string) =>
+    setNotes((n) => {
+      if (key === undefined) return {}
+      const rest = { ...n }
+      delete rest[key]
+      return rest
+    })
+
+  function update(key: string, patch: Partial<ReviewRow>) {
+    const row = rows.find((r) => r.key === key)
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+    if (!row) return
+    if (('minutes' in patch && patch.minutes !== row.minutes) || ('owner' in patch && patch.owner !== row.owner)) dropNotes()
+    else if ('tags' in patch || 'position' in patch) dropNotes(key)
+  }
 
   function setHours(key: string, text: string) {
     const parsed = parseHours(text)
@@ -255,6 +274,7 @@ export function WorkloadPlanDialog({
   function remove(key: string) {
     setRows((rs) => rs.filter((r) => r.key !== key).map((r) => ({ ...r, dependsOn: r.dependsOn.filter((d) => d !== key) })))
     if (openRow === key) setOpenRow(null)
+    dropNotes(rows.find((r) => r.key === key)?.owner ? undefined : key)
   }
 
   function addRow() {
@@ -568,6 +588,9 @@ function Review(props: ReviewProps) {
           {!ctx.parent.allow_dependencies && (
             <p className="text-[12px] text-faint">Dependencies are off in this project, so every subtask can start now.</p>
           )}
+          {rows.some((r) => !r.pinned && !props.notes[r.key]) && (
+            <p className="text-[12px] text-faint">The plan changed since the last balance. Rebalance to see why each owner fits.</p>
+          )}
           {(groups ?? [rows.map((r) => r.key)]).map((keys, gi) => {
             const prereqs = [...new Set(keys.flatMap((k) => rows.find((r) => r.key === k)?.dependsOn ?? []))]
               .sort((a, b) => rows.findIndex((r) => r.key === a) - rows.findIndex((r) => r.key === b))
@@ -659,6 +682,12 @@ function RowCard({ row, index, ...props }: ReviewProps & { row: ReviewRow; index
     : !row.owner && pick && pick.owner === null ? pick.note
     : null
   const warn = !row.owner && !row.pinned
+  // Live, from the current totals: the owner is over their hours, or has none set.
+  const load = row.owner ? projectedTotals(rows, people).find((t) => t.id === row.owner) : undefined
+  const capacity = !load || !ownerName ? null
+    : load.available === null ? `${ownerName} has no weekly hours set.`
+    : load.projected > load.available ? `${ownerName} is ${formatHours(load.projected - load.available)} over available hours.`
+    : null
 
   // Rows that wait on this one, directly or not, cannot become its prerequisites.
   const waiting = new Set<string>()
@@ -731,6 +760,12 @@ function RowCard({ row, index, ...props }: ReviewProps & { row: ReviewRow; index
         {row.position && <span className="rounded-md surface-sunken px-1.5 py-0.5 text-muted">{row.position}</span>}
         {row.tags.map((t) => <span key={t} className="rounded-md surface-sunken px-1.5 py-0.5 font-mono text-[11px] text-muted">{t}</span>)}
         {note && <span className={warn ? 'text-warning-700 dark:text-warning-300' : 'text-muted'}>{note}</span>}
+        {capacity && (
+          <span className="inline-flex items-center gap-1 text-warning-700 dark:text-warning-300">
+            <Icon name="alert" size={12} />
+            {capacity}
+          </span>
+        )}
       </div>
 
       {open && (

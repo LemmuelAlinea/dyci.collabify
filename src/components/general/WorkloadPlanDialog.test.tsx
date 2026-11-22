@@ -154,6 +154,39 @@ it('pinned owner survives Rebalance', async () => {
   expect(text()).toContain('You chose C.')
 })
 
+it('edits refresh totals and warnings before Rebalance', async () => {
+  await openAndDraft()
+  expect(count('Only C is tagged Testing.')).toBe(3)
+  // C: 2 h existing + 10 + 4 + 5 = 21 / 16 h.
+  await type('Hours for Prepare test cases', '10')
+  expect(text()).toContain('21 / 16 h')
+  expect(text()).toContain('5 h over available hours.')
+  expect(count('C is 5 h over available hours.')).toBe(3)
+  expect(text()).not.toContain('Only C is tagged Testing.')
+  expect(text()).not.toContain('has the most room')
+  expect(text()).toContain('Rebalance to see why each owner fits.')
+  // B's design row pinned to C: B 4 + 8 = 12 / 16 h, C 23 / 16 h.
+  await choose('Owner of Design login page states', 'c')
+  expect(text()).toContain('12 / 16 h')
+  expect(text()).toContain('23 / 16 h')
+  expect(count('C is 7 h over available hours.')).toBe(4)
+  expect(text()).toContain('You chose C.')
+  expect(applyBreakdown).not.toHaveBeenCalled()
+})
+
+it('warns on a pinned owner with no weekly hours', async () => {
+  vi.mocked(spacePeopleHours).mockResolvedValue(hours().map(h => (h.user_id === 'b' ? { ...h, weekly_minutes: null, available_minutes: null, time_off_minutes: null } : h)) as never)
+  await openAndDraft()
+  expect(text()).toContain('Not set')
+  // The allocator leaves B's two UI rows unassigned for that reason.
+  expect(count('B has no weekly hours set.')).toBe(2)
+  await choose('Owner of Prepare test cases', 'b')
+  expect(text()).toContain('You chose B.')
+  // The pinned row warns live; the other notes are dropped until Rebalance.
+  expect(count('B has no weekly hours set.')).toBe(1)
+  expect(field<HTMLSelectElement>('Owner of Prepare test cases').closest('li')!.textContent).toContain('B has no weekly hours set.')
+})
+
 it('removing a prerequisite clears links', async () => {
   await openAndDraft()
   await click('Remove Define sign-in contract')
