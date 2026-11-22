@@ -5538,11 +5538,25 @@ accepted." from the setting; no failed requests.
 - **Walked** on the dev server as the Capstone 2 project manager: the Workload tab (29 people, Wilson's 12 h week with
   time off hatched, footer counts), the holder picker hours, New task's estimate field, and Suggest estimate from text
   against the live function (4 h with its reason; nothing saved), desktop and 375 px. Not walked: signed in as a Member
-  (the refusal and "No room" status are covered by the SQL suite and component tests).
+  (the refusal and "No room" status are covered by the SQL suite and component tests). Instead, one real transaction
+  (no forced-immediate constraints) ran `set_general_task_holders` as a Member against a full holder: it failed at
+  COMMIT with "Ben has no room this week. Pick someone else or ask a project manager." and kept nothing.
+- **Final review fixes.** Holder hours read again after every pick (`refresh`), so the "goes over available hours" line
+  shows after a planner's pick; New task warns from the picked holders and the estimate, and reads hours only while
+  open; a team lead in an Open project gets the Member view (the database checks them as a Member); the Workload
+  row retries a failed read, shows "Loading tasks…" instead of an empty message, reloads when the week moves, and its
+  caches key by space; QA may ask for an estimate from text. 2922 Vitest tests and the build pass; `work-ai` redeployed.
 - Spec `docs/superpowers/specs/2026-11-22-space-workload-balancing-design.md`, plan
   `docs/superpowers/plans/2026-11-23-space-workload-phase-2.md`.
 
 **Deferred**
 - Phase 3: the task timer, estimated against spent, estimate accuracy, and My load on Home.
 - New task shows a Member no room status (no task exists yet); they learn from the refusal.
-- The room check covers adding holders only; raising an estimate on an existing task can still put a holder over.
+- The room check covers adding holders only: a Member can add themselves and someone else to an unestimated task,
+  then raise the estimate as a holder.
+- The refusal says "this week" for a task in a later single week; a Member's label always says "No room this week"
+  even for a task across several weeks.
+- `general_task_holder_room` counts a parent that has live subtasks (the trigger skips it), answers in Planned projects
+  too, and its 'unknown' tells a Member whether someone has set weekly hours (the app hides it).
+- The estimate-from-text check ignores a trashed project and the task flow (a Planned Member can ask; rate-limited).
+- A team's lead sees that team's hours on the Workload tab in any flow (the spec named the Planned holder picker only).
