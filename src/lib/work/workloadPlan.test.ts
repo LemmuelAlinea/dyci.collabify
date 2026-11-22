@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   balanceWorkPlan,
+  breakdownRowProperties,
   dependencyGroups,
   projectedTotals,
   validateBreakdown,
@@ -153,5 +154,29 @@ describe('validateBreakdown', () => {
   it('names a row on the cycle, not one waiting on it', () => {
     const out = validateBreakdown(raw([r('start'), r('a', ['b', 'start']), r('b', ['a']), r('c', ['a'])]), labels)
     expect((out as { error: string }).error).toBe('"Do a" is part of a circular dependency.')
+  })
+})
+
+describe('breakdownRowProperties', () => {
+  it('fixes tags and position to the project labels', () => {
+    const props = breakdownRowProperties(['Auth', 'UI'], ['p1', 'p2'])
+    expect(props.tags).toEqual({ type: 'array', items: { type: 'string', enum: ['Auth', 'UI'] } })
+    expect(props.position).toEqual({ type: 'string', enum: ['', 'p1', 'p2'] })
+  })
+
+  it('leaves out tags and position when the project has none', () => {
+    const props = breakdownRowProperties([], [])
+    expect(Object.keys(props)).toEqual(['key', 'title', 'description', 'minutes', 'depends_on'])
+  })
+
+  it('a draft without the left-out fields still validates', () => {
+    const out = validateBreakdown(
+      { rows: [
+        { key: 'a', title: 'Do a', description: '', minutes: 60, depends_on: [] },
+        { key: 'b', title: 'Do b', description: '', minutes: 60, depends_on: ['a'] },
+      ].map(({ depends_on, ...r }) => ({ ...r, tags: undefined, position: null, dependsOn: depends_on })) },
+      { tags: [], positions: [] },
+    )
+    expect('rows' in out && out.rows.map(r => r.tags)).toEqual([[], []])
   })
 })

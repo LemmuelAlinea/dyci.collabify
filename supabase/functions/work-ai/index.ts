@@ -29,7 +29,7 @@ import { pickTeamRoutes, pickLeadAssignees, maskMemberNames } from '../_shared/a
 import type { AssignCandidate, AssignMatch, AssignTaskIn } from '../_shared/assignPick.ts'
 import { completeNotesDates, matchSprintName, validDay } from '../_shared/notesSchedule.ts'
 import { keepAliveJson } from '../_shared/keepAlive.ts'
-import { validateBreakdown } from '../_shared/workloadPlan.ts'
+import { breakdownRowProperties, validateBreakdown } from '../_shared/workloadPlan.ts'
 import { buildClassBrief, FIT_RULES, FIT_SCHEMA_FIELDS, normalizeFit, readClassBrief, THIN_NOTE } from '../_shared/classBrief.ts'
 
 const MODEL = 'claude-opus-5'
@@ -1110,15 +1110,7 @@ ${VOICE}`,
     obj({
       rows: {
         type: 'array',
-        items: obj({
-          key: str,
-          title: str,
-          description: str,
-          minutes: { type: 'integer' },
-          tags: { type: 'array', items: tags.length ? { type: 'string', enum: tags } : str },
-          position: positions.length ? { type: 'string', enum: ['', ...nameOf.keys()] } : str,
-          depends_on: { type: 'array', items: str },
-        }),
+        items: obj(breakdownRowProperties(tags, [...nameOf.keys()])),
       },
     }),
     'medium',
@@ -1132,7 +1124,7 @@ ${VOICE}`,
       title: r.title,
       description: r.description,
       minutes: r.minutes,
-      tags: r.tags,
+      tags: r.tags ?? [],
       // An unknown label is kept as given, so the check below names it.
       position: label ? nameOf.get(label) ?? String(r.position) : null,
       dependsOn: r.depends_on,

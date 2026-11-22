@@ -278,3 +278,22 @@ export function validateBreakdown(
   }
   return { rows }
 }
+
+/**
+ * The JSON schema properties of one drafted row for work-ai's breakdown. Tags
+ * and position are fixed to the project's labels; when the project has none,
+ * the field is left out, so the model cannot invent a label validateBreakdown
+ * would refuse. `positionKeys` are the masked ids (p1, p2…) the prompt lists.
+ */
+export function breakdownRowProperties(tags: string[], positionKeys: string[]): Record<string, unknown> {
+  const str = { type: 'string' }
+  return {
+    key: str,
+    title: str,
+    description: str,
+    minutes: { type: 'integer' },
+    ...(tags.length ? { tags: { type: 'array', items: { type: 'string', enum: tags } } } : {}),
+    ...(positionKeys.length ? { position: { type: 'string', enum: ['', ...positionKeys] } } : {}),
+    depends_on: { type: 'array', items: str },
+  }
+}
