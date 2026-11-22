@@ -1066,6 +1066,17 @@ change goes through `set_general_task_flow`), `set_general_task_flow`, `preview_
 write with the request's claims cleared. Re-running it is safe; re-run `anon-lockdown.sql` after it. Suite:
 `supabase/tests/project-open-tasks.test.sql`.
 
+## Space workload
+
+`work-workload.sql` runs after `project-open-tasks.sql` and before `anon-lockdown.sql`. It owns
+`general_tasks.estimated_minutes` (1 to 60000, work projects only), `guard_work_task_estimate` and its trigger
+`general_tasks_work_estimate` (a signed-in change goes through `set_work_task_estimate`, under the transaction flag
+`collabify.estimate_write`), `set_work_task_estimate` (the project manager, coordinators or the task's holder; one
+`updated` history row per change), the table `general_space_capacity` (weekly minutes per work-space membership, RLS on
+with no policies, written by `set_space_weekly_minutes`) and the table `user_time_off` (a person's own rows only). It
+redefines nothing another file owns. Re-running it is safe; re-run `anon-lockdown.sql` after it. Suite:
+`supabase/tests/work-workload.test.sql`.
+
 ## Peer round delete
 
 `peer-round-delete.sql` runs after `class-look.sql` and before `anon-lockdown.sql`. It owns only
