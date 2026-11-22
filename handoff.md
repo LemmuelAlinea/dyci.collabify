@@ -5472,6 +5472,12 @@ accepted." from the setting; no failed requests.
   after "Change window or people" returns to the review as it was. The breakdown schema leaves out tags and position when
   the project has none (`breakdownRowProperties`). An Open-flow owner who can no longer take tasks reads "can no longer take
   tasks in this project"; Planned keeps "from this team". `work-ai` redeployed.
+- **Merge note.** The branch started before 33 commits that were already on `origin/main` (meetings, stage
+  terminology, task types, class task settings, section students). Its `work-ai` deploys therefore briefly dropped
+  the stage-terminology prompt from From notes. On 2026-11-23 `origin/main` was merged in (`work-workload.sql` now
+  runs after `section-students.sql`; task types and estimates both read in `withTaskExtras`), the build and 2890 tests
+  passed, and `work-ai` was redeployed from the merged code. Before deploying a function from a branch, merge
+  `origin/main` first.
 - **Walked live** on 2026-11-23 on the dev server, signed in as the project manager of Capstone 2 → Collabify (Open
   flow), with the live `work-ai`. Demo data: Wilson (Auth), Ivan (UI) and Keneth (Testing) at 16 h a week, existing
   work 6 / 4 / 2 h, a released "Develop Login Module" they hold (seed and cleanup SQL were throwaway scratch files).
