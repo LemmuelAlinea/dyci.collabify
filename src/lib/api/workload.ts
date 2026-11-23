@@ -207,18 +207,19 @@ export async function startTimer(taskId: string): Promise<string> {
 }
 
 /**
- * Stops the timer and logs it, returning the minutes logged. 0 means the person
- * no longer holds the task: the timer was cleared and nothing was logged.
+ * Stops the timer on a task and logs it, returning the minutes logged. 0 means the
+ * person no longer holds the task: the timer was cleared and nothing was logged.
+ * Refused when the timer has moved to another task.
  */
-export async function stopTimer(minutes?: number): Promise<number> {
-  const { data, error } = await supabase.rpc('stop_work_task_timer', minutes == null ? {} : { p_minutes: minutes })
+export async function stopTimer(taskId: string, minutes?: number): Promise<number> {
+  const { data, error } = await supabase.rpc('stop_work_task_timer', minutes == null ? { p_task: taskId } : { p_task: taskId, p_minutes: minutes })
   if (error) throw error
   return data as number
 }
 
-/** Throws the running timer away without logging. */
-export async function cancelTimer(): Promise<void> {
-  const { error } = await supabase.rpc('cancel_work_task_timer')
+/** Throws the timer on a task away without logging. Refused when the timer has moved to another task. */
+export async function cancelTimer(taskId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_work_task_timer', { p_task: taskId })
   if (error) throw error
 }
 

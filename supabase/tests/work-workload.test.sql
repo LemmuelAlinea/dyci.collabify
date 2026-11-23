@@ -1296,7 +1296,7 @@ begin
   perform pg_temp.service();
   update public.general_task_timers set started_at = now() - interval '90 minutes' where user_id = u[2];
   perform pg_temp.act_as(u[2]);
-  m := public.stop_work_task_timer();
+  m := public.stop_work_task_timer(ta);
   perform pg_temp.service();
   perform pg_temp.check('start and stop logs',
     m = 90
@@ -1324,7 +1324,7 @@ begin
   perform pg_temp.check('start again same task keeps start',
     public.start_work_task_timer(tb) = now() - interval '5 minutes'
     and not exists (select 1 from public.general_task_logs where task_id = tb));
-  perform public.cancel_work_task_timer();
+  perform public.cancel_work_task_timer(tb);
 
   perform pg_temp.act_as(u[4]);
   perform pg_temp.refuse('non-holder refused',
@@ -1337,12 +1337,12 @@ begin
   update public.general_task_timers set started_at = now() - interval '10 hours' where user_id = u[2];
   perform pg_temp.act_as(u[2]);
   perform pg_temp.refuse('stop past 8 hours asks',
-    'select public.stop_work_task_timer()', 'This timer ran past 8 hours.');
+    format('select public.stop_work_task_timer(%L)', tc), 'This timer ran past 8 hours.');
   perform pg_temp.check('long timer kept',
     exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = tc));
   perform pg_temp.refuse('confirmed time in range',
-    'select public.stop_work_task_timer(0)', 'Log between 1 minute and 24 hours.');
-  m := public.stop_work_task_timer(480);
+    format('select public.stop_work_task_timer(%L, 0)', tc), 'Log between 1 minute and 24 hours.');
+  m := public.stop_work_task_timer(tc, 480);
   perform pg_temp.service();
   perform pg_temp.check('confirmed long timer logs',
     m = 480 and (select sum(minutes) = 480 from public.general_task_logs where task_id = tc)
@@ -1354,15 +1354,35 @@ begin
   perform pg_temp.service();
   update public.general_task_timers set started_at = now() - interval '10 hours' where user_id = u[2];
   perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('switch past 8 hours asks',
+    format('select public.start_work_task_timer(%L)', ta), 'This timer ran past 8 hours.');
+  perform pg_temp.service();
+  perform pg_temp.check('switch past 8 hours keeps the timer',
+    exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = td)
+    and not exists (select 1 from public.general_task_logs where task_id = td));
+  perform pg_temp.act_as(u[2]);
+  perform public.stop_work_task_timer(td, 480);
   perform public.start_work_task_timer(ta);
   perform pg_temp.service();
-  perform pg_temp.check('switch caps at 8 hours',
-    (select sum(minutes) = 480 from public.general_task_logs where task_id = td));
+  perform pg_temp.check('switch after confirming',
+    (select sum(minutes) = 480 from public.general_task_logs where task_id = td)
+    and exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = ta));
+
+  -- A stale view of another task can't stop or discard the running timer.
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('stop refuses another task',
+    format('select public.stop_work_task_timer(%L)', tb), 'The timer moved to another task.');
+  perform pg_temp.refuse('discard refuses another task',
+    format('select public.cancel_work_task_timer(%L)', tb), 'The timer moved to another task.');
+  perform pg_temp.service();
+  perform pg_temp.check('stale stop and discard keep the timer',
+    exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = ta)
+    and (select count(*) = 2 from public.general_task_logs where task_id = ta));
 
   -- Losing the task while the timer runs: nothing logs and the timer clears.
   delete from public.general_task_assignees where task_id = ta and user_id = u[2];
   perform pg_temp.act_as(u[2]);
-  m := public.stop_work_task_timer();
+  m := public.stop_work_task_timer(ta);
   perform pg_temp.service();
   perform pg_temp.check('stop after losing the task',
     m = 0
@@ -1371,16 +1391,16 @@ begin
 
   perform pg_temp.act_as(u[2]);
   perform public.start_work_task_timer(tb);
-  perform public.stop_work_task_timer();
+  perform public.stop_work_task_timer(tb);
   perform pg_temp.refuse('second stop logs nothing',
-    'select public.stop_work_task_timer()', 'No timer is running.');
+    format('select public.stop_work_task_timer(%L)', tb), 'No timer is running.');
   perform pg_temp.service();
   perform pg_temp.check('one log from the first stop',
     (select count(*) = 1 from public.general_task_logs where task_id = tb));
 
   perform pg_temp.act_as(u[2]);
   perform public.start_work_task_timer(tb);
-  perform public.cancel_work_task_timer();
+  perform public.cancel_work_task_timer(tb);
   perform pg_temp.service();
   perform pg_temp.check('cancel logs nothing',
     (select count(*) = 1 from public.general_task_logs where task_id = tb)
@@ -1397,7 +1417,7 @@ begin
     format('insert into public.general_task_timers(user_id, task_id, project_id) values (%L, %L, %L)', u[4], tb, p),
     'permission denied');
   perform pg_temp.act_as(u[2]);
-  perform public.cancel_work_task_timer();
+  perform public.cancel_work_task_timer(tb);
 
   -- Estimate accuracy: Done tasks with an estimate and the person's own logs.
   perform pg_temp.service();

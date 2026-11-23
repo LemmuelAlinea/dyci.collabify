@@ -5565,8 +5565,9 @@ accepted." from the setting; no failed requests.
 - **Task timer.** A task's holder gets Start timer under Time logged in the task dialog (work projects, not read-only,
   not archived). One timer per person, kept on the server (`general_task_timers`), so it survives reloads, tabs and
   devices. Stop logs one time entry dated by the Manila day it started; Discard logs nothing; on another task the
-  dialog says "Timer running on <title>" with Start here, which logs the old one (at most 8 h) and moves the timer.
-  Past 8 hours Stop asks "How long did you work on it?" with 8 h filled in. If the holder lost the task, Stop clears
+  dialog says "Timer running on <title>" with Start here, which logs the old one and moves the timer. Past 8 hours
+  Stop, and Start here, ask "How long did you work on it?" with 8 h filled in. Stop and Discard act only on the task
+  the dialog shows: a stale tab or device gets "The timer moved to another task. Reload to see it." If the holder lost the task, Stop clears
   the timer, logs nothing and says so.
 - **Estimated against spent.** The dialog shows "Est. 6 h · Spent 7 h 20 m" (warning once spent passes the estimate,
   "Spent …" alone with no estimate); board cards show it when the task has an estimate.
@@ -5577,8 +5578,11 @@ accepted." from the setting; no failed requests.
   load against available hours, the next three weeks as small bars, tasks this week with no estimate, a weekly-hours
   field when not set, the accuracy line, the running timer as a link to its task, and "Add time off", which opens
   Settings at Time off.
-- SQL: `supabase/work-workload.sql` (same place), applied live with `anon-lockdown.sql`. Suite 152 checks;
-  `work-task-handoff` and `anon-lockdown` pass. 2942 Vitest tests and the build pass.
+- SQL: `supabase/work-workload.sql` (same place), applied live with `anon-lockdown.sql`. Suite 157 checks;
+  `work-task-handoff` and `anon-lockdown` pass. Vitest and the build pass.
+- **Final review fixes.** Stop and Discard take the task and refuse a timer that moved (a stale tab could otherwise
+  wipe or mislog another task's timer); switching from a timer past 8 hours asks instead of logging 8 h; the 8-hour
+  confirm closes when the timer stops elsewhere.
 - **Walked** on the dev server as the Capstone 2 project manager: My load for both spaces ("Not set" with the field),
   Add time off scrolls to Time off, a throwaway task: Start, a timer backdated 75 min showed 1:15 after a reload, Stop
   logged 1 h 15 m in warning against a 1 h estimate, a 10-hour timer asked to confirm with 8 filled in and Discard
@@ -5597,3 +5601,8 @@ accepted." from the setting; no failed requests.
 - A team's lead sees that team's hours on the Workload tab in any flow (the spec named the Planned holder picker only).
 - My load counts unestimated tasks this week only, and reads each week separately (8 reads per space per Home visit).
 - A timer's log can be corrected only by deleting it and logging again, like a manual entry.
+- No Discard on "Timer running on <title>" (dialog or Home); someone who holds no tasks can't clear a stale timer.
+- `work_timer_log`'s comment says the log policy applies; only the trigger guards run, and `work_timer_can_log`
+  mirrors `general_task_logs_insert`. No SQL checks for archived/trashed tasks, stakeholders or the internal
+  functions' privileges. Accuracy also reaches team leads (`work_workload_people`).
+- Weekly hours set to 0 from Home hide the Home field; change them in the space's Members settings.

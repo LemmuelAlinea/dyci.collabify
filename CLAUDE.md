@@ -422,8 +422,9 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general_space_workload_summary` feed the space Workload tab (`SpaceWorkload`). Holder pickers use `useHolderHours`.
   Phase 3: `general_task_timers` (one row per person, own-row read, no write grant) is written only by
   `start_work_task_timer`, `stop_work_task_timer` and `cancel_work_task_timer`; a stopped timer is one `general_task_logs`
-  row inserted as the caller, dated by the Manila day it started. Past 8 hours Stop asks for the time (switching tasks
-  logs at most 8 h); a task the caller no longer holds logs nothing, clears the timer and returns 0.
+  row inserted as the caller, dated by the Manila day it started. Stop and Discard name the task, and refuse when the
+  timer moved to another one. Past 8 hours Stop, and Start on another task, ask for the time worked first; a task the
+  caller no longer holds logs nothing, clears the timer and returns 0.
   `general_space_estimate_accuracy` (logged minutes over the person's share of estimates, from 5 Done tasks, only to
   people `work_workload_people` lets the caller see, never ranked). App: `TaskTimer` and `EstimateSpent` in the task
   dialog and on cards, `MyLoadCard` on the work Home, tones in `lib/work/loadTone.ts`.

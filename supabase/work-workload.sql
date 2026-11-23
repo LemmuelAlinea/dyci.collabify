@@ -1290,8 +1290,9 @@ $$;
 revoke all on function public.work_timer_log(public.general_task_timers, int) from public, anon, authenticated;
 
 -- Starts the caller's timer on a task they hold. Already running here: keeps the
--- start. Running on another task: logs that one (at most 8 hours) when the caller
--- may still log there, then moves the timer.
+-- start. Running on another task: logs that one when the caller may still log
+-- there, then moves the timer; past 8 hours it asks for the time worked first
+-- (stop that task with the minutes, then start again).
 create or replace function public.start_work_task_timer(p_task uuid)
 returns timestamptz
 language plpgsql
@@ -1317,8 +1318,10 @@ begin
       return r.started_at;
     end if;
     if public.work_timer_can_log(r.task_id) then
-      perform public.work_timer_log(r,
-        least(480, greatest(1, floor(extract(epoch from now() - r.started_at) / 60)::int)));
+      if floor(extract(epoch from now() - r.started_at) / 60) > 480 then
+        raise exception 'This timer ran past 8 hours. Confirm the time you worked.' using errcode = 'check_violation';
+      end if;
+      perform public.work_timer_log(r, greatest(1, floor(extract(epoch from now() - r.started_at) / 60)::int));
     end if;
     update public.general_task_timers
        set task_id = p_task, project_id = v_project, started_at = now()
@@ -1336,10 +1339,12 @@ $$;
 revoke all on function public.start_work_task_timer(uuid) from public, anon;
 grant execute on function public.start_work_task_timer(uuid) to authenticated;
 
--- Stops the caller's timer and logs it; returns the minutes logged. Past 8 hours
--- with no minutes given it asks for the time worked and keeps the timer. A task
--- the caller no longer holds logs nothing: the timer clears and 0 comes back.
-create or replace function public.stop_work_task_timer(p_minutes int default null)
+-- Stops the caller's timer on p_task and logs it; returns the minutes logged. A
+-- timer that moved to another task (a stale tab or device) is left alone. Past 8
+-- hours with no minutes given it asks for the time worked and keeps the timer. A
+-- task the caller no longer holds logs nothing: the timer clears and 0 comes back.
+drop function if exists public.stop_work_task_timer(int);
+create or replace function public.stop_work_task_timer(p_task uuid, p_minutes int default null)
 returns int
 language plpgsql
 security definer
@@ -1357,6 +1362,9 @@ begin
   select * into r from public.general_task_timers where user_id = me for update;
   if not found then
     raise exception 'No timer is running.' using errcode = 'no_data_found';
+  end if;
+  if r.task_id is distinct from p_task then
+    raise exception 'The timer moved to another task. Reload to see it.' using errcode = 'check_violation';
   end if;
   if p_minutes is not null and (p_minutes < 1 or p_minutes > 1440) then
     raise exception 'Log between 1 minute and 24 hours.' using errcode = 'check_violation';
@@ -1378,21 +1386,34 @@ begin
 end;
 $$;
 
-revoke all on function public.stop_work_task_timer(int) from public, anon;
-grant execute on function public.stop_work_task_timer(int) to authenticated;
+revoke all on function public.stop_work_task_timer(uuid, int) from public, anon;
+grant execute on function public.stop_work_task_timer(uuid, int) to authenticated;
 
--- Throws the caller's running timer away without logging.
-create or replace function public.cancel_work_task_timer()
+-- Throws the caller's timer on p_task away without logging. Nothing running is
+-- a no-op; a timer that moved to another task is left alone.
+drop function if exists public.cancel_work_task_timer();
+create or replace function public.cancel_work_task_timer(p_task uuid)
 returns void
-language sql
+language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  r public.general_task_timers;
+begin
+  select * into r from public.general_task_timers where user_id = auth.uid() for update;
+  if not found then
+    return;
+  end if;
+  if r.task_id is distinct from p_task then
+    raise exception 'The timer moved to another task. Reload to see it.' using errcode = 'check_violation';
+  end if;
   delete from public.general_task_timers where user_id = auth.uid();
+end;
 $$;
 
-revoke all on function public.cancel_work_task_timer() from public, anon;
-grant execute on function public.cancel_work_task_timer() to authenticated;
+revoke all on function public.cancel_work_task_timer(uuid) from public, anon;
+grant execute on function public.cancel_work_task_timer(uuid) to authenticated;
 
 -- How a person's estimates usually turn out: over Done, live tasks in the space's
 -- live work projects that they hold, with an estimate and their own logged time,

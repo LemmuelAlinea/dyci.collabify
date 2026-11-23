@@ -55,16 +55,21 @@ export function TaskTimer({ task, onLogged }: { task: { id: string; title: strin
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [confirming, setConfirming] = useState(false)
+  // The 8-hour confirm: the task whose timer ran long, and whether this task's timer starts after it is logged.
+  const [confirming, setConfirming] = useState<{ taskId: string; thenStart: boolean } | null>(null)
   const [hours, setHours] = useState('8')
 
   const load = useCallback(async () => {
+    let running: RunningTimer | null = null
     try {
-      setTimer(await myTimer())
-      setNow(Date.now())
+      running = await myTimer()
     } catch {
-      setTimer(null)
+      running = null
     }
+    setTimer(running)
+    setNow(Date.now())
+    // The confirm closes once that timer is no longer running (stopped elsewhere).
+    setConfirming((c) => (c && running?.task_id === c.taskId ? c : null))
   }, [])
 
   useEffect(() => {
@@ -78,15 +83,15 @@ export function TaskTimer({ task, onLogged }: { task: { id: string; title: strin
     return () => window.clearInterval(id)
   }, [runningHere])
 
-  async function run(fn: () => Promise<void>) {
+  async function run(fn: () => Promise<void>, long?: { taskId: string; thenStart: boolean }) {
     setBusy(true)
     setError(null)
     try {
       await fn()
     } catch (err) {
-      if (isLongTimerError(err)) {
+      if (isLongTimerError(err) && long) {
         setHours('8')
-        setConfirming(true)
+        setConfirming(long)
       } else {
         setError(messageOf(err, 'The timer could not be changed. Try again.'))
       }
@@ -96,9 +101,15 @@ export function TaskTimer({ task, onLogged }: { task: { id: string; title: strin
     }
   }
 
-  async function finish(minutes?: number) {
-    const logged = minutes == null ? await stopTimer() : await stopTimer(minutes)
-    setConfirming(false)
+  async function finish(taskId: string, minutes?: number, thenStart = false) {
+    const logged = minutes == null ? await stopTimer(taskId) : await stopTimer(taskId, minutes)
+    setConfirming(null)
+    if (thenStart) {
+      await startTimer(task.id)
+      if (logged > 0) show(`Logged ${formatSpent(logged)}`)
+      onLogged()
+      return
+    }
     if (logged === 0) {
       setError('You no longer hold this task. The timer was cleared and nothing was logged.')
       return
@@ -131,11 +142,11 @@ export function TaskTimer({ task, onLogged }: { task: { id: string; title: strin
             <Button
               size="sm"
               disabled={busy || !confirmValid}
-              onClick={() => void run(() => finish(confirmMinutes as number))}
+              onClick={() => void run(() => finish(confirming.taskId, confirmMinutes as number, confirming.thenStart))}
             >
               Log it
             </Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { await cancelTimer(); setConfirming(false) })}>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { await cancelTimer(confirming.taskId); setConfirming(null) })}>
               Discard
             </Button>
           </div>
@@ -145,17 +156,17 @@ export function TaskTimer({ task, onLogged }: { task: { id: string; title: strin
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-muted">Timer</span>
           <span data-timer-elapsed="" className="font-mono text-ink">{elapsed(timer.started_at, now)}</span>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => finish())}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => finish(task.id), { taskId: task.id, thenStart: false })}>
             Stop
           </Button>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(cancelTimer)}>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => cancelTimer(task.id))}>
             Discard
           </Button>
         </div>
       ) : timer ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="min-w-0 truncate text-muted">Timer running on {timer.title}</span>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(async () => { await startTimer(task.id); onLogged() })}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(async () => { await startTimer(task.id); onLogged() }, { taskId: timer.task_id, thenStart: true })}>
             Start here
           </Button>
         </div>

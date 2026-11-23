@@ -65,7 +65,7 @@ it('stop logs and calls onLogged', async () => {
   const onLogged = await render()
   vi.mocked(myTimer).mockResolvedValue(null)
   await act(async () => button('Stop')!.click())
-  expect(stopTimer).toHaveBeenCalledWith()
+  expect(stopTimer).toHaveBeenCalledWith('a')
   expect(onLogged).toHaveBeenCalled()
   expect(show).toHaveBeenCalledWith('Logged 30 m')
   expect(button('Start timer')).toBeTruthy()
@@ -85,7 +85,7 @@ it('confirm long timer', async () => {
   expect(hours.value).toBe('8')
   vi.mocked(myTimer).mockResolvedValue(null)
   await act(async () => button('Log it')!.click())
-  expect(stopTimer).toHaveBeenLastCalledWith(480)
+  expect(stopTimer).toHaveBeenLastCalledWith('a', 480)
   expect(onLogged).toHaveBeenCalled()
 })
 
@@ -108,7 +108,7 @@ it('discard', async () => {
   const onLogged = await render()
   vi.mocked(myTimer).mockResolvedValue(null)
   await act(async () => button('Discard')!.click())
-  expect(cancelTimer).toHaveBeenCalled()
+  expect(cancelTimer).toHaveBeenCalledWith('a')
   expect(onLogged).not.toHaveBeenCalled()
   expect(button('Start timer')).toBeTruthy()
 })
@@ -147,4 +147,52 @@ it('no estimate shows spent only', async () => {
   const line = container.querySelector('[data-estimate-spent]')!
   expect(line.textContent).toBe('Spent 7 h 20 m')
   expect(line.className).not.toContain('warning')
+})
+
+it('switch past 8 hours confirms', async () => {
+  vi.mocked(myTimer).mockResolvedValue({
+    task_id: 'b', project_id: 'p', title: 'Write tests',
+    started_at: new Date(Date.now() - 10 * 3_600_000).toISOString(),
+  })
+  vi.mocked(startTimer).mockRejectedValueOnce(new Error('This timer ran past 8 hours. Confirm the time you worked.'))
+  vi.mocked(stopTimer).mockResolvedValueOnce(480)
+  await render()
+  await act(async () => button('Start here')!.click())
+  expect(container.querySelector<HTMLInputElement>('input[aria-label="Hours worked"]')!.value).toBe('8')
+  await act(async () => button('Log it')!.click())
+  expect(stopTimer).toHaveBeenCalledWith('b', 480)
+  expect(startTimer).toHaveBeenCalledTimes(2)
+  expect(startTimer).toHaveBeenLastCalledWith('a')
+})
+
+it('stale tab refuses and shows the running timer', async () => {
+  vi.mocked(myTimer).mockResolvedValueOnce({
+    task_id: 'a', project_id: 'p', title: 'Build login form',
+    started_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+  })
+  vi.mocked(stopTimer).mockRejectedValueOnce(new Error('The timer moved to another task. Reload to see it.'))
+  await render()
+  vi.mocked(myTimer).mockResolvedValue({
+    task_id: 'b', project_id: 'p', title: 'Write tests',
+    started_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+  })
+  await act(async () => button('Stop')!.click())
+  expect(container.textContent).toContain('The timer moved to another task.')
+  expect(container.textContent).toContain('Timer running on Write tests')
+})
+
+it('confirm closes when the timer is gone', async () => {
+  vi.mocked(myTimer).mockResolvedValue({
+    task_id: 'a', project_id: 'p', title: 'Build login form',
+    started_at: new Date(Date.now() - 10 * 3_600_000).toISOString(),
+  })
+  vi.mocked(stopTimer)
+    .mockRejectedValueOnce(new Error('This timer ran past 8 hours. Confirm the time you worked.'))
+    .mockRejectedValueOnce(new Error('No timer is running.'))
+  await render()
+  await act(async () => button('Stop')!.click())
+  vi.mocked(myTimer).mockResolvedValue(null)
+  await act(async () => button('Log it')!.click())
+  expect(container.querySelector('input[aria-label="Hours worked"]')).toBeNull()
+  expect(button('Start timer')).toBeTruthy()
 })
