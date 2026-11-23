@@ -1226,4 +1226,240 @@ $$;
 revoke all on function public.create_work_open_task(uuid, text, text, timestamptz, timestamptz, uuid, text, text, uuid[], text, int) from public, anon;
 grant execute on function public.create_work_open_task(uuid, text, text, timestamptz, timestamptz, uuid, text, text, uuid[], text, int) to authenticated;
 
+------------------------------------------------------------ phase 3: task timer
+
+-- One running timer per person, written only through the three functions
+-- below. A stopped timer becomes one general_task_logs row.
+create table if not exists public.general_task_timers (
+  user_id    uuid primary key references public.profiles (id) on delete cascade,
+  task_id    uuid not null,
+  project_id uuid not null,
+  started_at timestamptz not null default now(),
+  foreign key (task_id, project_id)
+    references public.general_tasks (id, project_id) on delete cascade
+);
+
+create index if not exists general_task_timers_task_idx on public.general_task_timers (task_id);
+
+alter table public.general_task_timers enable row level security;
+
+drop policy if exists general_task_timers_select on public.general_task_timers;
+create policy general_task_timers_select on public.general_task_timers
+  for select using (user_id = auth.uid());
+
+revoke all on public.general_task_timers from public, anon, authenticated;
+grant select on public.general_task_timers to authenticated;
+
+-- Whether the caller may log time on the task today: a live work task in a live
+-- work project that the caller holds and may write in (the
+-- general_task_logs_insert rule).
+create or replace function public.work_timer_can_log(p_task uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null and exists (
+    select 1
+      from public.general_tasks t
+      join public.general_projects q on q.id = t.project_id
+     where t.id = p_task
+       and q.class_board_id is null
+       and t.archived_at is null and t.trashed_at is null
+       and q.archived_at is null and q.trashed_at is null
+       and public.is_general_task_assignee(t.id)
+       and public.general_can_write(t.project_id));
+$$;
+
+revoke all on function public.work_timer_can_log(uuid) from public, anon, authenticated;
+
+-- Writes the caller's log for a timer row: whole minutes, dated by the Manila
+-- day the timer started. Runs as the caller, so the log guards still apply.
+create or replace function public.work_timer_log(p_row public.general_task_timers, p_minutes int)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.general_task_logs (task_id, project_id, user_id, minutes, note, logged_on)
+  values (p_row.task_id, p_row.project_id, auth.uid(), p_minutes, '',
+          (p_row.started_at at time zone 'Asia/Manila')::date);
+$$;
+
+revoke all on function public.work_timer_log(public.general_task_timers, int) from public, anon, authenticated;
+
+-- Starts the caller's timer on a task they hold. Already running here: keeps the
+-- start. Running on another task: logs that one when the caller may still log
+-- there, then moves the timer; past 8 hours it asks for the time worked first
+-- (stop that task with the minutes, then start again).
+create or replace function public.start_work_task_timer(p_task uuid)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  r public.general_task_timers;
+  v_project uuid;
+begin
+  if me is null or not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to time work.' using errcode = 'insufficient_privilege';
+  end if;
+  if not public.work_timer_can_log(p_task) then
+    raise exception 'Only the task''s holder can time it.' using errcode = 'insufficient_privilege';
+  end if;
+  select project_id into v_project from public.general_tasks where id = p_task;
+
+  select * into r from public.general_task_timers where user_id = me for update;
+  if found then
+    if r.task_id = p_task then
+      return r.started_at;
+    end if;
+    if public.work_timer_can_log(r.task_id) then
+      if floor(extract(epoch from now() - r.started_at) / 60) > 480 then
+        raise exception 'This timer ran past 8 hours. Confirm the time you worked.' using errcode = 'check_violation';
+      end if;
+      perform public.work_timer_log(r, greatest(1, floor(extract(epoch from now() - r.started_at) / 60)::int));
+    end if;
+    update public.general_task_timers
+       set task_id = p_task, project_id = v_project, started_at = now()
+     where user_id = me;
+  else
+    insert into public.general_task_timers (user_id, task_id, project_id, started_at)
+    values (me, p_task, v_project, now())
+    on conflict (user_id) do update
+      set task_id = excluded.task_id, project_id = excluded.project_id, started_at = excluded.started_at;
+  end if;
+  return now();
+end;
+$$;
+
+revoke all on function public.start_work_task_timer(uuid) from public, anon;
+grant execute on function public.start_work_task_timer(uuid) to authenticated;
+
+-- Stops the caller's timer on p_task and logs it; returns the minutes logged. A
+-- timer that moved to another task (a stale tab or device) is left alone. Past 8
+-- hours with no minutes given it asks for the time worked and keeps the timer. A
+-- task the caller no longer holds logs nothing: the timer clears and 0 comes back.
+drop function if exists public.stop_work_task_timer(int);
+create or replace function public.stop_work_task_timer(p_task uuid, p_minutes int default null)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  r public.general_task_timers;
+  v_elapsed int;
+  v_minutes int;
+begin
+  if me is null then
+    raise exception 'Sign in with an active account to time work.' using errcode = 'insufficient_privilege';
+  end if;
+  select * into r from public.general_task_timers where user_id = me for update;
+  if not found then
+    raise exception 'No timer is running.' using errcode = 'no_data_found';
+  end if;
+  if r.task_id is distinct from p_task then
+    raise exception 'The timer moved to another task. Reload to see it.' using errcode = 'check_violation';
+  end if;
+  if p_minutes is not null and (p_minutes < 1 or p_minutes > 1440) then
+    raise exception 'Log between 1 minute and 24 hours.' using errcode = 'check_violation';
+  end if;
+  if not public.work_timer_can_log(r.task_id) then
+    delete from public.general_task_timers where user_id = me;
+    return 0;
+  end if;
+
+  v_elapsed := greatest(1, floor(extract(epoch from now() - r.started_at) / 60)::int);
+  if p_minutes is null and v_elapsed > 480 then
+    raise exception 'This timer ran past 8 hours. Confirm the time you worked.' using errcode = 'check_violation';
+  end if;
+  v_minutes := coalesce(p_minutes, v_elapsed);
+
+  perform public.work_timer_log(r, v_minutes);
+  delete from public.general_task_timers where user_id = me;
+  return v_minutes;
+end;
+$$;
+
+revoke all on function public.stop_work_task_timer(uuid, int) from public, anon;
+grant execute on function public.stop_work_task_timer(uuid, int) to authenticated;
+
+-- Throws the caller's timer on p_task away without logging. Nothing running is
+-- a no-op; a timer that moved to another task is left alone.
+drop function if exists public.cancel_work_task_timer();
+create or replace function public.cancel_work_task_timer(p_task uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r public.general_task_timers;
+begin
+  select * into r from public.general_task_timers where user_id = auth.uid() for update;
+  if not found then
+    return;
+  end if;
+  if r.task_id is distinct from p_task then
+    raise exception 'The timer moved to another task. Reload to see it.' using errcode = 'check_violation';
+  end if;
+  delete from public.general_task_timers where user_id = auth.uid();
+end;
+$$;
+
+revoke all on function public.cancel_work_task_timer(uuid) from public, anon;
+grant execute on function public.cancel_work_task_timer(uuid) to authenticated;
+
+-- How a person's estimates usually turn out: over Done, live tasks in the space's
+-- live work projects that they hold, with an estimate and their own logged time,
+-- their logged minutes against their share of the estimates. Only for people the
+-- caller may see in workload, and only from 5 such tasks.
+create or replace function public.general_space_estimate_accuracy(p_space uuid, p_users uuid[] default null)
+returns table(user_id uuid, ratio numeric, tasks int)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  v_today date := (now() at time zone 'Asia/Manila')::date;
+begin
+  perform public.work_workload_check(p_space, v_today, v_today);
+
+  return query
+  with people as (
+    select v.v as uid from public.work_workload_people(p_space) v
+     where p_users is null or v.v = any (p_users)
+  ), per_task as (
+    select pe.uid, t.id,
+           t.estimated_minutes::numeric
+             / (select count(*) from public.general_task_assignees h where h.task_id = t.id) as share,
+           (select sum(l.minutes) from public.general_task_logs l
+             where l.task_id = t.id and l.user_id = pe.uid) as spent
+      from people pe
+      join public.general_task_assignees a on a.user_id = pe.uid
+      join public.general_tasks t on t.id = a.task_id
+      join public.general_projects q on q.id = t.project_id
+     where q.space_id = p_space and q.class_board_id is null
+       and q.archived_at is null and q.trashed_at is null
+       and t.archived_at is null and t.trashed_at is null
+       and t.status = 'done' and t.estimated_minutes is not null
+  )
+  select pt.uid, round(sum(pt.spent) / sum(pt.share), 1), count(*)::int
+    from per_task pt
+   where pt.spent is not null
+   group by pt.uid
+  having count(*) >= 5;
+end;
+$$;
+
+revoke all on function public.general_space_estimate_accuracy(uuid, uuid[]) from public, anon;
+grant execute on function public.general_space_estimate_accuracy(uuid, uuid[]) to authenticated;
+
 commit;

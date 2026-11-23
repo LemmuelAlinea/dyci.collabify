@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { formatHours, parseHours } from './hours'
+import { formatHours, formatSpent, parseHours } from './hours'
+
+describe('formatSpent', () => {
+  it('shows hours and minutes', () => {
+    expect(formatSpent(440)).toBe('7 h 20 m')
+    expect(formatSpent(120)).toBe('2 h')
+    expect(formatSpent(45)).toBe('45 m')
+    expect(formatSpent(0)).toBe('0 m')
+  })
+})
 
 describe('formatHours', () => {
   it('shows at most one decimal', () => {

@@ -1253,4 +1253,214 @@ begin
   perform pg_temp.service();
 end $$;
 
+------------------------------------------------------------ phase 3: timer and estimate accuracy
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
+  -- 1 pm, 2 Ann (times work), 3 Bo (shares tasks with Ann), 4 Cy (plain member)
+  s uuid; p uuid; ta uuid; tb uuid; tc uuid; td uuid; x uuid;
+  v_day date := ((now() - interval '90 minutes') at time zone 'Asia/Manila')::date;
+  m int;
+begin
+  for k in 1..4 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-timer-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-timer-'||k||'@example.test', 'Timer', k::text, 'member', 'active', false, k = 1)
+      on conflict(id) do update set role = 'member', status = 'active', can_teach = false,
+        can_manage_projects = excluded.can_manage_projects;
+  end loop;
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz timer space', '')).id;
+  p := (public.create_general_project('Zz timer project', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role) values
+    (s, u[2], 'member'), (s, u[3], 'member'), (s, u[4], 'member');
+  insert into public.general_members(project_id, user_id, role) values
+    (p, u[2], 'member'), (p, u[3], 'member'), (p, u[4], 'member');
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+    values (p, 'Zz timer A', 'released', now(), u[1]) returning id into ta;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+    values (p, 'Zz timer B', 'released', now(), u[1]) returning id into tb;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+    values (p, 'Zz timer C', 'released', now(), u[1]) returning id into tc;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+    values (p, 'Zz timer D', 'released', now(), u[1]) returning id into td;
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values
+    (ta, p, u[2], u[1]), (tb, p, u[2], u[1]), (tc, p, u[2], u[1]), (td, p, u[2], u[1]);
+
+  -- Start, run 90 minutes, stop.
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(ta);
+  perform pg_temp.service();
+  update public.general_task_timers set started_at = now() - interval '90 minutes' where user_id = u[2];
+  perform pg_temp.act_as(u[2]);
+  m := public.stop_work_task_timer(ta);
+  perform pg_temp.service();
+  perform pg_temp.check('start and stop logs',
+    m = 90
+    and (select count(*) = 1 from public.general_task_logs where task_id = ta and user_id = u[2])
+    and (select minutes = 90 and logged_on = v_day and note = ''
+           from public.general_task_logs where task_id = ta and user_id = u[2])
+    and not exists (select 1 from public.general_task_timers where user_id = u[2]));
+
+  -- Starting B while A runs logs A.
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(ta);
+  perform pg_temp.service();
+  update public.general_task_timers set started_at = now() - interval '30 minutes' where user_id = u[2];
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(tb);
+  perform pg_temp.service();
+  perform pg_temp.check('one timer per person',
+    (select count(*) = 2 from public.general_task_logs where task_id = ta and user_id = u[2])
+    and exists (select 1 from public.general_task_logs where task_id = ta and minutes = 30)
+    and (select task_id = tb from public.general_task_timers where user_id = u[2])
+    and (select count(*) = 1 from public.general_task_timers where user_id = u[2]));
+
+  update public.general_task_timers set started_at = now() - interval '5 minutes' where user_id = u[2];
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('start again same task keeps start',
+    public.start_work_task_timer(tb) = now() - interval '5 minutes'
+    and not exists (select 1 from public.general_task_logs where task_id = tb));
+  perform public.cancel_work_task_timer(tb);
+
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.refuse('non-holder refused',
+    format('select public.start_work_task_timer(%L)', ta), 'Only the task''s holder can time it.');
+
+  -- Past 8 hours, Stop asks; a confirmed time logs.
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(tc);
+  perform pg_temp.service();
+  update public.general_task_timers set started_at = now() - interval '10 hours' where user_id = u[2];
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('stop past 8 hours asks',
+    format('select public.stop_work_task_timer(%L)', tc), 'This timer ran past 8 hours.');
+  perform pg_temp.check('long timer kept',
+    exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = tc));
+  perform pg_temp.refuse('confirmed time in range',
+    format('select public.stop_work_task_timer(%L, 0)', tc), 'Log between 1 minute and 24 hours.');
+  m := public.stop_work_task_timer(tc, 480);
+  perform pg_temp.service();
+  perform pg_temp.check('confirmed long timer logs',
+    m = 480 and (select sum(minutes) = 480 from public.general_task_logs where task_id = tc)
+    and not exists (select 1 from public.general_task_timers where user_id = u[2]));
+
+  -- Switching from a 10-hour timer logs 8 hours.
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(td);
+  perform pg_temp.service();
+  update public.general_task_timers set started_at = now() - interval '10 hours' where user_id = u[2];
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('switch past 8 hours asks',
+    format('select public.start_work_task_timer(%L)', ta), 'This timer ran past 8 hours.');
+  perform pg_temp.service();
+  perform pg_temp.check('switch past 8 hours keeps the timer',
+    exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = td)
+    and not exists (select 1 from public.general_task_logs where task_id = td));
+  perform pg_temp.act_as(u[2]);
+  perform public.stop_work_task_timer(td, 480);
+  perform public.start_work_task_timer(ta);
+  perform pg_temp.service();
+  perform pg_temp.check('switch after confirming',
+    (select sum(minutes) = 480 from public.general_task_logs where task_id = td)
+    and exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = ta));
+
+  -- A stale view of another task can't stop or discard the running timer.
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('stop refuses another task',
+    format('select public.stop_work_task_timer(%L)', tb), 'The timer moved to another task.');
+  perform pg_temp.refuse('discard refuses another task',
+    format('select public.cancel_work_task_timer(%L)', tb), 'The timer moved to another task.');
+  perform pg_temp.service();
+  perform pg_temp.check('stale stop and discard keep the timer',
+    exists (select 1 from public.general_task_timers where user_id = u[2] and task_id = ta)
+    and (select count(*) = 2 from public.general_task_logs where task_id = ta));
+
+  -- Losing the task while the timer runs: nothing logs and the timer clears.
+  delete from public.general_task_assignees where task_id = ta and user_id = u[2];
+  perform pg_temp.act_as(u[2]);
+  m := public.stop_work_task_timer(ta);
+  perform pg_temp.service();
+  perform pg_temp.check('stop after losing the task',
+    m = 0
+    and (select count(*) = 2 from public.general_task_logs where task_id = ta)
+    and not exists (select 1 from public.general_task_timers where user_id = u[2]));
+
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(tb);
+  perform public.stop_work_task_timer(tb);
+  perform pg_temp.refuse('second stop logs nothing',
+    format('select public.stop_work_task_timer(%L)', tb), 'No timer is running.');
+  perform pg_temp.service();
+  perform pg_temp.check('one log from the first stop',
+    (select count(*) = 1 from public.general_task_logs where task_id = tb));
+
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(tb);
+  perform public.cancel_work_task_timer(tb);
+  perform pg_temp.service();
+  perform pg_temp.check('cancel logs nothing',
+    (select count(*) = 1 from public.general_task_logs where task_id = tb)
+    and not exists (select 1 from public.general_task_timers where user_id = u[2]));
+
+  perform pg_temp.act_as(u[2]);
+  perform public.start_work_task_timer(tb);
+  perform pg_temp.check('timer row own',
+    (select count(*) = 1 from public.general_task_timers));
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.check('timer row own only',
+    (select count(*) = 0 from public.general_task_timers));
+  perform pg_temp.refuse('no direct timer writes',
+    format('insert into public.general_task_timers(user_id, task_id, project_id) values (%L, %L, %L)', u[4], tb, p),
+    'permission denied');
+  perform pg_temp.act_as(u[2]);
+  perform public.cancel_work_task_timer(tb);
+
+  -- Estimate accuracy: Done tasks with an estimate and the person's own logs.
+  perform pg_temp.service();
+  perform set_config('collabify.estimate_write', 'on', true);
+  for k in 1..4 loop
+    insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, status, estimated_minutes)
+      values (p, 'Zz acc solo '||k, 'released', now(), u[1], 'done', 60) returning id into x;
+    insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (x, p, u[2], u[1]);
+    insert into public.general_task_logs(task_id, project_id, user_id, minutes) values (x, p, u[2], 72);
+  end loop;
+  -- Shared tasks: 120 minutes over two holders counts 60 for each.
+  for k in 1..5 loop
+    insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, status, estimated_minutes)
+      values (p, 'Zz acc shared '||k, 'released', now(), u[1], 'done', 120) returning id into x;
+    insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values
+      (x, p, u[2], u[1]), (x, p, u[3], u[1]);
+    insert into public.general_task_logs(task_id, project_id, user_id, minutes) values (x, p, u[3], 72);
+  end loop;
+  perform set_config('collabify.estimate_write', 'off', true);
+
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('accuracy needs five',
+    not exists (select 1 from public.general_space_estimate_accuracy(s) where user_id = u[2]));
+  perform pg_temp.service();
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, status, estimated_minutes)
+    values (p, 'Zz acc solo 5', 'released', now(), u[1], 'done', 60) returning id into x;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (x, p, u[2], u[1]);
+  insert into public.general_task_logs(task_id, project_id, user_id, minutes) values (x, p, u[2], 72);
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('accuracy at five',
+    (select ratio = 1.2 and tasks = 5 from public.general_space_estimate_accuracy(s) where user_id = u[2]));
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('accuracy shared estimate',
+    (select ratio = 1.2 and tasks = 5 from public.general_space_estimate_accuracy(s, array[u[3]])));
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('planner reads accuracy',
+    (select count(*) = 2 from public.general_space_estimate_accuracy(s)));
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.check('accuracy hidden from others',
+    not exists (select 1 from public.general_space_estimate_accuracy(s, array[u[2], u[3]])));
+  perform pg_temp.service();
+end $$;
+
 rollback;

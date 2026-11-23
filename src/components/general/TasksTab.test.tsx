@@ -83,3 +83,17 @@ it('reveals a sent backlog task on the board only when the notice action is chos
     expect([...document.querySelectorAll('button')].find(b => b.textContent === 'Plan & route work')!.getAttribute('aria-label')).toBeNull()
   } finally { await act(async () => root.unmount()); container.remove() }
 })
+
+it('card shows est and spent', async () => {
+  const task = { id: 'est', title: 'Estimated work', kind: 'task', routing_state: 'released', created_by: 'pm', team_id: null, assignee_ids: [], status: 'todo', stage: 0, description: '', sprint_id: null, archived_at: null, file_count: 0, comment_count: 0, estimated_minutes: 360, logged_minutes: 440 }
+  const state = { project: { id: 'project', class_board_id: null, stages: ['Todo', 'Done'] }, myRole: 'member', viewerId: 'member', readOnly: false,
+    tasks: [task, { ...task, id: 'plain', title: 'Unestimated work', estimated_minutes: null, logged_minutes: 30 }],
+    teams: [], teamMembers: [], members: [], sprints: [], milestones: [], sprintSettings: DEFAULT_SPRINT_SETTINGS, can: () => false, qaBlocks: () => false, leadsUser: () => false, nameOf: (id: string) => id,
+  } as unknown as GeneralProjectState
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<MemoryRouter><TasksTab state={state} layout="board" onLayout={vi.fn()} onViewBoard={vi.fn()} scope="all" onScope={vi.fn()} onOpenTask={vi.fn()} /></MemoryRouter>))
+    const lines = [...container.querySelectorAll('[data-estimate-spent]')].map(l => l.textContent)
+    expect(lines).toEqual(['Est. 6 h · Spent 7 h 20 m'])
+  } finally { await act(async () => root.unmount()); container.remove() }
+})

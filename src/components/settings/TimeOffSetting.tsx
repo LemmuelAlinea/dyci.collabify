@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
@@ -27,6 +27,12 @@ export function TimeOffSetting() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Home's "Add time off" links to /settings#time-off.
+  const anchor = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (window.location.hash === '#time-off') anchor.current?.scrollIntoView({ block: 'start' })
+  }, [])
 
   async function add() {
     setError(null)
@@ -67,7 +73,7 @@ export function TimeOffSetting() {
   }
 
   return (
-    <div className="mt-6 space-y-3 border-t border-line pt-5">
+    <div id="time-off" ref={anchor} className="mt-6 scroll-mt-28 space-y-3 border-t border-line pt-5">
       <div className="flex min-w-0 gap-3">
         <Icon name="calendar" size={18} className="mt-0.5 shrink-0 text-muted" />
         <div className="min-w-0">

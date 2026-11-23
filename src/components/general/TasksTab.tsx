@@ -1,4 +1,5 @@
 // src/components/general/TasksTab.tsx
+import { EstimateSpent } from './TaskTimer'
 import { useMemo, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { BoardColumn, MoveToStage } from '../tasks/BoardColumn'
@@ -643,6 +644,12 @@ function TaskCard({
           <SubtaskCount progress={marks.subtasks} />
           <WaitingMarker blockers={marks.blockers} onOpen={onOpen} />
         </div>
+      )}
+
+      {task.estimated_minutes != null && (
+        <p className="pointer-events-none mt-2 text-[12px]">
+          <EstimateSpent estimate={task.estimated_minutes} spent={task.logged_minutes ?? 0} />
+        </p>
       )}
 
       <div className="pointer-events-none mt-3 flex flex-wrap items-center justify-between gap-2">

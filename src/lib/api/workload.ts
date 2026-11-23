@@ -184,3 +184,63 @@ export async function applyBreakdown(parentId: string, from: string, to: string,
   if (error) throw error
   return (data ?? []) as string[]
 }
+
+/** The signed-in person's running timer, with its task's title, or null. */
+export type RunningTimer = { task_id: string; project_id: string; started_at: string; title: string }
+
+export async function myTimer(): Promise<RunningTimer | null> {
+  const { data, error } = await supabase
+    .from('general_task_timers')
+    .select('task_id, project_id, started_at')
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const { data: task } = await supabase.from('general_tasks').select('title').eq('id', data.task_id).maybeSingle()
+  return { ...(data as Omit<RunningTimer, 'title'>), title: (task?.title as string | undefined) ?? 'another task' }
+}
+
+/** Starts the signed-in person's timer on a task they hold; a timer elsewhere is logged first. */
+export async function startTimer(taskId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('start_work_task_timer', { p_task: taskId })
+  if (error) throw error
+  return data as string
+}
+
+/**
+ * Stops the timer on a task and logs it, returning the minutes logged. 0 means the
+ * person no longer holds the task: the timer was cleared and nothing was logged.
+ * Refused when the timer has moved to another task.
+ */
+export async function stopTimer(taskId: string, minutes?: number): Promise<number> {
+  const { data, error } = await supabase.rpc('stop_work_task_timer', minutes == null ? { p_task: taskId } : { p_task: taskId, p_minutes: minutes })
+  if (error) throw error
+  return data as number
+}
+
+/** Throws the timer on a task away without logging. Refused when the timer has moved to another task. */
+export async function cancelTimer(taskId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_work_task_timer', { p_task: taskId })
+  if (error) throw error
+}
+
+/** Stop refused a timer that ran past 8 hours until the time worked is confirmed. */
+export function isLongTimerError(err: unknown): boolean {
+  const message = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : ''
+  return message.startsWith('This timer ran past 8 hours')
+}
+
+/** How a person's estimates usually turn out: logged time over their share of the estimates, from 5 Done tasks. */
+export type EstimateAccuracy = { user_id: string; ratio: number; tasks: number }
+
+/** Accuracy for the people the viewer may see in a work space's workload (only those with 5 or more tasks). */
+export async function estimateAccuracy(spaceId: string, users?: string[]): Promise<EstimateAccuracy[]> {
+  const { data, error } = await supabase.rpc('general_space_estimate_accuracy', {
+    p_space: spaceId,
+    p_users: users ?? null,
+  })
+  if (error) throw error
+  return ((data ?? []) as { user_id: string; ratio: number | string; tasks: number }[]).map((r) => ({
+    ...r,
+    ratio: Number(r.ratio),
+  }))
+}

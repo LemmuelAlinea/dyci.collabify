@@ -14,6 +14,7 @@ const show = vi.hoisted(() => vi.fn())
 vi.mock('../ui/Toast', () => ({ useToast: () => ({ show }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RoleBadge', () => ({ PersonBadge: () => null }))
+vi.mock('./TaskTimer', async importOriginal => ({ ...await importOriginal<object>(), TaskTimer: () => <span data-testid="task-timer" /> }))
 vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
 vi.mock('../../lib/api/workload', () => ({ setTaskEstimate: vi.fn(async () => {}) }))
 const holderHours = vi.hoisted(() => ({ labels: new Map<string, { text: string; tone: string }>(), calls: [] as unknown[] }))
@@ -402,5 +403,25 @@ it('entry explains blocked parent', async () => {
     // A subtask offers nothing.
     await act(async () => root.render(<TaskDialog state={{ ...s, project: { ...s.project!, space_id: 's' } } as GeneralProjectState} taskId="sub" onClose={vi.fn()} />))
     expect(entry()).toBeUndefined()
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('hidden for non-holders', async () => {
+  const task = { id: 'task', title: 'Build page', project_id: 'p', created_by: 'pm', team_id: null, routing_state: 'released', assignee_ids: ['worker'], status: 'todo', stage: 0, description: '', starts_at: null, due_at: null, archived_at: null, estimated_minutes: 360, logged_minutes: 440 }
+  const base = { project: { id: 'p', class_board_id: null, stages: ['Todo', 'Done'] }, readOnly: false, teams: [], teamMembers: [], members: [], tasks: [task],
+    can: () => false, leadsUser: () => false, nameOf: (id: string) => id, roleOf: () => 'member', qaBlocks: () => false, reload: vi.fn().mockResolvedValue(undefined) }
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  const timer = () => document.querySelector('[data-testid="task-timer"]')
+  try {
+    await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'worker', myRole: 'member' } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
+    expect(timer()).not.toBeNull()
+    expect(document.querySelector('[data-estimate-spent]')?.textContent).toBe('Est. 6 h · Spent 7 h 20 m')
+    await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'other', myRole: 'member' } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
+    expect(timer()).toBeNull()
+    expect(document.querySelector('[data-estimate-spent]')?.textContent).toBe('Est. 6 h · Spent 7 h 20 m')
+    await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'worker', myRole: 'member', readOnly: true } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
+    expect(timer()).toBeNull()
+    await act(async () => root.render(<TaskDialog state={{ ...base, tasks: [{ ...task, archived_at: 'x' }], viewerId: 'worker', myRole: 'member' } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
+    expect(timer()).toBeNull()
   } finally { await act(async () => root.unmount()); container.remove() }
 })

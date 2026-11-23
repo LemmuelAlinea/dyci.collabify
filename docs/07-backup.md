@@ -1130,6 +1130,12 @@ through them); `general_task_holder_room(task, users)`; the constraint trigger `
 (wraps the 10-argument `create_general_open_task`, which stays owned by `project-task-types.sql`);
 `general_space_person_tasks(space, user, from, to)` and `general_space_workload_summary(space, from, to)`.
 
+Phase 3 adds, in the same file: the table `general_task_timers` (one row per person, RLS on with one own-row
+select policy and no write grant), the internal `work_timer_can_log` and `work_timer_log`, `start_work_task_timer`,
+`stop_work_task_timer` and `cancel_work_task_timer` (a stopped timer inserts one `general_task_logs` row as the
+caller, so `general_task_logs_guard` and the archived-task guard still apply), and
+`general_space_estimate_accuracy(space, users)`.
+
 ## Peer round delete
 
 `peer-round-delete.sql` runs after `class-look.sql` and before `anon-lockdown.sql`. It owns only

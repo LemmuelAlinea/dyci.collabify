@@ -25,6 +25,7 @@ vi.mock('../../lib/api/workload', () => ({
     { task_id: 't1', project_id: 'p1', title: 'Build the form', minutes: 360, unestimated: false },
   ]),
   spaceWorkloadSummary: vi.fn(async () => ({ unestimated_tasks: 3, people_without_hours: 1 })),
+  estimateAccuracy: vi.fn(async () => [{ user_id: 'ben', ratio: 1.2, tasks: 5 }]),
 }))
 
 const hours = (user_id: string, weekly: number | null, off = 0) =>
@@ -172,4 +173,15 @@ it('keeps each space apart', async () => {
   await act(async () => [...document.querySelectorAll('button')].find((b) => b.textContent === 'Go')!.click())
   await act(async () => {})
   expect(spacePeopleLoad).toHaveBeenCalledWith('s2', '2026-11-23', '2026-11-27')
+})
+
+it('expanded row shows accuracy', async () => {
+  await render()
+  const open = (user: string) => document.querySelector<HTMLButtonElement>(`[data-person="${user}"] button[aria-expanded]`)!
+  await act(async () => open('ben').click())
+  await act(async () => {})
+  expect(document.body.textContent).toContain('Usually takes about 1.2× the estimate.')
+  await act(async () => open('ana').click())
+  await act(async () => {})
+  expect(document.body.textContent).not.toContain('Usually takes about')
 })

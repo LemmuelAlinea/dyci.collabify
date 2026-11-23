@@ -420,6 +420,14 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   in an Open project (it reads `assigned_by`, since the Open writers clear claims); `create_work_open_task` wraps
   `create_general_open_task` and sets the estimate in the same transaction; `general_space_person_tasks` and
   `general_space_workload_summary` feed the space Workload tab (`SpaceWorkload`). Holder pickers use `useHolderHours`.
+  Phase 3: `general_task_timers` (one row per person, own-row read, no write grant) is written only by
+  `start_work_task_timer`, `stop_work_task_timer` and `cancel_work_task_timer`; a stopped timer is one `general_task_logs`
+  row inserted as the caller, dated by the Manila day it started. Stop and Discard name the task, and refuse when the
+  timer moved to another one. Past 8 hours Stop, and Start on another task, ask for the time worked first; a task the
+  caller no longer holds logs nothing, clears the timer and returns 0.
+  `general_space_estimate_accuracy` (logged minutes over the person's share of estimates, from 5 Done tasks, only to
+  people `work_workload_people` lets the caller see, never ranked). App: `TaskTimer` and `EstimateSpent` in the task
+  dialog and on cards, `MyLoadCard` on the work Home, tones in `lib/work/loadTone.ts`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone
