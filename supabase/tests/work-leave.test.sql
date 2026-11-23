@@ -529,4 +529,104 @@ begin
   end;
 end $$;
 
+------------------------------------------------------------ phase 2: context, forecast, sprint hours
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid(), gen_random_uuid()];
+  -- 1 pm, 2 Ann (16 h), 3 Bo (16 h), 4 Cy (no hours), 5 Dee (member), 6 outsider
+  s uuid; p uuid; m date := pg_temp.mon();
+  t_big uuid; t_none uuid; t_shared uuid; sp uuid; n_id uuid; ctx jsonb; f_short int;
+begin
+  perform pg_temp.service();
+  for k in 1..6 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-fore-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-fore-'||k||'@example.test', 'Fore', k::text, 'member', 'active', false, k in (1, 6))
+      on conflict(id) do update set role = 'member', status = 'active', can_teach = false,
+        can_manage_projects = excluded.can_manage_projects;
+    insert into public.notification_prefs(user_id) values (u[k]) on conflict do nothing;
+  end loop;
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz fore S', '')).id;
+  p := (public.create_general_project('Zz fore P', '', null, null, null, null, s)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role) values
+    (s, u[2], 'member'), (s, u[3], 'member'), (s, u[4], 'member'), (s, u[5], 'member');
+  insert into public.general_members(project_id, user_id, role) values
+    (p, u[2], 'member'), (p, u[3], 'member'), (p, u[4], 'member'), (p, u[5], 'member');
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[2], 960), (s, u[3], 960);
+  insert into public.general_member_skills(project_id, user_id, tag) values (p, u[3], 'auth');
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz fore big', 'released', now(), u[1], pg_temp.at(m + 4), 9000) returning id into t_big;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz fore no hours', 'released', now(), u[1], pg_temp.at(m + 4), 9000) returning id into t_none;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz fore shared', 'released', now(), u[1], pg_temp.at(m + 4), 18000) returning id into t_shared;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values
+    (t_big, p, u[2], u[1]), (t_none, p, u[4], u[1]), (t_shared, p, u[2], u[1]), (t_shared, p, u[3], u[1]);
+
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('forecast for planner',
+    (select count(*) = 1 and bool_and(user_id = u[2] and short_minutes > 0 and remaining_minutes = 9000)
+       from public.general_task_forecast(t_big)));
+  perform pg_temp.check('no hours no forecast', not exists (select 1 from public.general_task_forecast(t_none)));
+  perform pg_temp.check('shared task split',
+    (select count(*) = 2 and bool_and(remaining_minutes = 9000) from public.general_task_forecast(t_shared)));
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('forecast for holder', exists (select 1 from public.general_task_forecast(t_big)));
+  select short_minutes into f_short from public.general_task_forecast(t_big);
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.check('forecast hidden from others', not exists (select 1 from public.general_task_forecast(t_big)));
+  perform pg_temp.service();
+  perform pg_temp.check('room helper matches status',
+    (select status = 'wont_fit' and short_minutes = f_short
+       from public.work_leave_task_status(u[2], m - 7, m - 7) where task_id = t_big));
+
+  -- Suggestion context.
+  perform pg_temp.act_as(u[2]);
+  perform public.save_time_off_range(u[2], m + 3, m + 4, null);
+  perform pg_temp.act_as(u[5]);
+  perform public.save_time_off_range(u[5], m + 4, m + 4, null);
+  perform pg_temp.service();
+  select id into n_id from public.general_leave_notices where user_id = u[2] and project_id = p;
+  perform pg_temp.act_as(u[1]);
+  ctx := public.general_leave_suggest_context(n_id);
+  perform pg_temp.check('context lists flagged and people',
+    ctx ->> 'user_id' = u[2]::text
+    and (select count(*) = 2 from jsonb_array_elements(ctx -> 'tasks') e
+          where e ->> 'task_id' in (t_big::text, t_shared::text) and e ->> 'status' = 'due_during')
+    and not exists (select 1 from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[2]::text)
+    and (select e -> 'skills' = '["auth"]'::jsonb and e ->> 'free_minutes' is not null
+           from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[3]::text)
+    and (select e ->> 'free_minutes' is null from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[4]::text));
+  perform pg_temp.check('away candidate marked',
+    (select (e ->> 'away')::boolean from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[5]::text)
+    and not (select (e ->> 'away')::boolean from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[4]::text));
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.refuse('context planners only',
+    format('select public.general_leave_suggest_context(%L)', n_id), 'Only the project manager and coordinators can review leave.');
+
+  -- Sprint hours: Ann away two of the five days, one task with no holder, Cy without hours.
+  perform pg_temp.service();
+  insert into public.general_sprints(project_id, name, starts_on, ends_on) values (p, 'Zz sprint', m, m + 4) returning id into sp;
+  update public.general_tasks set sprint_id = sp where id in (t_big, t_none);
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, estimated_minutes, sprint_id)
+    values (p, 'Zz fore nobody', 'released', now(), u[1], 120, sp);
+  perform set_config('collabify.estimate_write', 'off', true);
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('sprint hours',
+    (select available_minutes = 576 and away_minutes = 384 and planned_minutes = 18120
+            and unassigned = 1 and people_without_hours = 1
+       from public.general_sprint_hours(sp)));
+  perform pg_temp.act_as(u[6]);
+  perform pg_temp.check('sprint hours members only', not exists (select 1 from public.general_sprint_hours(sp)));
+  perform pg_temp.service();
+end $$;
+
 rollback;

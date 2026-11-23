@@ -229,6 +229,29 @@ $$;
 revoke all on function public.space_away_ranges(uuid) from public, anon;
 grant execute on function public.space_away_ranges(uuid) to authenticated;
 
+------------------------------------------------------------ fit
+
+-- Free minutes p_user has from Manila today to p_due in a space, other work
+-- counted (p_task left out): available minus load. 0 when p_due is past; null
+-- when weekly hours are not set (fit unknown).
+create or replace function public.work_task_room(p_space uuid, p_user uuid, p_task uuid, p_due date)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with today as (select (now() at time zone 'Asia/Manila')::date as d)
+  select case
+    when p_due < (select d from today) then 0
+    else (public.work_person_available(p_space, p_user, (select d from today), p_due)
+          - coalesce((select sum(pl.load_minutes)
+                        from public.work_person_load(p_space, p_user, (select d from today), p_due, p_task) pl), 0))::int
+  end;
+$$;
+
+revoke all on function public.work_task_room(uuid, uuid, uuid, date) from public, anon, authenticated;
+
 ------------------------------------------------------------ impact check
 
 -- What a leave from p_first to p_last does to each open, released, live task
@@ -273,10 +296,7 @@ as $$
                       and w.archived_at is null and w.trashed_at is null) as blocks_other,
            case
              when h.est is null or h.due is null then null
-             when h.due < (select d from today) then 0
-             else public.work_person_available(h.space_id, p_user, (select d from today), h.due)
-                  - coalesce((select sum(pl.load_minutes)
-                                from public.work_person_load(h.space_id, p_user, (select d from today), h.due, h.id) pl), 0)
+             else public.work_task_room(h.space_id, p_user, h.id, h.due)
            end as room
       from held h
   ), judged as (
@@ -515,6 +535,172 @@ $$;
 
 revoke all on function public.general_project_leaves(uuid) from public, anon;
 grant execute on function public.general_project_leaves(uuid) to authenticated;
+
+------------------------------------------------------------ phase 2 reads
+
+-- Each holder whose share of a task's remaining work is more than their free
+-- hours before it is due, for the project's planners and the task's holders.
+create or replace function public.general_task_forecast(p_task uuid)
+returns table(user_id uuid, remaining_minutes int, short_minutes int)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  t public.general_tasks;
+  q public.general_projects;
+  v_due date;
+  v_holders int;
+  v_rem numeric;
+begin
+  select * into t from public.general_tasks where id = p_task;
+  if t.id is null or auth.uid() is null or not public.general_viewer_active() then
+    return;
+  end if;
+  select * into q from public.general_projects where id = t.project_id;
+  if q.class_board_id is not null or q.archived_at is not null or q.trashed_at is not null
+     or t.archived_at is not null or t.trashed_at is not null or t.status = 'done'
+     or t.routing_state <> 'released' or t.estimated_minutes is null or t.due_at is null then
+    return;
+  end if;
+  if not public.work_is_project_planner(t.project_id)
+     and not exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = auth.uid()) then
+    return;
+  end if;
+  v_due := (t.due_at at time zone 'Asia/Manila')::date;
+  select count(*) into v_holders from public.general_task_assignees a where a.task_id = p_task;
+  v_rem := greatest(0, t.estimated_minutes
+                       - coalesce((select sum(l.minutes) from public.general_task_logs l where l.task_id = p_task), 0))::numeric
+           / greatest(v_holders, 1);
+  return query
+  select a.user_id, round(v_rem)::int, round(v_rem - greatest(r.room, 0))::int
+    from public.general_task_assignees a
+    cross join lateral (select public.work_task_room(q.space_id, a.user_id, p_task, v_due) as room) r
+   where a.task_id = p_task and r.room is not null and v_rem > greatest(r.room, 0)
+   order by a.user_id;
+end;
+$$;
+
+revoke all on function public.general_task_forecast(uuid) from public, anon;
+grant execute on function public.general_task_forecast(uuid) to authenticated;
+
+-- What Suggest changes needs for one leave: the project's flagged tasks and the
+-- people who could take them (skills, free hours to the end of the window,
+-- whether they are away too). For the project's planners.
+create or replace function public.general_leave_suggest_context(p_notice uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  g public.general_leave_notices;
+  v_space uuid;
+  v_today date := (now() at time zone 'Asia/Manila')::date;
+  v_end date;
+  v_tasks jsonb;
+  v_people jsonb;
+begin
+  select * into g from public.general_leave_notices where id = p_notice;
+  if g.id is null or not public.work_is_project_planner(g.project_id) then
+    raise exception 'Only the project manager and coordinators can review leave.' using errcode = 'insufficient_privilege';
+  end if;
+  if g.last_day < v_today then
+    raise exception 'This leave has ended.' using errcode = 'check_violation';
+  end if;
+  select space_id into v_space from public.general_projects where id = g.project_id;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'task_id', s.task_id, 'title', t.title, 'description', t.description, 'status', s.status,
+           'remaining_minutes', s.remaining_minutes, 'short_minutes', s.short_minutes, 'due_on', s.due_on,
+           'blocks', (select coalesce(jsonb_agg(w.title order by w.title), '[]'::jsonb)
+                        from public.general_task_dependencies dp
+                        join public.general_tasks w on w.id = dp.task_id
+                       where dp.depends_on_id = s.task_id and w.status <> 'done'
+                         and w.archived_at is null and w.trashed_at is null))
+           order by s.due_on nulls last, t.title), '[]'::jsonb),
+         greatest(g.last_day, max(s.due_on))
+    into v_tasks, v_end
+    from public.work_leave_task_status(g.user_id, g.first_day, g.last_day) s
+    join public.general_tasks t on t.id = s.task_id
+   where s.project_id = g.project_id and s.status <> 'fine';
+  v_end := coalesce(v_end, g.last_day);
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'user_id', gm.user_id,
+           'skills', (select coalesce(jsonb_agg(k.tag order by k.tag), '[]'::jsonb)
+                        from public.general_member_skills k
+                       where k.project_id = g.project_id and k.user_id = gm.user_id),
+           'free_minutes', public.work_task_room(v_space, gm.user_id, null, v_end),
+           'away', exists (select 1 from public.work_leave_runs(gm.user_id, v_today) r
+                            where r.first_day <= g.last_day and r.last_day >= v_today))
+           order by gm.user_id), '[]'::jsonb)
+    into v_people
+    from public.general_members gm
+    join public.profiles pf on pf.id = gm.user_id and pf.status = 'active'
+   where gm.project_id = g.project_id and gm.user_id <> g.user_id
+     and gm.role not in ('qa', 'stakeholder');
+
+  return jsonb_build_object('notice_id', g.id, 'project_id', g.project_id, 'user_id', g.user_id,
+                            'first_day', g.first_day, 'last_day', g.last_day,
+                            'tasks', v_tasks, 'people', v_people);
+end;
+$$;
+
+revoke all on function public.general_leave_suggest_context(uuid) from public, anon;
+grant execute on function public.general_leave_suggest_context(uuid) to authenticated;
+
+-- A sprint's hours for the project's members: the available and away minutes of
+-- the people holding its open tasks over its dates, its planned estimates, its
+-- open tasks with no holder and its holders with no weekly hours.
+create or replace function public.general_sprint_hours(p_sprint uuid)
+returns table(available_minutes int, away_minutes int, planned_minutes int, unassigned int, people_without_hours int)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  sp public.general_sprints;
+  v_space uuid;
+begin
+  select * into sp from public.general_sprints where id = p_sprint;
+  if sp.id is null or auth.uid() is null or not public.general_viewer_active()
+     or not public.is_general_member(sp.project_id) then
+    return;
+  end if;
+  select space_id into v_space from public.general_projects where id = sp.project_id and class_board_id is null;
+  if v_space is null then
+    return;
+  end if;
+
+  return query
+  with open_tasks as (
+    select t.id, t.estimated_minutes
+      from public.general_tasks t
+     where t.sprint_id = p_sprint and t.status <> 'done' and t.archived_at is null and t.trashed_at is null
+  ), people as (
+    select distinct a.user_id
+      from open_tasks o join public.general_task_assignees a on a.task_id = o.id
+  ), hours as (
+    select h.* from people pe
+    cross join lateral public.work_person_hours(v_space, pe.user_id, sp.starts_on, sp.ends_on) h
+  )
+  select coalesce((select sum(h.available_minutes) from hours h where h.weekly_minutes is not null), 0)::int,
+         coalesce((select sum(h.time_off_minutes) from hours h where h.weekly_minutes is not null), 0)::int,
+         coalesce((select sum(o.estimated_minutes) from open_tasks o), 0)::int,
+         (select count(*) from open_tasks o
+           where not exists (select 1 from public.general_task_assignees a where a.task_id = o.id))::int,
+         (select count(*) from hours h where h.weekly_minutes is null)::int;
+end;
+$$;
+
+revoke all on function public.general_sprint_hours(uuid) from public, anon;
+grant execute on function public.general_sprint_hours(uuid) to authenticated;
 
 ------------------------------------------------------------ temporary cover
 
