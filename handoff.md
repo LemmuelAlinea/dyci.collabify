@@ -5606,3 +5606,30 @@ accepted." from the setting; no failed requests.
   mirrors `general_task_logs_insert`. No SQL checks for archived/trashed tasks, stakeholders or the internal
   functions' privileges. Accuracy also reaches team leads (`work_workload_people`).
 - Weekly hours set to 0 from Home hide the Home field; change them in the space's Members settings.
+
+## 2026-11-23 — Leave-aware workload phase 1 (leave and impact), on branch `leave-phase-1`
+
+- **Recording leave.** Settings → Time off gains an optional last day (a range of weekdays). A space's project
+  manager or coordinators mark someone away from the Workload tab (Mark away: first day, last day as a best guess,
+  whole days or hours a day) and remove leave a planner added. Rows show who added them. Anyone in the space sees
+  "Away 26–28 Nov" on the Workload tab, never a reason.
+- **Impact check.** Saving or removing away days re-checks that person's open tasks in every work project: Blocks
+  someone, Due during leave, Won't fit (remaining share vs free hours to the due day), Fine. Each project's manager
+  and coordinators get one Inbox notice per leave ("Ivan Cruz is away 26–28 Nov", "3 tasks in Login work need a
+  look."), again only when the flagged tasks change. New setting: Leave and cover.
+- **Leave review.** On the project (banner on the Work tabs, or the notice) the review lists each leave's tasks,
+  flagged first, with Move due date, Reassign, Cover and Skip per task. Every change goes through the existing rules.
+- **Cover.** Cover swaps the away holder for the cover until the leave's last day; the task shows "Keneth Lim is
+  covering for Ivan Cruz until Fri 28 Nov" with Hand back and Keep, and a Cover marker on its card. The cover follows
+  the leave if it is extended or shortened. At 08:00 Manila the day after, the cover and the project manager get
+  "Ivan Cruz is back"; on a leave's last day the project manager gets "…'s leave ends today" (opens the Workload tab).
+- SQL: `supabase/work-leave.sql` (after `work-workload.sql`), applied live with `anon-lockdown.sql`; suite
+  `work-leave` 47 checks, and `work-workload`, `project-open-tasks`, `work-task-handoff`, `project-notification-rules`,
+  `anon-lockdown` pass. Vitest and the build pass.
+- Plan `docs/superpowers/plans/2026-11-23-leave-aware-workload-phase-1.md`, spec
+  `docs/superpowers/specs/2026-11-23-leave-aware-workload-design.md`.
+
+**Deferred**
+- Phase 2: AI suggestions in the review, away badges in pickers and cards, the at-risk forecast, sprint hours.
+- The leave-ending notice opens the Workload tab, not Mark away prefilled (notices carry no person).
+- Skip in the review is not saved.
