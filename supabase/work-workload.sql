@@ -747,6 +747,70 @@ $$;
 revoke all on function public.general_task_holder_room(uuid, uuid[]) from public, anon;
 grant execute on function public.general_task_holder_room(uuid, uuid[]) to authenticated;
 
+-- A task not created yet: for each project member among p_users, their load,
+-- their share of it (p_minutes over the holders) and their available minutes
+-- over its weeks (work_task_weeks' span rules: start, else today, to the due
+-- date; overdue or undated work is this week). New task asks before it adds a
+-- task with holders, so the planner can split it instead of overloading
+-- someone. Only the project manager and coordinators, who already see hours.
+create or replace function public.general_new_task_room(
+  p_project uuid, p_users uuid[], p_minutes int, p_starts timestamptz, p_due timestamptz)
+returns table(user_id uuid, load_minutes int, share_minutes int, available_minutes int, from_on date, to_on date)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  gp public.general_projects%rowtype;
+  v_today date := public.work_today();
+  v_st date;
+  v_due date;
+  v_a date;
+  v_e date;
+  v_from date;
+  v_to date;
+  v_holders int;
+begin
+  select * into gp from public.general_projects where id = p_project;
+  if gp.id is null or gp.class_board_id is not null or gp.space_id is null
+     or gp.archived_at is not null or gp.trashed_at is not null then
+    raise exception 'Choose a live work project.' using errcode = 'check_violation';
+  end if;
+  if auth.uid() is null or not public.general_viewer_active()
+     or coalesce(public.general_role_of(gp.id, auth.uid())::text, '') not in ('pm', 'coordinator') then
+    raise exception 'Only the project manager and coordinators can check hours for a new task.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_minutes is null or p_minutes < 1 or p_minutes > 60000 then
+    raise exception 'Enter an estimate from 1 minute to 1000 hours.' using errcode = 'check_violation';
+  end if;
+
+  v_st := coalesce((p_starts at time zone 'Asia/Manila')::date, v_today);
+  v_due := (p_due at time zone 'Asia/Manila')::date;
+  v_a := case when v_due is null or v_due < v_today then v_today else greatest(v_st, v_today) end;
+  v_e := case when v_due is null or v_due < v_today then v_today else greatest(v_due, v_st, v_today) end;
+  v_from := v_a - (extract(isodow from v_a)::int - 1);
+  v_to := v_e - (extract(isodow from v_e)::int - 1) + 4;
+  v_holders := greatest(coalesce(cardinality(p_users), 0), 1);
+
+  return query
+  select m.user_id,
+         round(coalesce((select sum(l.load_minutes)
+                           from public.work_person_load(gp.space_id, m.user_id, v_from, v_to) l), 0))::int,
+         round(p_minutes::numeric / v_holders)::int,
+         public.work_person_available(gp.space_id, m.user_id, v_from, v_to),
+         v_from,
+         v_to
+    from public.general_members m
+   where m.project_id = gp.id and m.user_id = any(p_users);
+end;
+$$;
+
+revoke all on function public.general_new_task_room(uuid, uuid[], int, timestamptz, timestamptz) from public, anon;
+grant execute on function public.general_new_task_room(uuid, uuid[], int, timestamptz, timestamptz) to authenticated;
+
 -- The tasks counted in one person's load for the window (the space Workload
 -- tab's expanded row), only in projects the caller may see named on that load;
 -- the rest stays in the load function's unnamed total. Refuses a person the

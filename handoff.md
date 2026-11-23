@@ -5711,3 +5711,20 @@ accepted." from the setting; no failed requests.
 - **Review.** Under the subtask total: "Share of each person's hours from this plan: Ivan Caburnay 33% · …".
 - No SQL. The browser runs the rule (review and Rebalance), so only the frontend deploys.
 - Spec `docs/superpowers/specs/2026-11-24-balance-skills-as-preference-design.md`.
+
+## 2026-11-24 — New task stops before overloading someone, on branch `new-task-overload`
+
+- **Why.** Adding a 30 h task for Ivan (16 / 40 h) in an Open project went straight through. A small amber line
+  appeared only once both holder and estimate were filled, Add task never stopped, and the line counted the whole
+  estimate in this week. Asana can't stop it and ClickUp users still ask for it.
+- **What.** For the project manager and coordinators, Add task with holders and an estimate first asks
+  `general_new_task_room` (in `work-workload.sql`; load, share and hours over the task's real weeks). If someone would
+  go over, the form pauses: "Ivan Caburnay would be 6 h over: 46 / 40 h for 23–27 Nov." with **Add and split with AI**
+  (adds the task, then opens Break down and balance with everyone who can hold tasks selected), **Add anyway** and
+  **Go back**. With subtasks off, the split is replaced by a line saying so. The old live amber line is gone. A failed
+  check never blocks the task. Members keep the database refusal.
+- SQL applied live with `work-leave.sql` and `anon-lockdown.sql`; `work-workload` 177 checks.
+- Spec `docs/superpowers/specs/2026-11-24-new-task-overload-design.md`.
+
+**Deferred**
+- The task dialog's holder picker (assigning an existing task) still shows only the small warning line.

@@ -1137,6 +1137,10 @@ coordinators, not archived) and read by `space_default_weekly_minutes` (members 
 nobody is "Not set". `general_space_people_hours` returns `own_weekly_minutes` too; the file drops and recreates it
 because its return shape changed. After re-running it, re-run `work-leave.sql`, then `anon-lockdown.sql`.
 
+New task's overload check, in the same file: `general_new_task_room(project, users, minutes, starts, due)` (the
+project manager and coordinators only) gives each project member among the users their load, their share of the task
+and their available minutes over the task's weeks, using `work_task_weeks`' span rules.
+
 Phase 3 adds, in the same file: the table `general_task_timers` (one row per person, RLS on with one own-row
 select policy and no write grant), the internal `work_timer_can_log` and `work_timer_log`, `start_work_task_timer`,
 `stop_work_task_timer` and `cancel_work_task_timer` (a stopped timer inserts one `general_task_logs` row as the

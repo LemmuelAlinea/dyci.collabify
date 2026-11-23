@@ -1057,6 +1057,28 @@ begin
     (select room from public.general_task_holder_room(w, array[u[3]])) = 'ok');
   perform pg_temp.check('room only project members',
     (select count(*) from public.general_task_holder_room(y, array[u[3], gen_random_uuid()])) = 1);
+
+  -- A task not created yet: B holds 840 of 960 this week, so a 6 h task shared with C puts B over.
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('new task room counts load and share',
+    (select load_minutes = 840 and share_minutes = 180 and available_minutes = 960
+            and from_on = v_mon and to_on = v_fri
+       from public.general_new_task_room(p, array[u[3], u[4]], 360, st, du) where user_id = u[3])
+    and (select load_minutes = 90 and share_minutes = 180 and available_minutes = 960
+           from public.general_new_task_room(p, array[u[3], u[4]], 360, st, du) where user_id = u[4]));
+  perform pg_temp.check('new task room spans its weeks',
+    (select to_on = v_fri + 7 and available_minutes = 1920
+       from public.general_new_task_room(p, array[u[3]], 360, st, du + interval '7 days') where user_id = u[3]));
+  perform pg_temp.check('new task room only project members',
+    (select count(*) from public.general_new_task_room(p, array[u[3], gen_random_uuid()], 360, st, du)) = 1);
+  perform pg_temp.refuse('new task room estimate range',
+    format('select * from public.general_new_task_room(%L, array[%L]::uuid[], 0, null, null)', p, u[3]),
+    'Enter an estimate');
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.refuse('new task room planners only',
+    format('select * from public.general_new_task_room(%L, array[%L]::uuid[], 360, null, null)', p, u[3]),
+    'Only the project manager and coordinators can check hours for a new task.');
+  perform pg_temp.act_as(u[2]);
   perform pg_temp.act_as(u[5]);
   perform pg_temp.check('room for a lead',
     (select room from public.general_task_holder_room(y, array[u[3]])) = 'full');

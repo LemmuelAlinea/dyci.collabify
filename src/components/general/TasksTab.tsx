@@ -1,10 +1,11 @@
 // src/components/general/TasksTab.tsx
 import { EstimateSpent } from './TaskTimer'
-import { projectCovers } from '../../lib/api/workload'
-import { formatDayLabel, manilaToday } from '../../lib/work/hours'
+import { newTaskRoom, projectCovers, type NewTaskRoom } from '../../lib/api/workload'
+import { WorkloadPlanDialog } from './WorkloadPlanDialog'
+import { formatDayLabel, formatDayRange, formatHours, manilaToday } from '../../lib/work/hours'
 import { useAwayRanges } from '../../lib/work/useAwayRanges'
 import { awayText } from '../../lib/work/away'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { BoardColumn, MoveToStage } from '../tasks/BoardColumn'
 import { StageBadge, StageSelect } from '../tasks/StageSelect'
@@ -901,6 +902,10 @@ export function NewTaskDialog({
   const [suggestion, setSuggestion] = useState<{ reason: string } | { error: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Holders this task would put over their hours, shown before it is added.
+  const [over, setOver] = useState<NewTaskRoom[] | null>(null)
+  // The task just added for Add and split with AI: Break down and balance opens on it.
+  const [planFor, setPlanFor] = useState<string | null>(null)
   const project = state.project
   const work = Boolean(project && !project.class_board_id)
   // QA creates bug tasks only, so the type is fixed for them.
@@ -925,14 +930,15 @@ export function NewTaskDialog({
     taskId: null,
     viewer: open && showHolders && (state.myRole === 'pm' || state.myRole === 'coordinator') ? 'planner' : 'none',
   })
-  // A picked holder whose hours this week plus their share of the estimate pass what they have.
-  const estimateNow = parseHours(estimate)
-  const overHolders = typeof estimateNow === 'number' && holders.length > 0
-    ? holders.filter((uid) => {
-        const hours = holderLabels.get(uid)
-        return hours?.load != null && hours.available != null && hours.load + estimateNow / holders.length > hours.available
-      })
-    : []
+  const planner = state.myRole === 'pm' || state.myRole === 'coordinator'
+  const canSplit = rules.allowSubtasks
+  // A change to what the check read makes its answer stale.
+  useEffect(() => setOver(null), [holders, estimate, starts, due])
+  // The pause sits at the end of the form, where the buttons that answer it are.
+  const overRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (over) overRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [over])
   const awayRanges = useAwayRanges(showHolders ? project?.space_id : null)
   const holderName = (uid: string) => {
     const hours = holderLabels.get(uid)
@@ -957,7 +963,36 @@ export function NewTaskDialog({
     }
   }
 
-  async function create() {
+  function reset() {
+    setTitle('')
+    setDescription('')
+    setDue('')
+    setStarts('')
+    setTeam('')
+    setPickedKind('task')
+    setPickedType('task')
+    setPickedPriority('')
+    setHolders([])
+    setEstimate('')
+    setSuggestion(null)
+    setOver(null)
+  }
+
+  /** After Break down and balance closes on a task New task added: back to the board, on that task. */
+  async function planDone(id: string) {
+    setPlanFor(null)
+    reset()
+    onClose()
+    await state.reload()
+    onCreated(id)
+  }
+
+  /**
+   * Adds the task. A planner adding holders and an estimate in an Open project
+   * is first told who it would put over their hours (`check`); then `anyway`
+   * adds it as it is and `split` adds it and opens Break down and balance.
+   */
+  async function create(mode: 'check' | 'anyway' | 'split' = 'check') {
     if (!project) return
     if (state.readOnly || (!project.class_board_id && !canCreateWorkTaskWith(state.myRole, kind, project.memberRules ?? DEFAULT_MEMBER_RULES, project.taskFlow))) return
     setError(null)
@@ -970,6 +1005,15 @@ export function NewTaskDialog({
     if (estimateMinutes === 'invalid') return setError('Enter the estimate in hours, up to 1000.')
     setBusy(true)
     try {
+      if (mode === 'check' && isOpen && planner && showHolders && typeof estimateMinutes === 'number' && holders.length > 0) {
+        // Advisory: a failed read never stops the task.
+        const rows = await newTaskRoom(project.id, holders, estimateMinutes, startsAt, dueAt).catch(() => [])
+        const past = rows.filter((r) => r.available_minutes != null && r.load_minutes + r.share_minutes > r.available_minutes)
+        if (past.length > 0) {
+          setOver(past)
+          return
+        }
+      }
       if (isMember) {
         await createMemberTask(project.id, title, description, dueAt, team || undefined, taskType)
         show('Sent to planners for review')
@@ -1009,17 +1053,11 @@ export function NewTaskDialog({
             ...(showPriority ? { priority } : {}),
           })
       show('Task added')
-      setTitle('')
-      setDescription('')
-      setDue('')
-      setStarts('')
-      setTeam('')
-      setPickedKind('task')
-      setPickedType('task')
-      setPickedPriority('')
-      setHolders([])
-      setEstimate('')
-      setSuggestion(null)
+      if (mode === 'split') {
+        setPlanFor(id)
+        return
+      }
+      reset()
       onClose()
       await state.reload()
       onCreated(id)
@@ -1030,6 +1068,24 @@ export function NewTaskDialog({
     }
   }
 
+  if (planFor && project?.space_id) {
+    const id = planFor
+    return (
+      <WorkloadPlanDialog
+        parentId={id}
+        projectId={project.id}
+        spaceId={project.space_id}
+        parentEstimateMinutes={typeof parseHours(estimate) === 'number' ? (parseHours(estimate) as number) : null}
+        preselect={candidates}
+        onClose={() => void planDone(id)}
+        onSaved={(ids) => {
+          show(ids.length === 1 ? '1 subtask created' : `${ids.length} subtasks created`)
+          void planDone(id)
+        }}
+      />
+    )
+  }
+
   return (
     <Modal
       open={open}
@@ -1038,14 +1094,31 @@ export function NewTaskDialog({
       description={isMember ? 'It goes to the project manager and coordinators for review. You won\'t see it until they send it.' : undefined}
       focusField
       footer={
-        <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button onClick={() => void create()} loading={busy}>
-            Add task
-          </Button>
-        </>
+        over ? (
+          <>
+            <Button variant="ghost" onClick={() => setOver(null)} disabled={busy}>
+              Go back
+            </Button>
+            <Button variant="outline" onClick={() => void create('anyway')} disabled={busy}>
+              Add anyway
+            </Button>
+            {canSplit && (
+              <Button onClick={() => void create('split')} loading={busy}>
+                <Icon name="spark" size={15} />
+                Add and split with AI
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={() => void create()} loading={busy}>
+              Add task
+            </Button>
+          </>
+        )
       }
     >
       <div className="space-y-4">
@@ -1172,12 +1245,6 @@ export function NewTaskDialog({
             )}
           </Field>
         )}
-        {overHolders.map((uid) => (
-          <p key={uid} className="flex items-center gap-1 text-[12px] text-warning-700 dark:text-warning-300">
-            <Icon name="alert" size={12} />
-            {state.nameOf(uid)} goes over available hours this week.
-          </p>
-        ))}
         <Field label="Description" optional>
           {(id) => (
             <Textarea
@@ -1189,6 +1256,28 @@ export function NewTaskDialog({
             />
           )}
         </Field>
+        {over && (
+          <div ref={overRef} role="status" className="scroll-mb-4 space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-4 py-3 dark:border-warning-400/40 dark:bg-warning-400/15">
+            <p className="flex items-center gap-1.5 text-[13px] font-medium text-warning-800 dark:text-warning-300">
+              <Icon name="alert" size={14} />
+              This task puts {over.length === 1 ? 'someone' : 'people'} over their hours
+            </p>
+            <ul className="space-y-1 text-[13px] text-ink">
+              {over.map((r) => (
+                <li key={r.user_id}>
+                  {state.nameOf(r.user_id)} would be {formatHours(r.load_minutes + r.share_minutes - (r.available_minutes ?? 0))} over:{' '}
+                  {formatHours(r.load_minutes + r.share_minutes).replace(/ h$/, '')} / {formatHours(r.available_minutes ?? 0)} for{' '}
+                  {formatDayRange(r.from_on, r.to_on)}.
+                </li>
+              ))}
+            </ul>
+            <p className="text-[12px] text-muted">
+              {canSplit
+                ? 'Split it with AI to share the work with people who have the skills and the room, or add it as it is.'
+                : 'Subtasks are off in this project, so it can’t be split here. Add it as it is, or go back and change the holders.'}
+            </p>
+          </div>
+        )}
       </div>
     </Modal>
   )

@@ -21,6 +21,17 @@ vi.mock('../../lib/api/general', () => ({
   updateTask: vi.fn(async () => {}),
 }))
 vi.mock('../../lib/api/workAi', () => ({ suggestEstimateFromText: vi.fn() }))
+vi.mock('../../lib/api/workload', async (original) => ({
+  ...(await original<typeof import('../../lib/api/workload')>()),
+  newTaskRoom: vi.fn(async () => []),
+}))
+vi.mock('./WorkloadPlanDialog', () => ({
+  WorkloadPlanDialog: (props: { parentId: string; preselect?: string[]; onClose: () => void }) => (
+    <div data-plan={props.parentId} data-people={(props.preselect ?? []).join(',')}>
+      <button type="button" onClick={props.onClose}>Close plan</button>
+    </div>
+  ),
+}))
 const holderHours = vi.hoisted(() => ({ labels: new Map<string, { text: string; tone: string }>(), calls: [] as unknown[] }))
 vi.mock('../../lib/work/useHolderHours', () => ({
   useHolderHours: (opts: unknown) => { holderHours.calls.push(opts); return holderHours.labels },
@@ -152,15 +163,73 @@ it('reads hours only while open', async () => {
   expect(holderHours.calls.at(-1)).toMatchObject({ viewer: 'none' })
 })
 
-it('warns when a picked holder goes over available hours', async () => {
-  holderHours.labels = new Map([['b', { text: '14 / 16 h this week', tone: 'warning', load: 840, available: 960 }]])
-  try {
-    await open(makeState('pm', { space_id: 's' }))
-    await act(async () => type(control('Estimated effort (hours)')!, '3'))
-    expect(document.body.textContent).not.toContain('goes over available hours')
-    await act(async () => holderBoxes()[1].click())
-    expect(document.body.textContent).toContain('Person b goes over available hours this week.')
-  } finally { holderHours.labels = new Map() }
+const overB = { user_id: 'b', load_minutes: 960, share_minutes: 1800, available_minutes: 2400, from_on: '2026-11-23', to_on: '2026-11-27' }
+
+async function fillOverloaded(project: Record<string, unknown> = {}) {
+  const { newTaskRoom } = await import('../../lib/api/workload')
+  vi.mocked(newTaskRoom).mockResolvedValueOnce([overB])
+  await open(makeState('pm', { space_id: 's', ...project }))
+  await act(async () => type(control('Title')!, 'Build the landing page'))
+  await act(async () => type(control('Estimated effort (hours)')!, '30'))
+  await act(async () => holderBoxes()[1].click())
+  await act(async () => button('Add task')!.click())
+  return newTaskRoom
+}
+
+it('pauses a planner before a holder goes over their hours', async () => {
+  const newTaskRoom = await fillOverloaded()
+  expect(newTaskRoom).toHaveBeenCalledWith('p1', ['b'], 1800, null, null)
+  expect(createOpenTask).not.toHaveBeenCalled()
+  expect(document.body.textContent).toContain('Person b would be 6 h over: 46 / 40 h for 23–27 Nov.')
+  expect(button('Add and split with AI')).toBeTruthy()
+  expect(button('Add anyway')).toBeTruthy()
+  expect(button('Go back')).toBeTruthy()
+  expect(document.body.textContent).not.toContain('goes over available hours')
+})
+
+it('adds the task as it is with Add anyway', async () => {
+  await fillOverloaded()
+  await act(async () => button('Add anyway')!.click())
+  expect(createOpenTask).toHaveBeenCalledWith(expect.objectContaining({ holderIds: ['b'], estimateMinutes: 1800 }))
+  expect(onCreated).toHaveBeenCalledWith('open-task')
+})
+
+it('adds the task and opens Break down and balance with everyone who can hold tasks', async () => {
+  await fillOverloaded()
+  await act(async () => button('Add and split with AI')!.click())
+  expect(createOpenTask).toHaveBeenCalledTimes(1)
+  const plan = document.body.querySelector('[data-plan]')!
+  expect(plan.getAttribute('data-plan')).toBe('open-task')
+  expect(plan.getAttribute('data-people')).toBe('me,b,c')
+  expect(onCreated).not.toHaveBeenCalled()
+  await act(async () => button('Close plan')!.click())
+  expect(reload).toHaveBeenCalled()
+  expect(onCreated).toHaveBeenCalledWith('open-task')
+})
+
+it('goes back to the form without adding', async () => {
+  await fillOverloaded()
+  await act(async () => button('Go back')!.click())
+  expect(createOpenTask).not.toHaveBeenCalled()
+  expect(document.body.textContent).not.toContain('would be 6 h over')
+  expect((control('Title') as HTMLInputElement).value).toBe('Build the landing page')
+})
+
+it('offers no split when subtasks are off', async () => {
+  await fillOverloaded({ taskRules: { ...DEFAULT_TASK_RULES, allowMultipleAssignees: true, allowSubtasks: false } })
+  expect(button('Add and split with AI')).toBeUndefined()
+  expect(document.body.textContent).toContain('Subtasks are off in this project, so it can’t be split here.')
+})
+
+it('adds at once when nobody goes over', async () => {
+  const { newTaskRoom } = await import('../../lib/api/workload')
+  vi.mocked(newTaskRoom).mockResolvedValueOnce([{ ...overB, load_minutes: 0 }])
+  await open(makeState('pm', { space_id: 's' }))
+  await act(async () => type(control('Title')!, 'Build the landing page'))
+  await act(async () => type(control('Estimated effort (hours)')!, '30'))
+  await act(async () => holderBoxes()[1].click())
+  await act(async () => button('Add task')!.click())
+  expect(createOpenTask).toHaveBeenCalledTimes(1)
 })
 
 it('shows a planner hours beside each holder', async () => {
