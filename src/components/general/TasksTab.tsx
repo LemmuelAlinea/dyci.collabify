@@ -1,6 +1,8 @@
 // src/components/general/TasksTab.tsx
 import { EstimateSpent } from './TaskTimer'
-import { useMemo, useState } from 'react'
+import { projectCovers } from '../../lib/api/workload'
+import { formatDayLabel } from '../../lib/work/hours'
+import { useEffect, useMemo, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { BoardColumn, MoveToStage } from '../tasks/BoardColumn'
 import { StageBadge, StageSelect } from '../tasks/StageSelect'
@@ -82,6 +84,18 @@ export function TasksTab({
   onOpenTask: (id: string | null) => void
 }) {
   const { show } = useToast()
+  // Open covers on a work project's tasks: one read for the board's markers.
+  const [covers, setCovers] = useState<Map<string, { away_id: string; until: string }>>(new Map())
+  const coverProject = state.project && !state.project.class_board_id ? state.project.id : null
+  const taskStamp = state.tasks.map((t) => `${t.id}:${t.assignee_ids.join('.')}`).join(',')
+  useEffect(() => {
+    if (!coverProject) return
+    let current = true
+    projectCovers(coverProject)
+      .then((rows) => { if (current) setCovers(new Map(rows.map((r) => [r.task_id, r]))) })
+      .catch(() => {})
+    return () => { current = false }
+  }, [coverProject, taskStamp])
   const [query, setQuery] = useState('')
   const [team, setTeam] = useTeamFilter(state.project?.id, state.viewerId, state.teams)
   const [assignee, setAssignee] = useState('')
@@ -377,6 +391,10 @@ export function TasksTab({
           state={state}
           stages={stages}
           marksOf={marksOf}
+          coverOf={(id) => {
+            const c = covers.get(id)
+            return c ? `Covering for ${state.nameOf(c.away_id)} until ${formatDayLabel(c.until)}` : null
+          }}
           mayMove={mayMove}
           onMove={move}
           onOpen={showTask}
@@ -430,6 +448,7 @@ function StageBoard({
   state,
   stages,
   marksOf,
+  coverOf,
   mayMove,
   onMove,
   onOpen,
@@ -438,6 +457,7 @@ function StageBoard({
   state: GeneralProjectState
   stages: readonly string[]
   marksOf: (t: GeneralTask) => TaskMarkData | null
+  coverOf: (taskId: string) => string | null
   mayMove: (t: GeneralTask) => boolean
   onMove: (t: GeneralTask, to: GeneralTaskStatus, stage: number) => Promise<boolean>
   onOpen: (id: string) => void
@@ -516,6 +536,7 @@ function StageBoard({
                   canMove={mayMove(t)}
                   stages={stages}
                   marks={marksOf(t)}
+                  cover={coverOf(t.id)}
                   drag={drag}
                   column={index}
                   draggable={movable(t)}
@@ -576,6 +597,7 @@ function TaskCard({
   canMove,
   stages,
   marks,
+  cover,
   drag,
   column,
   draggable,
@@ -588,6 +610,8 @@ function TaskCard({
   canMove: boolean
   stages: readonly string[]
   marks: TaskMarkData | null
+  /** "Covering for Ivan until Fri 28 Nov" when someone holds it for an away holder. */
+  cover?: string | null
   drag: BoardDrag
   column: number
   draggable: boolean
@@ -622,6 +646,11 @@ function TaskCard({
           {task.title}
         </h4>
         <div className="flex shrink-0 items-center gap-1">
+          {cover && (
+            <span data-cover-marker title={cover} className="rounded-md bg-warning-50 px-1.5 py-0.5 text-[12px] text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">
+              Cover
+            </span>
+          )}
           <BugBadge kind={task.kind} taskType={task.task_type} />
           <PriorityBadge priority={task.priority} />
           {teamName && (

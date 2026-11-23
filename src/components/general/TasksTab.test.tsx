@@ -18,6 +18,10 @@ vi.mock('./LeadInbox', () => ({ LeadInbox: () => null }))
 vi.mock('./workSource', () => ({ generalWorkSource: () => ({}) }))
 vi.mock('./TasksFromNotes', () => ({ TasksFromNotes: () => null }))
 vi.mock('./AssignByPosition', () => ({ AssignByPosition: () => null }))
+vi.mock('../../lib/api/workload', async (importOriginal) => ({
+  ...await importOriginal<object>(),
+  projectCovers: vi.fn(async () => [{ task_id: 'covered', away_id: 'ivan', cover_id: 'keneth', until: '2026-11-28' }]),
+}))
 
 it('keeps only the QA creators own unsent bugs reachable without planner actions', async () => {
   const task = { id: 'own', title: 'Own planning bug', kind: 'bug', routing_state: 'planning', created_by: 'qa', team_id: null, assignee_ids: [], status: 'todo', description: '', archived_at: null }
@@ -95,5 +99,20 @@ it('card shows est and spent', async () => {
     await act(async () => root.render(<MemoryRouter><TasksTab state={state} layout="board" onLayout={vi.fn()} onViewBoard={vi.fn()} scope="all" onScope={vi.fn()} onOpenTask={vi.fn()} /></MemoryRouter>))
     const lines = [...container.querySelectorAll('[data-estimate-spent]')].map(l => l.textContent)
     expect(lines).toEqual(['Est. 6 h · Spent 7 h 20 m'])
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('card shows cover marker', async () => {
+  const task = { id: 'covered', title: 'Covered work', kind: 'task', routing_state: 'released', created_by: 'pm', team_id: null, assignee_ids: [], status: 'todo', stage: 0, description: '', sprint_id: null, archived_at: null, file_count: 0, comment_count: 0 }
+  const state = { project: { id: 'project', class_board_id: null, stages: ['Todo', 'Done'] }, myRole: 'member', viewerId: 'member', readOnly: false,
+    tasks: [task, { ...task, id: 'plain', title: 'Plain work' }],
+    teams: [], teamMembers: [], members: [], sprints: [], milestones: [], sprintSettings: DEFAULT_SPRINT_SETTINGS, can: () => false, qaBlocks: () => false, leadsUser: () => false, nameOf: (id: string) => id,
+  } as unknown as GeneralProjectState
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<MemoryRouter><TasksTab state={state} layout="board" onLayout={vi.fn()} onViewBoard={vi.fn()} scope="all" onScope={vi.fn()} onOpenTask={vi.fn()} /></MemoryRouter>))
+    await act(async () => {})
+    const markers = [...container.querySelectorAll('[data-cover-marker]')].map(m => m.getAttribute('title'))
+    expect(markers).toEqual(['Covering for ivan until Sat 28 Nov'])
   } finally { await act(async () => root.unmount()); container.remove() }
 })

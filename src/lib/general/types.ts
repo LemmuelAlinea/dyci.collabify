@@ -464,6 +464,11 @@ export type GeneralTaskEvent = {
     weight_to?: number
     estimate_from?: number | null
     estimate_to?: number | null
+    /** On a cover event: started, handed_back or kept, who was away, who covered, until when. */
+    cover?: 'started' | 'handed_back' | 'kept'
+    away_id?: string
+    cover_id?: string
+    until?: string
     /** What QA asked to have fixed, on a qa_sent_back event. */
     note?: string
     reason?: string

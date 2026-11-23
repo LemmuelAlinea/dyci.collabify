@@ -322,3 +322,41 @@ export async function startCover(taskId: string, awayId: string, coverId: string
   if (error) throw error
   return data as string
 }
+
+/** An open cover: `cover_id` holds the task while `away_id` is away, until a day (YYYY-MM-DD). */
+export type TaskCoverRow = { id: string; task_id: string; away_id: string; cover_id: string; until: string }
+
+/** The task's open cover, if any. */
+export async function taskCover(taskId: string): Promise<TaskCoverRow | null> {
+  const { data, error } = await supabase
+    .from('general_task_covers')
+    .select('id, task_id, away_id, cover_id, until')
+    .eq('task_id', taskId)
+    .is('closed_at', null)
+    .maybeSingle()
+  if (error) throw error
+  return (data as TaskCoverRow | null) ?? null
+}
+
+/** The project's open covers, for the board's markers. */
+export async function projectCovers(projectId: string): Promise<Omit<TaskCoverRow, 'id'>[]> {
+  const { data, error } = await supabase
+    .from('general_task_covers')
+    .select('task_id, away_id, cover_id, until')
+    .eq('project_id', projectId)
+    .is('closed_at', null)
+  if (error) throw error
+  return (data ?? []) as Omit<TaskCoverRow, 'id'>[]
+}
+
+/** Gives a covered task back to the person who was away. */
+export async function handBackCover(coverId: string): Promise<void> {
+  const { error } = await supabase.rpc('hand_back_work_cover', { p_cover: coverId })
+  if (error) throw error
+}
+
+/** Leaves the task with its cover and ends the cover. */
+export async function keepCover(coverId: string): Promise<void> {
+  const { error } = await supabase.rpc('keep_work_cover', { p_cover: coverId })
+  if (error) throw error
+}
