@@ -96,7 +96,11 @@ function fitFor(row: PlanRow, p: Candidate): Fit {
 function groupFor(row: PlanRow, people: Candidate[]): Group {
   const everyone = people.map(p => ({ p, fit: 1, position: null, tags: [] }))
   if (!row.position && row.tags.length === 0) return { qualified: everyone, full: everyone, kind: 'open' }
-  const fits = people.map(p => fitFor(row, p)).filter(f => f.fit > 0)
+  const all = people.map(p => fitFor(row, p)).filter(f => f.fit > 0)
+  // A job title says what someone is, not what they can do: when the row names
+  // skills and anyone has one of them, a title-only match doesn't qualify.
+  const withSkill = row.tags.length ? all.filter(f => f.tags.length > 0) : all
+  const fits = withSkill.length ? withSkill : all
   return fits.length
     ? { qualified: fits, full: fits.filter(f => f.fit === 1), kind: 'tagged' }
     : { qualified: everyone, full: everyone, kind: 'untagged' }
