@@ -5668,7 +5668,7 @@ accepted." from the setting; no failed requests.
 - **Final review fixes.** Suggestion reasons never show the model's ids (the suggested person's name, else "someone"
   or "another task"); a current holder is never suggested; a holder who isn't a planner sees only their own "Needs
   … more" line; sprint hours are for the project manager and coordinators only; suggestions drop when a leave's dates
-  change; Apply uses whatever the picker or date holds.  redeployed;  70 checks; 3003 Vitest tests.
+  change; Apply uses whatever the picker or date holds. `work-ai` redeployed; `work-leave` 70 checks; 3003 Vitest tests.
 
 **Deferred**
 - Away labels can lag a minute after Mark away (shared cache); the sprint hours line isn't re-read after an estimate
