@@ -15,6 +15,7 @@ vi.mock('../work/QaQueue', () => ({ QaQueue: () => 'QA content' }))
 vi.mock('./TasksTab', () => ({ TasksTab: () => 'Task content' }))
 vi.mock('./TaskDialog', () => ({ TaskDialog: () => null }))
 vi.mock('./WorkSummary', () => ({ WorkSummary: () => 'Summary content' }))
+vi.mock('./LeaveReview', () => ({ ProjectLeaves: () => null }))
 vi.mock('./workSource', () => ({ generalWorkSource: () => ({}), generalMilestoneSource: () => ({}) }))
 
 const state = { project: { has_qa: false }, sprints: [], sprintSettings: DEFAULT_SPRINT_SETTINGS } as unknown as GeneralProjectState

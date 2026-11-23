@@ -285,3 +285,40 @@ export async function spaceAwayRanges(spaceId: string): Promise<AwayRange[]> {
   if (error) throw error
   return (data ?? []) as AwayRange[]
 }
+
+/** One task in a leave review: how the leave leaves it, judged live. */
+export type LeaveTask = {
+  task_id: string
+  title: string
+  status: 'blocks' | 'due_during' | 'wont_fit' | 'fine'
+  remaining_minutes: number
+  short_minutes: number
+  due_on: string | null
+  no_estimate: boolean
+  /** Titles of open tasks that wait for this one. */
+  blocks: string[]
+}
+
+/** A current or coming leave of someone on the project, with this project's tasks, flagged first. */
+export type ProjectLeave = {
+  notice_id: string
+  user_id: string
+  first_day: string
+  last_day: string
+  added_by: string | null
+  tasks: LeaveTask[]
+}
+
+/** The project's leaves, for its project manager and coordinators. */
+export async function projectLeaves(projectId: string): Promise<ProjectLeave[]> {
+  const { data, error } = await supabase.rpc('general_project_leaves', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as ProjectLeave[]
+}
+
+/** Puts `coverId` on the task in `awayId`'s place until their leave ends. Returns the cover's id. */
+export async function startCover(taskId: string, awayId: string, coverId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('start_work_cover', { p_task: taskId, p_away: awayId, p_cover: coverId })
+  if (error) throw error
+  return data as string
+}
