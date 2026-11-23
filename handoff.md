@@ -5676,3 +5676,25 @@ accepted." from the setting; no failed requests.
 - Two Suggest changes clicks share one spinner; overdue tasks still read "before it's due".
 - Plan `docs/superpowers/plans/2026-11-23-leave-aware-workload-phase-2.md`.
 
+## 2026-11-23 — Default weekly hours, on branch `default-weekly-hours`
+
+- **Why.** Workload did nothing until each person's weekly hours were typed in ("Not set"), so time off and away days
+  silently had no effect. Like ClickUp's workspace schedule, everyone now starts on the space's default.
+- **What.** Each work space has default weekly hours, 40 h until its project manager or a coordinator changes it in
+  Settings → Members ("Default weekly hours", Save default). A person's own value overrides it (0 included); clearing
+  it puts them back on the default. Rows on the default show an empty field with "40 (default)", or "40 h (default)"
+  read-only. My load drops the Set weekly hours field and reads "Weekly hours: 40 h · space default".
+- SQL: `supabase/work-workload.sql` (new `general_space_hours_default`, `set_space_default_weekly_minutes`,
+  `space_default_weekly_minutes`, internal `work_space_default_minutes`; `work_person_hours` falls back to it;
+  `general_space_people_hours` adds `own_weekly_minutes`). Applied live with `work-leave.sql` and `anon-lockdown.sql`.
+  Suites `work-workload` 172, `work-leave` 70, `anon-lockdown` 15.
+- Live effect: everyone without hours now has 40 h; existing values stay (Ivan, Keneth, Wilson 16 h).
+
+**Deferred**
+- "Not set" and "no weekly hours" branches (Workload tab bars and summary, sprint hours line, holder labels, Break down
+  and balance) are unreachable now and were left in place.
+- The two new hours functions don't check the caller's account is active (same as `set_space_weekly_minutes`); the
+  Members page doesn't refresh live when another planner changes the default.
+- Effects now real: the Open-project room check refuses a Member adding someone over 40 h; leave checks can flag
+  "won't fit"; space QA and Stakeholders show "0 / 40 h" on the Workload tab.
+- Plan `docs/superpowers/plans/2026-11-23-default-weekly-hours.md`.

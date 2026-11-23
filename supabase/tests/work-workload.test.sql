@@ -233,6 +233,61 @@ begin
     format('select public.set_space_weekly_minutes((select space_id from public.classes where id = %L), %L, 600)',
       v_class, u[5]), 'work spaces only');
 
+  -- The space default: 40 h until a planner changes it; an own value wins, 0 included.
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('default applies',
+    (select weekly_minutes = 2400 and own_weekly_minutes is null and available_minutes = 2400
+       from public.general_space_people_hours(s, date '2026-12-07', date '2026-12-11') where user_id = u[1]));
+  perform pg_temp.check('cleared falls back',
+    (select weekly_minutes = 2400 and own_weekly_minutes is null
+       from public.general_space_people_hours(s, date '2026-12-07', date '2026-12-11') where user_id = u[4]));
+  perform pg_temp.check('own value kept',
+    (select weekly_minutes = 1200 and own_weekly_minutes = 1200
+       from public.general_space_people_hours(s, date '2026-12-07', date '2026-12-11') where user_id = u[3]));
+  perform public.set_space_weekly_minutes(s, u[2], 0);
+  perform pg_temp.check('zero stays zero',
+    (select weekly_minutes = 0 and own_weekly_minutes = 0 and available_minutes = 0
+       from public.general_space_people_hours(s, date '2026-12-07', date '2026-12-11') where user_id = u[2]));
+  perform public.set_space_default_weekly_minutes(s, 1800);
+  perform pg_temp.check('default change reaches the unset',
+    (select weekly_minutes = 1800 from public.general_space_people_hours(s, date '2026-12-07', date '2026-12-11')
+      where user_id = u[1])
+    and (select weekly_minutes = 1200 from public.general_space_people_hours(s, date '2026-12-07', date '2026-12-11')
+          where user_id = u[3])
+    and (select weekly_minutes = 0 from public.general_space_people_hours(s, date '2026-12-07', date '2026-12-11')
+          where user_id = u[2]));
+  perform pg_temp.service();
+  perform pg_temp.check('default stamps who',
+    exists(select 1 from public.general_space_hours_default
+            where space_id = s and weekly_minutes = 1800 and updated_by = u[1]));
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('members read the default', public.space_default_weekly_minutes(s) = 1800);
+  perform pg_temp.check('default table closed', (select count(*) = 0 from public.general_space_hours_default));
+  perform pg_temp.refuse('member cannot change the default',
+    format('select public.set_space_default_weekly_minutes(%L, 600)', s),
+    'Only the space''s project manager or coordinators can change the default weekly hours.');
+  perform pg_temp.act_as(u[2]);
+  perform public.set_space_default_weekly_minutes(s, 2400);
+  perform pg_temp.check('coordinator changes the default', public.space_default_weekly_minutes(s) = 2400);
+  perform public.set_space_weekly_minutes(s, u[2], null);
+  perform pg_temp.refuse('default out of range refused',
+    format('select public.set_space_default_weekly_minutes(%L, 10081)', s), 'between 0 and 168 hours');
+  perform pg_temp.refuse('empty default refused',
+    format('select public.set_space_default_weekly_minutes(%L, null)', s), 'Enter the default weekly hours');
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.refuse('non-member cannot read the default',
+    format('select public.space_default_weekly_minutes(%L)', s), 'not in this space');
+  perform pg_temp.refuse('class space default refused',
+    format('select public.set_space_default_weekly_minutes((select space_id from public.classes where id = %L), 600)',
+      v_class), 'work spaces only');
+  perform pg_temp.service();
+  update public.general_spaces set archived_at = now() where id = s;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('archived space default refused',
+    format('select public.set_space_default_weekly_minutes(%L, 600)', s), 'archived');
+  perform pg_temp.service();
+  update public.general_spaces set archived_at = null where id = s;
+
   perform pg_temp.act_as(u[3]);
   perform pg_temp.check('hours read closed', (select count(*) = 0 from public.general_space_capacity));
   perform pg_temp.act_as(u[1]);
@@ -366,8 +421,8 @@ begin
        from public.general_space_people_hours(s, v_mon, v_fri) where user_id = u[3])
     and (select available_minutes = 960 and time_off_minutes = 0
            from public.general_space_people_hours(s, v_mon, v_fri) where user_id = u[4]));
-  perform pg_temp.check('not set stays null',
-    (select weekly_minutes is null and available_minutes is null
+  perform pg_temp.check('unset uses the default',
+    (select weekly_minutes = 2400 and own_weekly_minutes is null and available_minutes = 2400
        from public.general_space_people_hours(s, v_mon, v_fri) where user_id = u[6]));
   perform pg_temp.check('load sums estimates',
     (select sum(load_minutes) = 420 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[3])
@@ -386,8 +441,8 @@ begin
     (select sum(load_minutes) = 120 from public.general_space_people_load(s, v_mon, v_fri) where user_id = u[3]));
 
   perform pg_temp.check('weekend window',
-    (select count(*) = 3 and bool_and(available_minutes = 0)
-       from public.general_space_people_hours(s, v_mon + 5, v_mon + 6) where weekly_minutes is not null)
+    (select count(*) > 3 and bool_and(available_minutes = 0) and bool_and(weekly_minutes is not null)
+       from public.general_space_people_hours(s, v_mon + 5, v_mon + 6))
     and not exists(select 1 from public.general_space_people_load(s, v_mon + 5, v_mon + 6)));
   perform pg_temp.refuse('work_weekdays not granted',
     format('select public.work_weekdays(%L, %L)', v_mon, v_fri), 'permission denied');
@@ -996,8 +1051,8 @@ begin
     (select room from public.general_task_holder_room(y, array[u[3]])) = 'full');
   perform pg_temp.check('room unknown no estimate',
     (select room from public.general_task_holder_room(z, array[u[4]])) = 'unknown');
-  perform pg_temp.check('room unknown no hours',
-    (select room from public.general_task_holder_room(y, array[u[7]])) = 'unknown');
+  perform pg_temp.check('room on the default hours',
+    (select room from public.general_task_holder_room(y, array[u[7]])) = 'ok');
   perform pg_temp.check('room counts shared share',
     (select room from public.general_task_holder_room(w, array[u[3]])) = 'ok');
   perform pg_temp.check('room only project members',
@@ -1133,7 +1188,7 @@ begin
   perform pg_temp.check('planner over capacity allowed',
     exists (select 1 from public.general_task_assignees where task_id = t and user_id = u[3]));
 
-  -- No estimate, or no weekly hours: nothing to check.
+  -- No estimate: nothing to check. With no own hours u[3] is back on the 40 h default, which has room.
   perform pg_temp.act_as(u[2]);
   perform public.set_general_task_holders(nt, array[u[3]]);
   perform pg_temp.commit_checks();
@@ -1143,7 +1198,7 @@ begin
   perform public.set_general_task_holders(t, array[u[3], u[4]]);
   perform pg_temp.commit_checks();
   perform pg_temp.service();
-  perform pg_temp.check('unknown never blocks',
+  perform pg_temp.check('no estimate never blocks; the default has room',
     exists (select 1 from public.general_task_assignees where task_id = nt and user_id = u[3])
     and exists (select 1 from public.general_task_assignees where task_id = t and user_id = u[3]));
   insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[3], 960);
@@ -1245,11 +1300,11 @@ begin
   perform pg_temp.act_as(u[1]);
   perform pg_temp.check('summary distinct',
     (select unestimated_tasks from public.general_space_workload_summary(s, v_mon, v_fri)) = 1
-    and (select people_without_hours from public.general_space_workload_summary(s, v_mon, v_fri)) = 4);
+    and (select people_without_hours from public.general_space_workload_summary(s, v_mon, v_fri)) = 0);
   perform pg_temp.act_as(u[4]);
-  perform pg_temp.check('summary no hours',
+  perform pg_temp.check('summary everyone has hours',
     (select unestimated_tasks from public.general_space_workload_summary(s, v_mon, v_fri)) = 1
-    and (select people_without_hours from public.general_space_workload_summary(s, v_mon, v_fri)) = 1);
+    and (select people_without_hours from public.general_space_workload_summary(s, v_mon, v_fri)) = 0);
   perform pg_temp.service();
 end $$;
 

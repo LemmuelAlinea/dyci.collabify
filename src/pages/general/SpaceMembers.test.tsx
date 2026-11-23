@@ -31,6 +31,8 @@ vi.mock('../../lib/api/spaces', () => api)
 const workload = vi.hoisted(() => ({
   setSpaceWeeklyMinutes: vi.fn(),
   spacePeopleHours: vi.fn(),
+  spaceDefaultWeeklyMinutes: vi.fn(),
+  setSpaceDefaultWeeklyMinutes: vi.fn(),
 }))
 vi.mock('../../lib/api/workload', () => workload)
 
@@ -66,6 +68,8 @@ beforeEach(() => {
   api.handOverSpace.mockResolvedValue(undefined)
   workload.spacePeopleHours.mockResolvedValue([])
   workload.setSpaceWeeklyMinutes.mockResolvedValue(undefined)
+  workload.spaceDefaultWeeklyMinutes.mockResolvedValue(2400)
+  workload.setSpaceDefaultWeeklyMinutes.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -283,11 +287,13 @@ it('names the invited role on a pending invitation', async () => {
   })
 })
 
-const hours = (user_id: string, weekly_minutes: number | null) => ({
+// A null own value is someone on the space's 40 h default.
+const hours = (user_id: string, own: number | null) => ({
   user_id,
-  weekly_minutes,
-  available_minutes: weekly_minutes,
-  time_off_minutes: weekly_minutes === null ? null : 0,
+  weekly_minutes: own ?? 2400,
+  own_weekly_minutes: own,
+  available_minutes: own ?? 2400,
+  time_off_minutes: 0,
 })
 const hoursInput = (el: Element) => el.querySelector<HTMLInputElement>('input[aria-label^="Weekly hours"]')
 const typeInto = (input: HTMLInputElement, value: string) =>
@@ -296,12 +302,15 @@ const typeInto = (input: HTMLInputElement, value: string) =>
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
 
-it('shows weekly hours or Not set on a work space', async () => {
+it('shows weekly hours or the default on a work space', async () => {
   workload.spacePeopleHours.mockResolvedValue([hours('me', 960), hours('m1', null), hours('c1', 600)])
   await renderAs('member', [person('me', 'Me', 'member'), people[1], people[2]], (c) => {
     expect(c.textContent).toContain('Weekly hours')
     expect(row(c, 'Cora').textContent).toContain('10 h')
-    expect(row(c, 'Mia').textContent).toContain('Not set')
+    expect(row(c, 'Mia').textContent).toContain('40 h (default)')
+    expect(c.textContent).not.toContain('Not set')
+    expect(c.textContent).toContain('Default weekly hours: 40 h')
+    expect(c.querySelector('input[aria-label="Default weekly hours"]')).toBeNull()
     expect(workload.spacePeopleHours).toHaveBeenCalledWith('s', expect.any(String), expect.any(String))
   })
 })
@@ -311,9 +320,43 @@ it('lets the project manager edit every row and saves minutes', async () => {
   await renderAs('pm', people, async (c) => {
     for (const name of ['Me', 'Cora', 'Mia', 'Stu']) expect(hoursInput(row(c, name))).not.toBeNull()
     expect(hoursInput(row(c, 'Me'))!.value).toBe('16')
+    expect(hoursInput(row(c, 'Mia'))!.value).toBe('')
+    expect(hoursInput(row(c, 'Mia'))!.placeholder).toBe('40 (default)')
     await typeInto(hoursInput(row(c, 'Mia'))!, '16')
     await act(async () => button('Save hours', row(c, 'Mia')).click())
     expect(workload.setSpaceWeeklyMinutes).toHaveBeenCalledWith('s', 'm1', 960)
+  })
+})
+
+it('lets a planner change the space default', async () => {
+  workload.spacePeopleHours.mockResolvedValue([hours('me', 960), hours('m1', null)])
+  await renderAs('coordinator', [person('me', 'Me', 'coordinator'), people[2]], async (c) => {
+    const input = c.querySelector<HTMLInputElement>('input[aria-label="Default weekly hours"]')!
+    expect(input.value).toBe('40')
+    await typeInto(input, '30')
+    await act(async () => button('Save default').click())
+    expect(workload.setSpaceDefaultWeeklyMinutes).toHaveBeenCalledWith('s', 1800)
+    expect(show).toHaveBeenCalledWith('Default weekly hours saved')
+  })
+})
+
+it('shows a dash and says so when weekly hours fail to load', async () => {
+  workload.spacePeopleHours.mockRejectedValue(new Error('offline'))
+  await renderAs('pm', people, (c) => {
+    expect(hoursInput(row(c, 'Mia'))).toBeNull()
+    expect(row(c, 'Mia').textContent).toContain('—')
+    expect(c.textContent).not.toContain('(default)')
+    expect(c.textContent).toContain('Could not load weekly hours. Reload the page to try again.')
+  })
+})
+
+it('refuses an empty space default', async () => {
+  await renderAs('pm', people, async (c) => {
+    const input = c.querySelector<HTMLInputElement>('input[aria-label="Default weekly hours"]')!
+    await typeInto(input, '')
+    await act(async () => button('Save default').click())
+    expect(workload.setSpaceDefaultWeeklyMinutes).not.toHaveBeenCalled()
+    expect(show).toHaveBeenCalledWith('Enter the default weekly hours, from 0 to 168.', 'error')
   })
 })
 

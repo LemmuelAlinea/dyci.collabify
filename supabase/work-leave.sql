@@ -232,8 +232,8 @@ grant execute on function public.space_away_ranges(uuid) to authenticated;
 ------------------------------------------------------------ fit
 
 -- Free minutes p_user has from Manila today to p_due in a space, other work
--- counted (p_task left out): available minus load. 0 when p_due is past; null
--- when weekly hours are not set (fit unknown).
+-- counted (p_task left out): available minus load (own weekly hours, else the
+-- space default). 0 when p_due is past.
 create or replace function public.work_task_room(p_space uuid, p_user uuid, p_task uuid, p_due date)
 returns int
 language sql
@@ -261,7 +261,7 @@ revoke all on function public.work_task_room(uuid, uuid, uuid, date) from public
 --   wont_fit    its remaining share is more than the person's free hours from today to its due day
 --   fine        anything else
 -- remaining = (estimate - all logged time, at least 0) / holders. A due day
--- already past leaves no free hours. With no weekly hours set, fit is unknown.
+-- already past leaves no free hours. Hours are the person's own, else the space default.
 create or replace function public.work_leave_task_status(p_user uuid, p_first date, p_last date)
 returns table(task_id uuid, project_id uuid, status text, remaining_minutes int, short_minutes int,
               due_on date, no_estimate boolean)
@@ -661,7 +661,7 @@ grant execute on function public.general_leave_suggest_context(uuid) to authenti
 
 -- A sprint's hours for the project's manager and coordinators: the available and away minutes of
 -- the people holding its open tasks over its dates, its planned estimates, its
--- open tasks with no holder and its holders with no weekly hours.
+-- open tasks with no holder and its holders with no weekly hours (0 since the space default).
 create or replace function public.general_sprint_hours(p_sprint uuid)
 returns table(available_minutes int, away_minutes int, planned_minutes int, unassigned int, people_without_hours int)
 language plpgsql

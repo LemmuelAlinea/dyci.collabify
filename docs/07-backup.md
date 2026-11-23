@@ -1130,6 +1130,13 @@ through them); `general_task_holder_room(task, users)`; the constraint trigger `
 (wraps the 10-argument `create_general_open_task`, which stays owned by `project-task-types.sql`);
 `general_space_person_tasks(space, user, from, to)` and `general_space_workload_summary(space, from, to)`.
 
+Default weekly hours, in the same file: the table `general_space_hours_default` (one row per work space, RLS on with
+no policies; no row means 2400 minutes, 40 h), written only by `set_space_default_weekly_minutes` (the space's pm or
+coordinators, not archived) and read by `space_default_weekly_minutes` (members of the space) and the internal
+`work_space_default_minutes`. `work_person_hours` falls back to it when `general_space_capacity` has no own value, so
+nobody is "Not set". `general_space_people_hours` returns `own_weekly_minutes` too; the file drops and recreates it
+because its return shape changed. After re-running it, re-run `work-leave.sql`, then `anon-lockdown.sql`.
+
 Phase 3 adds, in the same file: the table `general_task_timers` (one row per person, RLS on with one own-row
 select policy and no write grant), the internal `work_timer_can_log` and `work_timer_log`, `start_work_task_timer`,
 `stop_work_task_timer` and `cancel_work_task_timer` (a stopped timer inserts one `general_task_logs` row as the

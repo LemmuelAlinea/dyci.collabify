@@ -42,7 +42,7 @@ vi.mock('../../components/general/MarkAwayDialog', () => ({
 }))
 
 const hours = (user_id: string, weekly: number | null, off = 0) =>
-  ({ user_id, weekly_minutes: weekly, available_minutes: weekly == null ? null : weekly - off, time_off_minutes: weekly == null ? null : off })
+  ({ user_id, weekly_minutes: weekly, own_weekly_minutes: weekly, available_minutes: weekly == null ? null : weekly - off, time_off_minutes: weekly == null ? null : off })
 
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>

@@ -6,7 +6,20 @@ export async function setTaskEstimate(taskId: string, minutes: number | null): P
   if (error) throw error
 }
 
-/** Sets or clears a person's weekly hours in a work space, in minutes. */
+/** The work space's default weekly hours, in minutes, for anyone in the space. */
+export async function spaceDefaultWeeklyMinutes(spaceId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('space_default_weekly_minutes', { p_space: spaceId })
+  if (error) throw error
+  return data as number
+}
+
+/** Sets the work space's default weekly hours, in minutes. Project manager and coordinators. */
+export async function setSpaceDefaultWeeklyMinutes(spaceId: string, minutes: number): Promise<void> {
+  const { error } = await supabase.rpc('set_space_default_weekly_minutes', { p_space: spaceId, p_minutes: minutes })
+  if (error) throw error
+}
+
+/** Sets or clears (back to the space default) a person's weekly hours in a work space, in minutes. */
 export async function setSpaceWeeklyMinutes(
   spaceId: string,
   userId: string,
@@ -62,9 +75,11 @@ export async function deleteTimeOff(id: string): Promise<void> {
 
 export type PeopleHours = {
   user_id: string
+  /** What counts: the person's own value, else the space default. */
   weekly_minutes: number | null
+  /** Null while the person is on the space default. */
+  own_weekly_minutes: number | null
   available_minutes: number | null
-  /** Null while the person's weekly hours are not set. */
   time_off_minutes: number | null
 }
 

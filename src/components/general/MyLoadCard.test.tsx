@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { MyLoadCard } from './MyLoadCard'
-import { estimateAccuracy, myTimer, setSpaceWeeklyMinutes, spacePeopleHours, spacePeopleLoad } from '../../lib/api/workload'
+import { estimateAccuracy, myTimer, spacePeopleHours, spacePeopleLoad } from '../../lib/api/workload'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -14,11 +14,11 @@ vi.mock('../../lib/api/workload', () => ({
   spacePeopleHours: vi.fn(),
   estimateAccuracy: vi.fn(async () => []),
   myTimer: vi.fn(async () => null),
-  setSpaceWeeklyMinutes: vi.fn(async () => {}),
 }))
 
-const hours = (weekly: number | null) =>
-  [{ user_id: 'me', weekly_minutes: weekly, available_minutes: weekly, time_off_minutes: weekly == null ? null : 0 }]
+// A null own value is the space's 40 h default.
+const hours = (own: number | null) =>
+  [{ user_id: 'me', weekly_minutes: own ?? 2400, own_weekly_minutes: own, available_minutes: own ?? 2400, time_off_minutes: 0 }]
 
 let host: HTMLDivElement
 let root: Root
@@ -65,17 +65,13 @@ it('four weeks of bars', async () => {
   expect(spacePeopleHours).toHaveBeenCalledWith('s1', '2026-12-14', '2026-12-18', ['me'])
 })
 
-it('no hours set card', async () => {
-  await render([{ id: 's2', name: 'Thesis' }])
-  expect(block('s2')!.textContent).toContain('Not set')
-  expect(block('s2')!.textContent).not.toMatch(/0 \/ 0 h/)
-  const input = block('s2')!.querySelector<HTMLInputElement>('input[aria-label="Weekly hours in Thesis"]')!
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '16')
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-  })
-  await act(async () => [...block('s2')!.querySelectorAll('button')].find((b) => b.textContent === 'Set weekly hours')!.click())
-  expect(setSpaceWeeklyMinutes).toHaveBeenCalledWith('s2', 'me', 960)
+it('default hours card', async () => {
+  await render([{ id: 's1', name: 'Capstone 2' }, { id: 's2', name: 'Thesis' }])
+  expect(block('s2')!.textContent).toContain('0 / 40 h this week')
+  expect(block('s2')!.textContent).toContain('Weekly hours: 40 h · space default')
+  expect(block('s1')!.textContent).not.toContain('space default')
+  expect(host.textContent).not.toContain('Not set')
+  expect(host.querySelector('input')).toBeNull()
 })
 
 it('accuracy line shown', async () => {
