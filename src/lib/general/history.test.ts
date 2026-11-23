@@ -280,10 +280,33 @@ describe('describeEvent on QA', () => {
     expect(describeEvent(event({ kind: 'qa_sent_back' }), nameOf)).toBe('Ana Reyes sent it back')
   })
 
+  it('reads a parent moved by its subtasks', () => {
+    const at = '2026-11-25T18:58:00Z'
+    const later = '2026-11-28T09:00:00Z'
+    expect(
+      describeEvent(event({ kind: 'updated', detail: { fields: ['due_at'], due_from: at, due_to: later, by: 'subtasks' } }), nameOf),
+    ).toMatch(/^Ana Reyes changed a subtask, so the due date moved to \S/)
+    expect(
+      describeEvent(event({ kind: 'updated', detail: { fields: ['due_at', 'starts_at'], due_from: at, due_to: later, starts_from: null, starts_to: at, by: 'subtasks' } }), nameOf),
+    ).toMatch(/^Ana Reyes changed a subtask, so the dates moved to .+ – .+/)
+    expect(
+      describeEvent(event({ kind: 'updated', detail: { fields: ['starts_at'], starts_from: null, starts_to: at, by: 'subtasks' } }), nameOf),
+    ).toMatch(/^Ana Reyes changed a subtask, so the start moved to \S/)
+  })
+
   it('keeps a long note to one line', () => {
     const line = describeEvent(event({ kind: 'qa_sent_back', detail: { note: 'x'.repeat(500) } }), nameOf)
     expect(line.length).toBeLessThan(160)
     expect(line.endsWith('…')).toBe(true)
+  })
+})
+
+describe('describeActivity on a parent moved by its subtasks', () => {
+  it('names the task whose dates followed', () => {
+    expect(describeActivity(activity({
+      kind: 'updated', task_title: 'Login',
+      detail: { fields: ['due_at'], due_from: '2026-11-25T18:58:00Z', due_to: '2026-11-28T09:00:00Z', by: 'subtasks' },
+    }))).toMatch(/^Ben Cruz changed a subtask of "Login", so its due date moved to \S/)
   })
 })
 

@@ -1083,6 +1083,8 @@ declare
   v_bad2    text;
   v_name    text;
   v_load    int;
+  -- The parent's due before its subtasks move it: a subtask due that day keeps its time.
+  v_pdue    timestamptz;
   o         record;
   v_id      uuid;
   v_ids     uuid[] := '{}';
@@ -1234,12 +1236,17 @@ begin
   end loop;
 
   -- Write: subtasks with dates, estimate and owner, then the links.
+  select t.due_at into v_pdue from public.general_tasks t where t.id = p_parent;
+  -- The parent follows its subtasks' dates (subtask-dates.sql): once, after all
+  -- of them exist, not after each one.
+  perform set_config('collabify.subtask_dates', 'on', true);
   for i in 0 .. n - 1 loop
     x := v_rows -> i;
     v_id := public.create_general_subtask(
       p_parent, x ->> 'title', x ->> 'description',
-      case when x ->> 'due_on' is not null
-           then ((x ->> 'due_on')::date + time '23:59') at time zone 'Asia/Manila' end);
+      case when x ->> 'due_on' is null then null
+           when v_pdue is not null and (v_pdue at time zone 'Asia/Manila')::date = (x ->> 'due_on')::date then v_pdue
+           else ((x ->> 'due_on')::date + time '23:59') at time zone 'Asia/Manila' end);
     if x ->> 'starts_on' is not null then
       update public.general_tasks
          set starts_at = ((x ->> 'starts_on')::date + time '00:00') at time zone 'Asia/Manila'
@@ -1255,6 +1262,10 @@ begin
     v_ids := v_ids || v_id;
     v_keys := v_keys || (x ->> 'key');
   end loop;
+  perform set_config('collabify.subtask_dates', 'off', true);
+  if to_regprocedure('public.follow_subtask_dates(uuid,boolean)') is not null then
+    perform public.follow_subtask_dates(p_parent);
+  end if;
 
   for i in 0 .. n - 1 loop
     x := v_rows -> i;

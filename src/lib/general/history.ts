@@ -96,6 +96,7 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
     case 'updated': {
       const d = event.detail
       const fields = d.fields ?? []
+      if (d.by === 'subtasks') return `${actor} changed a subtask, so ${followedDates(d, 'the')}`
 
       // One field changed, and we know what it was: say so, because "changed
       // the title" is the answer to a question nobody asked.
@@ -253,6 +254,18 @@ function rolePhrase(role: string) {
   return `a ${label.toLowerCase()}`
 }
 
+type SubtaskDates = { fields?: string[]; due_to?: string | null; starts_to?: string | null }
+
+/** "the due date moved to Fri 28 Nov": a parent's dates that followed its subtasks. */
+function followedDates(d: SubtaskDates, the: 'the' | 'its') {
+  const fields = d.fields ?? []
+  const due = fields.includes('due_at') && d.due_to ? formatDue(d.due_to) : null
+  const start = fields.includes('starts_at') && d.starts_to ? formatDue(d.starts_to) : null
+  if (due && start) return `${the} dates moved to ${start} – ${due}`
+  if (start) return `${the} start moved to ${start}`
+  return `${the} due date moved to ${due ?? 'a new date'}`
+}
+
 /** Who did a report row: a person's name, "A rule" for a rule's change, else "Somebody". */
 export function activityWho(e: Pick<ActivityEvent, 'kind' | 'actor_name'>) {
   return e.kind === 'rule_applied' ? 'A rule' : e.actor_name ?? 'Somebody'
@@ -282,6 +295,7 @@ export function describeActivity(e: ActivityEvent) {
       return `${actor} created ${task}`
     case 'updated': {
       const fields = Array.isArray(d.fields) ? (d.fields as string[]) : []
+      if (d.by === 'subtasks') return `${actor} changed a subtask of ${task}, so ${followedDates(d as SubtaskDates, 'its')}`
       if (fields.length === 1 && fields[0] === 'status') {
         return `${actor} moved ${task} to ${stageName(str(d.status) as GeneralTaskStatus)}`
       }

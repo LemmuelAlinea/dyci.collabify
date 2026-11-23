@@ -708,6 +708,8 @@ function TaskDetails({
   const gatedStages = stages.some((_, i) => i !== current && state.qaBlocks(current, i))
   // Priority is for work projects; a task that waits for an open task can't take the last stage.
   const work = !state.project.class_board_id
+  // A work task with subtasks takes its dates from them (subtask-dates.sql).
+  const followsSubtasks = work && subtasksOf(state.tasks, task.id).length > 0
   const hasEstimateField = work && task.estimated_minutes !== undefined
   const holdsTask = Boolean(state.viewerId && task.assignee_ids.includes(state.viewerId))
   const canEstimate = hasEstimateField && !state.readOnly && (state.myRole === 'pm' || state.myRole === 'coordinator' || holdsTask)
@@ -754,6 +756,11 @@ function TaskDetails({
                 <dd className={task.due_at && isOverdue(task.due_at, task.status) ? 'text-danger-600 dark:text-danger-400' : 'text-ink'}>
                   {task.due_at ? formatDue(task.due_at) : 'Not set'}
                 </dd>
+                {work && task.due_at && task.planned_due_at && task.due_at > task.planned_due_at && (
+                  <dd className="mt-0.5 text-[12px] text-warning-700 dark:text-warning-300">
+                    after its planned {formatDue(task.planned_due_at)}
+                  </dd>
+                )}
               </div>
               <div><dt className="text-[12px] text-faint">Team</dt><dd className="text-ink">{teamName ?? 'Whole project'}</dd></div>
               <div><dt className="text-[12px] text-faint">Time logged</dt><dd className="text-ink">{work ? <EstimateSpent estimate={task.estimated_minutes} spent={task.logged_minutes ?? 0} /> : formatMinutes(task.logged_minutes ?? 0)}</dd></div>
@@ -803,7 +810,7 @@ function TaskDetails({
     const estimateChanged = canEstimate && estimatedMinutes !== 'invalid' && estimatedMinutes !== (task.estimated_minutes ?? null)
     const startsAt = fromLocalInput(starts)
     const dueAt = fromLocalInput(due)
-    if (canEditSchedule && startsAt && dueAt && startsAt > dueAt)
+    if (canEditSchedule && !followsSubtasks && startsAt && dueAt && startsAt > dueAt)
       return setError('A task cannot start after it is due. Move one of the two dates.')
     setSaving(true)
     try {
@@ -811,7 +818,8 @@ function TaskDetails({
         ...(canEdit ? { title: title.trim(), status: statusForStage(stage, stages.length) as GeneralTaskStatus, stage, team_id: team || null } : {}),
         ...(canEdit && work && priority !== (task.priority ?? 'normal') ? { priority } : {}),
         ...(canEdit && work && task.kind !== 'bug' && taskType !== taskTypeOf(task) ? { task_type: taskType === 'task' ? null : taskType } : {}),
-        ...(canEditSchedule ? { description, due_at: dueAt, starts_at: startsAt } : {}),
+        // A parent's dates follow its subtasks; the database refuses them by hand.
+        ...(canEditSchedule ? { description, ...(followsSubtasks ? {} : { due_at: dueAt, starts_at: startsAt }) } : {}),
       }
       if (Object.keys(fieldPatch).length > 0) await updateTask(task.id, fieldPatch)
       if (estimateChanged) await setTaskEstimate(task.id, estimatedMinutes as number | null)
@@ -881,12 +889,20 @@ function TaskDetails({
             </div>
             <Field label="Starts" optional>
               {(id) => (
-                <Input id={id} type="datetime-local" value={starts} disabled={!canEditSchedule} onChange={(e) => setStarts(e.target.value)} />
+                <Input id={id} type="datetime-local" value={starts} disabled={!canEditSchedule || followsSubtasks} onChange={(e) => setStarts(e.target.value)} />
               )}
             </Field>
             <Field label="Due" optional>
-              {(id) => <Input id={id} type="datetime-local" value={due} disabled={!canEditSchedule} onChange={(e) => setDue(e.target.value)} />}
+              {(id) => <Input id={id} type="datetime-local" value={due} disabled={!canEditSchedule || followsSubtasks} onChange={(e) => setDue(e.target.value)} />}
             </Field>
+            {followsSubtasks && (
+              <p className="text-[12px] text-muted sm:col-span-2">Follows its subtasks. Change a subtask’s dates instead.</p>
+            )}
+            {work && task.due_at && task.planned_due_at && task.due_at > task.planned_due_at && (
+              <p className="text-[12px] text-warning-700 dark:text-warning-300 sm:col-span-2">
+                Due {formatDue(task.due_at)}, after its planned {formatDue(task.planned_due_at)}.
+              </p>
+            )}
             <Field label="Team" optional>
               {(id) => (
                 <>

@@ -925,8 +925,9 @@ begin
     and (select array_agg(g.estimated_minutes order by x.n) from unnest(v_ids) with ordinality x(id, n)
            join public.general_tasks g on g.id = x.id)
         = array[120, 120, 180, 360, 480, 240, 300]
+    -- Due on the parent's due day, so at the parent's due time (Fri 17:00), not 23:59.
     and (select bool_and(g.starts_at = (v_mon + time '00:00') at time zone 'Asia/Manila'
-                         and g.due_at = (v_fri + time '23:59') at time zone 'Asia/Manila'
+                         and g.due_at = v_due
                          and g.team_id = team and g.routing_state = 'released')
            from public.general_tasks g where g.id = any(v_ids))
     and (select g.description = 'Endpoints and errors' from public.general_tasks g where g.id = v_ids[1])
@@ -952,8 +953,9 @@ begin
 
   -- Open flow: anyone on the project who can hold tasks, applied by a coordinator.
   update public.general_projects set task_flow = 'open' where id = p;
-  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
-    values(p, 'Zz ap open parent', 'released', now(), u[1]) returning id into par2;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at)
+    values(p, 'Zz ap open parent', 'released', now(), u[1], (v_fri + time '14:30') at time zone 'Asia/Manila')
+    returning id into par2;
   perform pg_temp.act_as(u[2]);
   perform pg_temp.refuse('open flow QA owner refused',
     format('select public.apply_work_breakdown(%L, %L, %L, %L::jsonb)', par2, v_mon, v_fri, jsonb_build_array(
@@ -980,6 +982,12 @@ begin
     and (select starts_at = ((v_mon + 1) + time '00:00') at time zone 'Asia/Manila'
            from public.general_tasks where id = v_ids[2])
     and (select bool_and(assigned_by = u[2]) from public.general_task_assignees where task_id = any(v_ids)));
+  -- A subtask due on the parent's due date keeps the parent's time; any other day ends at 23:59.
+  perform pg_temp.check('subtask on the parent''s due day keeps its time',
+    (select due_at = (v_fri + time '14:30') at time zone 'Asia/Manila' from public.general_tasks where id = v_ids[2])
+    and (select due_at = (v_mon + time '23:59') at time zone 'Asia/Manila' from public.general_tasks where id = v_ids[1])
+    and (select due_at = (v_fri + time '14:30') at time zone 'Asia/Manila' and planned_due_at is null
+           from public.general_tasks where id = par2));
 end $$;
 
 ------------------------------------------------------------ phase 2: helper and room
