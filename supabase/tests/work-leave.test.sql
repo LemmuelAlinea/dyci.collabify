@@ -574,7 +574,7 @@ begin
   perform pg_temp.check('forecast for planner',
     (select count(*) = 1 and bool_and(user_id = u[2] and short_minutes > 0 and remaining_minutes = 9000)
        from public.general_task_forecast(t_big)));
-  perform pg_temp.check('no hours no forecast', not exists (select 1 from public.general_task_forecast(t_none)));
+  perform pg_temp.check('fits on the 40 h default', not exists (select 1 from public.general_task_forecast(t_none)));
   perform pg_temp.check('shared task split',
     (select count(*) = 2 and bool_and(remaining_minutes = 9000) from public.general_task_forecast(t_shared)));
   perform pg_temp.act_as(u[2]);
@@ -606,7 +606,7 @@ begin
     and not exists (select 1 from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[2]::text)
     and (select e -> 'skills' = '["auth"]'::jsonb and e ->> 'free_minutes' is not null
            from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[3]::text)
-    and (select e ->> 'free_minutes' is null from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[4]::text));
+    and (select e ->> 'free_minutes' is not null from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[4]::text));
   perform pg_temp.check('context lists holders',
     (select e -> 'holders' @> to_jsonb(array[u[2]::text, u[3]::text]) and jsonb_array_length(e -> 'holders') = 2
        from jsonb_array_elements(ctx -> 'tasks') e where e ->> 'task_id' = t_shared::text));
@@ -617,7 +617,7 @@ begin
   perform pg_temp.refuse('context planners only',
     format('select public.general_leave_suggest_context(%L)', n_id), 'Only the project manager and coordinators can review leave.');
 
-  -- Sprint hours: Ann away two of the five days, one task with no holder, Cy without hours.
+  -- Sprint hours: Ann away two of the five days, one task with no holder, Cy on the 40 h default.
   perform pg_temp.service();
   insert into public.general_sprints(project_id, name, starts_on, ends_on) values (p, 'Zz sprint', m, m + 4) returning id into sp;
   update public.general_tasks set sprint_id = sp where id in (t_big, t_none);
@@ -627,8 +627,8 @@ begin
   perform set_config('collabify.estimate_write', 'off', true);
   perform pg_temp.act_as(u[1]);
   perform pg_temp.check('sprint hours',
-    (select available_minutes = 576 and away_minutes = 384 and planned_minutes = 18120
-            and unassigned = 1 and people_without_hours = 1
+    (select available_minutes = 576 + 2400 and away_minutes = 384 and planned_minutes = 18120
+            and unassigned = 1 and people_without_hours = 0
        from public.general_sprint_hours(sp)));
   perform pg_temp.act_as(u[6]);
   perform pg_temp.check('sprint hours members only', not exists (select 1 from public.general_sprint_hours(sp)));

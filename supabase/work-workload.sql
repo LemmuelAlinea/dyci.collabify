@@ -138,9 +138,9 @@ grant execute on function public.set_work_task_estimate(uuid, int) to authentica
 
 ------------------------------------------------------------ weekly hours
 
--- One row per work-space membership. Null weekly_minutes means not set; it is
--- never read as zero or as a default. Read only through definer functions:
--- RLS is on and there are no policies.
+-- One row per work-space membership. Null weekly_minutes means the person is on
+-- the space's default (general_space_hours_default); 0 means no hours here.
+-- Read only through definer functions: RLS is on and there are no policies.
 create table if not exists public.general_space_capacity (
   space_id       uuid not null,
   user_id        uuid not null,
@@ -208,6 +208,99 @@ $$;
 
 revoke all on function public.set_space_weekly_minutes(uuid, uuid, int) from public, anon;
 grant execute on function public.set_space_weekly_minutes(uuid, uuid, int) to authenticated;
+
+-- Each work space's default weekly hours, for everyone with no own value. No row
+-- means 2400 (40 h). Read only through definer functions.
+create table if not exists public.general_space_hours_default (
+  space_id       uuid primary key references public.general_spaces (id) on delete cascade,
+  weekly_minutes int not null check (weekly_minutes between 0 and 10080),
+  updated_by     uuid references public.profiles (id) on delete set null,
+  updated_at     timestamptz not null default now()
+);
+
+alter table public.general_space_hours_default enable row level security;
+
+-- The space's default weekly minutes (internal).
+create or replace function public.work_space_default_minutes(p_space uuid)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select d.weekly_minutes from public.general_space_hours_default d where d.space_id = p_space), 2400);
+$$;
+
+revoke all on function public.work_space_default_minutes(uuid) from public, anon, authenticated;
+
+-- The default weekly minutes, for anyone in the space.
+create or replace function public.space_default_weekly_minutes(p_space uuid)
+returns int
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.general_space_members m
+                  where m.space_id = p_space and m.user_id = auth.uid()) then
+    raise exception 'You are not in this space.' using errcode = 'insufficient_privilege';
+  end if;
+  return public.work_space_default_minutes(p_space);
+end;
+$$;
+
+revoke all on function public.space_default_weekly_minutes(uuid) from public, anon;
+grant execute on function public.space_default_weekly_minutes(uuid) to authenticated;
+
+-- Sets the space's default weekly hours: its project manager or coordinators.
+create or replace function public.set_space_default_weekly_minutes(p_space uuid, p_minutes int)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Sign in to change weekly hours.' using errcode = 'insufficient_privilege';
+  end if;
+
+  if not exists (select 1 from public.general_spaces s where s.id = p_space and s.kind = 'work')
+     or exists (select 1 from public.classes c where c.space_id = p_space) then
+    raise exception 'Weekly hours apply to work spaces only.' using errcode = 'check_violation';
+  end if;
+
+  if not exists (select 1 from public.general_space_members m
+                  where m.space_id = p_space and m.user_id = auth.uid() and m.role in ('pm', 'coordinator')) then
+    raise exception 'Only the space''s project manager or coordinators can change the default weekly hours.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if public.general_space_is_archived(p_space) then
+    raise exception 'This space is archived. The project manager can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  if p_minutes is null then
+    raise exception 'Enter the default weekly hours, from 0 to 168.' using errcode = 'check_violation';
+  end if;
+
+  if p_minutes < 0 or p_minutes > 10080 then
+    raise exception 'Weekly hours run between 0 and 168 hours. Enter a value in that range.'
+      using errcode = 'check_violation';
+  end if;
+
+  insert into public.general_space_hours_default (space_id, weekly_minutes, updated_by, updated_at)
+  values (p_space, p_minutes, auth.uid(), now())
+  on conflict (space_id) do update
+     set weekly_minutes = excluded.weekly_minutes,
+         updated_by     = excluded.updated_by,
+         updated_at     = excluded.updated_at;
+end;
+$$;
+
+revoke all on function public.set_space_default_weekly_minutes(uuid, int) from public, anon;
+grant execute on function public.set_space_default_weekly_minutes(uuid, int) to authenticated;
 
 ------------------------------------------------------------ time off
 
@@ -357,8 +450,8 @@ revoke all on function public.work_workload_names(uuid, uuid, uuid) from public,
 -- One person's weekly, available and time-off minutes in the window, with no
 -- visibility (internal): weekly / 5 a weekday, less that day's time off (a full
 -- day removes all of it, hours never more than the day's share), floored at
--- zero, rounded at the end. Null weekly minutes means not set: available and
--- time off stay null.
+-- zero, rounded at the end. A person with no own weekly minutes is on the
+-- space's default.
 create or replace function public.work_person_hours(p_space uuid, p_user uuid, p_from date, p_to date)
 returns table(weekly_minutes int, available_minutes int, time_off_minutes int)
 language sql
@@ -367,9 +460,10 @@ security definer
 set search_path = public
 as $$
   with cap as (
-    select c.weekly_minutes as wk, c.weekly_minutes / 5.0 as share
+    select w.wk, w.wk / 5.0 as share
       from (select 1) one
       left join public.general_space_capacity c on c.space_id = p_space and c.user_id = p_user
+      cross join lateral (select coalesce(c.weekly_minutes, public.work_space_default_minutes(p_space)) as wk) w
   ),
   days as (
     select d::date as day
@@ -409,9 +503,12 @@ $$;
 revoke all on function public.work_person_available(uuid, uuid, date, date) from public, anon, authenticated;
 
 -- Each visible person's weekly, available and time-off minutes in the window.
-create or replace function public.general_space_people_hours(
+-- weekly_minutes is what counts (own value, else the space default);
+-- own_weekly_minutes is null while the person is on the default.
+drop function if exists public.general_space_people_hours(uuid, date, date, uuid[]);
+create function public.general_space_people_hours(
   p_space uuid, p_from date, p_to date, p_users uuid[] default null)
-returns table(user_id uuid, weekly_minutes int, available_minutes int, time_off_minutes int)
+returns table(user_id uuid, weekly_minutes int, own_weekly_minutes int, available_minutes int, time_off_minutes int)
 language plpgsql
 stable
 security definer
@@ -422,9 +519,10 @@ begin
   perform public.work_workload_check(p_space, p_from, p_to);
 
   return query
-  select v.v, h.weekly_minutes, h.available_minutes, h.time_off_minutes
+  select v.v, h.weekly_minutes, c.weekly_minutes, h.available_minutes, h.time_off_minutes
     from public.work_workload_people(p_space) v
     cross join lateral public.work_person_hours(p_space, v.v, p_from, p_to) h
+    left join public.general_space_capacity c on c.space_id = p_space and c.user_id = v.v
    where p_users is null or v.v = any(p_users);
 end;
 $$;
@@ -700,8 +798,8 @@ begin
            where po.unest),
          (select count(*)::int
             from vis
-            left join public.general_space_capacity c on c.space_id = p_space and c.user_id = vis.uid
-           where c.weekly_minutes is null);
+            cross join lateral public.work_person_hours(p_space, vis.uid, p_from, p_to) h
+           where h.weekly_minutes is null);
 end;
 $$;
 
