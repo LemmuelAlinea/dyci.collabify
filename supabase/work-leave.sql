@@ -535,6 +535,9 @@ create table if not exists public.general_task_covers (
   foreign key (task_id, project_id) references public.general_tasks (id, project_id) on delete cascade
 );
 
+-- The first day of the leave the cover was made for; its end follows that leave.
+alter table public.general_task_covers add column if not exists leave_first date;
+
 create unique index if not exists general_task_covers_open_idx
   on public.general_task_covers (task_id) where closed_at is null;
 create index if not exists general_task_covers_away_idx
@@ -594,9 +597,30 @@ $$;
 
 revoke all on function public.work_person_name(uuid) from public, anon, authenticated;
 
+-- The leave a cover is for: the one containing p_leave_first, or with no day
+-- given, the away person's leave that is under way or next.
+create or replace function public.work_cover_run(p_away uuid, p_leave_first date)
+returns table(first_day date, last_day date)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select r.first_day, r.last_day
+    from public.work_leave_runs(p_away, (now() at time zone 'Asia/Manila')::date) r
+   where p_leave_first is null or (r.first_day <= p_leave_first and r.last_day >= p_leave_first)
+   order by r.first_day
+   limit 1;
+$$;
+
+revoke all on function public.work_cover_run(uuid, date) from public, anon, authenticated;
+
 -- Checks a cover can start and returns the day it lasts until: the last day of
--- the away person's leave that is under way or next.
-create or replace function public.work_cover_prepare(p_task uuid, p_away uuid, p_cover uuid)
+-- the leave it is for.
+drop function if exists public.start_work_cover(uuid, uuid, uuid);
+drop function if exists public.work_cover_prepare(uuid, uuid, uuid);
+drop function if exists public.work_cover_record(uuid, uuid, uuid, date);
+create or replace function public.work_cover_prepare(p_task uuid, p_away uuid, p_cover uuid, p_leave_first date default null)
 returns date
 language plpgsql
 stable
@@ -628,9 +652,7 @@ begin
   if not public.work_can_hold(t.project_id, p_cover) then
     raise exception '% can''t hold this task.', public.work_person_name(p_cover) using errcode = 'check_violation';
   end if;
-  select r.last_day into v_until
-    from public.work_leave_runs(p_away, (now() at time zone 'Asia/Manila')::date) r
-   order by r.first_day limit 1;
+  select r.last_day into v_until from public.work_cover_run(p_away, p_leave_first) r;
   if v_until is null then
     raise exception '% has no leave coming up.', public.work_person_name(p_away) using errcode = 'check_violation';
   end if;
@@ -638,11 +660,12 @@ begin
 end;
 $$;
 
-revoke all on function public.work_cover_prepare(uuid, uuid, uuid) from public, anon;
-grant execute on function public.work_cover_prepare(uuid, uuid, uuid) to authenticated;
+revoke all on function public.work_cover_prepare(uuid, uuid, uuid, date) from public, anon;
+grant execute on function public.work_cover_prepare(uuid, uuid, uuid, date) to authenticated;
 
 -- Records a cover once the holders already show it, with a history line.
-create or replace function public.work_cover_record(p_task uuid, p_away uuid, p_cover uuid, p_until date)
+create or replace function public.work_cover_record(p_task uuid, p_away uuid, p_cover uuid, p_until date,
+                                                     p_leave_first date default null)
 returns uuid
 language plpgsql
 security definer
@@ -665,15 +688,15 @@ begin
                      where t.id = p_task and t.routing_state = 'released' and t.status <> 'done'
                        and t.archived_at is null and t.trashed_at is null
                        and q.class_board_id is null and q.archived_at is null and q.trashed_at is null)
-     or p_until is distinct from (select r.last_day from public.work_leave_runs(p_away, (now() at time zone 'Asia/Manila')::date) r
-                                   order by r.first_day limit 1)
+     or p_until is distinct from (select r.last_day from public.work_cover_run(p_away, p_leave_first) r)
      or not exists (select 1 from public.general_task_events e
                      where e.task_id = p_task and e.kind = 'unassigned' and e.created_at = now()
                        and e.detail ->> 'user_id' = p_away::text) then
     raise exception 'The cover could not be set up. Reload and try again.' using errcode = 'check_violation';
   end if;
-  insert into public.general_task_covers (task_id, project_id, away_id, cover_id, until, created_by)
-  values (p_task, v_project, p_away, p_cover, p_until, auth.uid())
+  insert into public.general_task_covers (task_id, project_id, away_id, cover_id, until, leave_first, created_by)
+  values (p_task, v_project, p_away, p_cover, p_until,
+          (select r.first_day from public.work_cover_run(p_away, p_leave_first) r), auth.uid())
   returning id into v_id;
   insert into public.general_task_events (task_id, project_id, actor_id, kind, detail)
   values (p_task, v_project, auth.uid(), 'updated',
@@ -683,12 +706,13 @@ begin
 end;
 $$;
 
-revoke all on function public.work_cover_record(uuid, uuid, uuid, date) from public, anon;
-grant execute on function public.work_cover_record(uuid, uuid, uuid, date) to authenticated;
+revoke all on function public.work_cover_record(uuid, uuid, uuid, date, date) from public, anon;
+grant execute on function public.work_cover_record(uuid, uuid, uuid, date, date) to authenticated;
 
--- Puts p_cover on the task in p_away's place until their leave ends. Runs as the
--- caller, so the holder rules of the project's task flow apply unchanged.
-create or replace function public.start_work_cover(p_task uuid, p_away uuid, p_cover uuid)
+-- Puts p_cover on the task in p_away's place until the leave ends: the leave
+-- containing p_leave_first, else the one under way or next. Runs as the caller,
+-- so the holder rules of the project's task flow apply unchanged.
+create or replace function public.start_work_cover(p_task uuid, p_away uuid, p_cover uuid, p_leave_first date default null)
 returns uuid
 language plpgsql
 security invoker
@@ -700,7 +724,7 @@ declare
   v_flow text;
   v_holders uuid[];
 begin
-  v_until := public.work_cover_prepare(p_task, p_away, p_cover);
+  v_until := public.work_cover_prepare(p_task, p_away, p_cover, p_leave_first);
   select t.project_id, coalesce(q.task_flow, 'planned') into v_project, v_flow
     from public.general_tasks t join public.general_projects q on q.id = t.project_id
    where t.id = p_task;
@@ -714,12 +738,12 @@ begin
     insert into public.general_task_assignees (task_id, project_id, user_id) values (p_task, v_project, p_cover);
   end if;
 
-  return public.work_cover_record(p_task, p_away, p_cover, v_until);
+  return public.work_cover_record(p_task, p_away, p_cover, v_until, p_leave_first);
 end;
 $$;
 
-revoke all on function public.start_work_cover(uuid, uuid, uuid) from public, anon;
-grant execute on function public.start_work_cover(uuid, uuid, uuid) to authenticated;
+revoke all on function public.start_work_cover(uuid, uuid, uuid, date) from public, anon;
+grant execute on function public.start_work_cover(uuid, uuid, uuid, date) to authenticated;
 
 -- Closes an open cover the caller may act on: the cover or a project planner.
 -- Returns false when a hand-back found the holders already changed by someone
@@ -831,8 +855,8 @@ revoke all on function public.keep_work_cover(uuid) from public, anon;
 grant execute on function public.keep_work_cover(uuid) to authenticated;
 
 -- A leave that changed moves the end of its open covers: a cover follows the
--- leave it started in (the run from the cover's start to its end). A leave that
--- is gone leaves the end as it was, so the hand-back reminder still comes.
+-- leave it was made for (the latest run overlapping its first day to its end). A
+-- leave that is gone leaves the end as it was, so the hand-back reminder still comes.
 create or replace function public.work_leave_move_covers(p_user uuid)
 returns void
 language plpgsql
@@ -842,16 +866,19 @@ as $$
 declare
   c record;
   v_last date;
+  v_first date;
 begin
   for c in select * from public.general_task_covers where away_id = p_user and closed_at is null for update loop
-    select r.last_day into v_last
+    select r.last_day, r.first_day into v_last, v_first
       from public.work_leave_runs(p_user, (c.created_at at time zone 'Asia/Manila')::date) r
      where r.first_day <= c.until
-     order by r.first_day
+       and r.last_day >= coalesce(c.leave_first, (c.created_at at time zone 'Asia/Manila')::date)
+     order by r.first_day desc
      limit 1;
-    if v_last is not null and v_last <> c.until then
+    if v_last is not null and (v_last <> c.until or v_first is distinct from c.leave_first) then
       update public.general_task_covers
          set until = v_last,
+             leave_first = v_first,
              reminded_on = case when v_last > c.until then null else reminded_on end
        where id = c.id;
     end if;

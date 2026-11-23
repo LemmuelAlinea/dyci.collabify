@@ -316,9 +316,17 @@ export async function projectLeaves(projectId: string): Promise<ProjectLeave[]> 
   return (data ?? []) as ProjectLeave[]
 }
 
-/** Puts `coverId` on the task in `awayId`'s place until their leave ends. Returns the cover's id. */
-export async function startCover(taskId: string, awayId: string, coverId: string): Promise<string> {
-  const { data, error } = await supabase.rpc('start_work_cover', { p_task: taskId, p_away: awayId, p_cover: coverId })
+/**
+ * Puts `coverId` on the task in `awayId`'s place until the leave that starts on
+ * `leaveFirst` (YYYY-MM-DD) ends. Returns the cover's id.
+ */
+export async function startCover(taskId: string, awayId: string, coverId: string, leaveFirst: string): Promise<string> {
+  const { data, error } = await supabase.rpc('start_work_cover', {
+    p_task: taskId,
+    p_away: awayId,
+    p_cover: coverId,
+    p_leave_first: leaveFirst,
+  })
   if (error) throw error
   return data as string
 }

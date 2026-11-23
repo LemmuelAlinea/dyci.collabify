@@ -130,7 +130,7 @@ it('cover calls startCover', async () => {
   expect([...select.options].map((o) => o.value)).not.toContain('ivan')
   await pick(select, 'keneth')
   await act(async () => button('Cover', row('Authentication API'))!.click())
-  expect(startCover).toHaveBeenCalledWith('t1', 'ivan', 'keneth')
+  expect(startCover).toHaveBeenCalledWith('t1', 'ivan', 'keneth', '2026-11-26')
 })
 
 it('reassign in open flow uses setTaskHolders', async () => {
@@ -169,4 +169,18 @@ it('skip hides the actions', async () => {
   await act(async () => button('Skip', row('Bug fixes'))!.click())
   expect(button('Cover', row('Bug fixes'))).toBeUndefined()
   expect(row('Bug fixes').textContent).toContain('Skipped')
+})
+
+it('review hides leaves with nothing to look at', async () => {
+  const calm: ProjectLeave = { ...leave, notice_id: 'n0', first_day: '2026-11-20', last_day: '2026-11-21',
+    tasks: [{ ...leave.tasks[3], task_id: 't9', title: 'Calm task' }] }
+  vi.mocked(projectLeaves).mockResolvedValue([calm, leave])
+  await render(stateOf(), '/projects/p?leave=open')
+  expect(document.body.textContent).not.toContain('Calm task')
+  expect(document.body.textContent).toContain('Authentication API')
+  vi.mocked(projectLeaves).mockResolvedValue([calm])
+  await act(async () => root.unmount())
+  root = createRoot(host)
+  await render(stateOf(), '/projects/p?leave=open')
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
 })

@@ -499,6 +499,33 @@ begin
     perform pg_temp.service();
     perform pg_temp.check('project planner marks away',
       exists (select 1 from public.user_time_off where user_id = u[3] and off_on = m + 14 and added_by = u[5]));
+
+    -- A cover lasts to the end of the leave it was made for, not the next one.
+    declare
+      t_two uuid; c_two uuid;
+    begin
+      insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+        values (p, 'Zz later leave', 'released', now(), u[1]) returning id into t_two;
+      insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (t_two, p, u[3], u[1]);
+      perform pg_temp.act_as(u[1]);
+      c_two := public.start_work_cover(t_two, u[3], u[4], m + 14);
+      perform pg_temp.service();
+      perform pg_temp.check('cover follows the leave it was made for',
+        (select until = m + 14 from public.general_task_covers where id = c_two));
+      perform pg_temp.act_as(u[3]);
+      perform public.save_time_off_range(u[3], m + 1, m + 1, null);
+      perform pg_temp.service();
+      perform pg_temp.check('other leave leaves the cover alone',
+        (select until = m + 14 from public.general_task_covers where id = c_two));
+      perform pg_temp.act_as(u[3]);
+      perform public.save_time_off_range(u[3], m + 15, m + 15, null);
+      perform pg_temp.service();
+      perform pg_temp.check('its own leave moves the cover',
+        (select until = m + 15 from public.general_task_covers where id = c_two));
+      perform pg_temp.act_as(u[1]);
+      perform pg_temp.refuse('cover for a day with no leave refused',
+        format('select public.start_work_cover(%L, %L, %L, %L)', tb, u[5], u[4], m + 20), 'has no leave coming up.');
+    end;
   end;
 end $$;
 

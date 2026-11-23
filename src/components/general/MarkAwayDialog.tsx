@@ -89,12 +89,13 @@ export function MarkAwayDialog({
               <Input id={id} type="date" aria-label="First day away" min={initial?.from ?? manilaToday()} value={from} onChange={(e) => setFrom(e.target.value)} />
             )}
           </Field>
-          <Field label="Last day" hint="Best guess is fine. You can extend it.">
+          <Field label="Last day">
             {(id) => (
               <Input id={id} type="date" aria-label="Last day away" min={from || manilaToday()} value={to} onChange={(e) => setTo(e.target.value)} />
             )}
           </Field>
         </div>
+        <p className="-mt-2 text-[12px] text-muted">Best guess is fine. You can extend it.</p>
         <Field label="Hours away each day" optional>
           {(id) => (
             <Input id={id} inputMode="decimal" aria-label="Hours away each day" placeholder="Whole days" value={hours} onChange={(e) => setHours(e.target.value)} />

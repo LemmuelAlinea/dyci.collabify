@@ -77,7 +77,9 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
     viewer: open ? 'planner' : 'none',
   })
 
-  if (!planner || leaves.length === 0) return null
+  // Only leaves that still leave something to look at.
+  const shown = leaves.filter((l) => flagged(l) > 0)
+  if (!planner || shown.length === 0) return null
 
   function close() {
     const next = new URLSearchParams(params)
@@ -109,7 +111,7 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
         await updateTask(task.task_id, { due_at: moveDueDate(live?.due_at ?? null, day.get(key)!) })
         show('Due date moved')
       } else if (kind === 'cover') {
-        await startCover(task.task_id, leave.user_id, who!)
+        await startCover(task.task_id, leave.user_id, who!, leave.first_day)
         show(`${state.nameOf(who!)} covers until ${formatDayLabel(leave.last_day)}`)
       } else if (project?.taskFlow === 'open') {
         const holders = (live?.assignee_ids ?? []).filter((id) => id !== leave.user_id)
@@ -129,11 +131,9 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
     }
   }
 
-  const banners = leaves.filter((l) => flagged(l) > 0)
-
   return (
     <>
-      {banners.map((l) => (
+      {shown.map((l) => (
         <div key={l.notice_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-300 bg-warning-50 px-4 py-3 text-[14px] dark:border-warning-400/40 dark:bg-warning-500/10">
           <p className="flex min-w-0 items-center gap-2 text-ink">
             <Icon name="calendar" size={16} className="shrink-0 text-warning-700 dark:text-warning-300" />
@@ -148,7 +148,7 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
       <Modal open={open} onClose={close} title="Leave on this project" size="lg"
         description="Choose what happens to each task. Nothing changes until you apply it.">
         <div className="space-y-6">
-          {leaves.map((l) => (
+          {shown.map((l) => (
             <section key={l.notice_id} className="space-y-3">
               <header>
                 <h3 className="text-[15px] font-semibold text-ink">
