@@ -74,3 +74,16 @@ export function parseWeeklyHours(text: string): number | null | 'invalid' | 'too
   const hours = Number(t)
   return hours > 168 ? 'too_many' : Math.round(hours * 60)
 }
+
+/** A leave's dates as the notices read them: "26 Nov", "26–28 Nov", "30 Nov – 2 Dec". */
+export function formatDayRange(first: string, last: string): string {
+  const part = (date: string) => {
+    const [, m, d] = date.split('-').map(Number)
+    return { day: d, month: MONTHS[m - 1], key: date.slice(0, 7) }
+  }
+  const a = part(first)
+  const b = part(last)
+  if (first === last) return `${a.day} ${a.month}`
+  if (a.key === b.key) return `${a.day}–${b.day} ${b.month}`
+  return `${a.day} ${a.month} – ${b.day} ${b.month}`
+}

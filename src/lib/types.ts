@@ -44,6 +44,7 @@ export type NotificationPrefs = {
   announcements: boolean
   submissions: boolean
   project_updates: boolean
+  leave_and_cover: boolean
 }
 
 export type NotificationKey = Exclude<keyof NotificationPrefs, 'user_id'>
@@ -226,6 +227,9 @@ export type AppNotification = {
     | 'join_requested'
     | 'join_answered'
     | 'workflow_rule'
+    | 'leave_impact'
+    | 'leave_ending'
+    | 'cover_hand_back'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null

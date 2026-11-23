@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { formatHours, formatSpent, parseHours } from './hours'
+import { formatDayRange, formatHours, formatSpent, parseHours } from './hours'
+
+describe('formatDayRange', () => {
+  it('reads like the leave notices', () => {
+    expect(formatDayRange('2026-11-26', '2026-11-26')).toBe('26 Nov')
+    expect(formatDayRange('2026-11-26', '2026-11-28')).toBe('26–28 Nov')
+    expect(formatDayRange('2026-11-30', '2026-12-02')).toBe('30 Nov – 2 Dec')
+  })
+})
 
 describe('formatSpent', () => {
   it('shows hours and minutes', () => {

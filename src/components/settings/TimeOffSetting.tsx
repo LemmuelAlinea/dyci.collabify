@@ -3,14 +3,18 @@ import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
-import { deleteTimeOff, listMyTimeOff, saveTimeOff } from '../../lib/api/workload'
+import { deleteTimeOff, listMyTimeOff, saveTimeOff, saveTimeOffRange } from '../../lib/api/workload'
+import { useAuth } from '../../context/AuthContext'
 import type { TimeOff } from '../../lib/api/workload'
 import { formatDayLabel, formatHours, manilaToday, parseHours } from '../../lib/work/hours'
 
 /** Settings → Profile: days or hours off that lower the hours a planner counts on. */
 export function TimeOffSetting() {
   const [items, setItems] = useState<TimeOff[] | null>(null)
+  const { profile } = useAuth()
   const [date, setDate] = useState('')
+  // An optional last day: the same hours on every weekday from the first day to it.
+  const [until, setUntil] = useState('')
   const [hours, setHours] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,10 +53,16 @@ export function TimeOffSetting() {
       setError('Enter up to 24 hours for one day.')
       return
     }
+    if (until && until < date) {
+      setError('Choose a last day on or after the first day.')
+      return
+    }
     setBusy(true)
     try {
-      await saveTimeOff(date, minutes)
+      if (until && until !== date && profile) await saveTimeOffRange(profile.id, date, until, minutes)
+      else await saveTimeOff(date, minutes)
       setDate('')
+      setUntil('')
       setHours('')
       await load()
     } catch {
@@ -79,8 +89,9 @@ export function TimeOffSetting() {
         <div className="min-w-0">
           <p className="text-[14px] font-medium text-ink">Time off</p>
           <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
-            Planners in your spaces see only the hours you have off, never a reason. Leave hours empty
-            to take the whole day.
+            People in your spaces see the days you are away, never a reason, and your space&apos;s planners
+            can mark you away too. Add a last day for several days in a row. Leave hours empty to take the
+            whole day.
           </p>
         </div>
       </div>
@@ -91,6 +102,7 @@ export function TimeOffSetting() {
             <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
               <span className="text-ink">
                 {formatDayLabel(t.off_on)} · {t.minutes === null ? 'Full day' : formatHours(t.minutes)}
+                {t.added_by_name ? ` · Added by ${t.added_by_name}` : ''}
               </span>
               <Button size="sm" variant="ghost" onClick={() => void remove(t.id)}>
                 Remove
@@ -103,6 +115,18 @@ export function TimeOffSetting() {
         <Field label="Day">
           {(id) => (
             <Input id={id} type="date" min={manilaToday()} value={date} onChange={(e) => setDate(e.target.value)} />
+          )}
+        </Field>
+        <Field label="Last day" optional>
+          {(id) => (
+            <Input
+              id={id}
+              type="date"
+              aria-label="Last day off"
+              min={date || manilaToday()}
+              value={until}
+              onChange={(e) => setUntil(e.target.value)}
+            />
           )}
         </Field>
         <Field label="Hours off" optional>
