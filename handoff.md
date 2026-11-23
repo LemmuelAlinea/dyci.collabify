@@ -5631,5 +5631,4 @@ accepted." from the setting; no failed requests.
 
 **Deferred**
 - Phase 2: AI suggestions in the review, away badges in pickers and cards, the at-risk forecast, sprint hours.
-- The leave-ending notice opens the Workload tab, not Mark away prefilled (notices carry no person).
 - Skip in the review is not saved.

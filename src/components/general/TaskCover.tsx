@@ -16,6 +16,7 @@ export function TaskCover({ taskId, state }: { taskId: string; state: GeneralPro
   const [cover, setCover] = useState<TaskCoverRow | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ended, setEnded] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -29,18 +30,20 @@ export function TaskCover({ taskId, state }: { taskId: string; state: GeneralPro
     void load()
   }, [load])
 
-  if (!cover) return null
+  if (!cover) {
+    return ended ? <p className="text-[13px] text-muted">Someone changed who holds this task, so the cover has ended.</p> : null
+  }
   const away = state.nameOf(cover.away_id)
   const by = state.nameOf(cover.cover_id)
   const acts = !state.readOnly
     && (state.viewerId === cover.cover_id || state.myRole === 'pm' || state.myRole === 'coordinator')
 
-  async function run(fn: () => Promise<void>, done: string) {
+  async function run(fn: () => Promise<boolean | void>, done: string) {
     setBusy(true)
     setError(null)
     try {
-      await fn()
-      show(done)
+      if ((await fn()) === false) setEnded(true)
+      else show(done)
       await Promise.all([load(), state.reload()])
     } catch (err) {
       setError(authErrorMessage(err, 'That change could not be saved. Try again.'))

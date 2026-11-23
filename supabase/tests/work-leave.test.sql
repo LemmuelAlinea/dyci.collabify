@@ -121,7 +121,7 @@ begin
   n := public.remove_time_off_range(u[4], m + 9, m + 9);
   perform pg_temp.service();
   perform pg_temp.check('planner overwrite keeps person row',
-    n = 0 and (select added_by is null and minutes = 60 from public.user_time_off where user_id = u[4] and off_on = m + 9));
+    n = 0 and (select added_by is null and minutes is null from public.user_time_off where user_id = u[4] and off_on = m + 9));
   perform pg_temp.act_as(u[4]);
   n := public.remove_time_off_range(u[4], m, m + 13);
   perform pg_temp.check('person removes any',
@@ -448,6 +448,58 @@ begin
     and (select ended_reminded_on = d from public.general_leave_notices where user_id = u[3] and project_id = p
            and first_day = d)
     and (select title from public.notifications where user_id = u[1] and type = 'leave_ending') = 'Cover 3''s leave ends today');
+
+  -- Review fixes.
+  declare
+    t_stale uuid; t_ar uuid; ar uuid; c_s uuid; c_a uuid; ok boolean;
+  begin
+    insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+      values (p, 'Zz stale', 'released', now(), u[1]) returning id into t_stale;
+    insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (t_stale, p, u[3], u[1]);
+    perform pg_temp.act_as(u[1]);
+    c_s := public.start_work_cover(t_stale, u[3], u[4]);
+    perform pg_temp.service();
+    delete from public.general_task_assignees where task_id = t_stale and user_id = u[4];
+    insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (t_stale, p, u[5], u[1]);
+    perform pg_temp.act_as(u[4]);
+    ok := public.hand_back_work_cover(c_s);
+    perform pg_temp.service();
+    perform pg_temp.check('stale cover not handed back',
+      ok = false and pg_temp.holders(t_stale) = array[u[5]]
+      and (select closed_how = 'dropped' from public.general_task_covers where id = c_s));
+
+    perform pg_temp.act_as(u[1]);
+    ar := (public.create_general_project('Zz cover archived', '', null, null, null, null, s)).id;
+    perform pg_temp.service();
+    insert into public.general_members(project_id, user_id, role) values (ar, u[3], 'member'), (ar, u[4], 'member');
+    insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+      values (ar, 'Zz archived work', 'released', now(), u[1]) returning id into t_ar;
+    insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (t_ar, ar, u[3], u[1]);
+    perform pg_temp.act_as(u[1]);
+    c_a := public.start_work_cover(t_ar, u[3], u[4]);
+    perform pg_temp.service();
+    update public.general_projects set archived_at = now(), archived_by = u[1] where id = ar;
+    perform pg_temp.act_as(u[1]);
+    perform pg_temp.refuse('archived project refuses hand back',
+      format('select public.hand_back_work_cover(%L)', c_a), 'This project is archived.');
+    perform pg_temp.service();
+    perform public.send_leave_reminders();
+    perform pg_temp.check('archived project drops cover',
+      (select closed_how = 'dropped' from public.general_task_covers where id = c_a));
+
+    perform pg_temp.act_as(u[1]);
+    perform pg_temp.refuse('record cannot forge',
+      format('select public.work_cover_record(%L, %L, %L, %L)', tb, u[3], u[5], d),
+      'The cover could not be set up.');
+
+    perform pg_temp.service();
+    insert into public.general_members(project_id, user_id, role) values (o, u[5], 'coordinator');
+    perform pg_temp.act_as(u[5]);
+    perform public.save_time_off_range(u[3], m + 14, m + 14, null);
+    perform pg_temp.service();
+    perform pg_temp.check('project planner marks away',
+      exists (select 1 from public.user_time_off where user_id = u[3] and off_on = m + 14 and added_by = u[5]));
+  end;
 end $$;
 
 rollback;

@@ -12,6 +12,7 @@ import { holderCandidates } from '../../lib/general/permissions'
 import { formatDayLabel, formatDayRange, formatHours } from '../../lib/work/hours'
 import { moveDueDate } from '../../lib/work/leave'
 import { useHolderHours } from '../../lib/work/useHolderHours'
+import { MarkAwayDialog } from './MarkAwayDialog'
 import type { GeneralProjectState } from './useGeneralProject'
 
 const flagged = (l: ProjectLeave) => l.tasks.filter((t) => t.status !== 'fine').length
@@ -51,6 +52,8 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
   const [day, setDay] = useState<Map<string, string>>(new Map())
   const [rowError, setRowError] = useState<Map<string, string>>(new Map())
   const [busy, setBusy] = useState<string | null>(null)
+  // The leave being extended from the review.
+  const [extending, setExtending] = useState<ProjectLeave | null>(null)
 
   const load = useCallback(async () => {
     if (!planner || !project) return
@@ -113,8 +116,9 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
         await setTaskHolders(task.task_id, [...holders, who!])
         show('Reassigned')
       } else {
-        await unassignTask(task.task_id, leave.user_id)
+        // The new holder goes on first, so a refusal never leaves the task with nobody.
         await assignTask(task.task_id, project!.id, who!)
+        await unassignTask(task.task_id, leave.user_id)
         show('Reassigned')
       }
       await Promise.all([load(), state.reload()])
@@ -153,6 +157,7 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
                     : `${formatDayLabel(l.first_day)} – ${formatDayLabel(l.last_day)}`}
                 </h3>
                 {l.added_by && <p className="text-[12px] text-muted">Added by {state.nameOf(l.added_by)}</p>}
+                <Button size="sm" variant="ghost" className="mt-1" onClick={() => setExtending(l)}>Extend leave</Button>
               </header>
               <ul className="divide-y divide-line rounded-xl border border-line">
                 {l.tasks.map((t) => {
@@ -204,6 +209,16 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
           ))}
         </div>
       </Modal>
+      {extending && (
+        <MarkAwayDialog
+          open
+          userId={extending.user_id}
+          name={state.nameOf(extending.user_id)}
+          initial={{ from: extending.first_day, to: extending.last_day }}
+          onClose={() => setExtending(null)}
+          onSaved={() => void load()}
+        />
+      )}
     </>
   )
 }

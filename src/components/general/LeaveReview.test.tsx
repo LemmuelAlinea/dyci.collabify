@@ -19,6 +19,10 @@ vi.mock('../ui/Modal', () => ({
     p.open ? <div role="dialog"><h2>{p.title}</h2>{p.children}{p.footer}</div> : null,
 }))
 vi.mock('../../lib/work/useHolderHours', () => ({ useHolderHours: () => new Map() }))
+vi.mock('./MarkAwayDialog', () => ({
+  MarkAwayDialog: (p: { open: boolean; name: string; initial?: { from: string; to: string } }) =>
+    p.open ? <div data-testid="mark-away">{p.name} {p.initial?.from}..{p.initial?.to}</div> : null,
+}))
 vi.mock('../../lib/api/workload', () => ({ projectLeaves: vi.fn(), startCover: vi.fn(async () => 'c1') }))
 vi.mock('../../lib/api/general', () => ({
   updateTask: vi.fn(async () => {}),
@@ -142,6 +146,14 @@ it('reassign in planned flow unassigns and assigns', async () => {
   await act(async () => button('Reassign', row('Authentication API'))!.click())
   expect(unassignTask).toHaveBeenCalledWith('t1', 'ivan')
   expect(assignTask).toHaveBeenCalledWith('t1', 'p', 'keneth')
+  // The new holder goes on first, so a refusal never leaves the task with nobody.
+  expect(vi.mocked(assignTask).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(unassignTask).mock.invocationCallOrder[0])
+})
+
+it('extend opens mark away', async () => {
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Extend leave')!.click())
+  expect(document.querySelector('[data-testid="mark-away"]')!.textContent).toBe('Ivan Cruz 2026-11-26..2026-11-28')
 })
 
 it('refusal shows on the row', async () => {

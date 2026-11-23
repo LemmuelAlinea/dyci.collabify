@@ -349,10 +349,14 @@ export async function projectCovers(projectId: string): Promise<Omit<TaskCoverRo
   return (data ?? []) as Omit<TaskCoverRow, 'id'>[]
 }
 
-/** Gives a covered task back to the person who was away. */
-export async function handBackCover(coverId: string): Promise<void> {
-  const { error } = await supabase.rpc('hand_back_work_cover', { p_cover: coverId })
+/**
+ * Gives a covered task back to the person who was away. False when someone had
+ * already changed who holds the task: the cover ended and nobody was put back.
+ */
+export async function handBackCover(coverId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('hand_back_work_cover', { p_cover: coverId })
   if (error) throw error
+  return data !== false
 }
 
 /** Leaves the task with its cover and ends the cover. */

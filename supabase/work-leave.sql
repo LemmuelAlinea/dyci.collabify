@@ -56,8 +56,9 @@ create trigger user_time_off_added_by before insert or update on public.user_tim
 
 ------------------------------------------------------------ recording leave
 
--- Whether the caller may record away days for p_user: themselves, or a project
--- manager or coordinator of a live work space p_user belongs to.
+-- Whether the caller may record away days for p_user: themselves, a project
+-- manager or coordinator of a live work space p_user belongs to, or a project
+-- manager or coordinator of a live work project p_user is on.
 create or replace function public.work_can_mark_away(p_user uuid)
 returns boolean
 language sql
@@ -74,7 +75,14 @@ as $$
         join public.general_spaces s on s.id = me.space_id
        where me.user_id = auth.uid() and me.role in ('pm', 'coordinator')
          and s.kind = 'work' and s.archived_at is null
-         and not exists (select 1 from public.classes c where c.space_id = s.id)));
+         and not exists (select 1 from public.classes c where c.space_id = s.id))
+    or exists (
+      select 1
+        from public.general_members me
+        join public.general_members them on them.project_id = me.project_id and them.user_id = p_user
+        join public.general_projects q on q.id = me.project_id
+       where me.user_id = auth.uid() and me.role in ('pm', 'coordinator')
+         and q.class_board_id is null and q.archived_at is null and q.trashed_at is null));
 $$;
 
 revoke all on function public.work_can_mark_away(uuid) from public, anon, authenticated;
@@ -121,7 +129,9 @@ begin
   select p_user, d::date, p_minutes
     from generate_series(p_from, p_to, interval '1 day') d
    where extract(isodow from d) < 6
-  on conflict (user_id, off_on) do update set minutes = excluded.minutes;
+  on conflict (user_id, off_on) do update set minutes = excluded.minutes
+    -- A planner never rewrites a day the person recorded themselves.
+    where public.user_time_off.added_by is not null or excluded.user_id = auth.uid();
   get diagnostics n = row_count;
   return n;
 end;
@@ -646,8 +656,20 @@ begin
   if v_project is null or not public.work_is_project_planner(v_project) then
     raise exception 'Only the project manager and coordinators can arrange cover.' using errcode = 'insufficient_privilege';
   end if;
+  -- Only the swap start_work_cover just made, in this transaction, for the end
+  -- of the away person's leave, can be recorded.
   if not exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = p_cover)
-     or exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = p_away) then
+     or exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = p_away)
+     or exists (select 1 from public.general_task_covers c where c.task_id = p_task and c.closed_at is null)
+     or not exists (select 1 from public.general_tasks t join public.general_projects q on q.id = t.project_id
+                     where t.id = p_task and t.routing_state = 'released' and t.status <> 'done'
+                       and t.archived_at is null and t.trashed_at is null
+                       and q.class_board_id is null and q.archived_at is null and q.trashed_at is null)
+     or p_until is distinct from (select r.last_day from public.work_leave_runs(p_away, (now() at time zone 'Asia/Manila')::date) r
+                                   order by r.first_day limit 1)
+     or not exists (select 1 from public.general_task_events e
+                     where e.task_id = p_task and e.kind = 'unassigned' and e.created_at = now()
+                       and e.detail ->> 'user_id' = p_away::text) then
     raise exception 'The cover could not be set up. Reload and try again.' using errcode = 'check_violation';
   end if;
   insert into public.general_task_covers (task_id, project_id, away_id, cover_id, until, created_by)
@@ -700,8 +722,13 @@ revoke all on function public.start_work_cover(uuid, uuid, uuid) from public, an
 grant execute on function public.start_work_cover(uuid, uuid, uuid) to authenticated;
 
 -- Closes an open cover the caller may act on: the cover or a project planner.
+-- Returns false when a hand-back found the holders already changed by someone
+-- else: the cover then ends as dropped and nobody is put back.
+drop function if exists public.hand_back_work_cover(uuid);
+drop function if exists public.keep_work_cover(uuid);
+drop function if exists public.work_cover_close(uuid, text, boolean);
 create or replace function public.work_cover_close(p_cover uuid, p_how text, p_swap boolean)
-returns void
+returns boolean
 language plpgsql
 security definer
 set search_path = public
@@ -724,6 +751,14 @@ begin
   if p_swap then
     select * into t from public.general_tasks where id = c.task_id for update;
     select * into gp from public.general_projects where id = c.project_id;
+    if gp.archived_at is not null or gp.trashed_at is not null then
+      raise exception 'This project is archived. Restore it to change who holds its tasks.' using errcode = 'check_violation';
+    end if;
+    if t.routing_state <> 'released'
+       or not exists (select 1 from public.general_task_assignees a where a.task_id = c.task_id and a.user_id = c.cover_id) then
+      update public.general_task_covers set closed_at = now(), closed_how = 'dropped' where id = c.id;
+      return false;
+    end if;
     if t.status = 'done' or t.archived_at is not null or t.trashed_at is not null
        or (public.general_project_has_qa(gp.id)
            and public.general_task_stage_at(t.status, t.stage, public.stage_count(gp.stages))
@@ -762,6 +797,7 @@ begin
   values (c.task_id, c.project_id, me, 'updated',
           jsonb_build_object('fields', jsonb_build_array('cover'), 'cover', p_how,
                              'away_id', c.away_id, 'cover_id', c.cover_id));
+  return true;
 end;
 $$;
 
@@ -769,7 +805,7 @@ revoke all on function public.work_cover_close(uuid, text, boolean) from public,
 
 -- Hands a covered task back to the person who was away.
 create or replace function public.hand_back_work_cover(p_cover uuid)
-returns void
+returns boolean
 language sql
 security definer
 set search_path = public
@@ -780,11 +816,13 @@ $$;
 -- Leaves the task with the cover and ends the cover.
 create or replace function public.keep_work_cover(p_cover uuid)
 returns void
-language sql
+language plpgsql
 security definer
 set search_path = public
 as $$
-  select public.work_cover_close(p_cover, 'kept', false);
+begin
+  perform public.work_cover_close(p_cover, 'kept', false);
+end;
 $$;
 
 revoke all on function public.hand_back_work_cover(uuid) from public, anon;
@@ -881,6 +919,8 @@ begin
     from public.general_tasks t
    where t.id = c.task_id and c.closed_at is null
      and (t.status = 'done' or t.archived_at is not null or t.trashed_at is not null
+          or exists (select 1 from public.general_projects q
+                      where q.id = c.project_id and (q.archived_at is not null or q.trashed_at is not null))
           or not exists (select 1 from public.general_task_assignees a
                           where a.task_id = c.task_id and a.user_id = c.cover_id));
 

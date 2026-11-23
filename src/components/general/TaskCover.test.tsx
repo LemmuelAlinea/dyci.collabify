@@ -12,7 +12,7 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 vi.mock('../ui/Toast', () => ({ useToast: () => ({ show: vi.fn() }) }))
 vi.mock('../../lib/api/workload', () => ({
   taskCover: vi.fn(),
-  handBackCover: vi.fn(async () => {}),
+  handBackCover: vi.fn(async () => true),
   keepCover: vi.fn(async () => {}),
 }))
 
@@ -66,6 +66,14 @@ it('buttons hidden for others', async () => {
   expect(button('Hand back to Ivan Cruz')).toBeUndefined()
   await act(async () => root.render(<TaskCover taskId="t1" state={{ ...stateAs('pm', 'pm'), readOnly: true } as GeneralProjectState} />))
   expect(button('Hand back to Ivan Cruz')).toBeUndefined()
+})
+
+it('stale cover says the holders changed', async () => {
+  vi.mocked(handBackCover).mockResolvedValueOnce(false)
+  await render(stateAs('keneth'))
+  vi.mocked(taskCover).mockResolvedValue(null)
+  await act(async () => button('Hand back to Ivan Cruz')!.click())
+  expect(host.textContent).toContain('Someone changed who holds this task, so the cover has ended.')
 })
 
 it('refusal shows its message', async () => {

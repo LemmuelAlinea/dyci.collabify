@@ -60,6 +60,6 @@ it('opens a started Collabify call and falls back to Meetings without an id', ()
 it('opens the leave review, the covered task and the space Workload tab for leave notices', () => {
   expect(destination(note({ type: 'leave_impact', general_project_id: 'p1' }), 'member', false)).toBe('/projects/p1?leave=open')
   expect(destination(note({ type: 'cover_hand_back', general_project_id: 'p1', general_task_id: 't1' }), 'member', false)).toBe('/projects/p1?task=t1')
-  expect(destination(note({ type: 'leave_ending', general_project_id: 'p1', general_space_id: 's1' }), 'member', false)).toBe('/spaces/s1/workload')
+  expect(destination(note({ type: 'leave_ending', general_project_id: 'p1', general_space_id: 's1' }), 'member', false)).toBe('/projects/p1?leave=open')
   expect(destination(note({ type: 'leave_impact' }), 'member', false)).toBe('/home')
 })
