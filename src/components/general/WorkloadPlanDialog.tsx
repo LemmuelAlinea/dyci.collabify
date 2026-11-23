@@ -103,12 +103,15 @@ export function WorkloadPlanDialog({
   projectId,
   spaceId,
   parentEstimateMinutes,
+  preselect,
   onClose,
   onSaved,
 }: {
   parentId: string
   projectId: string
   spaceId: string
+  /** People to start selected instead of the task's holders (New task's split passes everyone). */
+  preselect?: string[]
   /** The parent's own estimate, shown beside the subtasks' total. */
   parentEstimateMinutes?: number | null
   onClose: () => void
@@ -143,7 +146,7 @@ export function WorkloadPlanDialog({
         setCtx(c)
         setFrom(w.from)
         setTo(w.to)
-        setSelected(c.parent.holder_ids.filter((id) => eligible.has(id)))
+        setSelected((preselect ?? c.parent.holder_ids).filter((id) => eligible.has(id)))
       })
       .catch((err) => live && setLoadError(authErrorMessage(err, 'Could not open the breakdown. Close it and try again.')))
     return () => {

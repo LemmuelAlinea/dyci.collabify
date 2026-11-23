@@ -157,6 +157,35 @@ export async function spacePeopleLoad(
   return (data ?? []) as PeopleLoad[]
 }
 
+/** A task not created yet: each holder's load, share of it and available minutes over its weeks. */
+export type NewTaskRoom = {
+  user_id: string
+  load_minutes: number
+  share_minutes: number
+  available_minutes: number | null
+  from_on: string
+  to_on: string
+}
+
+/** Hours for a task before it is added (`general_new_task_room`): the project manager and coordinators only. */
+export async function newTaskRoom(
+  projectId: string,
+  userIds: string[],
+  minutes: number,
+  startsAt: string | null,
+  dueAt: string | null,
+): Promise<NewTaskRoom[]> {
+  const { data, error } = await supabase.rpc('general_new_task_room', {
+    p_project: projectId,
+    p_users: userIds,
+    p_minutes: minutes,
+    p_starts: startsAt,
+    p_due: dueAt,
+  })
+  if (error) throw error
+  return (data ?? []) as NewTaskRoom[]
+}
+
 /** Room for a task: 'full' when it would put the person past their hours in its weeks. Never hours. */
 export type HolderRoom = { user_id: string; room: 'ok' | 'full' | 'unknown' }
 

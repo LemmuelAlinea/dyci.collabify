@@ -418,7 +418,9 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   team's members; `general_task_holder_room` gives ok/full/unknown (never hours) to whoever may assign the task;
   the deferred constraint trigger `general_task_assignees_room` refuses a Member who adds someone else with no room
   in an Open project (it reads `assigned_by`, since the Open writers clear claims); `create_work_open_task` wraps
-  `create_general_open_task` and sets the estimate in the same transaction; `general_space_person_tasks` and
+  `create_general_open_task` and sets the estimate in the same transaction; `general_new_task_room` gives the project
+  manager and coordinators each picked holder's load, share and hours over a not-yet-created task's weeks, so New task
+  pauses before overloading someone (Add and split with AI opens Break down and balance, or Add anyway); `general_space_person_tasks` and
   `general_space_workload_summary` feed the space Workload tab (`SpaceWorkload`). Holder pickers use `useHolderHours`.
   Phase 3: `general_task_timers` (one row per person, own-row read, no write grant) is written only by
   `start_work_task_timer`, `stop_work_task_timer` and `cancel_work_task_timer`; a stopped timer is one `general_task_logs`
