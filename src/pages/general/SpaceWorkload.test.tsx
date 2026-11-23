@@ -12,10 +12,14 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 vi.mock('../../lib/api/spaces', () => ({
   listSpaceMembers: vi.fn(async () => [
-    { user_id: 'ana', first_name: 'Ana', last_name: 'Cruz' },
-    { user_id: 'ben', first_name: 'Ben', last_name: 'Reyes' },
-    { user_id: 'cy', first_name: 'Cy', last_name: 'Lim' },
+    { user_id: 'ana', first_name: 'Ana', last_name: 'Cruz', role: 'member' },
+    { user_id: 'ben', first_name: 'Ben', last_name: 'Reyes', role: 'coordinator' },
+    { user_id: 'cy', first_name: 'Cy', last_name: 'Lim', role: 'member' },
   ]),
+}))
+vi.mock('../../lib/api/general', () => ({
+  listSpaceTeams: vi.fn(async () => [{ id: 'web', name: 'Web team' }]),
+  listSpaceTeamMembers: vi.fn(async () => [{ team_id: 'web', user_id: 'ana' }]),
 }))
 vi.mock('./spaceOutlet', () => ({ useSpaceOutlet: () => ({ all: [{ id: 'p1', name: 'Login work' }] }) }))
 vi.mock('../../lib/api/workload', () => ({
@@ -138,9 +142,74 @@ it('moves a week with the arrows', async () => {
   expect(document.querySelector('[data-week-head]')!.textContent).toBe('Mon 30 Nov')
 })
 
-it('counts what is unknown in the footer', async () => {
+const rows = () => [...document.querySelectorAll('[data-person]')].map((r) => r.getAttribute('data-person'))
+const stat = (label: string) => [...document.querySelectorAll('[data-summary] > *')].find((el) => el.textContent?.startsWith(label.toUpperCase()) || el.textContent?.startsWith(label))!
+
+it('sums the week in the summary strip', async () => {
   await render()
-  expect(document.body.textContent).toContain('3 tasks have no estimate · 1 person has no weekly hours set')
+  // Ana 10 of 16 h, Ben 13 of 12 h (away 26–27 Nov), Cy with no hours.
+  expect(stat('Team load').textContent).toContain('100%')
+  expect(stat('Over').textContent).toContain('1')
+  expect(stat('Near full').textContent).toContain('0')
+  expect(stat('Has room').textContent).toContain('2')
+  expect(stat('Away').textContent).toContain('1')
+  expect(stat('No estimate').textContent).toContain('3')
+})
+
+it('a summary count filters the list', async () => {
+  await render()
+  await act(async () => (stat('Over') as HTMLButtonElement).click())
+  expect(rows()).toEqual(['ben'])
+  await act(async () => (stat('Over') as HTMLButtonElement).click())
+  expect(rows()).toHaveLength(3)
+})
+
+it('searches names', async () => {
+  await render()
+  const input = document.querySelector<HTMLInputElement>('input[placeholder="Search people"]')!
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'ana')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  expect(rows()).toEqual(['ana'])
+})
+
+it('a project filter shows that project and the rest as elsewhere', async () => {
+  await render('/spaces/s1/workload?project=p1')
+  expect(cell('ben', 0)!.textContent).toContain('7 / 12 h')
+  expect(cell('ben', 0)!.textContent).toContain('+6 h elsewhere')
+  // The tone is still Ben's whole week.
+  expect(cell('ben', 0)!.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe('danger')
+})
+
+it('filters by role from the link and shows the role', async () => {
+  await render('/spaces/s1/workload?role=coordinator')
+  expect(rows()).toEqual(['ben'])
+  expect(document.querySelector('[data-person="ben"] [data-role]')!.textContent).toBe('Coordinator')
+})
+
+it('filters by team from the link', async () => {
+  await render('/spaces/s1/workload?team=web')
+  expect(rows()).toEqual(['ana'])
+})
+
+it('sorts by most loaded first', async () => {
+  await render()
+  expect(rows()).toEqual(['ben', 'ana', 'cy'])
+})
+
+it('sorts by most free hours', async () => {
+  await render('/spaces/s1/workload?sort=free')
+  // Ana has 6 h free, Ben is 1 h over, Cy holds 5 h with no hours set.
+  expect(rows()).toEqual(['ana', 'ben', 'cy'])
+})
+
+it('says when no one matches and clears the filters', async () => {
+  await render('/spaces/s1/workload?q=zzz')
+  expect(document.body.textContent).toContain('No one matches these filters.')
+  const clear = [...document.querySelectorAll('button')].filter((b) => b.textContent === 'Clear filters')
+  await act(async () => clear.at(-1)!.click())
+  expect(rows()).toHaveLength(3)
 })
 
 it('retries a row whose tasks failed to load', async () => {
