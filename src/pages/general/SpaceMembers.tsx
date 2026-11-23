@@ -73,21 +73,21 @@ function WeeklyHoursCell({
 
   if (!editable) {
     return (
-      <span className="w-[6.5rem] text-[13px] text-muted">
+      <span className="w-[8rem] text-[13px] text-muted">
         {!known ? '—' : minutes === null ? `${formatHours(fallback)} (default)` : formatHours(minutes)}
       </span>
     )
   }
   const dirty = text.trim() !== saved
   return (
-    <span className="flex w-[11rem] items-center gap-1.5">
+    <span className="flex w-[13rem] items-center gap-1.5">
       <input
         value={text}
         inputMode="decimal"
         placeholder={`${hoursNumber(fallback)} (default)`}
         aria-label={`Weekly hours for ${person.first_name} ${person.last_name}`}
         onChange={(e) => setText(e.target.value)}
-        className="h-9 w-[5.5rem] rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-3 text-[13px] text-ink placeholder:text-faint"
+        className="h-9 w-[7.5rem] rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-3 text-[13px] text-ink placeholder:text-faint"
       />
       <span className="text-[13px] text-muted">h</span>
       {dirty && (
