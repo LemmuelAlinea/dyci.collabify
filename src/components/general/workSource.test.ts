@@ -7,6 +7,7 @@ import { DEFAULT_SPRINT_SETTINGS } from '../../lib/work/sprintSettings'
 vi.mock('../../lib/api/general', () => ({ createTask: vi.fn(async () => 't-new'), createMemberTask: vi.fn(async () => 't-member') }))
 vi.mock('../../lib/api/milestones', () => ({}))
 vi.mock('../../lib/api/sprints', () => ({}))
+vi.mock('../../lib/api/workload', () => ({ sprintHours: vi.fn() }))
 
 const reload = vi.fn(async () => {})
 

@@ -1,4 +1,5 @@
 // src/components/general/workSource.ts
+import { sprintHours } from '../../lib/api/workload'
 import {
   addMilestoneDependency,
   createMilestone,
@@ -75,6 +76,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
   }
 
   return {
+    loadSprintHours: project && !project.class_board_id ? sprintHours : undefined,
     terms: state.sprintSettings.terms,
     items: generalWorkItems(state),
     sprints: state.sprints,

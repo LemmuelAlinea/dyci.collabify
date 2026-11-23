@@ -9,6 +9,7 @@ import { ProjectLeaves } from './LeaveReview'
 import { projectLeaves, startCover, type ProjectLeave } from '../../lib/api/workload'
 import { assignTask, setTaskHolders, unassignTask, updateTask } from '../../lib/api/general'
 import { moveDueDate } from '../../lib/work/leave'
+import { suggestLeaveChanges } from '../../lib/api/workAi'
 import type { GeneralProjectState } from './useGeneralProject'
 
 vi.stubGlobal('React', React)
@@ -19,11 +20,13 @@ vi.mock('../ui/Modal', () => ({
     p.open ? <div role="dialog"><h2>{p.title}</h2>{p.children}{p.footer}</div> : null,
 }))
 vi.mock('../../lib/work/useHolderHours', () => ({ useHolderHours: () => new Map() }))
+vi.mock('../../lib/work/useAwayRanges', () => ({ useAwayRanges: () => new Map() }))
 vi.mock('./MarkAwayDialog', () => ({
   MarkAwayDialog: (p: { open: boolean; name: string; initial?: { from: string; to: string } }) =>
     p.open ? <div data-testid="mark-away">{p.name} {p.initial?.from}..{p.initial?.to}</div> : null,
 }))
 vi.mock('../../lib/api/workload', () => ({ projectLeaves: vi.fn(), startCover: vi.fn(async () => 'c1') }))
+vi.mock('../../lib/api/workAi', () => ({ suggestLeaveChanges: vi.fn() }))
 vi.mock('../../lib/api/general', () => ({
   updateTask: vi.fn(async () => {}),
   setTaskHolders: vi.fn(async () => {}),
@@ -183,4 +186,80 @@ it('review hides leaves with nothing to look at', async () => {
   root = createRoot(host)
   await render(stateOf(), '/projects/p?leave=open')
   expect(document.querySelector('[role="dialog"]')).toBeNull()
+})
+
+const suggestions = [
+  { task_id: 't1', action: 'cover' as const, person_id: 'keneth', due_on: null, reason: 'Keneth has 9 h free.' },
+  { task_id: 't2', action: 'move_due' as const, person_id: null, due_on: '2026-12-01', reason: 'Nothing else waits on it.' },
+]
+
+it('suggest fills the row', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(suggestLeaveChanges).toHaveBeenCalledWith('p', 'n1')
+  expect(row('Authentication API').textContent).toContain('Suggestion: Cover by Keneth Lim until Sat 28 Nov')
+  expect(row('Authentication API').textContent).toContain('Keneth has 9 h free.')
+  expect(row('Authentication API').querySelector<HTMLSelectElement>('select')!.value).toBe('keneth')
+  expect(row('Login integration').querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('2026-12-01')
+})
+
+it('apply cover uses startCover', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  await act(async () => button('Apply', row('Authentication API'))!.click())
+  expect(startCover).toHaveBeenCalledWith('t1', 'ivan', 'keneth', '2026-11-26')
+})
+
+it('apply move uses the date', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(row('Login integration').textContent).toContain('Suggestion: Move the due date to Tue 1 Dec')
+  await act(async () => button('Apply', row('Login integration'))!.click())
+  expect(updateTask).toHaveBeenCalledWith('t2', { due_at: moveDueDate(null, '2026-12-01') })
+})
+
+it('missing suggestion says so', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(row('Bug fixes').textContent).toContain('No suggestion')
+  expect(row('Docs').textContent).not.toContain('No suggestion')
+})
+
+it('suggest failure shows message', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'failed', message: 'That is 12 in an hour. Try again later.' })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(document.body.textContent).toContain('That is 12 in an hour. Try again later.')
+})
+
+it('person token shown as name', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions: [{ ...suggestions[0], reason: '{person} has 9 h free.' }] })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(row('Authentication API').textContent).toContain('Keneth Lim has 9 h free.')
+})
+
+it('apply uses an edited picker', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  await pick(row('Authentication API').querySelector<HTMLSelectElement>('select')!, 'wilson')
+  await act(async () => button('Apply', row('Authentication API'))!.click())
+  expect(startCover).toHaveBeenCalledWith('t1', 'ivan', 'wilson', '2026-11-26')
+})
+
+it('suggestions dropped when the leave changes', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(row('Authentication API').textContent).toContain('Suggestion:')
+  vi.mocked(projectLeaves).mockResolvedValue([{ ...leave, last_day: '2026-12-02' }])
+  await typeInto(row('Bug fixes').querySelector<HTMLInputElement>('input[type="date"]')!, '2026-12-10')
+  await act(async () => button('Move due date', row('Bug fixes'))!.click())
+  expect(row('Authentication API').textContent).not.toContain('Suggestion:')
+  expect(row('Login integration').querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('')
 })

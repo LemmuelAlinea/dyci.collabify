@@ -7,11 +7,15 @@ import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { assignTask, setTaskHolders, unassignTask, updateTask } from '../../lib/api/general'
 import { projectLeaves, startCover, type LeaveTask, type ProjectLeave } from '../../lib/api/workload'
+import { suggestLeaveChanges, type LeaveSuggestion } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
 import { holderCandidates } from '../../lib/general/permissions'
 import { formatDayLabel, formatDayRange, formatHours } from '../../lib/work/hours'
 import { moveDueDate } from '../../lib/work/leave'
 import { useHolderHours } from '../../lib/work/useHolderHours'
+import { useAwayRanges } from '../../lib/work/useAwayRanges'
+import { awayText } from '../../lib/work/away'
+import { manilaToday } from '../../lib/work/hours'
 import { MarkAwayDialog } from './MarkAwayDialog'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -54,14 +58,38 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
   const [busy, setBusy] = useState<string | null>(null)
   // The leave being extended from the review.
   const [extending, setExtending] = useState<ProjectLeave | null>(null)
+  // Suggest changes: per leave, the suggestion for each task once asked, and any failure.
+  // Each leave's suggestions remember the dates they were made for.
+  const [suggested, setSuggested] = useState<Map<string, { dates: string; byTask: Map<string, LeaveSuggestion> }>>(new Map())
+  const [suggesting, setSuggesting] = useState<string | null>(null)
+  const [suggestError, setSuggestError] = useState<Map<string, string>>(new Map())
 
   const load = useCallback(async () => {
     if (!planner || !project) return
+    let next: ProjectLeave[] = []
     try {
-      setLeaves(await projectLeaves(project.id))
+      next = await projectLeaves(project.id)
     } catch {
-      setLeaves([])
+      next = []
     }
+    setLeaves(next)
+    // A leave whose dates changed (extended or shortened) loses its suggestions and what they filled in.
+    const datesOf = new Map(next.map((l) => [l.notice_id, `${l.first_day}:${l.last_day}`]))
+    setSuggested((m) => {
+      const stale = [...m.entries()].filter(([id, v]) => datesOf.get(id) !== v.dates)
+      if (stale.length === 0) return m
+      const prefixes = stale.flatMap(([id, v]) => [...v.byTask.values()].map((sg) => `${id}:${sg.task_id}`))
+      const drop = (old: Map<string, string>) => {
+        const n = new Map(old)
+        for (const k of prefixes) n.delete(k)
+        return n
+      }
+      setPerson(drop)
+      setDay(drop)
+      const n = new Map(m)
+      for (const [id] of stale) n.delete(id)
+      return n
+    })
   }, [planner, project?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -76,6 +104,8 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
     taskId: null,
     viewer: open ? 'planner' : 'none',
   })
+
+  const awayRanges = useAwayRanges(open ? (project as { space_id?: string | null } | null)?.space_id : null)
 
   // Only leaves that still leave something to look at.
   const shown = leaves.filter((l) => flagged(l) > 0)
@@ -92,12 +122,67 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
     setParams(next)
   }
 
-  async function act(leave: ProjectLeave, task: LeaveTask, kind: 'move' | 'cover' | 'reassign') {
+  async function suggest(leave: ProjectLeave) {
+    setSuggesting(leave.notice_id)
+    setSuggestError((m) => { const n = new Map(m); n.delete(leave.notice_id); return n })
+    try {
+      const res = await suggestLeaveChanges(project!.id, leave.notice_id)
+      if (res.result !== 'ok') {
+        setSuggestError((m) => new Map(m).set(leave.notice_id, res.message))
+        return
+      }
+      const byTask = new Map(res.suggestions.map((sg) => [sg.task_id, sg]))
+      setSuggested((m) => new Map(m).set(leave.notice_id, { dates: `${leave.first_day}:${leave.last_day}`, byTask }))
+      // A suggestion fills the row's picker or date, so changing it is the edit.
+      setPerson((m) => {
+        const n = new Map(m)
+        for (const sg of res.suggestions) if (sg.person_id) n.set(`${leave.notice_id}:${sg.task_id}`, sg.person_id)
+        return n
+      })
+      setDay((m) => {
+        const n = new Map(m)
+        for (const sg of res.suggestions) if (sg.due_on) n.set(`${leave.notice_id}:${sg.task_id}`, sg.due_on)
+        return n
+      })
+    } catch (err) {
+      setSuggestError((m) => new Map(m).set(leave.notice_id, authErrorMessage(err, 'No suggestions came back. Try again.')))
+    } finally {
+      setSuggesting(null)
+    }
+  }
+
+  function suggestionText(leave: ProjectLeave, sg: LeaveSuggestion) {
+    if (sg.action === 'cover') return `Cover by ${state.nameOf(sg.person_id!)} until ${formatDayLabel(leave.last_day)}`
+    if (sg.action === 'reassign') return `Reassign to ${state.nameOf(sg.person_id!)}`
+    if (sg.action === 'move_due') return `Move the due date to ${formatDayLabel(sg.due_on!)}`
+    return 'Keep as it is'
+  }
+
+  function apply(leave: ProjectLeave, task: LeaveTask, sg: LeaveSuggestion) {
+    if (sg.action === 'keep') {
+      setSkipped((s) => new Set(s).add(`${leave.notice_id}:${task.task_id}`))
+      return
+    }
+    // The picker and date start as the suggestion, so what they hold now is the manager's edit.
+    const key = `${leave.notice_id}:${task.task_id}`
+    void act(leave, task, sg.action === 'move_due' ? 'move' : sg.action, {
+      person: person.get(key) ?? sg.person_id,
+      day: day.get(key) ?? sg.due_on,
+    })
+  }
+
+  async function act(
+    leave: ProjectLeave,
+    task: LeaveTask,
+    kind: 'move' | 'cover' | 'reassign',
+    chosen?: { person?: string | null; day?: string | null },
+  ) {
     const key = `${leave.notice_id}:${task.task_id}`
     setRowError((m) => { const n = new Map(m); n.delete(key); return n })
-    const who = person.get(key)
+    const who = chosen?.person ?? person.get(key)
+    const when = chosen?.day ?? day.get(key)
     const live = state.tasks.find((t) => t.id === task.task_id)
-    if (kind === 'move' && !day.get(key)) {
+    if (kind === 'move' && !when) {
       setRowError((m) => new Map(m).set(key, 'Pick the new due date.'))
       return
     }
@@ -108,7 +193,7 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
     setBusy(key)
     try {
       if (kind === 'move') {
-        await updateTask(task.task_id, { due_at: moveDueDate(live?.due_at ?? null, day.get(key)!) })
+        await updateTask(task.task_id, { due_at: moveDueDate(live?.due_at ?? null, when!) })
         show('Due date moved')
       } else if (kind === 'cover') {
         await startCover(task.task_id, leave.user_id, who!, leave.first_day)
@@ -157,7 +242,15 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
                     : `${formatDayLabel(l.first_day)} – ${formatDayLabel(l.last_day)}`}
                 </h3>
                 {l.added_by && <p className="text-[12px] text-muted">Added by {state.nameOf(l.added_by)}</p>}
-                <Button size="sm" variant="ghost" className="mt-1" onClick={() => setExtending(l)}>Extend leave</Button>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" loading={suggesting === l.notice_id} onClick={() => void suggest(l)}>
+                    Suggest changes
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setExtending(l)}>Extend leave</Button>
+                </div>
+                {suggestError.get(l.notice_id) && (
+                  <p role="alert" className="mt-1 text-[12px] text-danger-600 dark:text-danger-400">{suggestError.get(l.notice_id)}</p>
+                )}
               </header>
               <ul className="divide-y divide-line rounded-xl border border-line">
                 {l.tasks.map((t) => {
@@ -175,6 +268,23 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
                         {t.due_on ? `Due ${formatDayRange(t.due_on, t.due_on)}` : 'No due date'}
                         {!t.no_estimate && ` · ${formatHours(t.remaining_minutes)} left`}
                       </p>
+                      {!done && t.status !== 'fine' && suggested.has(l.notice_id) && (() => {
+                        const sg = suggested.get(l.notice_id)!.byTask.get(t.task_id)
+                        if (!sg) return <p className="text-[12px] text-faint">No suggestion</p>
+                        return (
+                          <div className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-navy-50 px-3 py-2 dark:bg-navy-500/15">
+                            <p className="min-w-0 text-[13px] text-ink">
+                              Suggestion: {suggestionText(l, sg)}
+                              {sg.reason && (
+                                <span className="block text-[12px] text-muted">
+                                  {sg.reason.replaceAll('{person}', sg.person_id ? state.nameOf(sg.person_id) : 'they')}
+                                </span>
+                              )}
+                            </p>
+                            <Button size="sm" disabled={busy === key} onClick={() => apply(l, t, sg)}>Apply</Button>
+                          </div>
+                        )
+                      })()}
                       {done ? (
                         <p className="text-[12px] text-faint">Skipped</p>
                       ) : t.status !== 'fine' && (
@@ -191,7 +301,8 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
                             <option value="">Choose someone…</option>
                             {options.map((id) => (
                               <option key={id} value={id}>
-                                {state.nameOf(id)}{hours.get(id) ? ` · ${hours.get(id)!.text}` : ''}
+                                {[state.nameOf(id), awayText(awayRanges.get(id) ?? [], manilaToday(), 'picker'), hours.get(id)?.text]
+                                  .filter(Boolean).join(' · ')}
                               </option>
                             ))}
                           </select>

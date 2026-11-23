@@ -1154,7 +1154,10 @@ change; `general_project_leaves(project)` is the review read. It adds the notifi
 `work_cover_prepare` and `work_cover_record`), `hand_back_work_cover` and `keep_work_cover` (through the internal
 `work_cover_close`, which writes the hand-back with claims cleared, naming the planner who arranged the cover), the
 covers' end following their leave (`work_leave_move_covers`, statement triggers `user_time_off_covers_*`), and the
-daily `send_leave_reminders` (cron `collabify-leave-reminders`, 08:00 Manila). It redefines nothing another
+daily `send_leave_reminders` (cron `collabify-leave-reminders`, 08:00 Manila). Phase 2 adds the internal `work_task_room`
+(the one fit rule, also used by `work_leave_task_status`), `general_task_forecast(task)` (holders short of hours, for
+planners and holders), `general_leave_suggest_context(notice)` (what the `work-ai` `leave` action reads) and
+`general_sprint_hours(sprint)`. It redefines nothing another
 file owns. Re-running `work-workload.sql` means re-running it afterwards, then `anon-lockdown.sql`. Suite:
 `supabase/tests/work-leave.test.sql`.
 

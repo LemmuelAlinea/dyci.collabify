@@ -181,8 +181,8 @@ Bug fixes             Due 3 Dec · 8 h left    Won't fit (5 h short)
 ### Away badges and at-risk forecast
 
 - **Away badge:** "Away until Fri 28 Nov" (or "Away today" for part days) next to a person in holder pickers, on task
-  holders in the dialog and cards, and on the Workload tab row, for viewers who may see that person's workload or
-  assign them. A future leave shows "Away 26–28 Nov" in pickers.
+  holders in the dialog and cards, and on the Workload tab row, for anyone sharing a live work space with them
+  (decision 6). A future leave shows "Away 26–28 Nov" in pickers.
 - **At-risk forecast:** on a task with an estimate and a due date, "Needs 5 h more than Ivan has before it's due"
   when remaining work exceeds the holders' available hours until due (split as load is split). Shown to planners and
   the holder.

@@ -14,10 +14,13 @@ const show = vi.hoisted(() => vi.fn())
 vi.mock('../ui/Toast', () => ({ useToast: () => ({ show }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RoleBadge', () => ({ PersonBadge: () => null }))
+vi.mock('./TaskForecast', () => ({ TaskForecast: () => null }))
 vi.mock('./TaskTimer', async importOriginal => ({ ...await importOriginal<object>(), TaskTimer: () => <span data-testid="task-timer" /> }))
 vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
 vi.mock('../../lib/api/workload', () => ({ setTaskEstimate: vi.fn(async () => {}) }))
 const holderHours = vi.hoisted(() => ({ labels: new Map<string, { text: string; tone: string }>(), calls: [] as unknown[] }))
+const away = vi.hoisted(() => ({ map: new Map<string, unknown[]>() }))
+vi.mock('../../lib/work/useAwayRanges', () => ({ useAwayRanges: () => away.map }))
 vi.mock('../../lib/work/useHolderHours', () => ({
   useHolderHours: (opts: unknown) => { holderHours.calls.push(opts); return holderHours.labels },
 }))
@@ -424,4 +427,25 @@ it('hidden for non-holders', async () => {
     await act(async () => root.render(<TaskDialog state={{ ...base, tasks: [{ ...task, archived_at: 'x' }], viewerId: 'worker', myRole: 'member' } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
     expect(timer()).toBeNull()
   } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('picker shows away', async () => {
+  const { manilaToday } = await import('../../lib/work/hours')
+  const today = manilaToday()
+  const later = new Date(Date.parse(today + 'T00:00:00Z') + 3 * 86400000).toISOString().slice(0, 10)
+  away.map = new Map([['active', [{ user_id: 'active', first_day: today, last_day: later, part_day: false, added_by: null }]],
+    ['a1', [{ user_id: 'a1', first_day: today, last_day: later, part_day: false, added_by: null }]]])
+  const task = { id: 'task', title: 'Incoming', project_id: 'p', created_by: 'pm', team_id: 'a', routing_state: 'released', assignee_ids: ['a1'], status: 'todo', stage: 0, description: '', archived_at: null }
+  const state = { project: { id: 'p', class_board_id: null, stages: ['Todo', 'Done'], space_id: 's' }, viewerId: 'lead', myRole: 'member', readOnly: false,
+    teams: [{ id: 'a', leader_id: 'lead' }], teamMembers: ['lead', 'a1', 'active'].map(user_id => ({ team_id: 'a', user_id })),
+    members: ['lead', 'a1', 'active'].map(user_id => ({ user_id, profile: { status: 'active' } })),
+    tasks: [task], can: () => false, leadsUser: () => false, nameOf: (id: string) => id, roleOf: () => 'member', qaBlocks: () => false,
+  } as unknown as GeneralProjectState
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={state} taskId="task" onClose={vi.fn()} />))
+    const select = document.querySelector<HTMLSelectElement>('[aria-label="Assign someone"]')!
+    expect([...select.options].find(o => o.value === 'active')!.textContent).toContain('Away until')
+    expect(document.querySelector('[data-away-holder]')?.textContent).toContain('Away until')
+  } finally { await act(async () => root.unmount()); container.remove(); away.map = new Map() }
 })

@@ -18,6 +18,8 @@ vi.mock('./LeadInbox', () => ({ LeadInbox: () => null }))
 vi.mock('./workSource', () => ({ generalWorkSource: () => ({}) }))
 vi.mock('./TasksFromNotes', () => ({ TasksFromNotes: () => null }))
 vi.mock('./AssignByPosition', () => ({ AssignByPosition: () => null }))
+const awayRanges = vi.hoisted(() => ({ map: new Map<string, unknown[]>() }))
+vi.mock('../../lib/work/useAwayRanges', () => ({ useAwayRanges: () => awayRanges.map }))
 vi.mock('../../lib/api/workload', async (importOriginal) => ({
   ...await importOriginal<object>(),
   projectCovers: vi.fn(async () => [{ task_id: 'covered', away_id: 'ivan', cover_id: 'keneth', until: '2026-11-28' }]),
@@ -115,4 +117,22 @@ it('card shows cover marker', async () => {
     const markers = [...container.querySelectorAll('[data-cover-marker]')].map(m => m.getAttribute('title'))
     expect(markers).toEqual(['Covering for ivan until Sat 28 Nov'])
   } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('card shows away holder', async () => {
+  const { manilaToday } = await import('../../lib/work/hours')
+  const today = manilaToday()
+  awayRanges.map = new Map([['ivan', [{ user_id: 'ivan', first_day: today, last_day: today, part_day: true, added_by: null }]]])
+  const task = { id: 'held', title: 'Held work', kind: 'task', routing_state: 'released', created_by: 'pm', team_id: null, assignee_ids: ['ivan'], status: 'todo', stage: 0, description: '', sprint_id: null, archived_at: null, file_count: 0, comment_count: 0 }
+  const state = { project: { id: 'project', class_board_id: null, stages: ['Todo', 'Done'], space_id: 's' }, myRole: 'member', viewerId: 'member', readOnly: false,
+    tasks: [task, { ...task, id: 'free', title: 'Free work', assignee_ids: ['bo'] }],
+    teams: [], teamMembers: [], members: [], sprints: [], milestones: [], sprintSettings: DEFAULT_SPRINT_SETTINGS, can: () => false, qaBlocks: () => false, leadsUser: () => false, nameOf: (id: string) => id, roleOf: () => 'member', isLead: () => false,
+  } as unknown as GeneralProjectState
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<MemoryRouter><TasksTab state={state} layout="board" onLayout={vi.fn()} onViewBoard={vi.fn()} scope="all" onScope={vi.fn()} onOpenTask={vi.fn()} /></MemoryRouter>))
+    const chips = [...container.querySelectorAll('[data-away-chip]')]
+    expect(chips.map(c => c.textContent)).toEqual(['Away today'])
+    expect(chips[0].getAttribute('title')).toBe('ivan: Away today')
+  } finally { await act(async () => root.unmount()); container.remove(); awayRanges.map = new Map() }
 })
