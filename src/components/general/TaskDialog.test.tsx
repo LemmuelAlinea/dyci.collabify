@@ -182,6 +182,16 @@ it('edits the title in the header and saves it from the footer', async () => {
   } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
 })
 
+it('opens a task without putting the cursor in its title', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    const title = document.querySelector<HTMLInputElement>('[aria-label="Task title"]')!
+    expect(document.activeElement).not.toBe(title)
+    expect(document.activeElement).toBe(document.querySelector('[role="dialog"]'))
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
 it('discards an unsaved title when Cancel closes the task', async () => {
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
   try {

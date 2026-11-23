@@ -32,6 +32,12 @@ type Props = {
    * to be filled in, the first field is the only sensible place to start.
    */
   focusField?: boolean
+  /**
+   * Land on the dialog itself, not its first control: for a dialog opened to
+   * read, like a task, whose first control is an editable title. Tab still
+   * reaches every control.
+   */
+  focusPanel?: boolean
 }
 
 const WIDTHS = {
@@ -80,6 +86,7 @@ export function Modal({
   size = 'md',
   placement = 'center',
   focusField = false,
+  focusPanel = false,
   bodyClassName = '',
   headerTone = 'default',
   headerActions,
@@ -153,7 +160,11 @@ export function Modal({
   // `render`: the trap should engage and release on the caller's intent, not
   // on the extra frame the exit animation keeps the element mounted for —
   // otherwise Tab would still be caught inside a dialog the user just closed.
-  useFocusTrap(panel, open, { autoFocus: !focusField })
+  useFocusTrap(panel, open, { autoFocus: !focusField && !focusPanel })
+
+  useEffect(() => {
+    if (open && focusPanel) panel.current?.focus({ preventScroll: true })
+  }, [open, focusPanel])
 
   useEffect(() => {
     if (!open || !focusField) return
