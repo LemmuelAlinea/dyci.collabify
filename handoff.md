@@ -5622,10 +5622,23 @@ accepted." from the setting; no failed requests.
 - **Cover.** Cover swaps the away holder for the cover until the leave's last day; the task shows "Keneth Lim is
   covering for Ivan Cruz until Fri 28 Nov" with Hand back and Keep, and a Cover marker on its card. The cover follows
   the leave if it is extended or shortened. At 08:00 Manila the day after, the cover and the project manager get
-  "Ivan Cruz is back"; on a leave's last day the project manager gets "…'s leave ends today" (opens the Workload tab).
+  "Ivan Cruz is back"; on a leave's last day the project manager gets "…'s leave ends today", which opens the
+  project review with Extend leave. A project's manager and coordinators may mark that project's people away too.
+  A cover is tied to the leave it was made for (`leave_first`), so a person's other leaves never move it.
 - SQL: `supabase/work-leave.sql` (after `work-workload.sql`), applied live with `anon-lockdown.sql`; suite
-  `work-leave` 47 checks, and `work-workload`, `project-open-tasks`, `work-task-handoff`, `project-notification-rules`,
-  `anon-lockdown` pass. Vitest and the build pass.
+  `work-leave` 56 checks, and `work-workload`, `project-open-tasks`, `work-task-handoff`, `project-notification-rules`,
+  `anon-lockdown` pass. 2978 Vitest tests and the build pass.
+- **Final review fixes.** A hand-back after someone else changed the holders ends the cover without putting anyone
+  back; archived projects refuse hand-back and the morning job drops their covers; `work_cover_record` only records
+  the swap just made in the same transaction; a planner's range save never rewrites the person's own days; a
+  Planned-flow reassign adds the new holder before taking the old one off.
+- **Walked** on the dev server as the Capstone 2 project manager, on a throwaway project (Wilson and Keneth as
+  members, deleted after) so Collabify's coordinator got no notice: Mark away for Wilson 9–10 Dec from the Workload
+  tab; one Inbox notice to the manager only ("Wilson Mendoza is away 9–10 Dec", "1 task in … needs a look."); the
+  review flagged the task Due during leave; Cover with Keneth showed "Keneth Ramos is covering for Wilson Mendoza
+  until Thu 10 Dec"; Hand back restored Wilson; Remove dropped only the planner-added leave and left Wilson's own
+  24–25 Nov days. 375 px checked. The walk found the cover tied to the wrong leave and empty sections in the review;
+  both fixed with tests.
 - Plan `docs/superpowers/plans/2026-11-23-leave-aware-workload-phase-1.md`, spec
   `docs/superpowers/specs/2026-11-23-leave-aware-workload-design.md`.
 
