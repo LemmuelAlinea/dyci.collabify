@@ -486,15 +486,22 @@ function Setup({
                 const on = selected.includes(c.user_id)
                 return (
                   <li key={c.user_id}>
-                    <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line px-3 py-2 text-[13px] text-ink hover:bg-[var(--surface-sunken)]">
+                    {/* The name gets its own line; skills sit under it, so a long skill list never hides who it is. */}
+                    <label className="flex h-full cursor-pointer items-start gap-2.5 rounded-lg border border-line px-3 py-2.5 text-[13px] text-ink hover:bg-[var(--surface-sunken)]">
                       <input
                         type="checkbox"
                         checked={on}
                         onChange={() => setSelected(on ? selected.filter((id) => id !== c.user_id) : [...selected, c.user_id])}
-                        className="h-4 w-4 shrink-0 accent-navy-600"
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-navy-600"
                       />
-                      <span className="min-w-0 flex-1 truncate font-medium">{c.name || 'Unnamed member'}</span>
-                      {c.tags.length > 0 && <span className="truncate text-[11px] text-faint">{c.tags.join(', ')}</span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{c.name || 'Unnamed member'}</span>
+                        {c.tags.length > 0 && (
+                          <span title={c.tags.join(', ')} className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-faint">
+                            {c.tags.join(', ')}
+                          </span>
+                        )}
+                      </span>
                     </label>
                   </li>
                 )
