@@ -5,7 +5,7 @@ import { WorkloadPlanDialog } from './WorkloadPlanDialog'
 import { formatDayLabel, formatDayRange, formatHours, manilaToday } from '../../lib/work/hours'
 import { useAwayRanges } from '../../lib/work/useAwayRanges'
 import { awayText } from '../../lib/work/away'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { BoardColumn, MoveToStage } from '../tasks/BoardColumn'
 import { StageBadge, StageSelect } from '../tasks/StageSelect'
@@ -934,6 +934,11 @@ export function NewTaskDialog({
   const canSplit = rules.allowSubtasks
   // A change to what the check read makes its answer stale.
   useEffect(() => setOver(null), [holders, estimate, starts, due])
+  // The pause sits at the end of the form, where the buttons that answer it are.
+  const overRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (over) overRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [over])
   const awayRanges = useAwayRanges(showHolders ? project?.space_id : null)
   const holderName = (uid: string) => {
     const hours = holderLabels.get(uid)
@@ -1118,28 +1123,6 @@ export function NewTaskDialog({
     >
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
-        {over && (
-          <div role="status" className="space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-4 py-3 dark:border-warning-400/40 dark:bg-warning-400/15">
-            <p className="flex items-center gap-1.5 text-[13px] font-medium text-warning-800 dark:text-warning-300">
-              <Icon name="alert" size={14} />
-              This task puts {over.length === 1 ? 'someone' : 'people'} over their hours
-            </p>
-            <ul className="space-y-1 text-[13px] text-ink">
-              {over.map((r) => (
-                <li key={r.user_id}>
-                  {state.nameOf(r.user_id)} would be {formatHours(r.load_minutes + r.share_minutes - (r.available_minutes ?? 0))} over:{' '}
-                  {formatHours(r.load_minutes + r.share_minutes).replace(/ h$/, '')} / {formatHours(r.available_minutes ?? 0)} for{' '}
-                  {formatDayRange(r.from_on, r.to_on)}.
-                </li>
-              ))}
-            </ul>
-            <p className="text-[12px] text-muted">
-              {canSplit
-                ? 'Split it with AI to share the work with people who have the skills and the room, or add it as it is.'
-                : 'Subtasks are off in this project, so it can’t be split here. Add it as it is, or go back and change the holders.'}
-            </p>
-          </div>
-        )}
         <Field label="Title">
           {(id) => (
             <Input id={id} maxLength={LIMIT.taskTitle} value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -1273,6 +1256,28 @@ export function NewTaskDialog({
             />
           )}
         </Field>
+        {over && (
+          <div ref={overRef} role="status" className="scroll-mb-4 space-y-2 rounded-xl border border-warning-300 bg-warning-50 px-4 py-3 dark:border-warning-400/40 dark:bg-warning-400/15">
+            <p className="flex items-center gap-1.5 text-[13px] font-medium text-warning-800 dark:text-warning-300">
+              <Icon name="alert" size={14} />
+              This task puts {over.length === 1 ? 'someone' : 'people'} over their hours
+            </p>
+            <ul className="space-y-1 text-[13px] text-ink">
+              {over.map((r) => (
+                <li key={r.user_id}>
+                  {state.nameOf(r.user_id)} would be {formatHours(r.load_minutes + r.share_minutes - (r.available_minutes ?? 0))} over:{' '}
+                  {formatHours(r.load_minutes + r.share_minutes).replace(/ h$/, '')} / {formatHours(r.available_minutes ?? 0)} for{' '}
+                  {formatDayRange(r.from_on, r.to_on)}.
+                </li>
+              ))}
+            </ul>
+            <p className="text-[12px] text-muted">
+              {canSplit
+                ? 'Split it with AI to share the work with people who have the skills and the room, or add it as it is.'
+                : 'Subtasks are off in this project, so it can’t be split here. Add it as it is, or go back and change the holders.'}
+            </p>
+          </div>
+        )}
       </div>
     </Modal>
   )
