@@ -5728,3 +5728,11 @@ accepted." from the setting; no failed requests.
 
 **Deferred**
 - The task dialog's holder picker (assigning an existing task) still shows only the small warning line.
+
+## 2026-11-24 — Broken-down tasks leave the forecast and leave checks, on branch `skip-broken-down`
+
+- "Make the level 0 and 1 DFD" showed "Needs 6 h more than Ivan Caburnay has before it's due" after Break down and
+  balance gave its five subtasks to Keneth, Wilson and Luke: `general_task_forecast` and `work_leave_task_status`
+  judged the parent's own estimate, while the load already stops counting a parent with live subtasks.
+- Both now skip a task with live subtasks (`supabase/work-leave.sql`), applied live with `anon-lockdown.sql`;
+  `work-leave` 72 checks. No app change.
