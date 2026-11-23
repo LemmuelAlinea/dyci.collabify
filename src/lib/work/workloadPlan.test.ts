@@ -4,6 +4,7 @@ import {
   breakdownRowProperties,
   dependencyGroups,
   projectedTotals,
+  readableNote,
   validateBreakdown,
   type Candidate,
   type PlanRow,
@@ -255,3 +256,28 @@ describe('breakdownRowProperties', () => {
     expect('rows' in out && out.rows.map(r => r.tags)).toEqual([[], []])
   })
 })
+
+describe('readableNote', () => {
+  it('keeps a plain sentence', () => {
+    expect(readableNote('  This needs about 20 h: the page is custom, not a template.  ')).toBe(
+      'This needs about 20 h: the page is custom, not a template.',
+    )
+  })
+
+  it('is null when empty', () => {
+    expect(readableNote('')).toBeNull()
+    expect(readableNote('   ')).toBeNull()
+    expect(readableNote(undefined)).toBeNull()
+  })
+
+  it('never shows the model its labels', () => {
+    expect(readableNote('p1 and person2 need t3 before c1 starts.')).toBe(
+      'a position and someone need a subtask before someone starts.',
+    )
+  })
+
+  it('stays short', () => {
+    expect(readableNote('x'.repeat(500))!.length).toBe(300)
+  })
+})
+

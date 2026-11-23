@@ -245,6 +245,21 @@ const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => 
  * itself or to a key not in the plan, and a circular dependency. The error
  * says what is wrong only; the caller adds what to do next.
  */
+/**
+ * The model's one-sentence reason a plan needs more than the task's estimate,
+ * fit to show: trimmed, at most 300 characters, and never with the labels the
+ * model sees (p1, t1, c1, person1). Null when there is none.
+ */
+export function readableNote(note: unknown): string | null {
+  const text = String(note ?? '')
+    .replace(/\bp\d+\b/gi, 'a position')
+    .replace(/\bt\d+\b/gi, 'a subtask')
+    .replace(/\b(c|person)\d+\b/gi, 'someone')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text ? text.slice(0, 300) : null
+}
+
 export function validateBreakdown(
   raw: unknown,
   labels: { tags: string[]; positions: string[] },

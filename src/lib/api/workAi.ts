@@ -108,7 +108,7 @@ export const draftLeadAssignees = (projectId: string) =>
  * `from` and `to` are the window's YYYY-MM-DD dates.
  */
 export const draftBreakdown = (projectId: string, parentId: string, from: string, to: string) =>
-  call<{ rows: PlanRow[] }>('breakdown', projectId, { parent_id: parentId, from, to })
+  call<{ rows: PlanRow[]; note?: string | null }>('breakdown', projectId, { parent_id: parentId, from, to })
 
 /** A suggested estimate for one task, from its title and description. Nothing is saved. */
 export const suggestEstimate = (projectId: string, taskId: string) =>
