@@ -5550,7 +5550,6 @@ accepted." from the setting; no failed requests.
   `docs/superpowers/plans/2026-11-23-space-workload-phase-2.md`.
 
 **Deferred**
-- Phase 3: the task timer, estimated against spent, estimate accuracy, and My load on Home.
 - New task shows a Member no room status (no task exists yet); they learn from the refusal.
 - The room check covers adding holders only: a Member can add themselves and someone else to an unestimated task,
   then raise the estimate as a holder.
@@ -5560,3 +5559,41 @@ accepted." from the setting; no failed requests.
   too, and its 'unknown' tells a Member whether someone has set weekly hours (the app hides it).
 - The estimate-from-text check ignores a trashed project and the task flow (a Planned Member can ask; rate-limited).
 - A team's lead sees that team's hours on the Workload tab in any flow (the spec named the Planned holder picker only).
+
+## 2026-11-23 — Space workload phase 3 (daily), on branch `workload-phase-3`
+
+- **Task timer.** A task's holder gets Start timer under Time logged in the task dialog (work projects, not read-only,
+  not archived). One timer per person, kept on the server (`general_task_timers`), so it survives reloads, tabs and
+  devices. Stop logs one time entry dated by the Manila day it started; Discard logs nothing; on another task the
+  dialog says "Timer running on <title>" with Start here, which logs the old one (at most 8 h) and moves the timer.
+  Past 8 hours Stop asks "How long did you work on it?" with 8 h filled in. If the holder lost the task, Stop clears
+  the timer, logs nothing and says so.
+- **Estimated against spent.** The dialog shows "Est. 6 h · Spent 7 h 20 m" (warning once spent passes the estimate,
+  "Spent …" alone with no estimate); board cards show it when the task has an estimate.
+- **Estimate accuracy.** `general_space_estimate_accuracy` gives "about 1.2× the estimate" after 5 Done tasks with an
+  estimate and the person's own logged time, to the person and whoever may see their workload. It shows on My load
+  and in the Workload tab's expanded row, never as a ranking.
+- **My load on Home.** The work Home has a My load tile: per live work space (not as a space stakeholder) this week's
+  load against available hours, the next three weeks as small bars, tasks this week with no estimate, a weekly-hours
+  field when not set, the accuracy line, the running timer as a link to its task, and "Add time off", which opens
+  Settings at Time off.
+- SQL: `supabase/work-workload.sql` (same place), applied live with `anon-lockdown.sql`. Suite 152 checks;
+  `work-task-handoff` and `anon-lockdown` pass. 2942 Vitest tests and the build pass.
+- **Walked** on the dev server as the Capstone 2 project manager: My load for both spaces ("Not set" with the field),
+  Add time off scrolls to Time off, a throwaway task: Start, a timer backdated 75 min showed 1:15 after a reload, Stop
+  logged 1 h 15 m in warning against a 1 h estimate, a 10-hour timer asked to confirm with 8 filled in and Discard
+  logged nothing (375 px), the Workload tab (29 people). The throwaway task was deleted.
+- Plan `docs/superpowers/plans/2026-11-23-space-workload-phase-3.md`.
+
+**Deferred**
+- New task shows a Member no room status (no task exists yet); they learn from the refusal.
+- The room check covers adding holders only: a Member can add themselves and someone else to an unestimated task,
+  then raise the estimate as a holder.
+- The refusal says "this week" for a task in a later single week; a Member's label always says "No room this week"
+  even for a task across several weeks.
+- `general_task_holder_room` counts a parent that has live subtasks (the trigger skips it), answers in Planned projects
+  too, and its 'unknown' tells a Member whether someone has set weekly hours (the app hides it).
+- The estimate-from-text check ignores a trashed project and the task flow (a Planned Member can ask; rate-limited).
+- A team's lead sees that team's hours on the Workload tab in any flow (the spec named the Planned holder picker only).
+- My load counts unestimated tasks this week only, and reads each week separately (8 reads per space per Home visit).
+- A timer's log can be corrected only by deleting it and logging again, like a manual entry.
