@@ -5770,3 +5770,18 @@ accepted." from the setting; no failed requests.
   for the full login flow came back as 10.3 h with the reason shown. `work-ai` deployed; 3,028 Vitest tests, build passes.
 - Test tasks (four title-only, four described, task E) remain in the Collabify project with no holders or subtasks.
 - Spec `docs/superpowers/specs/2026-11-24-breakdown-context-design.md`, plan `docs/superpowers/plans/2026-11-24-breakdown-context.md`.
+
+## 2026-11-24 — Space Workload tab redesign, on branch `workload-tab-redesign`
+
+- **What.** `SpaceWorkload` gains a summary strip for the first week shown (Team load, Over, Near full, Has room,
+  Away, No estimate; a count turns on that status), a toolbar (search by name; Filters with Project, Team and Role;
+  status chips; Sort by most loaded, most free hours or name; Clear filters) with the filters in the link
+  (`?q=&project=&team=&role=&status=&sort=`), the space role under each name, project-aware cells (the chosen
+  projects' hours plus "+N h elsewhere", tone from the whole load) and the open row's tasks grouped by project.
+  "No one matches these filters." with Clear filters. The old footer line is replaced by the No estimate count.
+- Logic in `src/lib/work/workloadView.ts` (`filterPeople`, `summarize`, `statusOf`, `projectShare`,
+  `readFilters`/`writeFilters`). No SQL change; teams come from `listSpaceTeams`/`listSpaceTeamMembers` (hidden when
+  unreadable), roles from `listSpaceMembers`.
+- Checked in the browser on Capstone 2 (31 people), including the Away filter, search, the empty state, the Filters
+  panel and 375 px.
+- Spec `docs/superpowers/specs/2026-11-24-workload-tab-redesign-design.md`.
