@@ -439,6 +439,12 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general_task_covers`, `start_work_cover` (security invoker, so the flow's holder rules apply), `hand_back_work_cover`
   / `keep_work_cover`; covers follow their leave's end; the cron `collabify-leave-reminders` (`send_leave_reminders`,
   08:00 Manila) sends `cover_hand_back` and `leave_ending` once each. History uses `updated` with `fields: ['cover']`.
+  Phase 2: one fit rule, `work_task_room`; `general_task_forecast` ("Needs 5 h more than … has before it's due", planners
+  and holders, `TaskForecast`); `general_sprint_hours` (`SprintHoursLine` on the running and planned sprints via
+  `WorkSource.loadSprintHours`); Suggest changes in the review calls `work-ai` `leave`, which reads
+  `general_leave_suggest_context`, shows the model tasks as t1… and people as c1… (skills, free hours, no names, people
+  away themselves left out) and keeps only what `_shared/leavePlan.ts` validates; a person applies each one. Away
+  labels (`lib/work/away.ts`, `useAwayRanges`) show in holder pickers, the dialog's people and on cards.
   Suite: `supabase/tests/work-leave.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists

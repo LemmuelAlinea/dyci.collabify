@@ -5645,3 +5645,25 @@ accepted." from the setting; no failed requests.
 **Deferred**
 - Phase 2: AI suggestions in the review, away badges in pickers and cards, the at-risk forecast, sprint hours.
 - Skip in the review is not saved.
+
+## 2026-11-23 — Leave-aware workload phase 2 (AI and signals), on branch `leave-phase-2`
+
+- **Suggest changes.** In the leave review each leave has Suggest changes. The `work-ai` `leave` action reads the
+  leave's flagged tasks and the people who could take them (skills, free hours to the end of the window; people away
+  themselves are left out), sends them as t1…/c1… with no names, and keeps only valid answers (a known person, a new
+  due date after the leave and within 90 days, one per task). Each row shows "Suggestion: Cover by … until …" with its
+  reason and fills the row's picker or date; Apply runs the phase 1 action; Keep marks it Skipped.
+- **Away labels.** Holder pickers read "Name · Away until Fri 28 Nov · 14 / 16 h this week" (a coming leave "Away
+  26–28 Nov"); the dialog's people and the board cards show "Away until …" or "Away today".
+- **Won't fit.** The task dialog shows "Needs 5 h more than Ivan Cruz has before it's due" (or "than you have") for
+  each holder whose share of the remaining work passes their free hours before the due day; planners and holders only.
+- **Sprint hours.** The running sprint and each planned sprint show "Team hours 64 h (8 h away) · Planned 70 h", then
+  tasks with no holder and people with no weekly hours.
+- SQL: `supabase/work-leave.sql` (same place), applied live with `anon-lockdown.sql`; suite `work-leave` 67 checks.
+  `work-ai` deployed. 2998 Vitest tests and the build pass.
+- **Walked** on a throwaway project in Capstone 2 (deleted after; only the manager was notified): Suggest changes
+  against the deployed function suggested moving Wilson's task to Fri 11 Dec (Keneth, the only Auth person, was short
+  of hours) and Apply moved it keeping 17:00; "Needs 46.8 h more than Keneth Ramos has before it's due"; the picker read
+  "Lemmuel Alinea · Away 26 Nov · …"; the planned sprint read "Team hours 9.6 h (6.4 h away) · Planned 6 h". 375 px.
+- Plan `docs/superpowers/plans/2026-11-23-leave-aware-workload-phase-2.md`.
+
