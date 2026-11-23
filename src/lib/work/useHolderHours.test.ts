@@ -15,7 +15,7 @@ vi.mock('../api/workload', () => ({
 }))
 
 const hours = (user_id: string, available_minutes: number | null) =>
-  ({ user_id, weekly_minutes: available_minutes, available_minutes, time_off_minutes: available_minutes == null ? null : 0 })
+  ({ user_id, weekly_minutes: available_minutes, own_weekly_minutes: available_minutes, available_minutes, time_off_minutes: available_minutes == null ? null : 0 })
 
 describe('plannerHolderLabels', () => {
   it('reads load against available hours this week', () => {

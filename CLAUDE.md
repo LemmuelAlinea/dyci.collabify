@@ -407,7 +407,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - Space workload (`supabase/work-workload.sql`, after `section-students.sql`, before `anon-lockdown.sql`): owns
   `general_tasks.estimated_minutes` (1-60000, work projects only; a signed-in change goes through `set_work_task_estimate`
   under `collabify.estimate_write`, planners or the holder, one `updated` history row), `general_space_capacity` (weekly
-  minutes per work-space member, null is "Not set", never 0; `set_space_weekly_minutes`) and `user_time_off` (own rows only,
+  minutes per work-space member, null is the space default from `general_space_hours_default` (no row is 40 h; the space's pm/coordinators set it with `set_space_default_weekly_minutes`, members read `space_default_weekly_minutes`); `set_space_weekly_minutes`) and `user_time_off` (own rows only,
   capped at the day's share). `general_space_people_hours` and `general_space_people_load` give hours and load over a Manila
   window (weekly hours spread Monday to Friday; unestimated tasks counted, never summed as 0), `general_breakdown_context`
   and `apply_work_breakdown` read and save a Break down and balance plan in one transaction (stale shown load refuses it, the

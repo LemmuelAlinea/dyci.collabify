@@ -23,7 +23,12 @@ import {
   setSpaceRole,
   withdrawSpaceInvitation,
 } from '../../lib/api/spaces'
-import { setSpaceWeeklyMinutes, spacePeopleHours } from '../../lib/api/workload'
+import {
+  setSpaceDefaultWeeklyMinutes,
+  setSpaceWeeklyMinutes,
+  spaceDefaultWeeklyMinutes,
+  spacePeopleHours,
+} from '../../lib/api/workload'
 import type { PeopleHours } from '../../lib/api/workload'
 import { authErrorMessage } from '../../lib/authError'
 import { formatHours, parseWeeklyHours, workWeek } from '../../lib/work/hours'
@@ -38,21 +43,30 @@ import type { SpaceInvitation, SpacePerson } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
 
-/** One person's weekly hours: a label, or an input with Save where the viewer may change it. */
+const hoursNumber = (minutes: number) => String(Math.round((minutes / 60) * 10) / 10)
+
+/**
+ * One person's weekly hours: a label, or an input with Save where the viewer
+ * may change it. Someone on the space default shows an empty field.
+ */
 function WeeklyHoursCell({
   person,
   minutes,
+  fallback,
   known,
   editable,
   onSave,
 }: {
   person: SpacePerson
+  /** Their own value; null while they are on the default. */
   minutes: number | null
+  /** The space default they use when they have no own value. */
+  fallback: number
   known: boolean
   editable: boolean
   onSave: (minutes: number | null | 'invalid' | 'too_many') => Promise<void>
 }) {
-  const saved = minutes === null ? '' : String(Math.round((minutes / 60) * 10) / 10)
+  const saved = minutes === null ? '' : hoursNumber(minutes)
   const [text, setText] = useState(saved)
   const [busy, setBusy] = useState(false)
   useEffect(() => setText(saved), [saved])
@@ -60,7 +74,7 @@ function WeeklyHoursCell({
   if (!editable) {
     return (
       <span className="w-[6.5rem] text-[13px] text-muted">
-        {!known ? '—' : minutes === null ? 'Not set' : formatHours(minutes)}
+        {!known ? '—' : minutes === null ? `${formatHours(fallback)} (default)` : formatHours(minutes)}
       </span>
     )
   }
@@ -70,7 +84,7 @@ function WeeklyHoursCell({
       <input
         value={text}
         inputMode="decimal"
-        placeholder="Not set"
+        placeholder={`${hoursNumber(fallback)} (default)`}
         aria-label={`Weekly hours for ${person.first_name} ${person.last_name}`}
         onChange={(e) => setText(e.target.value)}
         className="h-9 w-[5.5rem] rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-3 text-[13px] text-ink placeholder:text-faint"
@@ -94,6 +108,57 @@ function WeeklyHoursCell({
         </Button>
       )}
     </span>
+  )
+}
+
+/** The space's default weekly hours: planners edit it, everyone else reads it. */
+function DefaultHours({
+  minutes,
+  editable,
+  onSave,
+}: {
+  minutes: number
+  editable: boolean
+  onSave: (minutes: number | null | 'invalid' | 'too_many') => Promise<void>
+}) {
+  const saved = hoursNumber(minutes)
+  const [text, setText] = useState(saved)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => setText(saved), [saved])
+
+  if (!editable) {
+    return <p className="text-[13px] text-ink">Default weekly hours: {formatHours(minutes)}</p>
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label htmlFor="space-default-hours" className="text-[13px] text-ink">Default weekly hours</label>
+      <input
+        id="space-default-hours"
+        value={text}
+        inputMode="decimal"
+        aria-label="Default weekly hours"
+        onChange={(e) => setText(e.target.value)}
+        className="h-9 w-[5.5rem] rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-3 text-[13px] text-ink"
+      />
+      <span className="text-[13px] text-muted">h</span>
+      {text.trim() !== saved && (
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await onSave(parseWeeklyHours(text))
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          Save default
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -131,6 +196,7 @@ export default function SpaceMembers() {
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [hours, setHours] = useState<Map<string, PeopleHours>>(new Map())
+  const [defaultMinutes, setDefaultMinutes] = useState<number | null>(null)
 
   const archived = Boolean(space?.archived_at)
   const mine = space?.my_role ?? null
@@ -152,10 +218,15 @@ export default function SpaceMembers() {
         // Only the rows the viewer may see come back; the rest show a dash.
         try {
           const week = workWeek()
-          const rows = await spacePeopleHours(spaceId, week.from, week.to)
+          const [rows, fallback] = await Promise.all([
+            spacePeopleHours(spaceId, week.from, week.to),
+            spaceDefaultWeeklyMinutes(spaceId),
+          ])
           setHours(new Map(rows.map((r) => [r.user_id, r])))
+          setDefaultMinutes(fallback)
         } catch {
           setHours(new Map())
+          setDefaultMinutes(null)
         }
       }
       // Only somebody who may invite can read these, so they are asked for
@@ -201,6 +272,29 @@ export default function SpaceMembers() {
       await load()
     } catch (err) {
       show(authErrorMessage(err, 'Could not save weekly hours. Try again.'), 'error')
+    }
+  }
+
+  async function saveDefault(minutes: number | null | 'invalid' | 'too_many') {
+    if (!spaceId) return
+    if (minutes === null) {
+      show('Enter the default weekly hours, from 0 to 168.', 'error')
+      return
+    }
+    if (minutes === 'invalid') {
+      show('Enter weekly hours as a number, like 40 or 37.5.', 'error')
+      return
+    }
+    if (minutes === 'too_many') {
+      show('Enter weekly hours up to 168.', 'error')
+      return
+    }
+    try {
+      await setSpaceDefaultWeeklyMinutes(spaceId, minutes)
+      show('Default weekly hours saved')
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not save the default weekly hours. Try again.'), 'error')
     }
   }
 
@@ -355,10 +449,16 @@ export default function SpaceMembers() {
               <span className="font-mono text-[12px] text-faint">{members.length}</span>
             </header>
             {isWork && (
-              <p className="border-b border-line px-4 py-2 text-[12px] text-muted sm:px-5">
-                Weekly hours are what each person has for work in this space, spread over Monday to
-                Friday. Time off lowers them for the days it covers.
-              </p>
+              <div className="space-y-2 border-b border-line px-4 py-3 sm:px-5">
+                {defaultMinutes !== null && (
+                  <DefaultHours minutes={defaultMinutes} editable={!archived && plansHours} onSave={saveDefault} />
+                )}
+                <p className="text-[12px] text-muted">
+                  Weekly hours are what each person has for work in this space, spread over Monday to
+                  Friday. Anyone without their own hours uses the default. Time off lowers them for the
+                  days it covers.
+                </p>
+              </div>
             )}
             <ul className="divide-y divide-line">
               {members.map((m) => {
@@ -379,7 +479,8 @@ export default function SpaceMembers() {
                     {isWork && (
                       <WeeklyHoursCell
                         person={m}
-                        minutes={hours.get(m.user_id)?.weekly_minutes ?? null}
+                        minutes={hours.get(m.user_id)?.own_weekly_minutes ?? null}
+                        fallback={defaultMinutes ?? hours.get(m.user_id)?.weekly_minutes ?? 2400}
                         known={hours.has(m.user_id)}
                         editable={!archived && (plansHours || own)}
                         onSave={(minutes) => saveHours(m, minutes)}

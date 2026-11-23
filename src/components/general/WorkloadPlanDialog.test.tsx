@@ -52,7 +52,7 @@ const loads = (a = 360) => [
   { user_id: 'c', project_id: null, load_minutes: 120, unestimated: 1 },
 ]
 const hours = (a = 960) => ['a', 'b', 'c'].map(id =>
-  ({ user_id: id, weekly_minutes: 960, available_minutes: id === 'a' ? a : 960, time_off_minutes: 0 }))
+  ({ user_id: id, weekly_minutes: 960, own_weekly_minutes: 960, available_minutes: id === 'a' ? a : 960, time_off_minutes: 0 }))
 
 let container: HTMLDivElement
 let root: Root
