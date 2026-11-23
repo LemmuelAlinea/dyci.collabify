@@ -5755,3 +5755,18 @@ accepted." from the setting; no failed requests.
   suites, `member-skills`, `program-office`, `commit-main`, plus the already-noted `class-files`, `project-task-rules`
   and `project-qa`.
 - Spec `docs/superpowers/specs/2026-11-24-parent-follows-subtasks-design.md`.
+
+## 2026-11-24 — Break down and balance: estimate, project context and owner rule, on branch `breakdown-context`
+
+- **Why.** Testing four task pairs showed descriptions make subtasks match the work, but totals ran 2–2.5× the task's
+  estimate (the AI never saw it) and owners came through job titles alone or shared words (Google Forms vs "Forms").
+- **What.** `work-ai` `breakdown` now reads the task's estimate (a budget: subtasks aim within about 20%; a bigger need
+  comes back as a one-sentence `note`, cleaned by `readableNote`) and the project's name and description (2,000
+  characters, names masked); new rules: 3–8 subtasks of 30+ minutes, no filler, skip what exists, tag only when the
+  skill truly applies. `balanceWorkPlan`: when a row names tags and anyone has one, a job-title-only match no longer
+  qualifies. The review shows the note under the total; setup errors (the hourly AI limit) sit above the buttons.
+- **Tested** before and after on the same tasks (report with screenshots: `docs/reports/2026-11-24-breakdown-test-report.docx`):
+  87.5 h → 44 h against 42 h of estimates; every task within 15%; no title-only or word-collision owners; a 2 h estimate
+  for the full login flow came back as 10.3 h with the reason shown. `work-ai` deployed; 3,028 Vitest tests, build passes.
+- Test tasks (four title-only, four described, task E) remain in the Collabify project with no holders or subtasks.
+- Spec `docs/superpowers/specs/2026-11-24-breakdown-context-design.md`, plan `docs/superpowers/plans/2026-11-24-breakdown-context.md`.
