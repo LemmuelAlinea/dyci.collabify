@@ -127,3 +127,10 @@ export const extractMemberRoster = (
   projectId: string,
   source: Awaited<ReturnType<typeof import('../general/memberImportFile').readMemberImportFile>>,
 ) => call<{ rows: import('../general/memberImportFile').RosterRow[] }>('member-import', projectId, source)
+
+import type { LeaveSuggestion } from '../../../supabase/functions/_shared/leavePlan.ts'
+export type { LeaveSuggestion }
+
+/** One suggested move per flagged task of a leave. Nothing is saved. */
+export const suggestLeaveChanges = (projectId: string, noticeId: string) =>
+  call<{ suggestions: LeaveSuggestion[] }>('leave', projectId, { notice_id: noticeId })
