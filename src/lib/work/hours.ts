@@ -4,6 +4,15 @@ export function formatHours(minutes: number): string {
   return `${hours} h`
 }
 
+/** Time spent as hours and minutes: 440 -> "7 h 20 m", 120 -> "2 h", 45 -> "45 m". */
+export function formatSpent(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes))
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  if (!h) return `${m} m`
+  return m ? `${h} h ${m} m` : `${h} h`
+}
+
 /**
  * Hours typed in the estimate field, as whole minutes. Empty is null (no
  * estimate); anything that is not a number from just above 0 to 1000 is 'invalid'.

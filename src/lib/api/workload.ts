@@ -184,3 +184,46 @@ export async function applyBreakdown(parentId: string, from: string, to: string,
   if (error) throw error
   return (data ?? []) as string[]
 }
+
+/** The signed-in person's running timer, with its task's title, or null. */
+export type RunningTimer = { task_id: string; project_id: string; started_at: string; title: string }
+
+export async function myTimer(): Promise<RunningTimer | null> {
+  const { data, error } = await supabase
+    .from('general_task_timers')
+    .select('task_id, project_id, started_at')
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const { data: task } = await supabase.from('general_tasks').select('title').eq('id', data.task_id).maybeSingle()
+  return { ...(data as Omit<RunningTimer, 'title'>), title: (task?.title as string | undefined) ?? 'another task' }
+}
+
+/** Starts the signed-in person's timer on a task they hold; a timer elsewhere is logged first. */
+export async function startTimer(taskId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('start_work_task_timer', { p_task: taskId })
+  if (error) throw error
+  return data as string
+}
+
+/**
+ * Stops the timer and logs it, returning the minutes logged. 0 means the person
+ * no longer holds the task: the timer was cleared and nothing was logged.
+ */
+export async function stopTimer(minutes?: number): Promise<number> {
+  const { data, error } = await supabase.rpc('stop_work_task_timer', minutes == null ? {} : { p_minutes: minutes })
+  if (error) throw error
+  return data as number
+}
+
+/** Throws the running timer away without logging. */
+export async function cancelTimer(): Promise<void> {
+  const { error } = await supabase.rpc('cancel_work_task_timer')
+  if (error) throw error
+}
+
+/** Stop refused a timer that ran past 8 hours until the time worked is confirmed. */
+export function isLongTimerError(err: unknown): boolean {
+  const message = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : ''
+  return message.startsWith('This timer ran past 8 hours')
+}

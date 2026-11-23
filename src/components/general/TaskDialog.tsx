@@ -44,6 +44,7 @@ import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPri
 import { blockersOf, DEFAULT_TASK_RULES, subtasksOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
+import { EstimateSpent, TaskTimer } from './TaskTimer'
 import { formatHours, parseHours } from '../../lib/work/hours'
 import { setTaskEstimate } from '../../lib/api/workload'
 import { suggestEstimate } from '../../lib/api/workAi'
@@ -697,6 +698,8 @@ function TaskDetails({
   const hasEstimateField = work && task.estimated_minutes !== undefined
   const holdsTask = Boolean(state.viewerId && task.assignee_ids.includes(state.viewerId))
   const canEstimate = hasEstimateField && !state.readOnly && (state.myRole === 'pm' || state.myRole === 'coordinator' || holdsTask)
+  // The task timer: the task's holder on a live work task, who may log time on it.
+  const canTime = work && holdsTask && !state.readOnly && !task.archived_at && state.myRole !== 'stakeholder'
   const typeOptions = task.kind === 'bug'
     ? [{ value: 'bug', label: 'Bug' }]
     : taskTypeOptions([...new Set([...(state.project.taskTypes ?? []), ...(task.task_type ? [task.task_type] : [])])]).filter((option) => option.value !== 'bug')
@@ -740,7 +743,8 @@ function TaskDetails({
                 </dd>
               </div>
               <div><dt className="text-[12px] text-faint">Team</dt><dd className="text-ink">{teamName ?? 'Whole project'}</dd></div>
-              <div><dt className="text-[12px] text-faint">Time logged</dt><dd className="text-ink">{formatMinutes(task.logged_minutes ?? 0)}</dd></div>
+              <div><dt className="text-[12px] text-faint">Time logged</dt><dd className="text-ink">{work ? <EstimateSpent estimate={task.estimated_minutes} spent={task.logged_minutes ?? 0} /> : formatMinutes(task.logged_minutes ?? 0)}</dd></div>
+              {canTime && <div className="sm:col-span-2 lg:col-span-1"><TaskTimer task={task} onLogged={() => void state.reload()} /></div>}
               {hasEstimateField && <div><dt className="text-[12px] text-faint">Estimated effort</dt><dd className="text-ink">{task.estimated_minutes == null ? 'Not set' : formatHours(task.estimated_minutes)}</dd></div>}
               </dl>
               {!state.readOnly && (
@@ -916,8 +920,9 @@ function TaskDetails({
             )}
             <p className="mt-4 flex items-center justify-between border-t border-line pt-4 text-[13px]">
             <span className="text-muted">Time logged</span>
-            <span className="font-mono text-ink">{formatMinutes(task.logged_minutes ?? 0)}</span>
+            {work ? <EstimateSpent estimate={task.estimated_minutes} spent={task.logged_minutes ?? 0} /> : <span className="font-mono text-ink">{formatMinutes(task.logged_minutes ?? 0)}</span>}
             </p>
+            {canTime && <div className="mt-3"><TaskTimer task={task} onLogged={() => void state.reload()} /></div>}
             <div className="mt-5 border-t border-line pt-4">{people}</div>
           </div>
         </div>
