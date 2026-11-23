@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import SpaceWorkload from './SpaceWorkload'
-import { spacePeopleHours, spacePeopleLoad, spacePersonTasks } from '../../lib/api/workload'
+import { removeTimeOffRange, spaceAwayRanges, spacePeopleHours, spacePeopleLoad, spacePersonTasks } from '../../lib/api/workload'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -26,6 +26,19 @@ vi.mock('../../lib/api/workload', () => ({
   ]),
   spaceWorkloadSummary: vi.fn(async () => ({ unestimated_tasks: 3, people_without_hours: 1 })),
   estimateAccuracy: vi.fn(async () => [{ user_id: 'ben', ratio: 1.2, tasks: 5 }]),
+  spaceAwayRanges: vi.fn(async () => [
+    { user_id: 'ben', first_day: '2026-11-26', last_day: '2026-11-27', part_day: false, added_by: 'pm' },
+    { user_id: 'ana', first_day: '2026-12-01', last_day: '2026-12-01', part_day: true, added_by: null },
+  ]),
+  removeTimeOffRange: vi.fn(async () => 2),
+}))
+const nav = vi.hoisted(() => ({ role: 'pm' as string | null }))
+vi.mock('../../context/generalNavigation', () => ({
+  useGeneralNavigation: () => ({ currentSpace: { id: 's1', my_role: nav.role, archived_at: null } }),
+}))
+vi.mock('../../components/general/MarkAwayDialog', () => ({
+  MarkAwayDialog: (p: { open: boolean; name: string; initial?: { from: string; to: string } }) =>
+    p.open ? <div data-testid="mark-away">{p.name} {p.initial ? `${p.initial.from}..${p.initial.to}` : 'new'}</div> : null,
 }))
 
 const hours = (user_id: string, weekly: number | null, off = 0) =>
@@ -57,9 +70,9 @@ afterEach(async () => {
   vi.clearAllMocks()
 })
 
-async function render() {
+async function render(entry = '/spaces/s1/workload') {
   await act(async () => root.render(
-    <MemoryRouter initialEntries={['/spaces/s1/workload']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes><Route path="/spaces/:spaceId/workload" element={<SpaceWorkload />} /></Routes>
     </MemoryRouter>,
   ))
@@ -184,4 +197,44 @@ it('expanded row shows accuracy', async () => {
   await act(async () => open('ana').click())
   await act(async () => {})
   expect(document.body.textContent).not.toContain('Usually takes about')
+})
+
+const open = (user: string) => document.querySelector<HTMLButtonElement>(`[data-person="${user}"] button[aria-expanded]`)!
+const buttonIn = (el: Element, text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === text)
+
+it('away range shown on row', async () => {
+  nav.role = 'member'
+  await render()
+  expect(spaceAwayRanges).toHaveBeenCalledWith('s1')
+  expect(document.querySelector('[data-person="ben"]')!.textContent).toContain('Away 26–27 Nov')
+  expect(document.querySelector('[data-person="ana"]')!.textContent).toContain('Away 1 Dec (part day)')
+  nav.role = 'pm'
+})
+
+it('mark away planner only', async () => {
+  nav.role = 'member'
+  await render()
+  await act(async () => open('ben').click())
+  expect(buttonIn(document.body, 'Mark away')).toBeUndefined()
+  nav.role = 'coordinator'
+  await act(async () => open('ben').click())
+  await act(async () => open('ben').click())
+  await act(async () => buttonIn(document.body, 'Mark away')!.click())
+  expect(document.querySelector('[data-testid="mark-away"]')!.textContent).toBe('Ben Reyes 2026-11-26..2026-11-27')
+  nav.role = 'pm'
+})
+
+it('planner removes planner range', async () => {
+  await render()
+  await act(async () => open('ben').click())
+  await act(async () => buttonIn(document.body, 'Remove')!.click())
+  expect(removeTimeOffRange).toHaveBeenCalledWith('ben', '2026-11-26', '2026-11-27')
+  await act(async () => open('ben').click())
+  await act(async () => open('ana').click())
+  expect(buttonIn(document.body, 'Remove')).toBeUndefined()
+})
+
+it('away param opens dialog', async () => {
+  await render('/spaces/s1/workload?away=ben')
+  expect(document.querySelector('[data-testid="mark-away"]')!.textContent).toBe('Ben Reyes 2026-11-26..2026-11-27')
 })

@@ -50,6 +50,13 @@ describe('describeEvent', () => {
     expect(line(360, 480)).toBe('Ana Reyes changed the estimate from 6 h to 8 h')
     expect(line(360, null)).toBe('Ana Reyes took the estimate off')
   })
+  it('describes cover', () => {
+    const line = (detail: Record<string, unknown>) =>
+      describeEvent(event({ kind: 'updated', detail: { fields: ['cover'], away_id: 'b', cover_id: 'c', ...detail } as never }), (id) => (id === 'c' ? 'Cy Lim' : nameOf(id)))
+    expect(line({ cover: 'started', until: '2026-11-28' })).toBe('Ana Reyes asked Cy Lim to cover for Ben Cruz until Sat 28 Nov')
+    expect(line({ cover: 'handed_back' })).toBe('Ana Reyes handed it back to Ben Cruz')
+    expect(line({ cover: 'kept' })).toBe('Ana Reyes kept it with Cy Lim')
+  })
   it('names who created the task', () => {
     expect(describeEvent(event({}), nameOf)).toBe('Ana Reyes created this task')
   })

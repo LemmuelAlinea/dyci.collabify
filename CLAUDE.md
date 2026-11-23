@@ -428,6 +428,18 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general_space_estimate_accuracy` (logged minutes over the person's share of estimates, from 5 Done tasks, only to
   people `work_workload_people` lets the caller see, never ranked). App: `TaskTimer` and `EstimateSpent` in the task
   dialog and on cards, `MyLoadCard` on the work Home, tones in `lib/work/loadTone.ts`.
+- Leave and cover (`supabase/work-leave.sql`, after `work-workload.sql`, before `anon-lockdown.sql`): away days stay
+  `user_time_off` rows (now with `added_by`); the person, or a `pm`/`coordinator` of a live work space they are in, writes
+  them through `save_time_off_range` / `remove_time_off_range` (a planner removes only planner-added days). A leave is a
+  run of away weekdays (`work_leave_runs`; a weekend doesn't split it); `space_away_ranges` shows dates (never a reason)
+  to anyone in the space. `work_leave_task_status` judges each held open task (blocks, due during, won't fit, fine);
+  statement triggers on `user_time_off` run `work_leave_refresh`, which keeps `general_leave_notices` and sends one
+  `leave_impact` per project and leave when its flagged set changes (pm and coordinators, pref `leave_and_cover`).
+  `general_project_leaves` feeds the project's Leave review (`ProjectLeaves` in `WorkTab`, `?leave=open`). Cover:
+  `general_task_covers`, `start_work_cover` (security invoker, so the flow's holder rules apply), `hand_back_work_cover`
+  / `keep_work_cover`; covers follow their leave's end; the cron `collabify-leave-reminders` (`send_leave_reminders`,
+  08:00 Manila) sends `cover_hand_back` and `leave_ending` once each. History uses `updated` with `fields: ['cover']`.
+  Suite: `supabase/tests/work-leave.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone

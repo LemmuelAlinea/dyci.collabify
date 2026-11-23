@@ -65,6 +65,16 @@ export function destination(n: AppNotification, role: Role | null, teaches: bool
       return n.general_task_id
         ? `${paths.project(n.general_project_id)}?task=${n.general_task_id}`
         : `${paths.project(n.general_project_id)}?tab=tasks`
+    case 'leave_impact':
+      // Someone on the project is away: open the leave review.
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?leave=open` : paths.home
+    case 'cover_hand_back':
+      return n.general_project_id
+        ? `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`
+        : paths.home
+    case 'leave_ending':
+      // Extend or confirm from the project's leave review.
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?leave=open` : paths.home
     case 'draft_waiting':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files&view=draft` : paths.home
     case 'meeting_scheduled':

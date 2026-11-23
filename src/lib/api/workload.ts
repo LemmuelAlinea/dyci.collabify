@@ -20,18 +20,31 @@ export async function setSpaceWeeklyMinutes(
   if (error) throw error
 }
 
-/** A day off the signed-in person set. A null `minutes` is the whole day. */
-export type TimeOff = { id: string; off_on: string; minutes: number | null }
+/**
+ * A day off the signed-in person has. A null `minutes` is the whole day.
+ * `added_by` is a space planner who recorded it for them (null when they did).
+ */
+export type TimeOff = {
+  id: string
+  off_on: string
+  minutes: number | null
+  added_by?: string | null
+  added_by_name?: string | null
+}
 
 /** The signed-in person's time off from a date (YYYY-MM-DD) onward, soonest first. */
 export async function listMyTimeOff(from: string): Promise<TimeOff[]> {
   const { data, error } = await supabase
     .from('user_time_off')
-    .select('id, off_on, minutes')
+    .select('id, off_on, minutes, added_by, adder:profiles!user_time_off_added_by_fkey(first_name, last_name)')
     .gte('off_on', from)
     .order('off_on')
   if (error) throw error
-  return (data ?? []) as TimeOff[]
+  type Row = Omit<TimeOff, 'added_by_name'> & { adder: { first_name: string; last_name: string } | null }
+  return ((data ?? []) as unknown as Row[]).map(({ adder, ...row }) => ({
+    ...row,
+    added_by_name: adder ? `${adder.first_name} ${adder.last_name}`.trim() : null,
+  }))
 }
 
 /** Sets time off for a day, replacing any entry already on it. */
@@ -243,4 +256,119 @@ export async function estimateAccuracy(spaceId: string, users?: string[]): Promi
     ...r,
     ratio: Number(r.ratio),
   }))
+}
+
+/**
+ * Marks someone away on every weekday from `from` to `to` (YYYY-MM-DD): whole days
+ * when `minutes` is null. The person themselves, or a project manager or
+ * coordinator of a work space they are in. Returns the days written.
+ */
+export async function saveTimeOffRange(userId: string, from: string, to: string, minutes: number | null): Promise<number> {
+  const { data, error } = await supabase.rpc('save_time_off_range', { p_user: userId, p_from: from, p_to: to, p_minutes: minutes })
+  if (error) throw error
+  return data as number
+}
+
+/** Removes away days in a range; a planner removes only days a planner recorded. */
+export async function removeTimeOffRange(userId: string, from: string, to: string): Promise<number> {
+  const { data, error } = await supabase.rpc('remove_time_off_range', { p_user: userId, p_from: from, p_to: to })
+  if (error) throw error
+  return data as number
+}
+
+/** A leave: a run of away weekdays. `added_by` is a planner who recorded days of it, if any. */
+export type AwayRange = { user_id: string; first_day: string; last_day: string; part_day: boolean; added_by: string | null }
+
+/** Who in a work space is away today or later, dates only. */
+export async function spaceAwayRanges(spaceId: string): Promise<AwayRange[]> {
+  const { data, error } = await supabase.rpc('space_away_ranges', { p_space: spaceId })
+  if (error) throw error
+  return (data ?? []) as AwayRange[]
+}
+
+/** One task in a leave review: how the leave leaves it, judged live. */
+export type LeaveTask = {
+  task_id: string
+  title: string
+  status: 'blocks' | 'due_during' | 'wont_fit' | 'fine'
+  remaining_minutes: number
+  short_minutes: number
+  due_on: string | null
+  no_estimate: boolean
+  /** Titles of open tasks that wait for this one. */
+  blocks: string[]
+}
+
+/** A current or coming leave of someone on the project, with this project's tasks, flagged first. */
+export type ProjectLeave = {
+  notice_id: string
+  user_id: string
+  first_day: string
+  last_day: string
+  added_by: string | null
+  tasks: LeaveTask[]
+}
+
+/** The project's leaves, for its project manager and coordinators. */
+export async function projectLeaves(projectId: string): Promise<ProjectLeave[]> {
+  const { data, error } = await supabase.rpc('general_project_leaves', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as ProjectLeave[]
+}
+
+/**
+ * Puts `coverId` on the task in `awayId`'s place until the leave that starts on
+ * `leaveFirst` (YYYY-MM-DD) ends. Returns the cover's id.
+ */
+export async function startCover(taskId: string, awayId: string, coverId: string, leaveFirst: string): Promise<string> {
+  const { data, error } = await supabase.rpc('start_work_cover', {
+    p_task: taskId,
+    p_away: awayId,
+    p_cover: coverId,
+    p_leave_first: leaveFirst,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** An open cover: `cover_id` holds the task while `away_id` is away, until a day (YYYY-MM-DD). */
+export type TaskCoverRow = { id: string; task_id: string; away_id: string; cover_id: string; until: string }
+
+/** The task's open cover, if any. */
+export async function taskCover(taskId: string): Promise<TaskCoverRow | null> {
+  const { data, error } = await supabase
+    .from('general_task_covers')
+    .select('id, task_id, away_id, cover_id, until')
+    .eq('task_id', taskId)
+    .is('closed_at', null)
+    .maybeSingle()
+  if (error) throw error
+  return (data as TaskCoverRow | null) ?? null
+}
+
+/** The project's open covers, for the board's markers. */
+export async function projectCovers(projectId: string): Promise<Omit<TaskCoverRow, 'id'>[]> {
+  const { data, error } = await supabase
+    .from('general_task_covers')
+    .select('task_id, away_id, cover_id, until')
+    .eq('project_id', projectId)
+    .is('closed_at', null)
+  if (error) throw error
+  return (data ?? []) as Omit<TaskCoverRow, 'id'>[]
+}
+
+/**
+ * Gives a covered task back to the person who was away. False when someone had
+ * already changed who holds the task: the cover ended and nobody was put back.
+ */
+export async function handBackCover(coverId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('hand_back_work_cover', { p_cover: coverId })
+  if (error) throw error
+  return data !== false
+}
+
+/** Leaves the task with its cover and ends the cover. */
+export async function keepCover(coverId: string): Promise<void> {
+  const { error } = await supabase.rpc('keep_work_cover', { p_cover: coverId })
+  if (error) throw error
 }

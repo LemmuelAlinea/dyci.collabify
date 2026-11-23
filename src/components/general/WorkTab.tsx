@@ -10,6 +10,7 @@ import { paths } from '../../lib/paths'
 import { taskLayout, withWork, workSection, type WorkSection } from '../../lib/work/nav'
 import { TaskDialog } from './TaskDialog'
 import { LeadInbox } from './LeadInbox'
+import { ProjectLeaves } from './LeaveReview'
 import { TasksTab } from './TasksTab'
 import { WorkSummary } from './WorkSummary'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -44,6 +45,7 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
 
   return (
     <div className="space-y-5">
+      <ProjectLeaves state={state} />
       {area === 'overview' ? (
         <WorkSummary
           state={state}

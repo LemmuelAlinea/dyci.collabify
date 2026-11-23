@@ -2,7 +2,7 @@
 import { formatDue } from './dates'
 import { ROLE_LABEL } from './permissions'
 import type { ProjectRole } from './permissions'
-import { formatHours } from '../work/hours'
+import { formatDayLabel, formatHours } from '../work/hours'
 import { TASK_STATUSES } from './progress'
 import type { GeneralTaskStatus } from './progress'
 import type { GeneralTaskEvent } from './types'
@@ -125,6 +125,11 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
         }
         if (fields[0] === 'weight' && d.weight_to !== undefined) {
           return `${actor} changed the points from ${d.weight_from} to ${d.weight_to}`
+        }
+        if (fields[0] === 'cover' && d.cover && d.away_id && d.cover_id) {
+          if (d.cover === 'handed_back') return `${actor} handed it back to ${nameOf(d.away_id)}`
+          if (d.cover === 'kept') return `${actor} kept it with ${nameOf(d.cover_id)}`
+          return `${actor} asked ${nameOf(d.cover_id)} to cover for ${nameOf(d.away_id)}${d.until ? ` until ${formatDayLabel(d.until)}` : ''}`
         }
         if (fields[0] === 'estimated_minutes' && d.estimate_to !== undefined) {
           if (d.estimate_to === null) return `${actor} took the estimate off`

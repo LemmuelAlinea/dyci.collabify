@@ -1,5 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { MarkAwayDialog } from '../../components/general/MarkAwayDialog'
+import { useGeneralNavigation } from '../../context/generalNavigation'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -9,6 +11,9 @@ import {
   spacePeopleHours,
   spacePeopleLoad,
   estimateAccuracy,
+  removeTimeOffRange,
+  spaceAwayRanges,
+  type AwayRange,
   spacePersonTasks,
   spaceWorkloadSummary,
   type PeopleHours,
@@ -18,7 +23,7 @@ import {
 } from '../../lib/api/workload'
 import { authErrorMessage } from '../../lib/authError'
 import { plural } from '../../lib/plural'
-import { formatDayLabel, formatHours, workWeek } from '../../lib/work/hours'
+import { formatDayLabel, formatDayRange, formatHours, workWeek } from '../../lib/work/hours'
 import type { HolderTone } from '../../lib/work/useHolderHours'
 import { LOAD_BAR, loadTone } from '../../lib/work/loadTone'
 import { useSpaceOutlet } from './spaceOutlet'
@@ -107,6 +112,13 @@ export default function SpaceWorkload() {
   const [open, setOpen] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Map<string, PersonTask[] | 'loading' | 'error'>>(new Map())
   const [error, setError] = useState<string | null>(null)
+  // Who is away today or later, read once per space and again after a change.
+  const [away, setAway] = useState<{ space: string; rows: AwayRange[] } | null>(null)
+  const [marking, setMarking] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+  const { currentSpace } = useGeneralNavigation()
+  // The space's project manager and coordinators mark people away.
+  const plansLeave = !currentSpace?.archived_at && (currentSpace?.my_role === 'pm' || currentSpace?.my_role === 'coordinator')
   // How each person's estimates usually turn out; only people with 5 or more Done tasks have a row.
   const [accuracy, setAccuracy] = useState<{ space: string; ratios: Map<string, number> } | null>(null)
 
@@ -155,6 +167,32 @@ export default function SpaceWorkload() {
       .catch(() => {})
     return () => { current = false }
   }, [spaceId])
+  const loadAway = useCallback(() => {
+    void spaceAwayRanges(spaceId)
+      .then((rows) => setAway({ space: spaceId, rows }))
+      .catch(() => setAway({ space: spaceId, rows: [] }))
+  }, [spaceId])
+  useEffect(() => {
+    loadAway()
+  }, [loadAway])
+  // A leave-ending notice or a link can open Mark away for one person.
+  const awayParam = searchParams.get('away')
+  useEffect(() => {
+    if (awayParam && plansLeave) setMarking(awayParam)
+  }, [awayParam, plansLeave])
+  const rangesOf = (userId: string) => (away?.space === spaceId ? away.rows.filter((r) => r.user_id === userId) : [])
+  const awayLabel = (r: AwayRange) => `Away ${formatDayRange(r.first_day, r.last_day)}${r.part_day ? ' (part day)' : ''}`
+
+  async function removeRange(r: AwayRange) {
+    setError(null)
+    try {
+      await removeTimeOffRange(r.user_id, r.first_day, r.last_day)
+      loadAway()
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not remove that leave. Try again.'))
+    }
+  }
+
   const ratioOf = (userId: string) => (accuracy?.space === spaceId ? accuracy.ratios.get(userId) : undefined)
 
   // The open row's tasks for the first week shown: read when the row opens or the
@@ -232,7 +270,14 @@ export default function SpaceWorkload() {
                     className="flex min-w-0 items-center gap-2 text-left text-[14px] font-medium text-ink hover:text-navy-600"
                   >
                     <Icon name="chevronDown" size={14} className={`shrink-0 text-faint motion-safe:transition-transform ${expanded ? '' : '-rotate-90'}`} />
-                    <span className="truncate">{names.get(userId) ?? 'Someone'}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate">{names.get(userId) ?? 'Someone'}</span>
+                      {rangesOf(userId)[0] && (
+                        <span data-away className="block truncate text-[12px] font-normal text-warning-700 dark:text-warning-300">
+                          {awayLabel(rangesOf(userId)[0])}
+                        </span>
+                      )}
+                    </span>
                   </button>
                   {cells.map((c, i) => (
                     <div key={shown[i].from} data-week={i} className={i > 0 ? 'hidden sm:block' : ''}><WeekCell cell={c} /></div>
@@ -240,6 +285,21 @@ export default function SpaceWorkload() {
                 </div>
                 {expanded && (
                   <div className="border-b border-line surface-sunken px-4 py-3 text-[13px]">
+                    {(plansLeave || rangesOf(userId).length > 0) && (
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        {rangesOf(userId).map((r) => (
+                          <span key={r.first_day} className="flex items-center gap-1 text-muted">
+                            {awayLabel(r)}
+                            {plansLeave && r.added_by && (
+                              <Button size="sm" variant="ghost" onClick={() => void removeRange(r)}>Remove</Button>
+                            )}
+                          </span>
+                        ))}
+                        {plansLeave && (
+                          <Button size="sm" variant="outline" onClick={() => setMarking(userId)}>Mark away</Button>
+                        )}
+                      </div>
+                    )}
                     {ratioOf(userId) != null && (
                       <p className="mb-2 text-muted">Usually takes about {ratioOf(userId)}× the estimate.</p>
                     )}
@@ -279,6 +339,16 @@ export default function SpaceWorkload() {
               `${summary.people_without_hours} ${plural(summary.people_without_hours, 'person has', 'people have')} no weekly hours set`,
           ].filter(Boolean).join(' · ')}
         </p>
+      )}
+      {marking && (
+        <MarkAwayDialog
+          open
+          userId={marking}
+          name={names.get(marking) ?? 'Someone'}
+          initial={rangesOf(marking)[0] ? { from: rangesOf(marking)[0].first_day, to: rangesOf(marking)[0].last_day } : undefined}
+          onClose={() => setMarking(null)}
+          onSaved={loadAway}
+        />
       )}
     </section>
   )

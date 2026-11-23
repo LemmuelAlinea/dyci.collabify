@@ -45,6 +45,7 @@ import { blockersOf, DEFAULT_TASK_RULES, subtasksOf } from '../../lib/general/ta
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { EstimateSpent, TaskTimer } from './TaskTimer'
+import { TaskCover } from './TaskCover'
 import { formatHours, parseHours } from '../../lib/work/hours'
 import { setTaskEstimate } from '../../lib/api/workload'
 import { suggestEstimate } from '../../lib/api/workAi'
@@ -428,6 +429,7 @@ function TaskBody({
           <QaActions taskId={task.id} title={task.title} onDone={() => Promise.all([state.reload(), load()]).then(() => {})} />
         </section>
       )}
+      {work && <TaskCover key={`${task.id}:${task.assignee_ids.join(',')}`} taskId={task.id} state={state} />}
       <TaskDetails
         state={state}
         taskId={task.id}

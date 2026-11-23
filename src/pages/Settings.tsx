@@ -70,6 +70,13 @@ const NOTIFICATIONS: NotificationRow[] = [
     shown: inSomething,
   },
   {
+    key: 'leave_and_cover',
+    label: () => 'Leave and cover',
+    body: () =>
+      'When someone on your projects is away and their tasks need a look, when their leave ends, and when it is time to hand covered work back.',
+    shown: (r) => r.hasWork,
+  },
+  {
     key: 'deadline_reminders',
     label: () => 'Deadline reminders',
     body: () => 'When a task you hold is due soon or overdue, and when draft files sit unsubmitted for three days. If you run a project, also when a work cycle is about to end, a milestone is almost due or overdue, and when its tasks slip past their dates.',
