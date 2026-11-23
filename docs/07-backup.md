@@ -1148,7 +1148,13 @@ space the person is in; a planner removes only days a planner recorded), the int
 project and leave, refreshed by `work_leave_refresh` from three statement triggers on `user_time_off`
 (`user_time_off_leave_refresh_ins`, `_upd`, `_del`), which send `leave_impact` notices when a leave's flagged tasks
 change; `general_project_leaves(project)` is the review read. It adds the notification types `leave_impact`,
-`leave_ending` and `cover_hand_back` and `notification_prefs.leave_and_cover`. It redefines nothing another
+`leave_ending` and `cover_hand_back` and `notification_prefs.leave_and_cover`. Cover: the table
+`general_task_covers` (one open cover per task), `start_work_cover` (runs as the caller; the holder swap goes through
+`set_general_task_holders` in an Open project or the caller's own holder writes in a Planned one, then
+`work_cover_prepare` and `work_cover_record`), `hand_back_work_cover` and `keep_work_cover` (through the internal
+`work_cover_close`, which writes the hand-back with claims cleared, naming the planner who arranged the cover), the
+covers' end following their leave (`work_leave_move_covers`, statement triggers `user_time_off_covers_*`), and the
+daily `send_leave_reminders` (cron `collabify-leave-reminders`, 08:00 Manila). It redefines nothing another
 file owns. Re-running `work-workload.sql` means re-running it afterwards, then `anon-lockdown.sql`. Suite:
 `supabase/tests/work-leave.test.sql`.
 

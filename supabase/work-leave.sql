@@ -506,4 +506,437 @@ $$;
 revoke all on function public.general_project_leaves(uuid) from public, anon;
 grant execute on function public.general_project_leaves(uuid) to authenticated;
 
+------------------------------------------------------------ temporary cover
+
+-- While a holder is away, a cover holds the task in their place until the
+-- leave's last day; then both are asked to hand it back.
+create table if not exists public.general_task_covers (
+  id          uuid primary key default gen_random_uuid(),
+  task_id     uuid not null,
+  project_id  uuid not null,
+  away_id     uuid not null references public.profiles (id) on delete cascade,
+  cover_id    uuid not null references public.profiles (id) on delete cascade,
+  until       date not null,
+  created_by  uuid references public.profiles (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  reminded_on date,
+  closed_at   timestamptz,
+  closed_how  text check (closed_how in ('handed_back', 'kept', 'dropped')),
+  foreign key (task_id, project_id) references public.general_tasks (id, project_id) on delete cascade
+);
+
+create unique index if not exists general_task_covers_open_idx
+  on public.general_task_covers (task_id) where closed_at is null;
+create index if not exists general_task_covers_away_idx
+  on public.general_task_covers (away_id) where closed_at is null;
+
+alter table public.general_task_covers enable row level security;
+
+drop policy if exists general_task_covers_select on public.general_task_covers;
+create policy general_task_covers_select on public.general_task_covers
+  for select using (public.can_read_general_project(project_id));
+
+revoke all on public.general_task_covers from public, anon, authenticated;
+grant select on public.general_task_covers to authenticated;
+
+-- The caller is an active project manager or coordinator of the project.
+create or replace function public.work_is_project_planner(p_project uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null and public.general_viewer_active() and exists (
+    select 1 from public.general_members gm
+     where gm.project_id = p_project and gm.user_id = auth.uid() and gm.role in ('pm', 'coordinator'));
+$$;
+
+revoke all on function public.work_is_project_planner(uuid) from public, anon, authenticated;
+
+-- p_user is an active member of the project who may hold tasks.
+create or replace function public.work_can_hold(p_project uuid, p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.general_members gm
+      join public.profiles pf on pf.id = gm.user_id
+     where gm.project_id = p_project and gm.user_id = p_user and pf.status = 'active'
+       and gm.role not in ('qa', 'stakeholder'));
+$$;
+
+revoke all on function public.work_can_hold(uuid, uuid) from public, anon, authenticated;
+
+create or replace function public.work_person_name(p_user uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(nullif(btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')), ''), 'Someone')
+    from public.profiles p where p.id = p_user;
+$$;
+
+revoke all on function public.work_person_name(uuid) from public, anon, authenticated;
+
+-- Checks a cover can start and returns the day it lasts until: the last day of
+-- the away person's leave that is under way or next.
+create or replace function public.work_cover_prepare(p_task uuid, p_away uuid, p_cover uuid)
+returns date
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  t public.general_tasks;
+  v_until date;
+begin
+  select * into t from public.general_tasks where id = p_task;
+  if t.id is null or not public.work_is_project_planner(t.project_id) then
+    raise exception 'Only the project manager and coordinators can arrange cover.' using errcode = 'insufficient_privilege';
+  end if;
+  if exists (select 1 from public.general_projects q
+              where q.id = t.project_id and (q.class_board_id is not null or q.archived_at is not null or q.trashed_at is not null))
+     or t.archived_at is not null or t.trashed_at is not null or t.routing_state <> 'released' or t.status = 'done' then
+    raise exception 'Choose a live, open task in this project.' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.general_task_covers c where c.task_id = p_task and c.closed_at is null) then
+    raise exception 'This task is already covered.' using errcode = 'check_violation';
+  end if;
+  if not exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = p_away) then
+    raise exception '% doesn''t hold this task.', public.work_person_name(p_away) using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = p_cover) then
+    raise exception '% already holds this task.', public.work_person_name(p_cover) using errcode = 'check_violation';
+  end if;
+  if not public.work_can_hold(t.project_id, p_cover) then
+    raise exception '% can''t hold this task.', public.work_person_name(p_cover) using errcode = 'check_violation';
+  end if;
+  select r.last_day into v_until
+    from public.work_leave_runs(p_away, (now() at time zone 'Asia/Manila')::date) r
+   order by r.first_day limit 1;
+  if v_until is null then
+    raise exception '% has no leave coming up.', public.work_person_name(p_away) using errcode = 'check_violation';
+  end if;
+  return v_until;
+end;
+$$;
+
+revoke all on function public.work_cover_prepare(uuid, uuid, uuid) from public, anon;
+grant execute on function public.work_cover_prepare(uuid, uuid, uuid) to authenticated;
+
+-- Records a cover once the holders already show it, with a history line.
+create or replace function public.work_cover_record(p_task uuid, p_away uuid, p_cover uuid, p_until date)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_project uuid;
+  v_id uuid;
+begin
+  select project_id into v_project from public.general_tasks where id = p_task;
+  if v_project is null or not public.work_is_project_planner(v_project) then
+    raise exception 'Only the project manager and coordinators can arrange cover.' using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = p_cover)
+     or exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = p_away) then
+    raise exception 'The cover could not be set up. Reload and try again.' using errcode = 'check_violation';
+  end if;
+  insert into public.general_task_covers (task_id, project_id, away_id, cover_id, until, created_by)
+  values (p_task, v_project, p_away, p_cover, p_until, auth.uid())
+  returning id into v_id;
+  insert into public.general_task_events (task_id, project_id, actor_id, kind, detail)
+  values (p_task, v_project, auth.uid(), 'updated',
+          jsonb_build_object('fields', jsonb_build_array('cover'), 'cover', 'started',
+                             'away_id', p_away, 'cover_id', p_cover, 'until', p_until));
+  return v_id;
+end;
+$$;
+
+revoke all on function public.work_cover_record(uuid, uuid, uuid, date) from public, anon;
+grant execute on function public.work_cover_record(uuid, uuid, uuid, date) to authenticated;
+
+-- Puts p_cover on the task in p_away's place until their leave ends. Runs as the
+-- caller, so the holder rules of the project's task flow apply unchanged.
+create or replace function public.start_work_cover(p_task uuid, p_away uuid, p_cover uuid)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_until date;
+  v_project uuid;
+  v_flow text;
+  v_holders uuid[];
+begin
+  v_until := public.work_cover_prepare(p_task, p_away, p_cover);
+  select t.project_id, coalesce(q.task_flow, 'planned') into v_project, v_flow
+    from public.general_tasks t join public.general_projects q on q.id = t.project_id
+   where t.id = p_task;
+
+  if v_flow = 'open' then
+    select coalesce(array_agg(a.user_id), '{}') into v_holders
+      from public.general_task_assignees a where a.task_id = p_task and a.user_id <> p_away;
+    perform public.set_general_task_holders(p_task, v_holders || p_cover);
+  else
+    delete from public.general_task_assignees where task_id = p_task and user_id = p_away;
+    insert into public.general_task_assignees (task_id, project_id, user_id) values (p_task, v_project, p_cover);
+  end if;
+
+  return public.work_cover_record(p_task, p_away, p_cover, v_until);
+end;
+$$;
+
+revoke all on function public.start_work_cover(uuid, uuid, uuid) from public, anon;
+grant execute on function public.start_work_cover(uuid, uuid, uuid) to authenticated;
+
+-- Closes an open cover the caller may act on: the cover or a project planner.
+create or replace function public.work_cover_close(p_cover uuid, p_how text, p_swap boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c public.general_task_covers;
+  t public.general_tasks;
+  gp public.general_projects;
+  me uuid := auth.uid();
+  v_prior uuid[];
+  prior_claims text := current_setting('request.jwt.claims', true);
+  prior_sub    text := current_setting('request.jwt.claim.sub', true);
+begin
+  select * into c from public.general_task_covers where id = p_cover and closed_at is null for update;
+  if c.id is null or not public.general_viewer_active()
+     or not (me = c.cover_id or public.work_is_project_planner(c.project_id)) then
+    raise exception 'This cover has already ended.' using errcode = 'check_violation';
+  end if;
+
+  if p_swap then
+    select * into t from public.general_tasks where id = c.task_id for update;
+    select * into gp from public.general_projects where id = c.project_id;
+    if t.status = 'done' or t.archived_at is not null or t.trashed_at is not null
+       or (public.general_project_has_qa(gp.id)
+           and public.general_task_stage_at(t.status, t.stage, public.stage_count(gp.stages))
+               >= public.general_qa_stage_pick(gp.stages, gp.qa_stage)) then
+      raise exception 'Reopen it before changing who holds it.' using errcode = 'check_violation';
+    end if;
+    if not public.work_can_hold(c.project_id, c.away_id) then
+      raise exception '% can''t hold this task now.', public.work_person_name(c.away_id) using errcode = 'check_violation';
+    end if;
+    select coalesce(array_agg(e.id), '{}') into v_prior from public.general_task_events e
+     where e.task_id = c.task_id and e.actor_id is null;
+    -- Putting the original holder back is the reverse of an approved cover: the
+    -- holder writes run with claims cleared, the way the Open writers do, and the
+    -- new row names the planner who arranged the cover.
+    begin
+      perform set_config('request.jwt.claims', '', true);
+      perform set_config('request.jwt.claim.sub', '', true);
+      delete from public.general_task_assignees where task_id = c.task_id and user_id = c.cover_id;
+      insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
+      select c.task_id, c.project_id, c.away_id, coalesce(c.created_by, me)
+       where not exists (select 1 from public.general_task_assignees a
+                          where a.task_id = c.task_id and a.user_id = c.away_id);
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+    exception when others then
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+      raise;
+    end;
+    update public.general_task_events set actor_id = me
+     where task_id = c.task_id and actor_id is null and kind in ('assigned', 'unassigned') and id <> all(v_prior);
+  end if;
+
+  update public.general_task_covers set closed_at = now(), closed_how = p_how where id = c.id;
+  insert into public.general_task_events (task_id, project_id, actor_id, kind, detail)
+  values (c.task_id, c.project_id, me, 'updated',
+          jsonb_build_object('fields', jsonb_build_array('cover'), 'cover', p_how,
+                             'away_id', c.away_id, 'cover_id', c.cover_id));
+end;
+$$;
+
+revoke all on function public.work_cover_close(uuid, text, boolean) from public, anon, authenticated;
+
+-- Hands a covered task back to the person who was away.
+create or replace function public.hand_back_work_cover(p_cover uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  select public.work_cover_close(p_cover, 'handed_back', true);
+$$;
+
+-- Leaves the task with the cover and ends the cover.
+create or replace function public.keep_work_cover(p_cover uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  select public.work_cover_close(p_cover, 'kept', false);
+$$;
+
+revoke all on function public.hand_back_work_cover(uuid) from public, anon;
+grant execute on function public.hand_back_work_cover(uuid) to authenticated;
+revoke all on function public.keep_work_cover(uuid) from public, anon;
+grant execute on function public.keep_work_cover(uuid) to authenticated;
+
+-- A leave that changed moves the end of its open covers: a cover follows the
+-- leave it started in (the run from the cover's start to its end). A leave that
+-- is gone leaves the end as it was, so the hand-back reminder still comes.
+create or replace function public.work_leave_move_covers(p_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c record;
+  v_last date;
+begin
+  for c in select * from public.general_task_covers where away_id = p_user and closed_at is null for update loop
+    select r.last_day into v_last
+      from public.work_leave_runs(p_user, (c.created_at at time zone 'Asia/Manila')::date) r
+     where r.first_day <= c.until
+     order by r.first_day
+     limit 1;
+    if v_last is not null and v_last <> c.until then
+      update public.general_task_covers
+         set until = v_last,
+             reminded_on = case when v_last > c.until then null else reminded_on end
+       where id = c.id;
+    end if;
+  end loop;
+end;
+$$;
+
+revoke all on function public.work_leave_move_covers(uuid) from public, anon, authenticated;
+
+create or replace function public.user_time_off_covers_new()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.work_leave_move_covers(x.user_id) from (select distinct user_id from new_rows) x;
+  return null;
+end;
+$$;
+
+create or replace function public.user_time_off_covers_old()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.work_leave_move_covers(x.user_id) from (select distinct user_id from old_rows) x;
+  return null;
+end;
+$$;
+
+revoke all on function public.user_time_off_covers_new() from public, anon, authenticated;
+revoke all on function public.user_time_off_covers_old() from public, anon, authenticated;
+
+drop trigger if exists user_time_off_covers_ins on public.user_time_off;
+create trigger user_time_off_covers_ins after insert on public.user_time_off
+  referencing new table as new_rows
+  for each statement execute function public.user_time_off_covers_new();
+drop trigger if exists user_time_off_covers_upd on public.user_time_off;
+create trigger user_time_off_covers_upd after update on public.user_time_off
+  referencing new table as new_rows
+  for each statement execute function public.user_time_off_covers_new();
+drop trigger if exists user_time_off_covers_del on public.user_time_off;
+create trigger user_time_off_covers_del after delete on public.user_time_off
+  referencing old table as old_rows
+  for each statement execute function public.user_time_off_covers_old();
+
+------------------------------------------------------------ daily reminders
+
+-- Each morning: closes covers that no longer apply, asks for hand-backs after a
+-- leave, and asks project managers to extend or confirm a leave ending today.
+create or replace function public.send_leave_reminders()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_today date := (now() at time zone 'Asia/Manila')::date;
+begin
+  update public.general_task_covers c
+     set closed_at = now(), closed_how = 'dropped'
+    from public.general_tasks t
+   where t.id = c.task_id and c.closed_at is null
+     and (t.status = 'done' or t.archived_at is not null or t.trashed_at is not null
+          or not exists (select 1 from public.general_task_assignees a
+                          where a.task_id = c.task_id and a.user_id = c.cover_id));
+
+  with due as (
+    update public.general_task_covers c
+       set reminded_on = v_today
+     where c.closed_at is null and c.until < v_today and c.reminded_on is null
+    returning c.*
+  )
+  insert into public.notifications (user_id, type, general_project_id, general_task_id, title, preview)
+  select r.user_id, 'cover_hand_back'::public.notification_type, d.project_id, d.task_id,
+         public.work_person_name(d.away_id) || ' is back',
+         'Hand ' || t.title || ' back, or keep it with ' || public.work_person_name(d.cover_id) || '.'
+    from due d
+    join public.general_tasks t on t.id = d.task_id
+    cross join lateral (
+      select d.cover_id as user_id
+      union
+      select gm.user_id from public.general_members gm where gm.project_id = d.project_id and gm.role = 'pm'
+    ) r
+    join public.profiles pf on pf.id = r.user_id and pf.status = 'active'
+    join public.notification_prefs np on np.user_id = r.user_id and np.leave_and_cover;
+
+  with ending as (
+    update public.general_leave_notices g
+       set ended_reminded_on = g.last_day
+     where g.last_day = v_today and g.notified_at is not null
+       and g.ended_reminded_on is distinct from g.last_day
+    returning g.*
+  )
+  insert into public.notifications (user_id, type, general_project_id, general_space_id, title, preview)
+  select gm.user_id, 'leave_ending'::public.notification_type, q.id, q.space_id,
+         public.work_person_name(e.user_id) || '''s leave ends today',
+         'Extend it or confirm they''re back.'
+    from ending e
+    join public.general_projects q on q.id = e.project_id
+    join public.general_members gm on gm.project_id = q.id and gm.role = 'pm' and gm.user_id <> e.user_id
+    join public.profiles pf on pf.id = gm.user_id and pf.status = 'active'
+    join public.notification_prefs np on np.user_id = gm.user_id and np.leave_and_cover;
+end;
+$$;
+
+revoke all on function public.send_leave_reminders() from public, anon, authenticated;
+
+create extension if not exists pg_cron;
+
+do $$
+begin
+  perform cron.unschedule('collabify-leave-reminders');
+exception when others then null; end $$;
+
+-- Daily at 00:00 UTC, 08:00 in Manila.
+select cron.schedule(
+  'collabify-leave-reminders',
+  '0 0 * * *',
+  $cron$ select public.send_leave_reminders() $cron$
+);
+
 commit;
