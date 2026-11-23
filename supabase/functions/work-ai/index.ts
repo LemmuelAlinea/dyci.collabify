@@ -1208,6 +1208,7 @@ type LeaveTaskIn = {
   remaining_minutes: number
   short_minutes: number
   due_on: string | null
+  holders: string[]
   blocks: string[]
 }
 type LeaveContext = {
@@ -1258,7 +1259,8 @@ For each task give exactly one move:
 person is a c-id from the list for cover and reassign, else empty. due_on is a
 date only for move_due, else empty. Never pick someone whose free hours are less
 than the task's hours left unless nobody else fits, and say so.
-reason: one short sentence a project manager can check.
+reason: one short sentence a project manager can check. Never write an id such
+as c1, t1 or person2 in it; say "they" or describe the work instead.
 ${VOICE}`,
     [
       `Today: ${today}`,
@@ -1293,7 +1295,7 @@ ${VOICE}`,
   )
   return {
     suggestions: validateLeaveSuggestions(out, {
-      tasks: tasks.map((t) => ({ key: t.key, taskId: t.task_id })),
+      tasks: tasks.map((t) => ({ key: t.key, taskId: t.task_id, holderIds: t.holders ?? [] })),
       people: people.map((p) => ({ key: p.key, userId: p.userId })),
       leaveLast: context.last_day,
       today,

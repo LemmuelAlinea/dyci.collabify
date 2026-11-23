@@ -235,3 +235,31 @@ it('suggest failure shows message', async () => {
   await act(async () => button('Suggest changes')!.click())
   expect(document.body.textContent).toContain('That is 12 in an hour. Try again later.')
 })
+
+it('person token shown as name', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions: [{ ...suggestions[0], reason: '{person} has 9 h free.' }] })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(row('Authentication API').textContent).toContain('Keneth Lim has 9 h free.')
+})
+
+it('apply uses an edited picker', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  await pick(row('Authentication API').querySelector<HTMLSelectElement>('select')!, 'wilson')
+  await act(async () => button('Apply', row('Authentication API'))!.click())
+  expect(startCover).toHaveBeenCalledWith('t1', 'ivan', 'wilson', '2026-11-26')
+})
+
+it('suggestions dropped when the leave changes', async () => {
+  vi.mocked(suggestLeaveChanges).mockResolvedValue({ result: 'ok', suggestions })
+  await render(stateOf(), '/projects/p?leave=open')
+  await act(async () => button('Suggest changes')!.click())
+  expect(row('Authentication API').textContent).toContain('Suggestion:')
+  vi.mocked(projectLeaves).mockResolvedValue([{ ...leave, last_day: '2026-12-02' }])
+  await typeInto(row('Bug fixes').querySelector<HTMLInputElement>('input[type="date"]')!, '2026-12-10')
+  await act(async () => button('Move due date', row('Bug fixes'))!.click())
+  expect(row('Authentication API').textContent).not.toContain('Suggestion:')
+  expect(row('Login integration').querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('')
+})

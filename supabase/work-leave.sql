@@ -539,7 +539,8 @@ grant execute on function public.general_project_leaves(uuid) to authenticated;
 ------------------------------------------------------------ phase 2 reads
 
 -- Each holder whose share of a task's remaining work is more than their free
--- hours before it is due, for the project's planners and the task's holders.
+-- hours before it is due: every holder for the project's planners, only their
+-- own line for a holder (hours are the planners' to see).
 create or replace function public.general_task_forecast(p_task uuid)
 returns table(user_id uuid, remaining_minutes int, short_minutes int)
 language plpgsql
@@ -554,6 +555,7 @@ declare
   v_due date;
   v_holders int;
   v_rem numeric;
+  v_planner boolean;
 begin
   select * into t from public.general_tasks where id = p_task;
   if t.id is null or auth.uid() is null or not public.general_viewer_active() then
@@ -565,7 +567,8 @@ begin
      or t.routing_state <> 'released' or t.estimated_minutes is null or t.due_at is null then
     return;
   end if;
-  if not public.work_is_project_planner(t.project_id)
+  v_planner := public.work_is_project_planner(t.project_id);
+  if not v_planner
      and not exists (select 1 from public.general_task_assignees a where a.task_id = p_task and a.user_id = auth.uid()) then
     return;
   end if;
@@ -579,6 +582,7 @@ begin
     from public.general_task_assignees a
     cross join lateral (select public.work_task_room(q.space_id, a.user_id, p_task, v_due) as room) r
    where a.task_id = p_task and r.room is not null and v_rem > greatest(r.room, 0)
+     and (v_planner or a.user_id = auth.uid())
    order by a.user_id;
 end;
 $$;
@@ -616,6 +620,8 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'task_id', s.task_id, 'title', t.title, 'description', t.description, 'status', s.status,
            'remaining_minutes', s.remaining_minutes, 'short_minutes', s.short_minutes, 'due_on', s.due_on,
+           'holders', (select coalesce(jsonb_agg(a.user_id order by a.user_id), '[]'::jsonb)
+                         from public.general_task_assignees a where a.task_id = s.task_id),
            'blocks', (select coalesce(jsonb_agg(w.title order by w.title), '[]'::jsonb)
                         from public.general_task_dependencies dp
                         join public.general_tasks w on w.id = dp.task_id
@@ -653,7 +659,7 @@ $$;
 revoke all on function public.general_leave_suggest_context(uuid) from public, anon;
 grant execute on function public.general_leave_suggest_context(uuid) to authenticated;
 
--- A sprint's hours for the project's members: the available and away minutes of
+-- A sprint's hours for the project's manager and coordinators: the available and away minutes of
 -- the people holding its open tasks over its dates, its planned estimates, its
 -- open tasks with no holder and its holders with no weekly hours.
 create or replace function public.general_sprint_hours(p_sprint uuid)
@@ -669,8 +675,7 @@ declare
   v_space uuid;
 begin
   select * into sp from public.general_sprints where id = p_sprint;
-  if sp.id is null or auth.uid() is null or not public.general_viewer_active()
-     or not public.is_general_member(sp.project_id) then
+  if sp.id is null or not public.work_is_project_planner(sp.project_id) then
     return;
   end if;
   select space_id into v_space from public.general_projects where id = sp.project_id and class_board_id is null;

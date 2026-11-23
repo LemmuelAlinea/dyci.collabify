@@ -59,17 +59,37 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
   // The leave being extended from the review.
   const [extending, setExtending] = useState<ProjectLeave | null>(null)
   // Suggest changes: per leave, the suggestion for each task once asked, and any failure.
-  const [suggested, setSuggested] = useState<Map<string, Map<string, LeaveSuggestion>>>(new Map())
+  // Each leave's suggestions remember the dates they were made for.
+  const [suggested, setSuggested] = useState<Map<string, { dates: string; byTask: Map<string, LeaveSuggestion> }>>(new Map())
   const [suggesting, setSuggesting] = useState<string | null>(null)
   const [suggestError, setSuggestError] = useState<Map<string, string>>(new Map())
 
   const load = useCallback(async () => {
     if (!planner || !project) return
+    let next: ProjectLeave[] = []
     try {
-      setLeaves(await projectLeaves(project.id))
+      next = await projectLeaves(project.id)
     } catch {
-      setLeaves([])
+      next = []
     }
+    setLeaves(next)
+    // A leave whose dates changed (extended or shortened) loses its suggestions and what they filled in.
+    const datesOf = new Map(next.map((l) => [l.notice_id, `${l.first_day}:${l.last_day}`]))
+    setSuggested((m) => {
+      const stale = [...m.entries()].filter(([id, v]) => datesOf.get(id) !== v.dates)
+      if (stale.length === 0) return m
+      const prefixes = stale.flatMap(([id, v]) => [...v.byTask.values()].map((sg) => `${id}:${sg.task_id}`))
+      const drop = (old: Map<string, string>) => {
+        const n = new Map(old)
+        for (const k of prefixes) n.delete(k)
+        return n
+      }
+      setPerson(drop)
+      setDay(drop)
+      const n = new Map(m)
+      for (const [id] of stale) n.delete(id)
+      return n
+    })
   }, [planner, project?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -112,7 +132,7 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
         return
       }
       const byTask = new Map(res.suggestions.map((sg) => [sg.task_id, sg]))
-      setSuggested((m) => new Map(m).set(leave.notice_id, byTask))
+      setSuggested((m) => new Map(m).set(leave.notice_id, { dates: `${leave.first_day}:${leave.last_day}`, byTask }))
       // A suggestion fills the row's picker or date, so changing it is the edit.
       setPerson((m) => {
         const n = new Map(m)
@@ -143,7 +163,12 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
       setSkipped((s) => new Set(s).add(`${leave.notice_id}:${task.task_id}`))
       return
     }
-    void act(leave, task, sg.action === 'move_due' ? 'move' : sg.action, { person: sg.person_id, day: sg.due_on })
+    // The picker and date start as the suggestion, so what they hold now is the manager's edit.
+    const key = `${leave.notice_id}:${task.task_id}`
+    void act(leave, task, sg.action === 'move_due' ? 'move' : sg.action, {
+      person: person.get(key) ?? sg.person_id,
+      day: day.get(key) ?? sg.due_on,
+    })
   }
 
   async function act(
@@ -244,13 +269,17 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
                         {!t.no_estimate && ` · ${formatHours(t.remaining_minutes)} left`}
                       </p>
                       {!done && t.status !== 'fine' && suggested.has(l.notice_id) && (() => {
-                        const sg = suggested.get(l.notice_id)!.get(t.task_id)
+                        const sg = suggested.get(l.notice_id)!.byTask.get(t.task_id)
                         if (!sg) return <p className="text-[12px] text-faint">No suggestion</p>
                         return (
                           <div className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-navy-50 px-3 py-2 dark:bg-navy-500/15">
                             <p className="min-w-0 text-[13px] text-ink">
                               Suggestion: {suggestionText(l, sg)}
-                              {sg.reason && <span className="block text-[12px] text-muted">{sg.reason}</span>}
+                              {sg.reason && (
+                                <span className="block text-[12px] text-muted">
+                                  {sg.reason.replaceAll('{person}', sg.person_id ? state.nameOf(sg.person_id) : 'they')}
+                                </span>
+                              )}
                             </p>
                             <Button size="sm" disabled={busy === key} onClick={() => apply(l, t, sg)}>Apply</Button>
                           </div>

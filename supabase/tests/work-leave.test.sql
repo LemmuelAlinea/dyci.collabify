@@ -580,6 +580,9 @@ begin
   perform pg_temp.act_as(u[2]);
   perform pg_temp.check('forecast for holder', exists (select 1 from public.general_task_forecast(t_big)));
   select short_minutes into f_short from public.general_task_forecast(t_big);
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('forecast co-holder sees only own',
+    (select array_agg(user_id) = array[u[3]] from public.general_task_forecast(t_shared)));
   perform pg_temp.act_as(u[5]);
   perform pg_temp.check('forecast hidden from others', not exists (select 1 from public.general_task_forecast(t_big)));
   perform pg_temp.service();
@@ -604,6 +607,9 @@ begin
     and (select e -> 'skills' = '["auth"]'::jsonb and e ->> 'free_minutes' is not null
            from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[3]::text)
     and (select e ->> 'free_minutes' is null from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[4]::text));
+  perform pg_temp.check('context lists holders',
+    (select e -> 'holders' @> to_jsonb(array[u[2]::text, u[3]::text]) and jsonb_array_length(e -> 'holders') = 2
+       from jsonb_array_elements(ctx -> 'tasks') e where e ->> 'task_id' = t_shared::text));
   perform pg_temp.check('away candidate marked',
     (select (e ->> 'away')::boolean from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[5]::text)
     and not (select (e ->> 'away')::boolean from jsonb_array_elements(ctx -> 'people') e where e ->> 'user_id' = u[4]::text));
@@ -626,6 +632,8 @@ begin
        from public.general_sprint_hours(sp)));
   perform pg_temp.act_as(u[6]);
   perform pg_temp.check('sprint hours members only', not exists (select 1 from public.general_sprint_hours(sp)));
+  perform pg_temp.act_as(u[2]);
+  perform pg_temp.check('sprint hours planners only', not exists (select 1 from public.general_sprint_hours(sp)));
   perform pg_temp.service();
 end $$;
 

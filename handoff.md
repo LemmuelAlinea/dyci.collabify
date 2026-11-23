@@ -5665,5 +5665,14 @@ accepted." from the setting; no failed requests.
   against the deployed function suggested moving Wilson's task to Fri 11 Dec (Keneth, the only Auth person, was short
   of hours) and Apply moved it keeping 17:00; "Needs 46.8 h more than Keneth Ramos has before it's due"; the picker read
   "Lemmuel Alinea · Away 26 Nov · …"; the planned sprint read "Team hours 9.6 h (6.4 h away) · Planned 6 h". 375 px.
+- **Final review fixes.** Suggestion reasons never show the model's ids (the suggested person's name, else "someone"
+  or "another task"); a current holder is never suggested; a holder who isn't a planner sees only their own "Needs
+  … more" line; sprint hours are for the project manager and coordinators only; suggestions drop when a leave's dates
+  change; Apply uses whatever the picker or date holds.  redeployed;  70 checks; 3003 Vitest tests.
+
+**Deferred**
+- Away labels can lag a minute after Mark away (shared cache); the sprint hours line isn't re-read after an estimate
+  or holder edit; planned minutes include tasks whose holders have no weekly hours.
+- Two Suggest changes clicks share one spinner; overdue tasks still read "before it's due".
 - Plan `docs/superpowers/plans/2026-11-23-leave-aware-workload-phase-2.md`.
 

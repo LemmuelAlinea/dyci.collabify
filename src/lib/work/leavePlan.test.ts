@@ -31,7 +31,7 @@ describe('validateLeaveSuggestions', () => {
       { task: 't2', action: 'fly', reason: 'unknown action' },
     ] }, ctx)
     // The first t1 row is invalid, so t1 takes the next valid one.
-    expect(out).toEqual([{ task_id: 'task-a', action: 'cover', person_id: 'ivan', due_on: null, reason: 'second for t1' }])
+    expect(out).toEqual([{ task_id: 'task-a', action: 'cover', person_id: 'ivan', due_on: null, reason: 'second for this task' }])
   })
 
   it('trims reasons', () => {
@@ -42,6 +42,20 @@ describe('validateLeaveSuggestions', () => {
   it('reads nothing from a broken answer', () => {
     expect(validateLeaveSuggestions(null, ctx)).toEqual([])
     expect(validateLeaveSuggestions({ suggestions: 'no' }, ctx)).toEqual([])
+  })
+})
+
+describe('validateLeaveSuggestions guards', () => {
+  it('drops a current holder', () => {
+    const held = { ...ctx, tasks: [{ key: 't1', taskId: 'task-a', holderIds: ['ivan'] }] }
+    expect(validateLeaveSuggestions({ suggestions: [{ task: 't1', action: 'cover', person: 'c2', reason: 'x' }] }, held)).toEqual([])
+    expect(validateLeaveSuggestions({ suggestions: [{ task: 't1', action: 'cover', person: 'c1', reason: 'x' }] }, held)).toHaveLength(1)
+  })
+  it('reason ids replaced', () => {
+    const [s] = validateLeaveSuggestions({ suggestions: [
+      { task: 't1', action: 'cover', person: 'c1', reason: 'c1 has Auth and 9 h free; t2 can wait and C2 or person3 are busy on t1.' },
+    ] }, ctx)
+    expect(s.reason).toBe('{person} has Auth and 9 h free; another task can wait and someone or someone are busy on this task.')
   })
 })
 
