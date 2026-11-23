@@ -8,6 +8,7 @@ import { listSpaceMembers } from '../../lib/api/spaces'
 import {
   spacePeopleHours,
   spacePeopleLoad,
+  estimateAccuracy,
   spacePersonTasks,
   spaceWorkloadSummary,
   type PeopleHours,
@@ -19,6 +20,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { plural } from '../../lib/plural'
 import { formatDayLabel, formatHours, workWeek } from '../../lib/work/hours'
 import type { HolderTone } from '../../lib/work/useHolderHours'
+import { LOAD_BAR, loadTone } from '../../lib/work/loadTone'
 import { useSpaceOutlet } from './spaceOutlet'
 
 const WEEKS = 4
@@ -36,17 +38,10 @@ function shift(week: Week, weeks: number): Week {
 const bare = (minutes: number) => formatHours(minutes).replace(/ h$/, '')
 
 function toneOf(cell: Cell): HolderTone {
-  if (cell.available == null) return 'pending'
-  const ratio = cell.available > 0 ? cell.load / cell.available : cell.load > 0 ? Infinity : 0
-  return ratio > 1 ? 'danger' : ratio >= 0.8 ? 'warning' : 'success'
+  return loadTone(cell.load, cell.available)
 }
 
-const BAR: Record<HolderTone, string> = {
-  success: 'bg-success-500',
-  warning: 'bg-warning-500',
-  danger: 'bg-danger-500',
-  pending: 'bg-pending-soft',
-}
+const BAR = LOAD_BAR
 
 function cellOf(data: WeekData | undefined, userId: string): Cell | null {
   const hours = data?.hours.find((h) => h.user_id === userId)
@@ -112,6 +107,8 @@ export default function SpaceWorkload() {
   const [open, setOpen] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Map<string, PersonTask[] | 'loading' | 'error'>>(new Map())
   const [error, setError] = useState<string | null>(null)
+  // How each person's estimates usually turn out; only people with 5 or more Done tasks have a row.
+  const [accuracy, setAccuracy] = useState<{ space: string; ratios: Map<string, number> } | null>(null)
 
   const shown = useMemo(() => {
     const first = shift(workWeek(), offset)
@@ -150,6 +147,15 @@ export default function SpaceWorkload() {
       .catch(() => { if (current) setSummary(null) })
     return () => { current = false }
   }, [spaceId, first.from, first.to])
+
+  useEffect(() => {
+    let current = true
+    void estimateAccuracy(spaceId)
+      .then((rows) => { if (current) setAccuracy({ space: spaceId, ratios: new Map(rows.map((r) => [r.user_id, r.ratio])) }) })
+      .catch(() => {})
+    return () => { current = false }
+  }, [spaceId])
+  const ratioOf = (userId: string) => (accuracy?.space === spaceId ? accuracy.ratios.get(userId) : undefined)
 
   // The open row's tasks for the first week shown: read when the row opens or the
   // week moves, and again after a failed read.
@@ -234,6 +240,9 @@ export default function SpaceWorkload() {
                 </div>
                 {expanded && (
                   <div className="border-b border-line surface-sunken px-4 py-3 text-[13px]">
+                    {ratioOf(userId) != null && (
+                      <p className="mb-2 text-muted">Usually takes about {ratioOf(userId)}× the estimate.</p>
+                    )}
                     <p className="eyebrow mb-2">Week of {formatDayLabel(first.from)}</p>
                     {list === 'error' ? (
                       <p className="text-muted">Could not load these tasks. Close the row and open it again.</p>

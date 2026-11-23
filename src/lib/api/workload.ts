@@ -227,3 +227,19 @@ export function isLongTimerError(err: unknown): boolean {
   const message = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : ''
   return message.startsWith('This timer ran past 8 hours')
 }
+
+/** How a person's estimates usually turn out: logged time over their share of the estimates, from 5 Done tasks. */
+export type EstimateAccuracy = { user_id: string; ratio: number; tasks: number }
+
+/** Accuracy for the people the viewer may see in a work space's workload (only those with 5 or more tasks). */
+export async function estimateAccuracy(spaceId: string, users?: string[]): Promise<EstimateAccuracy[]> {
+  const { data, error } = await supabase.rpc('general_space_estimate_accuracy', {
+    p_space: spaceId,
+    p_users: users ?? null,
+  })
+  if (error) throw error
+  return ((data ?? []) as { user_id: string; ratio: number | string; tasks: number }[]).map((r) => ({
+    ...r,
+    ratio: Number(r.ratio),
+  }))
+}

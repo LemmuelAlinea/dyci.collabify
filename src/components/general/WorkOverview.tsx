@@ -5,6 +5,7 @@ import { Reveal } from '../motion/Reveal'
 import { ProgramNotices } from '../app/ProgramNotices'
 import { ComingUpPanel, MyTasksPanel, RecentPanel, WaitingPanel } from './DashboardPanels'
 import { JoinProjectDialog } from './JoinProjectDialog'
+import { MyLoadCard } from './MyLoadCard'
 import { NewSpaceDialog } from './SpaceDialogs'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -117,6 +118,12 @@ export function WorkOverview({
   // Class spaces live under Education; "Your work" only ever counts work spaces.
   const workSpaces = useMemo(() => (spaces ?? []).filter((s) => s.kind === 'work'), [spaces])
   const liveSpaces = workSpaces.filter((s) => s.my_level && !s.archived_at)
+  // My load: the live work spaces where this person can hold work.
+  const loadSpaces = useMemo(
+    () => liveSpaces.filter((s) => s.my_role !== 'stakeholder').map((s) => ({ id: s.id, name: s.name })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [liveSpaces.map((s) => `${s.id}:${s.name}:${s.my_role}`).join('|')],
+  )
 
   const loaded = myProjects !== null
   const hasSomething = mineProjects.length > 0 || liveSpaces.length > 0
@@ -294,6 +301,14 @@ export function WorkOverview({
             </BentoTile>
           </Reveal>
         </BentoGrid>
+      )}
+
+      {profile && loadSpaces.length > 0 && (
+        <Reveal once delay={0.2} className="mt-4 flex md:mt-5">
+          <div className="w-full">
+            <MyLoadCard spaces={loadSpaces} userId={profile.id} />
+          </div>
+        </Reveal>
       )}
 
       <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
