@@ -5698,3 +5698,16 @@ accepted." from the setting; no failed requests.
 - Effects now real: the Open-project room check refuses a Member adding someone over 40 h; leave checks can flag
   "won't fit"; space QA and Stakeholders show "0 / 40 h" on the Workload tab.
 - Plan `docs/superpowers/plans/2026-11-23-default-weekly-hours.md`.
+
+## 2026-11-24 — Break down and balance: skills as a preference, on branch `balance-skills-preference`
+
+- **Why.** Breaking down "Build the Landing page" gave Ivan 16 h of 30.5 h: the owner rule only considered people with
+  every label a subtask named, and only Ivan had all of Junior dev, React, Tailwind CSS and UI.
+- **Rule now** (`supabase/functions/_shared/workloadPlan.ts`, `balanceWorkPlan`): anyone with some of a subtask's
+  labels may take it (a position counts half a tag). Among those with room (never past their hours), the lowest
+  projected load share plus 0.25 × (1 − fit) wins: the best match first, then a partial match with more room. Labels
+  nobody has, no labels, pins, no room and unknown hours behave as before. A partial pick says "Wilson Mendoza holds
+  Junior dev and is tagged React and has more room than Ivan Caburnay." (reason `fit_partial`).
+- **Review.** Under the subtask total: "Share of each person's hours from this plan: Ivan Caburnay 33% · …".
+- No SQL. The browser runs the rule (review and Rebalance), so only the frontend deploys.
+- Spec `docs/superpowers/specs/2026-11-24-balance-skills-as-preference-design.md`.

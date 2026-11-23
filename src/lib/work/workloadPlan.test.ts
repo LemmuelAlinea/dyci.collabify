@@ -104,6 +104,65 @@ describe('balanceWorkPlan', () => {
     expect(balanceWorkPlan([row('auth', 120, ['Auth'])], people)[0]).toMatchObject({ owner: 'a', reason: 'fit' })
   })
 
+  it('a partial match takes over once the full match fills up', () => {
+    const ivan = { ...person('i', ['React', 'Tailwind CSS', 'UI'], 0, 2400), positions: ['Junior dev'] }
+    const wilson = { ...person('w', ['React', 'TypeScript'], 0, 2400), positions: ['Junior dev'] }
+    const keneth = { ...person('k', ['Backend'], 0, 2400), positions: [] }
+    const ui = (key: string) => ({ ...row(key, 300, ['React', 'Tailwind CSS', 'UI']), position: 'Junior dev' })
+    const picks = balanceWorkPlan([ui('r1'), ui('r2'), ui('r3'), ui('r4')], [ivan, wilson, keneth])
+    // Ivan fits all four labels, Wilson two (Junior dev, React), Keneth none.
+    expect(picks.map(p => p.owner)).toEqual(['i', 'i', 'w', 'i'])
+    expect(picks[0]).toMatchObject({ reason: 'fit', note: 'Only I holds Junior dev and is tagged React and Tailwind CSS and UI.' })
+    expect(picks[2]).toEqual({
+      key: 'r3', owner: 'w', reason: 'fit_partial',
+      note: 'W holds Junior dev and is tagged React and has more room than I.',
+    })
+  })
+
+  it('a partial match never goes past their hours', () => {
+    const ivan = person('i', ['UI', 'React'], 0, 2400)
+    const wilson = person('w', ['React'], 0, 120)
+    const picks = balanceWorkPlan([row('r1', 300, ['UI', 'React']), row('r2', 300, ['UI', 'React'])], [ivan, wilson])
+    expect(picks.map(p => p.owner)).toEqual(['i', 'i'])
+  })
+
+  it('the closest match with room when nobody fits fully', () => {
+    const picks = balanceWorkPlan([row('r1', 120, ['UI', 'React'])], [person('w', ['React'], 0, 960), person('k', [], 0, 960)])
+    expect(picks[0]).toEqual({
+      key: 'r1', owner: 'w', reason: 'fit_partial', note: 'W is tagged React, the closest match with room.',
+    })
+  })
+
+  it('spreads a landing page across the people who can do it', () => {
+    const dev = (id: string, positions: string[], tags: string[], load: number, available: number) =>
+      ({ ...person(id, tags, load, available), positions })
+    const people = [
+      dev('ivan', ['Junior dev'], ['Accessibility', 'Figma', 'React', 'Responsive design', 'Tailwind CSS', 'UI'], 0, 2400),
+      dev('keneth', ['Junior dev'], ['Backend', 'Node.js', 'Supabase', 'Testing'], 360, 2400),
+      dev('lemmuel', [], ['Code review', 'Deployment', 'Full-stack'], 0, 768),
+      dev('luke', [], ['Code review', 'Planning', 'React', 'UX research'], 0, 2400),
+      dev('wilson', ['Junior dev'], ['Auth', 'Forms', 'React', 'Supabase', 'TypeScript'], 0, 2160),
+    ]
+    const job = (key: string, hours: number, tags: string[], position: string | null = 'Junior dev') =>
+      ({ ...row(key, hours * 60, tags), position })
+    const rows = [
+      job('outline', 2, ['Planning', 'UX research']),
+      job('scaffold', 3, ['React', 'Tailwind CSS', 'TypeScript']),
+      job('header', 4, ['React', 'Tailwind CSS', 'UI']),
+      job('features', 5, ['React', 'Tailwind CSS', 'UI']),
+      job('responsive', 4, ['Tailwind CSS', 'Responsive design', 'Accessibility']),
+      job('contact', 3, ['React', 'Forms']),
+      job('pricing', 3, ['React', 'Tailwind CSS', 'UI']),
+      job('qa', 3.5, ['Testing']),
+      job('deploy', 3, ['Deployment'], null),
+    ]
+    const owners = Object.fromEntries(balanceWorkPlan(rows, people).map(p => [p.key, p.owner]))
+    expect(owners).toEqual({
+      outline: 'luke', scaffold: 'wilson', header: 'ivan', features: 'ivan', responsive: 'ivan',
+      contact: 'wilson', pricing: 'luke', qa: 'keneth', deploy: 'lemmuel',
+    })
+  })
+
   it('stable ties', () => {
     const people = [person('b', [], 120, 960), person('a', [], 120, 960)]
     const rows = [row('x', 60, [])]

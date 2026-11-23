@@ -136,6 +136,8 @@ it('shows the defense totals', async () => {
   expect(field<HTMLSelectElement>('Owner of Auth and session handling').value).toBe('a')
   expect(field<HTMLSelectElement>('Owner of End-to-end checks').value).toBe('c')
   expect(button('Create and assign 7 subtasks')).toBeTruthy()
+  // What this plan adds, as a share of each person's hours in the window.
+  expect(text()).toContain('Share of each person’s hours from this plan: A 50% · B 63% · C 75%')
 })
 
 it('bottleneck row explains', async () => {
