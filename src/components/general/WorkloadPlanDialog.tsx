@@ -1,5 +1,5 @@
 // src/components/general/WorkloadPlanDialog.tsx
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Field'
@@ -128,6 +128,8 @@ export function WorkloadPlanDialog({
   const [people, setPeople] = useState<Candidate[]>([])
   const [unestimated, setUnestimated] = useState<Unestimated[]>([])
   const [rows, setRows] = useState<ReviewRow[]>([])
+  // The AI's one sentence on why the plan needs more than the task's estimate.
+  const [aiNote, setAiNote] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, Pick>>({})
   const [openRow, setOpenRow] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -205,6 +207,7 @@ export function WorkloadPlanDialog({
       setUnestimated(numbers.unestimated)
       setRows(next.rows)
       setNotes(next.notes)
+      setAiNote(res.note ?? null)
       setWin(w)
       setStep('review')
     } catch (err) {
@@ -408,6 +411,7 @@ export function WorkloadPlanDialog({
           error={error}
           saveError={saveError}
           parentEstimateMinutes={parentEstimateMinutes ?? null}
+          aiNote={aiNote}
           onBack={() => { setError(null); setStep('setup') }}
           onRebalance={rebalance}
           onReviewAgain={() => void refresh({ reloadContext: true })}
@@ -455,9 +459,13 @@ function Setup({
   redraft: boolean
 }) {
   const fromParent = parentWindow(ctx.parent) !== null
+  // A failed draft (the hourly AI limit, say) shows by the buttons that retry it.
+  const errorRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [error])
   return (
     <div className="space-y-6">
-      {error && <Alert tone="error">{error}</Alert>}
       <section className="space-y-3">
         <p className="eyebrow text-faint">Window</p>
         <div className="grid max-w-[28rem] gap-3 sm:grid-cols-2">
@@ -520,8 +528,9 @@ function Setup({
       <p className="text-[12px] text-muted">
         {redraft
           ? 'Update the review to reload hours for this window and these people. Your rows and chosen owners stay.'
-          : 'The AI drafts the subtasks from the task’s title and description. It never sees names or hours. Nothing is saved until you create the subtasks.'}
+          : 'The AI drafts the subtasks from the project’s description and the task’s title, description and estimate. It never sees names or hours. Nothing is saved until you create the subtasks.'}
       </p>
+      {error && <div ref={errorRef} className="scroll-mb-4"><Alert tone="error">{error}</Alert></div>}
     </div>
   )
 }
@@ -538,6 +547,7 @@ type ReviewProps = {
   error: string | null
   saveError: { message: string; detail?: string } | null
   parentEstimateMinutes: number | null
+  aiNote: string | null
   onBack: () => void
   onRebalance: () => void
   onReviewAgain: () => void
@@ -548,7 +558,7 @@ type ReviewProps = {
 }
 
 function Review(props: ReviewProps) {
-  const { ctx, people, unestimated, rows, busy, error, saveError, parentEstimateMinutes } = props
+  const { ctx, people, unestimated, rows, busy, error, saveError, parentEstimateMinutes, aiNote } = props
   const totals = projectedTotals(rows, people)
   const total = rows.reduce((sum, r) => sum + r.minutes, 0)
   // What the plan adds as a share of each person's hours: the spread at a glance.
@@ -617,6 +627,7 @@ function Review(props: ReviewProps) {
             <span className="font-mono text-ink">{formatHours(total)}</span> in all
             {parentEstimateMinutes != null && <> · the task&apos;s own estimate was <span className="font-mono text-ink">{formatHours(parentEstimateMinutes)}</span></>}
           </p>
+          {aiNote && <p className="text-[12px] text-ink">{aiNote}</p>}
           {shares.length > 0 && (
             <p className="text-[12px] text-muted">
               Share of each person’s hours from this plan:{' '}

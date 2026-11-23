@@ -96,7 +96,11 @@ function fitFor(row: PlanRow, p: Candidate): Fit {
 function groupFor(row: PlanRow, people: Candidate[]): Group {
   const everyone = people.map(p => ({ p, fit: 1, position: null, tags: [] }))
   if (!row.position && row.tags.length === 0) return { qualified: everyone, full: everyone, kind: 'open' }
-  const fits = people.map(p => fitFor(row, p)).filter(f => f.fit > 0)
+  const all = people.map(p => fitFor(row, p)).filter(f => f.fit > 0)
+  // A job title says what someone is, not what they can do: when the row names
+  // skills and anyone has one of them, a title-only match doesn't qualify.
+  const withSkill = row.tags.length ? all.filter(f => f.tags.length > 0) : all
+  const fits = withSkill.length ? withSkill : all
   return fits.length
     ? { qualified: fits, full: fits.filter(f => f.fit === 1), kind: 'tagged' }
     : { qualified: everyone, full: everyone, kind: 'untagged' }
@@ -241,6 +245,21 @@ const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => 
  * itself or to a key not in the plan, and a circular dependency. The error
  * says what is wrong only; the caller adds what to do next.
  */
+/**
+ * The model's one-sentence reason a plan needs more than the task's estimate,
+ * fit to show: trimmed, at most 300 characters, and never with the labels the
+ * model sees (p1, t1, c1, person1). Null when there is none.
+ */
+export function readableNote(note: unknown): string | null {
+  const text = String(note ?? '')
+    .replace(/\bp\d+\b/gi, 'a position')
+    .replace(/\bt\d+\b/gi, 'a subtask')
+    .replace(/\b(c|person)\d+\b/gi, 'someone')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text ? text.slice(0, 300) : null
+}
+
 export function validateBreakdown(
   raw: unknown,
   labels: { tags: string[]; positions: string[] },

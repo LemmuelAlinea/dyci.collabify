@@ -4,6 +4,7 @@ import {
   breakdownRowProperties,
   dependencyGroups,
   projectedTotals,
+  readableNote,
   validateBreakdown,
   type Candidate,
   type PlanRow,
@@ -163,6 +164,22 @@ describe('balanceWorkPlan', () => {
     })
   })
 
+  it('a job title alone is not a partial match when someone has one of the skills', () => {
+    const luke = { ...person('l', ['Systems analysis', 'Code review'], 0, 60), positions: ['Systems analyst'] }
+    const wilson = { ...person('w', [], 0, 2400), positions: ['Junior dev'] }
+    const review = { ...row('review', 120, ['Systems analysis', 'Code review']), position: 'Junior dev' }
+    expect(balanceWorkPlan([review], [luke, wilson])[0]).toMatchObject({ owner: null, reason: 'no_room' })
+  })
+
+  it('the job title decides when nobody has any of the skills', () => {
+    const wilson = { ...person('w', ['React'], 0, 2400), positions: ['Junior dev'] }
+    const keneth = { ...person('k', ['Backend'], 0, 2400), positions: [] }
+    const deploy = { ...row('deploy', 120, ['Kubernetes']), position: 'Junior dev' }
+    expect(balanceWorkPlan([deploy], [wilson, keneth])[0]).toEqual({
+      key: 'deploy', owner: 'w', reason: 'fit_partial', note: 'W holds Junior dev, the closest match with room.',
+    })
+  })
+
   it('stable ties', () => {
     const people = [person('b', [], 120, 960), person('a', [], 120, 960)]
     const rows = [row('x', 60, [])]
@@ -239,3 +256,28 @@ describe('breakdownRowProperties', () => {
     expect('rows' in out && out.rows.map(r => r.tags)).toEqual([[], []])
   })
 })
+
+describe('readableNote', () => {
+  it('keeps a plain sentence', () => {
+    expect(readableNote('  This needs about 20 h: the page is custom, not a template.  ')).toBe(
+      'This needs about 20 h: the page is custom, not a template.',
+    )
+  })
+
+  it('is null when empty', () => {
+    expect(readableNote('')).toBeNull()
+    expect(readableNote('   ')).toBeNull()
+    expect(readableNote(undefined)).toBeNull()
+  })
+
+  it('never shows the model its labels', () => {
+    expect(readableNote('p1 and person2 need t3 before c1 starts.')).toBe(
+      'a position and someone need a subtask before someone starts.',
+    )
+  })
+
+  it('stays short', () => {
+    expect(readableNote('x'.repeat(500))!.length).toBe(300)
+  })
+})
+

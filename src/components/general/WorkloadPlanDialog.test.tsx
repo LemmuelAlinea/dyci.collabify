@@ -140,6 +140,21 @@ it('shows the defense totals', async () => {
   expect(text()).toContain('Share of each person’s hours from this plan: A 50% · B 63% · C 75%')
 })
 
+it("shows the AI's note beside the total", async () => {
+  vi.mocked(draftBreakdown).mockResolvedValueOnce({ result: 'ok', rows: login(), note: 'This needs about 32 h: sign-up, reset and tests are each a day of work.' })
+  await openAndDraft()
+  expect(text()).toContain('This needs about 32 h: sign-up, reset and tests are each a day of work.')
+})
+
+it('shows a draft error next to the buttons', async () => {
+  vi.mocked(draftBreakdown).mockResolvedValueOnce({ result: 'failed', message: 'That is 12 in an hour. Try again later.' })
+  await openAndDraft()
+  const alert = [...document.querySelectorAll('[role="alert"]')].find((a) => a.textContent?.includes('12 in an hour'))!
+  expect(alert).toBeTruthy()
+  // The last thing in the setup body, right above the footer's buttons.
+  expect(alert.nextElementSibling).toBeNull()
+})
+
 it('bottleneck row explains', async () => {
   vi.mocked(spacePeopleLoad).mockResolvedValue(loads(600))
   vi.mocked(spacePeopleHours).mockResolvedValue(hours(720))
