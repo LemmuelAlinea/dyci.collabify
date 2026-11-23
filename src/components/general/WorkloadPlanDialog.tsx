@@ -548,6 +548,10 @@ function Review(props: ReviewProps) {
   const { ctx, people, unestimated, rows, busy, error, saveError, parentEstimateMinutes } = props
   const totals = projectedTotals(rows, people)
   const total = rows.reduce((sum, r) => sum + r.minutes, 0)
+  // What the plan adds as a share of each person's hours: the spread at a glance.
+  const shares = totals
+    .filter((t) => t.available !== null && t.available > 0)
+    .map((t) => `${people.find((p) => p.id === t.id)?.name ?? 'Unnamed member'} ${Math.round((t.added / t.available!) * 100)}%`)
   const groups = useMemo(() => {
     try {
       return dependencyGroups(rows)
@@ -610,6 +614,12 @@ function Review(props: ReviewProps) {
             <span className="font-mono text-ink">{formatHours(total)}</span> in all
             {parentEstimateMinutes != null && <> · the task&apos;s own estimate was <span className="font-mono text-ink">{formatHours(parentEstimateMinutes)}</span></>}
           </p>
+          {shares.length > 0 && (
+            <p className="text-[12px] text-muted">
+              Share of each person’s hours from this plan:{' '}
+              <span className="font-mono text-ink">{shares.join(' · ')}</span>
+            </p>
+          )}
           {!ctx.parent.allow_dependencies && (
             <p className="text-[12px] text-faint">Dependencies are off in this project, so every subtask can start now.</p>
           )}

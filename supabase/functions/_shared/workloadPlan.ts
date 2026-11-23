@@ -34,7 +34,7 @@ export type PlanRow = {
 export type Pick = {
   key: string
   owner: string | null
-  reason: 'pinned' | 'fit' | 'fit_untagged' | 'no_skill' | 'unknown_hours' | 'no_room'
+  reason: 'pinned' | 'fit' | 'fit_partial' | 'fit_untagged' | 'no_skill' | 'unknown_hours' | 'no_room'
   note: string
 }
 
@@ -64,26 +64,60 @@ function nobodyHas(row: PlanRow) {
   return `No one here ${parts.join(' and ')}`
 }
 
-type Group = { qualified: Candidate[]; kind: 'open' | 'tagged' | 'untagged' }
+/**
+ * How much a full match is preferred: a person who has every label keeps
+ * winning a row until their load share (projected ÷ available) is this much
+ * times (1 - the other's fit) above a partial match's.
+ */
+const SKILL_WEIGHT = 0.25
 
 /**
- * Who may take a row. With no label, everyone. Otherwise those with the
- * position and every tag; when nobody in the group has them, everyone again.
+ * A position counts for less than a skill tag: it says what someone is (Junior
+ * dev), a tag what they can do (UI).
+ */
+const POSITION_WEIGHT = 0.5
+
+type Fit = { p: Candidate; fit: number; position: string | null; tags: string[] }
+type Group = { qualified: Fit[]; full: Fit[]; kind: 'open' | 'tagged' | 'untagged' }
+
+/** The row's labels a person has: the position (if any) and tags, as the row names them. */
+function fitFor(row: PlanRow, p: Candidate): Fit {
+  const position = row.position && p.positions.some(x => norm(x) === norm(row.position!)) ? row.position : null
+  const tags = row.tags.filter(t => p.tags.some(x => norm(x) === norm(t)))
+  const labels = (row.position ? POSITION_WEIGHT : 0) + row.tags.length
+  return { p, fit: labels ? ((position ? POSITION_WEIGHT : 0) + tags.length) / labels : 1, position, tags }
+}
+
+/**
+ * Who may take a row. With no label, everyone. Otherwise anyone with some of
+ * its labels (a full match preferred, see SKILL_WEIGHT); when nobody has any,
+ * everyone again.
  */
 function groupFor(row: PlanRow, people: Candidate[]): Group {
-  if (!row.position && row.tags.length === 0) return { qualified: people, kind: 'open' }
-  const has = people.filter(p =>
-    (!row.position || p.positions.some(x => norm(x) === norm(row.position!))) &&
-    row.tags.every(t => p.tags.some(x => norm(x) === norm(t))))
-  return has.length ? { qualified: has, kind: 'tagged' } : { qualified: people, kind: 'untagged' }
+  const everyone = people.map(p => ({ p, fit: 1, position: null, tags: [] }))
+  if (!row.position && row.tags.length === 0) return { qualified: everyone, full: everyone, kind: 'open' }
+  const fits = people.map(p => fitFor(row, p)).filter(f => f.fit > 0)
+  return fits.length
+    ? { qualified: fits, full: fits.filter(f => f.fit === 1), kind: 'tagged' }
+    : { qualified: everyone, full: everyone, kind: 'untagged' }
+}
+
+/** "holds Junior dev and is tagged React": the labels of the row this person has. */
+function hasOwn(f: Fit) {
+  const parts: string[] = []
+  if (f.position) parts.push(`holds ${f.position}`)
+  if (f.tags.length) parts.push(`is tagged ${f.tags.join(' and ')}`)
+  return parts.join(' and ')
 }
 
 /**
  * Recommends an owner for each row. Pinned rows keep their owner and count
- * first. The rest go in order of fewest qualified people, then largest
- * estimate, then key; each goes to the qualified person with the lowest
- * projected load ÷ available minutes after taking it, only when it fits their
- * free minutes; ties go to the lower id. Returns one pick per row, in row order.
+ * first. The rest go in order of fewest full matches, then largest estimate,
+ * then key. Each goes to whoever has some of its labels and room for it (never
+ * past their free minutes), with the lowest projected load ÷ available minutes
+ * after taking it plus SKILL_WEIGHT × (1 - fit): the best match first, then,
+ * as they fill up, a partial match with more room. Ties go to the better fit,
+ * then the lower id. Returns one pick per row, in row order.
  */
 export function balanceWorkPlan(rows: PlanRow[], people: Candidate[]): Pick[] {
   const loads = new Map(people.map(p => [p.id, p.loadMinutes]))
@@ -102,28 +136,38 @@ export function balanceWorkPlan(rows: PlanRow[], people: Candidate[]): Pick[] {
   const pending = rows
     .filter(row => !row.pinned)
     .map(row => ({ row, group: groupFor(row, people) }))
-    .sort((a, b) => a.group.qualified.length - b.group.qualified.length ||
+    .sort((a, b) => (a.group.full.length || a.group.qualified.length) - (b.group.full.length || b.group.qualified.length) ||
       b.row.minutes - a.row.minutes || byId(a.row.key, b.row.key))
 
   for (const { row, group } of pending) {
-    const { qualified, kind } = group
-    const ranked = qualified.flatMap(p => {
-      const next = loads.get(p.id)! + row.minutes
-      const room = p.availableMinutes
-      return room !== null && room > 0 && next <= room ? [{ p, next, ratio: next / room }] : []
-    }).sort((a, b) => a.ratio - b.ratio || byId(a.p.id, b.p.id))
+    const { full, kind } = group
+    const ranked = group.qualified.flatMap(f => {
+      const next = loads.get(f.p.id)! + row.minutes
+      const room = f.p.availableMinutes
+      return room !== null && room > 0 && next <= room
+        ? [{ f, p: f.p, next, score: next / room + SKILL_WEIGHT * (1 - f.fit) }]
+        : []
+    }).sort((a, b) => a.score - b.score || b.f.fit - a.f.fit || byId(a.p.id, b.p.id))
     const best = ranked[0]
 
     if (best) {
       loads.set(best.p.id, best.next)
+      const partial = kind === 'tagged' && best.f.fit < 1
       const note = kind === 'untagged' ? `${nobodyHas(row)}.`
-        : kind === 'tagged'
-          ? qualified.length === 1 ? `Only ${best.p.name} ${hasLabel(row)}.` : `${best.p.name} ${hasLabel(row)} and has the most room.`
-          : people.length === 1 ? `${best.p.name} has room for it.` : `${best.p.name} has the most room.`
-      picks.set(row.key, { key: row.key, owner: best.p.id, reason: kind === 'untagged' ? 'fit_untagged' : 'fit', note })
+        : partial
+          ? full.length
+            ? `${best.p.name} ${hasOwn(best.f)} and has more room than ${joinNames(full.map(f => f.p.name))}.`
+            : `${best.p.name} ${hasOwn(best.f)}, the closest match with room.`
+          : kind === 'tagged'
+            ? full.length === 1 ? `Only ${best.p.name} ${hasLabel(row)}.` : `${best.p.name} ${hasLabel(row)} and has the most room.`
+            : people.length === 1 ? `${best.p.name} has room for it.` : `${best.p.name} has the most room.`
+      const reason = kind === 'untagged' ? 'fit_untagged' : partial ? 'fit_partial' : 'fit'
+      picks.set(row.key, { key: row.key, owner: best.p.id, reason, note })
       continue
     }
 
+    // Nobody with room: explain against the full matches when there are any.
+    const qualified = (full.length ? full : group.qualified).map(f => f.p)
     let reason: Pick['reason']
     let note: string
     const unknown = qualified.filter(p => p.availableMinutes === null)
