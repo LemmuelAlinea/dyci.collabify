@@ -286,6 +286,9 @@ as $$
        and t.archived_at is null and t.trashed_at is null
        and q.class_board_id is null and q.archived_at is null and q.trashed_at is null
        and sp.kind = 'work'
+       -- Broken down: its work is its subtasks', as the load counts it.
+       and not exists (select 1 from public.general_tasks st
+                        where st.parent_id = t.id and st.archived_at is null and st.trashed_at is null)
   ), calc as (
     select h.*,
            greatest(0, coalesce(h.est, 0) - h.logged)::numeric / greatest(h.holders, 1) as rem,
@@ -564,7 +567,10 @@ begin
   select * into q from public.general_projects where id = t.project_id;
   if q.class_board_id is not null or q.archived_at is not null or q.trashed_at is not null
      or t.archived_at is not null or t.trashed_at is not null or t.status = 'done'
-     or t.routing_state <> 'released' or t.estimated_minutes is null or t.due_at is null then
+     or t.routing_state <> 'released' or t.estimated_minutes is null or t.due_at is null
+     -- Broken down: its work is its subtasks', as the load counts it.
+     or exists (select 1 from public.general_tasks st
+                 where st.parent_id = t.id and st.archived_at is null and st.trashed_at is null) then
     return;
   end if;
   v_planner := public.work_is_project_planner(t.project_id);

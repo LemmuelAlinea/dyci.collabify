@@ -536,7 +536,7 @@ declare
                     gen_random_uuid(), gen_random_uuid()];
   -- 1 pm, 2 Ann (16 h), 3 Bo (16 h), 4 Cy (no hours), 5 Dee (member), 6 outsider
   s uuid; p uuid; m date := pg_temp.mon();
-  t_big uuid; t_none uuid; t_shared uuid; sp uuid; n_id uuid; ctx jsonb; f_short int;
+  t_big uuid; t_none uuid; t_shared uuid; sp uuid; n_id uuid; ctx jsonb; f_short int; t_par uuid; t_part uuid;
 begin
   perform pg_temp.service();
   for k in 1..6 loop
@@ -589,6 +589,25 @@ begin
   perform pg_temp.check('room helper matches status',
     (select status = 'wont_fit' and short_minutes = f_short
        from public.work_leave_task_status(u[2], m - 7, m - 7) where task_id = t_big));
+
+  -- A broken-down task's work is its subtasks': neither check judges the parent's own estimate.
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz fore parent', 'released', now(), u[1], pg_temp.at(m + 4), 9000) returning id into t_par;
+  insert into public.general_tasks(project_id, parent_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, t_par, 'Zz fore part', 'released', now(), u[1], pg_temp.at(m + 4), 60) returning id into t_part;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values
+    (t_par, p, u[2], u[1]), (t_part, p, u[3], u[1]);
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('no forecast on a broken-down task', not exists (select 1 from public.general_task_forecast(t_par)));
+  perform pg_temp.service();
+  perform pg_temp.check('leave check skips a broken-down task',
+    not exists (select 1 from public.work_leave_task_status(u[2], m - 7, m - 7) where task_id = t_par)
+    and exists (select 1 from public.work_leave_task_status(u[3], m - 7, m - 7) where task_id = t_part));
+  delete from public.general_task_assignees where task_id in (t_par, t_part);
+  delete from public.general_tasks where id = t_part;
+  delete from public.general_tasks where id = t_par;
 
   -- Suggestion context.
   perform pg_temp.act_as(u[2]);
