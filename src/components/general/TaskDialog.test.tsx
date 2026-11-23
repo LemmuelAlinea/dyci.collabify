@@ -182,6 +182,30 @@ it('edits the title in the header and saves it from the footer', async () => {
   } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
 })
 
+it("shows a parent's dates following its subtasks and saves no dates for it", async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    const due = [...document.querySelectorAll('label')].find((l) => l.textContent?.trim().startsWith('Due'))!
+    expect((document.getElementById(due.htmlFor) as HTMLInputElement).disabled).toBe(true)
+    expect(document.body.textContent).toContain('Follows its subtasks. Change a subtask’s dates instead.')
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('footer button')].find(button => button.textContent === 'Save changes')!.click())
+    const patch = vi.mocked(updateTask).mock.calls.at(-1)?.[1] as Record<string, unknown> | undefined
+    expect(patch && 'due_at' in patch).toBe(false)
+    expect(patch && 'starts_at' in patch).toBe(false)
+  } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
+})
+
+it('says when subtasks push a task past its planned due date', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  const state = workState()
+  const main = { ...(state.tasks[0] as object), due_at: '2026-11-28T09:00:00Z', planned_due_at: '2026-11-25T18:58:00Z' }
+  try {
+    await act(async () => root.render(<TaskDialog state={{ ...state, tasks: [main, state.tasks[1]] } as never} taskId="main" onClose={vi.fn()} />))
+    expect(document.body.textContent).toMatch(/after its planned \S/)
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
 it('opens a task without putting the cursor in its title', async () => {
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
   try {

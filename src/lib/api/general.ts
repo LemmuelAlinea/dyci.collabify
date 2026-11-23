@@ -1112,13 +1112,23 @@ async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
   if (tasks.length === 0) return tasks
   const chunks: string[][] = []
   for (let i = 0; i < tasks.length; i += EXTRAS_CHUNK) chunks.push(tasks.slice(i, i + EXTRAS_CHUNK).map((t) => t.id))
-  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null; task_type: string | null; estimated_minutes: number | null }>()
+  type Extra = {
+    id: string
+    priority: TaskPriority
+    parent_id: string | null
+    task_type: string | null
+    estimated_minutes: number | null
+    planned_due_at: string | null
+  }
+  const extras = new Map<string, Extra>()
   const results = await Promise.all(
-    chunks.map((ids) => supabase.from('general_tasks').select('id, priority, parent_id, task_type, estimated_minutes').in('id', ids)),
+    chunks.map((ids) =>
+      supabase.from('general_tasks').select('id, priority, parent_id, task_type, estimated_minutes, planned_due_at').in('id', ids),
+    ),
   )
   for (const { data, error } of results) {
     if (error) throw error
-    for (const row of (data ?? []) as { id: string; priority: TaskPriority; parent_id: string | null; task_type: string | null; estimated_minutes: number | null }[]) extras.set(row.id, row)
+    for (const row of (data ?? []) as Extra[]) extras.set(row.id, row)
   }
   return tasks.map((t) => ({
     ...t,
@@ -1126,6 +1136,7 @@ async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
     parent_id: extras.get(t.id)?.parent_id ?? null,
     task_type: extras.get(t.id)?.task_type ?? null,
     estimated_minutes: extras.get(t.id)?.estimated_minutes ?? null,
+    planned_due_at: extras.get(t.id)?.planned_due_at ?? null,
   }))
 }
 

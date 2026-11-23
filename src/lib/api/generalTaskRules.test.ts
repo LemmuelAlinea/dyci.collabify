@@ -68,7 +68,7 @@ const NOTIFICATION_RULES =
   'general_projects:sprint_end_reminder_days, task_overdue_alerts, milestone_due_reminder_days, task_assignment_notices, sprint_completion_notices'
 const TASK_FLOW = 'general_projects:task_flow, task_types'
 const TASKS = 'general_task_overview:*'
-const EXTRAS = 'general_tasks:id, priority, parent_id, task_type, estimated_minutes'
+const EXTRAS = 'general_tasks:id, priority, parent_id, task_type, estimated_minutes, planned_due_at'
 const DEPS = 'general_task_dependencies:task_id, depends_on_id'
 
 beforeEach(() => {
@@ -272,15 +272,15 @@ describe('task priority and parent side read', () => {
     results.set(TASKS, { data: rows, error: null })
     results.set(EXTRAS, {
       data: [
-        { id: 't1', priority: 'urgent', parent_id: null, task_type: 'Research', estimated_minutes: 90 },
+        { id: 't1', priority: 'urgent', parent_id: null, task_type: 'Research', estimated_minutes: 90, planned_due_at: '2026-11-25T18:58:00Z' },
         { id: 't2', priority: 'low', parent_id: 't1', estimated_minutes: null },
       ],
       error: null,
     })
     const tasks = await listTasks('p1')
     expect(tasks).toMatchObject([
-      { id: 't1', title: 'One', priority: 'urgent', parent_id: null, task_type: 'Research', estimated_minutes: 90 },
-      { id: 't2', title: 'Two', priority: 'low', parent_id: 't1', estimated_minutes: null },
+      { id: 't1', title: 'One', priority: 'urgent', parent_id: null, task_type: 'Research', estimated_minutes: 90, planned_due_at: '2026-11-25T18:58:00Z' },
+      { id: 't2', title: 'Two', priority: 'low', parent_id: 't1', estimated_minutes: null, planned_due_at: null },
     ])
   })
 
@@ -302,7 +302,7 @@ describe('task priority and parent side read', () => {
     results.set(TASKS, { data: rows, error: null })
     results.set(EXTRAS, { data: [{ id: 't1', priority: 'high', parent_id: null, estimated_minutes: 60 }], error: null })
     const tasks = await listTasks('p1')
-    expect(tasks[1]).toMatchObject({ id: 't2', priority: 'normal', parent_id: null, estimated_minutes: null })
+    expect(tasks[1]).toMatchObject({ id: 't2', priority: 'normal', parent_id: null, estimated_minutes: null, planned_due_at: null })
   })
 
   it('reports missing task columns', async () => {

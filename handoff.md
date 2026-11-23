@@ -5736,3 +5736,22 @@ accepted." from the setting; no failed requests.
   judged the parent's own estimate, while the load already stops counting a parent with live subtasks.
 - Both now skip a task with live subtasks (`supabase/work-leave.sql`), applied live with `anon-lockdown.sql`;
   `work-leave` 72 checks. No app change.
+
+## 2026-11-24 — Parent tasks follow their subtasks' dates, on branch `parent-follows-subtasks`
+
+- **Why.** Break down and balance gave "Make the level 0 and 1 DFD" (due 26 Nov 2:58 AM) subtasks due 26 Nov 11:59 PM.
+  The owner's call: the subtasks are the work, so the parent adapts (Microsoft Project's summary tasks, ClickUp's
+  "Sync dates with subtasks").
+- **What.** `supabase/subtask-dates.sql`: a work task with live subtasks starts at the earliest subtask start and is due
+  at the latest subtask due; nobody sets its dates by hand ("This task's dates follow its subtasks. Change a subtask's
+  dates instead."); `planned_due_at` keeps the first due date and the task window says "Due …, after its planned …"
+  in amber; history reads "Ana changed a subtask, so the due date moved to …". Break down and balance gives a subtask
+  due on the parent's due day the parent's time and moves the parent once. Every existing parent was brought in line
+  quietly when the file was applied.
+- Applied live (with `work-workload.sql`, `work-leave.sql`, `anon-lockdown.sql`); suites `subtask-dates` 14,
+  `work-workload` 178, `work-leave` 72, `anon-lockdown` 15.
+- **Known failures, not from this work** (each still fails with the new triggers switched off): `accounts`,
+  `automation`, `notifications`, `report-deliverables`, `general-tasks`, `general-notify`, the discussion and share
+  suites, `member-skills`, `program-office`, `commit-main`, plus the already-noted `class-files`, `project-task-rules`
+  and `project-qa`.
+- Spec `docs/superpowers/specs/2026-11-24-parent-follows-subtasks-design.md`.

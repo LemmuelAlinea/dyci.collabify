@@ -448,6 +448,13 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   away themselves left out) and keeps only what `_shared/leavePlan.ts` validates; a person applies each one. Away
   labels (`lib/work/away.ts`, `useAwayRanges`) show in holder pickers, the dialog's people and on cards.
   Suite: `supabase/tests/work-leave.test.sql`.
+- Subtask dates (`supabase/subtask-dates.sql`, after `work-leave.sql`, before `anon-lockdown.sql`): a work task with live
+  subtasks starts at the earliest subtask start and is due at the latest subtask due, recomputed by a trigger whenever a
+  subtask is added, removed, moved or re-dated; nobody sets its dates by hand. `general_tasks.planned_due_at` keeps its
+  due date from before its subtasks first moved it (the task window says "after its planned …"), and each move is the
+  parent's `updated` history row with `by: 'subtasks'`, credited to whoever changed the subtask. Break down and balance
+  gives a subtask due on the parent's due day the parent's time and moves the parent once. Suite:
+  `supabase/tests/subtask-dates.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone

@@ -377,6 +377,8 @@ export type GeneralTask = {
   file_count: number
   logged_minutes: number
   estimated_minutes?: number | null
+  /** A parent's due date before its subtasks first moved it. */
+  planned_due_at?: string | null
   archived_at: string | null
   archived_by: string | null
   /** The sprint it is in; null while it sits in the backlog. */
@@ -458,6 +460,8 @@ export type GeneralTaskEvent = {
     status_from?: GeneralTaskStatus
     due_from?: string | null
     due_to?: string | null
+    /** 'subtasks' on a parent's dates that followed its subtasks. */
+    by?: 'subtasks'
     starts_from?: string | null
     starts_to?: string | null
     weight_from?: number
