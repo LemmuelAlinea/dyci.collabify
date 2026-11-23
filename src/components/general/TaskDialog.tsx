@@ -46,6 +46,9 @@ import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { EstimateSpent, TaskTimer } from './TaskTimer'
 import { TaskCover } from './TaskCover'
+import { useAwayRanges } from '../../lib/work/useAwayRanges'
+import { awayText } from '../../lib/work/away'
+import { manilaToday } from '../../lib/work/hours'
 import { formatHours, parseHours } from '../../lib/work/hours'
 import { setTaskEstimate } from '../../lib/api/workload'
 import { suggestEstimate } from '../../lib/api/workAi'
@@ -264,6 +267,9 @@ function TaskBody({
     : state.myRole === 'pm' || state.myRole === 'coordinator'
       || (!openProject && state.teams.some((t) => t.id === task.team_id && t.leader_id === state.viewerId)) ? 'planner'
     : state.myRole === 'member' && openProject ? 'member' : 'none'
+  // Who is away, for the picker and the people list (work spaces only).
+  const awayRanges = useAwayRanges(state.project && !state.project.class_board_id ? state.project.space_id : null)
+  const awayOf = (id: string, where: 'picker' | 'holder') => awayText(awayRanges.get(id) ?? [], manilaToday(), where)
   const holderLabels = useHolderHours({
     spaceId: state.project?.space_id,
     userIds: state.members.map((m) => m.user_id),
@@ -351,6 +357,7 @@ function TaskBody({
             className="flex items-center gap-1 rounded-full surface-sunken py-0.5 pr-1 pl-2.5 text-[12px] text-ink"
           >
             {state.nameOf(id)}
+            {awayOf(id, 'holder') && <span data-away-holder className="rounded-md bg-warning-50 px-1.5 py-0.5 text-[11px] text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">{awayOf(id, 'holder')}</span>}
             <PersonBadge userId={id} roles={state} />
             {(openFlow ? !openLocked && !task.archived_at : canUnassign(viewer, id)) && (
               <button
@@ -398,7 +405,8 @@ function TaskBody({
               : assignmentViewer.manageTasks ? 'Assign someone...' : work ? 'Assign a receiving-team member...' : 'Assign someone you lead...'}
             options={assignable.map((id) => {
               const hours = holderLabels.get(id)
-              return { value: id, label: hours ? `${state.nameOf(id)} · ${hours.text}` : state.nameOf(id) }
+              const away = awayOf(id, 'picker')
+              return { value: id, label: [state.nameOf(id), away, hours?.text].filter(Boolean).join(' · ') }
             })}
             className="!h-9 !text-[13px]"
           />

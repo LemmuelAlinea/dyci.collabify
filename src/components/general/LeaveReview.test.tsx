@@ -20,6 +20,7 @@ vi.mock('../ui/Modal', () => ({
     p.open ? <div role="dialog"><h2>{p.title}</h2>{p.children}{p.footer}</div> : null,
 }))
 vi.mock('../../lib/work/useHolderHours', () => ({ useHolderHours: () => new Map() }))
+vi.mock('../../lib/work/useAwayRanges', () => ({ useAwayRanges: () => new Map() }))
 vi.mock('./MarkAwayDialog', () => ({
   MarkAwayDialog: (p: { open: boolean; name: string; initial?: { from: string; to: string } }) =>
     p.open ? <div data-testid="mark-away">{p.name} {p.initial?.from}..{p.initial?.to}</div> : null,

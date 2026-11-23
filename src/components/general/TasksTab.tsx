@@ -1,7 +1,9 @@
 // src/components/general/TasksTab.tsx
 import { EstimateSpent } from './TaskTimer'
 import { projectCovers } from '../../lib/api/workload'
-import { formatDayLabel } from '../../lib/work/hours'
+import { formatDayLabel, manilaToday } from '../../lib/work/hours'
+import { useAwayRanges } from '../../lib/work/useAwayRanges'
+import { awayText } from '../../lib/work/away'
 import { useEffect, useMemo, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { BoardColumn, MoveToStage } from '../tasks/BoardColumn'
@@ -557,6 +559,16 @@ function StageBoard({
 }
 
 function Holders({ task, state, size = 22 }: { task: GeneralTask; state: GeneralProjectState; size?: number }) {
+  const awayRanges = useAwayRanges(state.project && !state.project.class_board_id ? state.project.space_id : null)
+  const today = manilaToday()
+  const away = task.assignee_ids
+    .map((id) => ({ id, text: awayText(awayRanges.get(id) ?? [], today, 'holder') }))
+    .filter((a): a is { id: string; text: string } => a.text !== null)
+  const awayChip = away.length > 0 && (
+    <span data-away-chip title={away.map((a) => `${state.nameOf(a.id)}: ${a.text}`).join('; ')} className="shrink-0 rounded-md bg-warning-50 px-1.5 py-0.5 text-[11px] text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">
+      {away.length === 1 ? away[0].text : 'Away'}
+    </span>
+  )
   if (task.assignee_ids.length === 0) {
     return <span className="text-[12px] text-warning-700 dark:text-warning-300">Nobody yet</span>
   }
@@ -581,6 +593,7 @@ function Holders({ task, state, size = 22 }: { task: GeneralTask; state: General
       <span className="min-w-0 truncate text-[12px] text-muted">
         {task.assignee_ids.length > 1 ? `${first.split(' ')[0]} +${task.assignee_ids.length - 1}` : first}
       </span>
+      {awayChip}
       {/* With several holders the name stands for the first of them, so a badge would point at one of many. */}
       {task.assignee_ids.length === 1 && (
         <span className="shrink-0">
@@ -919,9 +932,11 @@ export function NewTaskDialog({
         return hours?.load != null && hours.available != null && hours.load + estimateNow / holders.length > hours.available
       })
     : []
+  const awayRanges = useAwayRanges(showHolders ? project?.space_id : null)
   const holderName = (uid: string) => {
     const hours = holderLabels.get(uid)
-    return hours ? `${state.nameOf(uid)} · ${hours.text}` : state.nameOf(uid)
+    const away = awayText(awayRanges.get(uid) ?? [], manilaToday(), 'picker')
+    return [state.nameOf(uid), away, hours?.text].filter(Boolean).join(' · ')
   }
 
   async function suggest() {

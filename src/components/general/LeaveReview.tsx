@@ -13,6 +13,9 @@ import { holderCandidates } from '../../lib/general/permissions'
 import { formatDayLabel, formatDayRange, formatHours } from '../../lib/work/hours'
 import { moveDueDate } from '../../lib/work/leave'
 import { useHolderHours } from '../../lib/work/useHolderHours'
+import { useAwayRanges } from '../../lib/work/useAwayRanges'
+import { awayText } from '../../lib/work/away'
+import { manilaToday } from '../../lib/work/hours'
 import { MarkAwayDialog } from './MarkAwayDialog'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -81,6 +84,8 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
     taskId: null,
     viewer: open ? 'planner' : 'none',
   })
+
+  const awayRanges = useAwayRanges(open ? (project as { space_id?: string | null } | null)?.space_id : null)
 
   // Only leaves that still leave something to look at.
   const shown = leaves.filter((l) => flagged(l) > 0)
@@ -267,7 +272,8 @@ export function ProjectLeaves({ state }: { state: GeneralProjectState }) {
                             <option value="">Choose someone…</option>
                             {options.map((id) => (
                               <option key={id} value={id}>
-                                {state.nameOf(id)}{hours.get(id) ? ` · ${hours.get(id)!.text}` : ''}
+                                {[state.nameOf(id), awayText(awayRanges.get(id) ?? [], manilaToday(), 'picker'), hours.get(id)?.text]
+                                  .filter(Boolean).join(' · ')}
                               </option>
                             ))}
                           </select>
