@@ -340,6 +340,16 @@ it('lets a planner change the space default', async () => {
   })
 })
 
+it('shows a dash and says so when weekly hours fail to load', async () => {
+  workload.spacePeopleHours.mockRejectedValue(new Error('offline'))
+  await renderAs('pm', people, (c) => {
+    expect(hoursInput(row(c, 'Mia'))).toBeNull()
+    expect(row(c, 'Mia').textContent).toContain('—')
+    expect(c.textContent).not.toContain('(default)')
+    expect(c.textContent).toContain('Could not load weekly hours. Reload the page to try again.')
+  })
+})
+
 it('refuses an empty space default', async () => {
   await renderAs('pm', people, async (c) => {
     const input = c.querySelector<HTMLInputElement>('input[aria-label="Default weekly hours"]')!

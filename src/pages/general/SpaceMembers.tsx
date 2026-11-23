@@ -54,6 +54,7 @@ function WeeklyHoursCell({
   minutes,
   fallback,
   known,
+  failed,
   editable,
   onSave,
 }: {
@@ -63,6 +64,8 @@ function WeeklyHoursCell({
   /** The space default they use when they have no own value. */
   fallback: number
   known: boolean
+  /** The hours read failed: show a dash, never an empty field that reads as the default. */
+  failed: boolean
   editable: boolean
   onSave: (minutes: number | null | 'invalid' | 'too_many') => Promise<void>
 }) {
@@ -71,10 +74,10 @@ function WeeklyHoursCell({
   const [busy, setBusy] = useState(false)
   useEffect(() => setText(saved), [saved])
 
-  if (!editable) {
+  if (!editable || failed) {
     return (
       <span className="w-[8rem] text-[13px] text-muted">
-        {!known ? '—' : minutes === null ? `${formatHours(fallback)} (default)` : formatHours(minutes)}
+        {!known || failed ? '—' : minutes === null ? `${formatHours(fallback)} (default)` : formatHours(minutes)}
       </span>
     )
   }
@@ -197,6 +200,7 @@ export default function SpaceMembers() {
   const [leaving, setLeaving] = useState(false)
   const [hours, setHours] = useState<Map<string, PeopleHours>>(new Map())
   const [defaultMinutes, setDefaultMinutes] = useState<number | null>(null)
+  const [hoursFailed, setHoursFailed] = useState(false)
 
   const archived = Boolean(space?.archived_at)
   const mine = space?.my_role ?? null
@@ -224,9 +228,11 @@ export default function SpaceMembers() {
           ])
           setHours(new Map(rows.map((r) => [r.user_id, r])))
           setDefaultMinutes(fallback)
+          setHoursFailed(false)
         } catch {
           setHours(new Map())
           setDefaultMinutes(null)
+          setHoursFailed(true)
         }
       }
       // Only somebody who may invite can read these, so they are asked for
@@ -450,6 +456,9 @@ export default function SpaceMembers() {
             </header>
             {isWork && (
               <div className="space-y-2 border-b border-line px-4 py-3 sm:px-5">
+                {hoursFailed && (
+                  <Alert tone="error">Could not load weekly hours. Reload the page to try again.</Alert>
+                )}
                 {defaultMinutes !== null && (
                   <DefaultHours minutes={defaultMinutes} editable={!archived && plansHours} onSave={saveDefault} />
                 )}
@@ -480,8 +489,9 @@ export default function SpaceMembers() {
                       <WeeklyHoursCell
                         person={m}
                         minutes={hours.get(m.user_id)?.own_weekly_minutes ?? null}
-                        fallback={defaultMinutes ?? hours.get(m.user_id)?.weekly_minutes ?? 2400}
+                        fallback={defaultMinutes ?? 0}
                         known={hours.has(m.user_id)}
+                        failed={hoursFailed}
                         editable={!archived && (plansHours || own)}
                         onSave={(minutes) => saveHours(m, minutes)}
                       />

@@ -5693,4 +5693,8 @@ accepted." from the setting; no failed requests.
 **Deferred**
 - "Not set" and "no weekly hours" branches (Workload tab bars and summary, sprint hours line, holder labels, Break down
   and balance) are unreachable now and were left in place.
+- The two new hours functions don't check the caller's account is active (same as `set_space_weekly_minutes`); the
+  Members page doesn't refresh live when another planner changes the default.
+- Effects now real: the Open-project room check refuses a Member adding someone over 40 h; leave checks can flag
+  "won't fit"; space QA and Stakeholders show "0 / 40 h" on the Workload tab.
 - Plan `docs/superpowers/plans/2026-11-23-default-weekly-hours.md`.

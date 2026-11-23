@@ -489,7 +489,7 @@ $$;
 
 revoke all on function public.work_person_hours(uuid, uuid, date, date) from public, anon, authenticated;
 
--- A person's available minutes in the window; null when weekly hours are not set.
+-- A person's available minutes in the window (own weekly hours, else the space default).
 create or replace function public.work_person_available(p_space uuid, p_user uuid, p_from date, p_to date)
 returns int
 language sql
@@ -693,7 +693,8 @@ revoke all on function public.work_task_weeks(uuid) from public, anon, authentic
 -- Whether each person has room for this task in its weeks: 'full' when their
 -- load there plus their share of this task (its estimate over the holders it
 -- would have with them) passes their available minutes; 'unknown' when the task
--- has no estimate or they have no weekly hours; else 'ok'. Never gives minutes.
+-- has no estimate; else 'ok'. Everyone has hours (own, else the space default).
+-- Never gives minutes.
 -- For whoever may assign the task: its project's manager, a coordinator or a
 -- Member, or the lead of the task's team. Only project members get a row.
 create or replace function public.general_task_holder_room(p_task uuid, p_users uuid[])
@@ -778,7 +779,8 @@ revoke all on function public.general_space_person_tasks(uuid, uuid, date, date)
 grant execute on function public.general_space_person_tasks(uuid, uuid, date, date) to authenticated;
 
 -- Over the people the caller sees: open tasks with no estimate in the window
--- (each task once, however many hold it) and people with no weekly hours.
+-- (each task once, however many hold it) and people with no weekly hours (0
+-- since the space default: everyone has hours).
 create or replace function public.general_space_workload_summary(p_space uuid, p_from date, p_to date)
 returns table(unestimated_tasks int, people_without_hours int)
 language plpgsql
@@ -1211,8 +1213,8 @@ grant execute on function public.apply_work_breakdown(uuid, date, date, jsonb) t
 -- caller's claims but record assigned_by, so the check reads the caller from
 -- the row. It is deferred to commit, so a change of several holders is judged
 -- on its final state (and refused as a whole), and an estimate set in the same
--- transaction (create_work_open_task) counts. A task with no estimate, or a
--- holder with no weekly hours, is not checked. The project manager,
+-- transaction (create_work_open_task) counts. A task with no estimate is not
+-- checked; a holder with no own hours is judged on the space default. The project manager,
 -- coordinators and the holder adding themselves are never checked here.
 create or replace function public.guard_work_holder_room()
 returns trigger
