@@ -106,6 +106,8 @@ export type WorkSource = {
   startSprint: (id: string) => Promise<void>
   finishSprint: (id: string, carryTo: string | null) => Promise<void>
   archiveSprint: (id: string, archived: boolean) => Promise<void>
+  /** A work project's sprint hours against planned work. Unset for a class board. */
+  loadSprintHours?: (sprintId: string) => Promise<import('../api/workload').SprintHours | null>
   /** Run a finished sprint again. Set only for those who can run a work project's sprints. */
   reopenSprint?: (id: string) => Promise<void>
   moveToSprint: (taskIds: string[], sprintId: string | null) => Promise<void>

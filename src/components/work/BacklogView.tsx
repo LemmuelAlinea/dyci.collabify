@@ -18,6 +18,7 @@ import { backlogItems, rankForMove, sprintItems } from '../../lib/work/backlog'
 import { filterByTeam, teamSelection } from '../../lib/work/teamFilter'
 import { canStartSprint, nextSprintDraft, plannedSprints, runningSprints, sprintTargetLabel } from '../../lib/work/sprints'
 import { stageText } from '../../lib/work/stageTerms'
+import { SprintHoursLine } from './SprintHoursLine'
 import type { Sprint, WorkItem, WorkSource } from '../../lib/work/types'
 import type { SprintTeamField } from './SprintDialog'
 
@@ -263,6 +264,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
                     {team ? `${team} · ` : ''}
                     {dateRange(s.starts_on, s.ends_on)} · {items.length} {items.length === 1 ? 'task' : 'tasks'}
                   </p>
+                  <SprintHoursLine key={`${s.id}:${items.length}`} sprintId={s.id} load={source.loadSprintHours} />
                   {s.goal && <p className="mt-1 text-[13px] text-muted">{s.goal}</p>}
                   {s.auto_start_blocked_reason && (
                     <p className="mt-1 text-[12px] text-warning-700 dark:text-warning-300">

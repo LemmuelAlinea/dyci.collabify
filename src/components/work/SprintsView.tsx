@@ -14,6 +14,7 @@ import { RunningSprintTabs } from './RunningSprintTabs'
 import { useRunningSprint } from './useRunningSprint'
 import { useNow } from '../../hooks/useNow'
 import { dateRange } from '../../lib/general/dates'
+import { SprintHoursLine } from './SprintHoursLine'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import { sprintItems } from '../../lib/work/backlog'
 import { authErrorMessage } from '../../lib/authError'
@@ -144,6 +145,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                     {dateRange(running.starts_on, running.ends_on)} ·{' '}
                     <span className={left <= 0 ? 'text-danger-600 dark:text-danger-400' : ''}>{daysLeftLabel(left)}</span>
                   </p>
+                  <SprintHoursLine sprintId={running.id} load={source.loadSprintHours} />
                   {running.goal && <p className="mt-2 max-w-prose text-[14px] text-muted">{running.goal}</p>}
                 </div>
                 {canRun(running) && (

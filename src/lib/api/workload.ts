@@ -372,3 +372,29 @@ export async function keepCover(coverId: string): Promise<void> {
   const { error } = await supabase.rpc('keep_work_cover', { p_cover: coverId })
   if (error) throw error
 }
+
+/** A holder whose share of the task's remaining work is more than their free hours before it is due. */
+export type TaskShortfall = { user_id: string; remaining_minutes: number; short_minutes: number }
+
+/** The task's holders who are short of hours; empty for viewers who aren't its planners or holders. */
+export async function taskForecast(taskId: string): Promise<TaskShortfall[]> {
+  const { data, error } = await supabase.rpc('general_task_forecast', { p_task: taskId })
+  if (error) throw error
+  return (data ?? []) as TaskShortfall[]
+}
+
+/** A sprint's team hours against its planned work. */
+export type SprintHours = {
+  available_minutes: number
+  away_minutes: number
+  planned_minutes: number
+  unassigned: number
+  people_without_hours: number
+}
+
+/** The sprint's hours, or null for a viewer who may not see them. */
+export async function sprintHours(sprintId: string): Promise<SprintHours | null> {
+  const { data, error } = await supabase.rpc('general_sprint_hours', { p_sprint: sprintId })
+  if (error) throw error
+  return ((data ?? []) as SprintHours[])[0] ?? null
+}

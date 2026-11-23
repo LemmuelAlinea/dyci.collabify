@@ -46,6 +46,7 @@ import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { EstimateSpent, TaskTimer } from './TaskTimer'
 import { TaskCover } from './TaskCover'
+import { TaskForecast } from './TaskForecast'
 import { useAwayRanges } from '../../lib/work/useAwayRanges'
 import { awayText } from '../../lib/work/away'
 import { manilaToday } from '../../lib/work/hours'
@@ -438,6 +439,7 @@ function TaskBody({
         </section>
       )}
       {work && <TaskCover key={`${task.id}:${task.assignee_ids.join(',')}`} taskId={task.id} state={state} />}
+      {work && <TaskForecast key={`${task.id}:${task.updated_at}:${task.assignee_ids.join(',')}:${task.logged_minutes ?? 0}`} taskId={task.id} state={state} />}
       <TaskDetails
         state={state}
         taskId={task.id}
