@@ -650,15 +650,16 @@ function TaskCard({
     >
       {/* A stretched button rather than a wrapping one: the card holds its own controls. */}
       <button type="button" data-card-open="" onClick={onOpen} aria-label={`Open ${task.title}`} className="absolute inset-0 z-0 rounded-xl" />
-      <div className="pointer-events-none flex items-start justify-between gap-2">
+      {/* The title keeps at least 8rem; badges that don't fit beside it wrap onto their own line. */}
+      <div className="pointer-events-none flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5">
         <h4
-          className={`min-w-0 text-[14px] leading-snug font-medium break-words group-hover:underline ${
+          className={`min-w-0 flex-[1_1_8rem] text-[14px] leading-snug font-medium break-words group-hover:underline ${
             task.status === 'done' ? 'text-muted line-through' : 'text-ink'
           }`}
         >
           {task.title}
         </h4>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1">
           {cover && (
             <span data-cover-marker title={cover} className="rounded-md bg-warning-50 px-1.5 py-0.5 text-[12px] text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">
               Cover
