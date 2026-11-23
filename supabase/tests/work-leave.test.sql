@@ -152,4 +152,145 @@ begin
   perform pg_temp.service();
 end $$;
 
+------------------------------------------------------------ impact check and notices
+create or replace function pg_temp.at(p_day date) returns timestamptz language sql as $$
+  select (p_day + time '12:00') at time zone 'Asia/Manila';
+$$;
+create or replace function pg_temp.notices(p_user uuid, p_project uuid) returns int language sql as $$
+  select count(*)::int from public.notifications
+   where user_id = p_user and type = 'leave_impact' and general_project_id = p_project;
+$$;
+
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                    gen_random_uuid(), gen_random_uuid()];
+  -- 1 pm (space S, project P), 2 coordinator (pref off), 3 Ann, 4 Bo, 5 pm of space B / project Q, 6 coordinator
+  s uuid; b uuid; p uuid; q uuid; m date := pg_temp.mon();
+  t_due uuid; t_fit uuid; t_block uuid; t_dep uuid; t_free uuid; t_done uuid; t_q uuid; t_new uuid; t_today uuid;
+  d date := (now() at time zone 'Asia/Manila')::date;
+  js jsonb;
+begin
+  d := d + case extract(isodow from d)::int when 6 then 2 when 7 then 1 else 0 end;
+  for k in 1..6 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[k], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-impact-'||k||'@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+      values(u[k], 'zz-impact-'||k||'@example.test', 'Impact', k::text, 'member', 'active', false, k in (1, 5))
+      on conflict(id) do update set role = 'member', status = 'active', can_teach = false,
+        can_manage_projects = excluded.can_manage_projects;
+    insert into public.notification_prefs(user_id) values (u[k]) on conflict do nothing;
+  end loop;
+  update public.notification_prefs set leave_and_cover = false where user_id = u[2];
+  perform pg_temp.act_as(u[1]);
+  s := (public.create_general_space('Zz impact S', '')).id;
+  p := (public.create_general_project('Zz impact P', '', null, null, null, null, s)).id;
+  perform pg_temp.act_as(u[5]);
+  b := (public.create_general_space('Zz impact B', '')).id;
+  q := (public.create_general_project('Zz impact Q', '', null, null, null, null, b)).id;
+  perform pg_temp.service();
+  insert into public.general_space_members(space_id, user_id, role) values
+    (s, u[2], 'coordinator'), (s, u[3], 'member'), (s, u[4], 'member'), (s, u[6], 'coordinator'), (b, u[3], 'member');
+  insert into public.general_members(project_id, user_id, role) values
+    (p, u[2], 'coordinator'), (p, u[3], 'member'), (p, u[4], 'member'), (p, u[6], 'coordinator'), (q, u[3], 'member');
+  insert into public.general_space_capacity(space_id, user_id, weekly_minutes) values (s, u[3], 960);
+
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz due during', 'released', now(), u[1], pg_temp.at(m + 1), 60) returning id into t_due;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz too big', 'released', now(), u[1], pg_temp.at(m + 4), 9000) returning id into t_fit;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz blocker', 'released', now(), u[1], pg_temp.at(m - 3), 60) returning id into t_block;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+    values (p, 'Zz waits', 'released', now(), u[1]) returning id into t_dep;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by)
+    values (p, 'Zz no date', 'released', now(), u[1]) returning id into t_free;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes, status)
+    values (p, 'Zz finished', 'released', now(), u[1], pg_temp.at(m + 1), 60, 'done') returning id into t_done;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (q, 'Zz other space', 'released', now(), u[5], pg_temp.at(m + 1), 60) returning id into t_q;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values
+    (t_due, p, u[3], u[1]), (t_fit, p, u[3], u[1]), (t_block, p, u[3], u[1]), (t_dep, p, u[4], u[1]),
+    (t_free, p, u[3], u[1]), (t_done, p, u[3], u[1]), (t_q, q, u[3], u[5]);
+  insert into public.general_task_dependencies(task_id, depends_on_id, project_id) values (t_dep, t_block, p);
+
+  perform pg_temp.act_as(u[3]);
+  perform public.save_time_off_range(u[3], m, m + 2, null);
+  perform pg_temp.service();
+
+  perform pg_temp.check('due during leave flagged',
+    (select status = 'due_during' from public.work_leave_task_status(u[3], m, m + 2) where task_id = t_due));
+  perform pg_temp.check('wont fit flagged',
+    (select status = 'wont_fit' and short_minutes > 0 and remaining_minutes = 9000
+       from public.work_leave_task_status(u[3], m, m + 2) where task_id = t_fit));
+  perform pg_temp.check('blocks flagged',
+    (select status = 'blocks' from public.work_leave_task_status(u[3], m, m + 2) where task_id = t_block));
+  perform pg_temp.check('no due date fine',
+    (select status = 'fine' and no_estimate from public.work_leave_task_status(u[3], m, m + 2) where task_id = t_free));
+  perform pg_temp.check('done task left out',
+    not exists (select 1 from public.work_leave_task_status(u[3], m, m + 2) where task_id = t_done));
+
+  perform pg_temp.check('notice once',
+    pg_temp.notices(u[1], p) = 1 and pg_temp.notices(u[6], p) = 1 and pg_temp.notices(u[3], p) = 0
+    and (select title from public.notifications where user_id = u[1] and type = 'leave_impact')
+          like 'Impact 3 is away %'
+    and (select preview from public.notifications where user_id = u[1] and type = 'leave_impact')
+          = '3 tasks in Zz impact P need a look.');
+  perform pg_temp.check('pref off respected', pg_temp.notices(u[2], p) = 0);
+  perform pg_temp.check('other space notified', pg_temp.notices(u[5], q) = 1 and pg_temp.notices(u[1], q) = 0);
+
+  perform pg_temp.act_as(u[3]);
+  perform public.save_time_off_range(u[3], m + 3, m + 3, null);
+  perform pg_temp.service();
+  perform pg_temp.check('extend without change sends nothing',
+    pg_temp.notices(u[1], p) = 1
+    and (select last_day = m + 3 from public.general_leave_notices where user_id = u[3] and project_id = p));
+
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz next week', 'released', now(), u[1], pg_temp.at(m + 7), 60) returning id into t_new;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (t_new, p, u[3], u[1]);
+  perform pg_temp.act_as(u[3]);
+  perform public.save_time_off_range(u[3], m + 4, m + 7, null);
+  perform pg_temp.service();
+  perform pg_temp.check('extend with change notifies',
+    pg_temp.notices(u[1], p) = 2
+    and (select count(*) = 1 from public.general_leave_notices where user_id = u[3] and project_id = p));
+
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.refuse('review planners only',
+    format('select * from public.general_project_leaves(%L)', p), 'Only the project manager and coordinators can review leave.');
+  perform pg_temp.check('notice rows hidden from members',
+    not exists (select 1 from public.general_leave_notices));
+  perform pg_temp.act_as(u[1]);
+  select tasks into js from public.general_project_leaves(p) where user_id = u[3];
+  perform pg_temp.check('review lists flagged first',
+    jsonb_array_length(js) = 5
+    and js -> 0 ->> 'status' <> 'fine'
+    and js -> 4 ->> 'status' = 'fine'
+    and js -> 4 ->> 'title' = 'Zz no date'
+    and (select bool_or(e ->> 'status' = 'blocks' and e -> 'blocks' ->> 0 = 'Zz waits') from jsonb_array_elements(js) e));
+
+  perform pg_temp.act_as(u[3]);
+  perform public.remove_time_off_range(u[3], m, m + 7);
+  perform pg_temp.service();
+  perform pg_temp.check('leave removed clears row',
+    not exists (select 1 from public.general_leave_notices where user_id = u[3]));
+
+  perform set_config('collabify.estimate_write', 'on', true);
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, due_at, estimated_minutes)
+    values (p, 'Zz today', 'released', now(), u[1], pg_temp.at(d), 60) returning id into t_today;
+  perform set_config('collabify.estimate_write', 'off', true);
+  insert into public.general_task_assignees(task_id, project_id, user_id, assigned_by) values (t_today, p, u[3], u[1]);
+  perform pg_temp.act_as(u[2]);
+  perform public.save_time_off_range(u[3], d, d, null);
+  perform pg_temp.service();
+  perform pg_temp.check('leave already started',
+    (select first_day = d and t_today = any (flagged) from public.general_leave_notices where user_id = u[3] and project_id = p));
+end $$;
+
 rollback;

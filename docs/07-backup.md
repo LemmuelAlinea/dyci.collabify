@@ -1143,7 +1143,12 @@ caller, so `general_task_logs_guard` and the archived-task guard still apply), a
 `save_time_off_range` and `remove_time_off_range` (the person, or a project manager or coordinator of a live work
 space the person is in; a planner removes only days a planner recorded), the internal `work_can_mark_away`,
 `work_leave_check_range` and `work_leave_runs` (a leave is a run of away weekdays; a weekend does not split it), and
-`space_away_ranges(space)` (members' leaves for anyone in that work space, dates only). It redefines nothing another
+`space_away_ranges(space)` (members' leaves for anyone in that work space, dates only). The impact check is
+`work_leave_task_status` (blocks, due during, won't fit, fine); `general_leave_notices` keeps one row per person,
+project and leave, refreshed by `work_leave_refresh` from three statement triggers on `user_time_off`
+(`user_time_off_leave_refresh_ins`, `_upd`, `_del`), which send `leave_impact` notices when a leave's flagged tasks
+change; `general_project_leaves(project)` is the review read. It adds the notification types `leave_impact`,
+`leave_ending` and `cover_hand_back` and `notification_prefs.leave_and_cover`. It redefines nothing another
 file owns. Re-running `work-workload.sql` means re-running it afterwards, then `anon-lockdown.sql`. Suite:
 `supabase/tests/work-leave.test.sql`.
 
