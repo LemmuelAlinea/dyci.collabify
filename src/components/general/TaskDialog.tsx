@@ -117,6 +117,7 @@ export function TaskDialog({
     <Modal
       open={Boolean(task)}
       onClose={close}
+      focusPanel
       title={task?.title ?? 'Task'}
       titleContent={task && (canEdit ? (
         <>
