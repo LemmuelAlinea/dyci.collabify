@@ -5785,3 +5785,32 @@ accepted." from the setting; no failed requests.
 - Checked in the browser on Capstone 2 (31 people), including the Away filter, search, the empty state, the Filters
   panel and 375 px.
 - Spec `docs/superpowers/specs/2026-11-24-workload-tab-redesign-design.md`.
+
+## 2026-11-24 — Suggest stages, on branch `stage-suggestions`
+
+- **What.** Plan → Stages has a **Suggest stages** strip (project manager and coordinators of a live work project).
+  The dialog shows the numbers first (hours of work, team hours a week, end date, tasks without an estimate, tasks
+  still in planning) with a 1–4 week length (suggested: the setting, longer while the biggest task doesn't fit one
+  person's free hours, a week when the window is short) and, in streams, a team. Suggest drafts every stage still to
+  come; the review shows each stage's dates, name, goal, tasks and `used / team h` (warning tone when over), flags
+  (late, already due, over hours, won't fit), the running stage it keeps and any milestone link a reused stage loses.
+  The PM renames, rewrites goals and moves tasks, then Apply writes it all at once.
+- **How.** `supabase/stage-plan.sql` (after `subtask-dates.sql`): `general_stage_plan_context` does the numbers
+  (window after today and any running stage, back-to-back slots ending on the project end or sized by hours, ends
+  snapped onto milestones within 3 days, free team hours per slot = available minus load in other projects, the last
+  slot the buffer, planned stages reused in date order) and `apply_stage_plan` writes the reviewed plan (reused stages
+  updated, new ones inserted, dropped planned stages deleted, tasks and their live subtasks moved, undated work given
+  its stage's dates), refusing a stale `shown` fingerprint. `work-ai` `stages` (12 an hour, 50 a day) has the model
+  place t1… into s1… and name each stage; `_shared/stagePlan.ts` `checkStagePlan` repairs it (dependency order,
+  milestone and due dates, hours by priority, the buffer only from overflow). Released tasks only.
+- `work-ai` is deployed with the `stages` action. Suites: `supabase/tests/stage-plan.test.sql`,
+  `src/lib/work/stagePlan.test.ts`, `src/components/work/SuggestStagesDialog.test.tsx`.
+- Checked in the browser on a throwaway project (now in Trash): setup numbers, a 4-stage draft with a 2-week buffer,
+  a hand move with live totals, Apply, a midway re-plan that keeps the running stage, and the stale refusal. That check
+  caught three bugs the SQL suite now pins: the API's pg_safeupdate refuses a DELETE with no WHERE, a
+  `serialization_failure` errcode makes the API retry forever (use `object_not_in_prerequisite_state`), and a 1-day
+  leftover became its own stage (a leftover under half a stage now joins the last one).
+- Deferred (minor): review-state tasks aren't in the planning count; no end date with zero hours gives 26 empty stages;
+  a window over 52 stages stops early; a cleared milestone link untags the stage's tasks; hand moves clear flags
+  without a dependency warning; the upcoming stages are numbered from 1 even midway.
+- Spec `docs/superpowers/specs/2026-11-24-stage-suggestions-design.md`, plan `docs/superpowers/plans/2026-11-24-stage-suggestions.md`.

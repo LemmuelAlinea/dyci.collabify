@@ -1,5 +1,6 @@
 import { invokeFunction } from './functions'
 import type { PlanRow } from '../../../supabase/functions/_shared/workloadPlan.ts'
+import type { StageDraft } from '../../../supabase/functions/_shared/stagePlan.ts'
 
 /**
  * The work-project AI helpers. Each returns a draft or an answer; nothing is
@@ -109,6 +110,14 @@ export const draftLeadAssignees = (projectId: string) =>
  */
 export const draftBreakdown = (projectId: string, parentId: string, from: string, to: string) =>
   call<{ rows: PlanRow[]; note?: string | null }>('breakdown', projectId, { parent_id: parentId, from, to })
+
+/**
+ * Every stage still to come, drafted and checked. Nothing is written.
+ * `teamId` is the team in a project where each team runs its own stages;
+ * `lengthDays` is 7, 14, 21 or 28, or null for the suggested length.
+ */
+export const draftStagePlan = (projectId: string, teamId: string | null, lengthDays: number | null) =>
+  call<StageDraft>('stages', projectId, { team_id: teamId, length_days: lengthDays })
 
 /** A suggested estimate for one task, from its title and description. Nothing is saved. */
 export const suggestEstimate = (projectId: string, taskId: string) =>
