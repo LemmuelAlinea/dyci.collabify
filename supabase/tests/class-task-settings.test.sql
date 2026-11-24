@@ -1,5 +1,9 @@
 begin;
 
+-- These checks write task_types directly to test the older guards; task-type-looks.sql lets only
+-- its save functions do that, so the suite stands in for them with their flag.
+select set_config('collabify.task_type_save', 'on', true);
+
 create or replace function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
 begin
   perform set_config('role', 'authenticated', true);
