@@ -1,11 +1,16 @@
-"""Score, sound design and voiceover mix for the Collabify launch film.
-120 bpm, 80 s, 48 kHz stereo. Everything is placed on seconds that the scenes log (audio/events.json)."""
+"""Score, sound design and voiceover mix for the Collabify launch film v3.
+120 bpm, 48 kHz stereo. Beats come from timings.json, voice from audio/vo/cues.json,
+sound effects from the seconds the scenes log (audio/events.json, written by tools/events.mjs)."""
 import json, os, wave
 import numpy as np
 from scipy import signal
 
 SR = 48000
-DUR = 80.0
+HERE0 = os.path.dirname(os.path.abspath(__file__))
+TM = json.load(open(os.path.join(HERE0, '..', 'timings.json')))
+DUR = float(TM['end'])
+ACT1, DRUMS, EDU, CLOSE = TM['s01'], TM['s03'], TM['s10'], TM['s15']
+LOGO = CLOSE - 0.45 + 1.25
 N = int(SR * (DUR + 1.5))
 HERE = os.path.dirname(os.path.abspath(__file__))
 rs = np.random.RandomState(7)
@@ -99,8 +104,8 @@ for k in range(int(DUR / chord_len) + 1):
     t0 = k * chord_len
     root, tones = CH[k % 4]
     # intro is thin, then it fills in
-    gain = 0.5 if t0 < 7 else 0.75
-    if t0 >= 73:
+    gain = 0.45 if t0 < ACT1 else 0.75
+    if t0 >= CLOSE:
         gain = 0.95
     for j, m in enumerate(tones):
         for dt, pn in ((-6, -0.5), (6, 0.5)):
@@ -120,7 +125,7 @@ def bass_note(m, dur):
 
 for k in range(int(DUR / chord_len) + 1):
     t0 = k * chord_len
-    if t0 < 7 or t0 >= 73.5:
+    if t0 < ACT1 or LOGO - 0.4 <= t0 < LOGO + 0.6:
         continue
     root = CH[k % 4][0] - 12
     for b_ in (0, 1.5, 2.5, 3):
@@ -139,16 +144,16 @@ arp = np.zeros((2, N))
 for k in range(int(DUR / chord_len) + 1):
     t0 = k * chord_len
     tones = CH[k % 4][1]
-    if t0 < 3:
+    if t0 < 4:
         step = 1.0 * BEAT * 2
-        vol = 0.10
-    elif t0 < 7:
+        vol = 0.08
+    elif t0 < ACT1:
         step = BEAT
-        vol = 0.13
-    elif t0 < 19.4:
+        vol = 0.11
+    elif t0 < DRUMS:
         step = BEAT / 2
         vol = 0.13
-    elif t0 < 73:
+    elif t0 < CLOSE:
         step = BEAT / 4 * 1.0 if (int(t0) % 4 == 0) else BEAT / 2
         vol = 0.12
     else:
@@ -191,14 +196,14 @@ def clap():
 KICKS = []
 for bi in range(int(DUR / BEAT)):
     tt = bi * BEAT
-    if 7.0 <= tt < 73.0 and not (47.5 <= tt < 48.0):
-        add(music, kick(), tt, 0.62 if tt >= 19.4 else 0.42)
+    if ACT1 <= tt < CLOSE and not (EDU - 0.5 <= tt < EDU):
+        add(music, kick(), tt, 0.62 if tt >= DRUMS else 0.42)
         KICKS.append(tt)
-    if 15.0 <= tt < 73.0 and bi % 2 == 1:
-        add(music, hat(), tt + 0.0, 0.16 if tt < 19.4 else 0.22, 0.3)
-    if 19.4 <= tt < 73.0 and bi % 4 in (1, 3) and not (47.0 <= tt < 48.0):
+    if TM['s02'] <= tt < CLOSE and bi % 2 == 1:
+        add(music, hat(), tt + 0.0, 0.16 if tt < DRUMS else 0.22, 0.3)
+    if DRUMS <= tt < CLOSE and bi % 4 in (1, 3) and not (EDU - 1.0 <= tt < EDU):
         add(music, clap(), tt, 0.28)
-    if 19.4 <= tt < 73.0:
+    if DRUMS <= tt < CLOSE:
         add(music, hat(), tt + BEAT / 2, 0.12, -0.3)
 
 # risers into every act
@@ -218,7 +223,7 @@ def riser(dur, lo=300, hi=7000):
     return (out * 0.5 + sw)
 
 
-for t0, d in ((4.9, 2.1), (12.6, 2.4), (16.8, 2.6), (45.6, 2.4), (70.8, 2.2)):
+for t0, d in ((ACT1 - 2.2, 2.2), (DRUMS - 2.4, 2.4), (EDU - 2.2, 2.2), (CLOSE - 2.0, 2.0)):
     add(music, riser(d), t0, 0.22)
 
 # sidechain-ish gentle pump on the whole bed so the kick breathes
@@ -234,7 +239,7 @@ def fade_region(x, a, b, g):
     ia, ib = int(a * SR), int(b * SR)
     x[:, ia:ib] *= g
 
-fade_region(music, 73.0, 74.0, 0.0)
+fade_region(music, LOGO - 0.4, LOGO + 0.1, 0.0)
 
 # ---------------------------------------------------------------- sfx
 sfx = np.zeros((2, N))
@@ -315,48 +320,58 @@ for e in ev:
         add(sfx, click_snd(), t, 0.5, 0.0)
     elif kind == 'pop':
         add(sfx, pop_snd(), t, 0.32, 0.1)
+    elif kind == 'tick':
+        add(sfx, tick_snd(2600), t, 0.35, 0.2)
+    elif kind == 'drop':
+        add(sfx, pop_snd()[::-1][-int(0.2 * SR):], t, 0.22, -0.1)
+        add(sfx, click_snd(), t + 0.18, 0.5)
+    elif kind == 'ding':
+        add(sfx, chime(), t, 0.36)
+    elif kind == 'rise':
+        add(sfx, shimmer(), t, 0.4)
+    elif kind == 'whoosh':
+        add(sfx, whoosh(0.7, True), t - 0.3, 0.32)
+    elif kind == 'hit':
+        add(sfx, impact(), t, 0.7)
+    elif kind == 'buzz':
+        n = int(0.32 * SR)
+        add(sfx, np.sign(np.sin(2 * np.pi * 110 * t_(n))) * np.exp(-t_(n) * 7) * 0.25, t, 0.4)
     elif kind == 'type':
         d = e[2] or 0.5
         k = int(d * 24)
         for j in range(k):
             add(sfx, tick_snd(2200 + (j * 137) % 900), t + j * d / max(k, 1), 0.10, ((j % 3) - 1) * 0.3)
 
-# scene dives and turns
-for t in (6.55, 14.75, 18.75, 26.75, 35.75, 38.75, 43.75, 47.75, 51.75, 58.75, 66.75):
-    add(sfx, whoosh(0.8, True), t, 0.5)
-for t in (3.5, 7.0, 15.0, 19.0, 27.0, 36.0, 39.0, 44.0, 48.0, 52.0, 59.0, 67.0):
-    add(sfx, whoosh(0.7, False), t, 0.28, 0.2)
-# camera swings inside scenes
-for t in (31.6, 33.9, 42.0):
-    add(sfx, whoosh(0.7, True), t, 0.22)
-add(sfx, impact(), 1.0, 0.8)
-add(sfx, shimmer(), 1.25, 0.5)
-add(sfx, whoosh(1.4, True), 72.0, 0.55)
-add(sfx, impact(), 74.05, 1.0)
-add(sfx, shimmer(), 74.1, 0.6)
-for t in (10.1, 32.35, 42.5, 47.4, 58.55, 76.0):
-    add(sfx, chime(), t, 0.4)
-add(sfx, impact(), 47.35, 0.35)
+# scene dives and arrivals, from the beat clock
+beats = [TM[k] for k in TM if k not in ('end', 's00', 's01')]
+for t in beats:
+    add(sfx, whoosh(0.8, True), t - 0.6, 0.45)
+    add(sfx, whoosh(0.7, False), t, 0.24, 0.2)
+add(sfx, impact(), ACT1 + 0.9, 0.7)
+add(sfx, shimmer(), ACT1 + 1.15, 0.5)
+add(sfx, whoosh(1.4, True), CLOSE - 1.2, 0.5)
+add(sfx, impact(), LOGO, 1.0)
+add(sfx, shimmer(), LOGO + 0.05, 0.6)
 sfx = reverb(sfx, 0.9, 0.16, 11)
 
 # ---------------------------------------------------------------- voice
-VO_AT = {0: 0.45, 1: 7.4, 2: 15.3, 3: 19.4, 4: 27.4, 5: 36.2, 6: 39.3, 7: 44.2, 8: 48.2, 9: 52.3, 10: 59.4, 11: 67.4, 12: 74.2}
+CUES = json.load(open(os.path.join(HERE, 'vo', 'cues.json')))
 voice = np.zeros((2, N))
 vo_env = np.zeros(N)
-for k, at in VO_AT.items():
-    w = wave.open(os.path.join(HERE, 'vo', f'v{k:02d}.wav'))
+for c in CUES:
+    at = c['start']
+    w = wave.open(os.path.join(HERE, 'vo', c['id'] + '.wav'))
     raw = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float64) / 32768
     if w.getnchannels() == 2:
         raw = raw[::2]
     x = signal.resample_poly(raw, SR, w.getframerate())
     x = hp(x, 90)
-    # presence
     x = x + 0.25 * bp(x, 2500, 5500, 2)
     x /= np.max(np.abs(x)) + 1e-9
     x = np.tanh(x * 1.6) / np.tanh(1.6)
     add(voice, x, at, 0.82)
     i = int(at * SR)
-    vo_env[i:i + len(x)] = np.maximum(vo_env[i:i + len(x)], np.abs(x))
+    vo_env[i:i + len(x)] = np.maximum(vo_env[i:i + len(x)], np.abs(x[: N - i]))
 voice = reverb(voice, 0.55, 0.07, 13)
 
 # duck the music and sfx under the voice
@@ -372,7 +387,7 @@ def rms(x):
     return np.sqrt(np.mean(x ** 2) + 1e-12)
 
 
-bed *= 0.095 / rms(bed[:, int(8 * SR):int(70 * SR)])
+bed *= 0.095 / rms(bed[:, int(ACT1 * SR):int(CLOSE * SR)])
 fx *= 1.0
 v_target = 0.155
 voice *= v_target / (rms(voice[:, voice[0] != 0]) + 1e-9)
@@ -400,4 +415,4 @@ with wave.open(os.path.join(HERE, 'voiceover.wav'), 'wb') as w:
     w.setsampwidth(2)
     w.setframerate(SR)
     w.writeframes(vo_only.tobytes())
-print('ok', out.shape)
+print('ok', out.shape, 'peak dBFS', round(20 * np.log10(np.max(np.abs(out)) / 32767), 2))
