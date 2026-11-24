@@ -26,7 +26,7 @@ import { DEFAULT_NOTIFICATION_RULES } from '../general/notificationRules'
 import type { MilestoneDueDays, SprintEndDays } from '../general/notificationRules'
 import type { MilestoneCompletion } from '../general/milestoneRules'
 import { DEFAULT_TASK_RULES } from '../general/taskRules'
-import { parseTypeSet } from '../taskTypes/typeSet'
+import { isReadableTypeSet, parseTypeSet } from '../taskTypes/typeSet'
 import type { TaskDependency, TaskRules } from '../general/taskRules'
 import type {
   AdminWorkProject,
@@ -235,6 +235,7 @@ export async function getGeneralProject(projectId: string) {
     taskFlow,
     taskTypes: (flowOption.data?.task_types as string[] | undefined) ?? [],
     taskTypeSet: parseTypeSet(typeRow?.task_type_set, 'work'),
+    taskTypeSetUnreadable: !isReadableTypeSet(typeRow?.task_type_set, 'work'),
     taskTypeShown: (typeRow?.task_type_set_shown as string | undefined) ?? '',
     taskTypePreset: (typeRow?.task_type_preset as string | null | undefined) ?? null,
     memberRules: memberRow

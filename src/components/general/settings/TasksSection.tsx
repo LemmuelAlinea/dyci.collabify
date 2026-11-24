@@ -45,6 +45,7 @@ function TaskTypesPanel({ state }: { state: GeneralProjectState }) {
       shown={p.taskTypeShown ?? ''}
       preset={p.taskTypePreset ?? null}
       editable={state.myRole === 'pm' && !state.readOnly}
+      unreadable={p.taskTypeSetUnreadable}
       reload={state.reload}
     />
   )

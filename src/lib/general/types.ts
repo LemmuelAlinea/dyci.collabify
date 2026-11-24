@@ -68,6 +68,8 @@ export type GeneralProject = {
   taskTypes?: string[]
   /** The ordered task types with their looks (task-type-looks.sql). Read by getGeneralProject only. */
   taskTypeSet?: TaskTypeEntry[]
+  /** The stored set couldn't be read, so Settings shows the default read-only rather than save over it. */
+  taskTypeSetUnreadable?: boolean
   /** The set's fingerprint as loaded, sent back with a save. */
   taskTypeShown?: string
   /** The last preset applied, or null. */

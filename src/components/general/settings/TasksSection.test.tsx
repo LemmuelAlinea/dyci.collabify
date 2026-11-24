@@ -285,3 +285,9 @@ it('switches back to planned handoff without a confirmation', async () => {
   expect(setTaskFlow).toHaveBeenCalledWith('p1', 'planned')
   expect(vi.mocked(useToast)().show).toHaveBeenCalledWith('Task flow is planned handoff.')
 })
+
+it('keeps task types read-only when the stored list could not be read', async () => {
+  await show(makeState({}, { taskTypeSetUnreadable: true }))
+  expect(host.textContent).toContain("This project's task types couldn't be read. Reload the page to try again.")
+  expect(button('+ Add type')).toBeUndefined()
+})

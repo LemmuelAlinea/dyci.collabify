@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useClassSettings } from './useClassSettings'
 import { parseTypeSet } from '../../lib/taskTypes/typeSet'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../ui/Button'
@@ -14,8 +15,6 @@ import { useBoardDrag } from './useBoardDrag'
 import { BoardScroller } from '../general/BoardScroller'
 import { landingIndex } from '../../lib/work/boardDrop'
 import { TaskForm } from './TaskForm'
-import { getClassTaskSettings } from '../../lib/api/projects'
-import type { ClassTaskSettings } from '../../lib/api/projects'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import {
   addTask,
@@ -83,15 +82,8 @@ export function TaskBoard({
   const [deleting, setDeleting] = useState<ProjectTask | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [settings, setSettings] = useState<ClassTaskSettings | null>(null)
+  const settings = useClassSettings(board.project_id)
   const typeSet = parseTypeSet(settings?.task_type_set, 'class')
-  const editingId = editing?.id
-  useEffect(() => {
-    if (!adding && !editingId) return
-    let live = true
-    getClassTaskSettings(board.project_id).then((value) => live && setSettings(value)).catch(() => live && setSettings(null))
-    return () => { live = false }
-  }, [board.project_id, adding, editingId])
 
   async function run(work: () => Promise<void>, failure: string) {
     try {

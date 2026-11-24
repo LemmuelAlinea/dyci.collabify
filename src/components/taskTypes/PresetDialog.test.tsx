@@ -106,3 +106,11 @@ it('warns when an old name becomes the bug type', async () => {
   await flush()
   expect(document.body.textContent).toContain("Issue tasks from the old list stay gray. They aren't QA's bugs.")
 })
+
+it('shows the bug type a preset keeps, and counts it', () => {
+  setup()
+  choose('research')
+  expect(document.body.textContent).toContain('11 types')
+  const row = [...document.querySelectorAll('[data-preset-row]')].find((r) => r.textContent?.includes("QA's bugs"))!
+  expect(row.textContent).toContain('Issue')
+})

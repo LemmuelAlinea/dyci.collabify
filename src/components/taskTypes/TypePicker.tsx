@@ -69,7 +69,11 @@ export function TypePicker({
     else if (event.key === 'End') setActive(options.length - 1)
     else if (event.key === 'Enter' || event.key === ' ') {
       if (options[active]) pick(options[active].value)
-    } else if (event.key === 'Escape' || event.key === 'Tab') close()
+    } else if (event.key === 'Escape') {
+      // Only the list closes; the dialog around it stays open.
+      event.stopPropagation()
+      close()
+    } else if (event.key === 'Tab') close()
     else return
     event.preventDefault()
   }

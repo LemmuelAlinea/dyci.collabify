@@ -166,3 +166,20 @@ it('offers Reload after a stale save', async () => {
   await act(async () => button('Reload').click())
   expect(reload).toHaveBeenCalled()
 })
+
+it("keeps focus on the moved row's handle", async () => {
+  let done: () => void = () => {}
+  setup({ save: vi.fn(() => new Promise<void>((resolve) => { done = resolve })) })
+  const handle = byLabel('Move Bug')
+  act(() => handle.focus())
+  await act(async () => { handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })) })
+  expect(byLabel('Move Bug')).not.toBeNull()
+  await act(async () => { done() })
+  expect(document.activeElement).toBe(byLabel('Move Bug'))
+  const reordered = [set[0], set[2], set[1]]
+  act(() => root.render(
+    <TaskTypesEditor family="work" set={reordered} shown="s2" preset={null} editable readOnlyNote=""
+      save={vi.fn(async () => {})} reload={vi.fn(async () => {})} loadCounts={vi.fn(async () => new Map())} />,
+  ))
+  expect(document.activeElement).toBe(byLabel('Move Bug'))
+})

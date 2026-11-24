@@ -48,7 +48,8 @@ export function PresetDialog({
 
   const preset = presetByKey(key) ?? TASK_TYPE_PRESETS[0]
   const result = applyPreset(current, preset, family)
-  const shownTypes = family === 'class' ? result.set : preset.types.map((t) => result.set.find((r) => r.name === t.name) ?? t)
+  // What the project will hold: a work preset with no bug type keeps the project's, shown last.
+  const shownTypes = result.set
 
   async function apply() {
     const problem = typeSetProblem(result.set, family)
@@ -128,7 +129,7 @@ export function PresetDialog({
               <Icon name={preset.icon} size={18} className="shrink-0 text-muted" />
               <span className="truncate">{preset.name}</span>
             </h3>
-            <span className="shrink-0 font-mono text-[12px] text-muted">{preset.types.length} types</span>
+            <span className="shrink-0 font-mono text-[12px] text-muted">{shownTypes.length} types</span>
           </div>
           <ul className="divide-y divide-[var(--line)]">
             {shownTypes.map((t) => (

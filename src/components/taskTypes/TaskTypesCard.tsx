@@ -14,6 +14,7 @@ export function TaskTypesCard({
   shown,
   preset,
   editable,
+  unreadable = false,
   reload,
 }: {
   family: TypeFamily
@@ -22,6 +23,8 @@ export function TaskTypesCard({
   shown: string
   preset: string | null
   editable: boolean
+  /** The stored list couldn't be read: show it read-only so a save can't replace it with the default. */
+  unreadable?: boolean
   reload: () => Promise<void>
 }) {
   const { show } = useToast()
@@ -39,14 +42,16 @@ export function TaskTypesCard({
         set={set}
         shown={shown}
         preset={preset}
-        editable={editable}
-        readOnlyNote={family === 'work' ? 'Only the project manager changes task types.' : 'Only a professor changes task types.'}
+        editable={editable && !unreadable}
+        readOnlyNote={unreadable
+          ? "This project's task types couldn't be read. Reload the page to try again."
+          : family === 'work' ? 'Only the project manager changes task types.' : 'Only a professor changes task types.'}
         save={save}
         loadCounts={() => taskTypeCounts(family, projectId)}
         reload={reload}
         onBrowsePresets={() => setBrowsing(true)}
       />
-      {editable && (
+      {editable && !unreadable && (
         <PresetDialog
           open={browsing}
           family={family}

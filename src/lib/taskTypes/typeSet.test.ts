@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TaskTypeEntry } from './typeSet'
 import {
-  defaultTypeSet, parseTypeSet, removedNames, resolveType, toDrafts, typeKey, typeOptions, typeSetProblem,
+  defaultTypeSet, isReadableTypeSet, parseTypeSet, removedNames, resolveType, toDrafts, typeKey, typeOptions, typeSetProblem,
 } from './typeSet'
 
 const e = (slot: TaskTypeEntry['slot'], name: string, extra: Partial<TaskTypeEntry> = {}): TaskTypeEntry => ({
@@ -134,5 +134,14 @@ describe('parseTypeSet', () => {
   it('keeps a valid stored set', () => {
     const set = work(e(null, 'Epic'))
     expect(parseTypeSet(set, 'work')).toEqual(set)
+  })
+})
+
+describe('isReadableTypeSet', () => {
+  it('knows a stored set it can show from one it would replace with the default', () => {
+    expect(isReadableTypeSet(work(e(null, 'Epic')), 'work')).toBe(true)
+    expect(isReadableTypeSet(null, 'work')).toBe(true)
+    expect(isReadableTypeSet(work(e(null, 'Epic', { icon: 'new-icon' as never })), 'work')).toBe(false)
+    expect(isReadableTypeSet([{ nope: 1 }], 'class')).toBe(false)
   })
 })

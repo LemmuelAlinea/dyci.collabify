@@ -65,13 +65,22 @@ export function typeSetProblem(set: TaskTypeEntry[], family: TypeFamily): string
   return null
 }
 
-/** A stored set, or the default when what was read isn't one. */
-export function parseTypeSet(raw: unknown, family: TypeFamily): TaskTypeEntry[] {
-  if (!Array.isArray(raw)) return defaultTypeSet(family)
+function parseStored(raw: unknown, family: TypeFamily): TaskTypeEntry[] | null {
+  if (!Array.isArray(raw)) return null
   const set = raw.map((t) => (t && typeof t === 'object'
     ? { slot: t.slot ?? null, name: t.name, description: t.description, color: t.color, icon: t.icon }
     : t)) as TaskTypeEntry[]
-  return set.every((t) => t && isTaskTypeIcon(t.icon)) && typeSetProblem(set, family) === null ? set : defaultTypeSet(family)
+  return set.every((t) => t && isTaskTypeIcon(t.icon)) && typeSetProblem(set, family) === null ? set : null
+}
+
+/** A stored set, or the default when what was read isn't one. */
+export function parseTypeSet(raw: unknown, family: TypeFamily): TaskTypeEntry[] {
+  return parseStored(raw, family) ?? defaultTypeSet(family)
+}
+
+/** False when a stored set exists but can't be shown as it is; saving the default over it would drop its types. */
+export function isReadableTypeSet(raw: unknown, family: TypeFamily): boolean {
+  return raw == null || parseStored(raw, family) !== null
 }
 
 /** The value a task stores for this type: 'task' | 'bug' | name on work, 'Task' | name on class. */

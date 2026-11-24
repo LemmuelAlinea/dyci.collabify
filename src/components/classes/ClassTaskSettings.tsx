@@ -11,7 +11,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { PRIORITIES } from '../../lib/general/types'
 import { checkStages, stagesOf, stagesToSave } from '../../lib/stages'
 import type { ProjectSummary } from '../../lib/types'
-import { parseTypeSet } from '../../lib/taskTypes/typeSet'
+import { isReadableTypeSet, parseTypeSet } from '../../lib/taskTypes/typeSet'
 import { TaskTypesCard } from '../taskTypes/TaskTypesCard'
 
 export function ClassTaskSettings({ classId, readOnly = false }: { classId: string; readOnly?: boolean }) {
@@ -108,6 +108,7 @@ export function ClassTaskSettings({ classId, readOnly = false }: { classId: stri
       shown={saved?.task_type_set_shown ?? ''}
       preset={saved?.task_type_preset ?? null}
       editable={!readOnly}
+      unreadable={!isReadableTypeSet(saved?.task_type_set, 'class')}
       reload={reloadTypes}
     />
     <section className="card space-y-4 p-4 shadow-card sm:p-5">

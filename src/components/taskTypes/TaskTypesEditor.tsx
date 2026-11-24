@@ -36,7 +36,8 @@ const SLOT_LABEL: Record<'default' | 'bug', string> = { default: 'Default', bug:
 const NEW_KEY = 'new'
 
 function rowsOf(set: TaskTypeEntry[]): Keyed[] {
-  return set.map((entry, i) => ({ entry, was: entry.name, key: `${i}:${entry.slot ?? ''}:${entry.name}` }))
+  // Keyed by slot or name, not position, so a moved row keeps its element (and its focused handle).
+  return set.map((entry) => ({ entry, was: entry.name, key: `${entry.slot ?? 'custom'}:${entry.name}` }))
 }
 
 /**
@@ -58,6 +59,14 @@ export function TaskTypesEditor({
   const [stale, setStale] = useState(false)
   const [live, setLive] = useState('')
   const dragged = useRef(false)
+  const list = useRef<HTMLUListElement>(null)
+  const [focusKey, setFocusKey] = useState<string | null>(null)
+
+  // After a keyboard move, the moved row's handle keeps focus through the save and the reload.
+  useEffect(() => {
+    if (!focusKey) return
+    list.current?.querySelector<HTMLElement>(`[data-handle="${CSS.escape(focusKey)}"]`)?.focus()
+  }, [focusKey, rows])
 
   // A new set from the server (after a save or someone else's) resets the rows and the panel.
   useEffect(() => {
@@ -150,6 +159,7 @@ export function TaskTypesEditor({
     next.splice(to, 0, row)
     setRows(next)
     setEditing(null)
+    setFocusKey(`${row.entry.slot ?? 'custom'}:${row.entry.name}`)
     if (await commit(next, 'Task types reordered')) setLive(`${row.entry.name} moved to position ${to + 1}.`)
   }
 
@@ -200,6 +210,7 @@ export function TaskTypesEditor({
       )}
 
       <Reorder.Group
+        ref={list}
         as="ul"
         axis="y"
         values={rows}
@@ -214,7 +225,8 @@ export function TaskTypesEditor({
             key={row.key}
             row={row}
             index={index}
-            editable={editable && !busy}
+            editable={editable}
+            busy={busy}
             reduce={Boolean(reduce)}
             onEdit={() => open(index)}
             onMove={(by) => void move(index, by)}
@@ -281,11 +293,13 @@ export function TaskTypesEditor({
 }
 
 function TypeRowItem({
-  row, index, editable, reduce, onEdit, onMove, onDrop, children,
+  row, index, editable, busy, reduce, onEdit, onMove, onDrop, children,
 }: {
   row: Keyed
   index: number
   editable: boolean
+  /** A save is running: the handle stays (and keeps focus) but moves nothing. */
+  busy: boolean
   reduce: boolean
   onEdit: () => void
   onMove: (by: -1 | 1) => void
@@ -298,7 +312,7 @@ function TypeRowItem({
   function onHandleKey(event: KeyboardEvent) {
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault()
-      onMove(event.key === 'ArrowUp' ? -1 : 1)
+      if (!busy) onMove(event.key === 'ArrowUp' ? -1 : 1)
     }
   }
 
@@ -318,8 +332,10 @@ function TypeRowItem({
           <button
             type="button"
             aria-label={`Move ${entry.name}`}
+            aria-disabled={busy || undefined}
+            data-handle={row.key}
             title="Drag, or use the arrow keys, to reorder"
-            onPointerDown={(event: PointerEvent) => controls.start(event)}
+            onPointerDown={(event: PointerEvent) => { if (!busy) controls.start(event) }}
             onKeyDown={onHandleKey}
             className="flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-faint hover:text-ink active:cursor-grabbing"
           >
@@ -336,6 +352,7 @@ function TypeRowItem({
           <button
             type="button"
             aria-label={`Edit ${entry.name}`}
+            disabled={busy}
             onClick={onEdit}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-[var(--surface-sunken)] hover:text-ink"
           >

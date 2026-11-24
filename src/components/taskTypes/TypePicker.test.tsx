@@ -82,3 +82,17 @@ it('stays shut when disabled', () => {
   act(() => button.click())
   expect(host.querySelector('[role="listbox"]')).toBeNull()
 })
+
+it('closes only itself on Escape inside a dialog', async () => {
+  const { Modal } = await import('../ui/Modal')
+  const onClose = vi.fn()
+  act(() => root.render(
+    <Modal open onClose={onClose} title="New task">
+      <TypePicker label="Type" value="task" options={options} onChange={() => {}} />
+    </Modal>,
+  ))
+  act(() => (document.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement).click())
+  key(document.querySelector('[role="listbox"]') as HTMLElement, 'Escape')
+  expect(document.querySelector('[role="listbox"]')).toBeNull()
+  expect(onClose).not.toHaveBeenCalled()
+})
