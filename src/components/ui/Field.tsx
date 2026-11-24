@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import type { InputHTMLAttributes, ReactNode } from 'react'
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
 
@@ -57,6 +57,10 @@ export function Input({ icon, className = '', ...rest }: InputProps) {
       />
     </div>
   )
+}
+
+export function Textarea({ className = '', ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={`${INPUT_BASE} px-4 py-3 text-[14px] ${className}`} {...rest} />
 }
 
 export function PasswordInput({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {

@@ -1,14 +1,8 @@
-import { useContext } from 'react'
-import { ThemeContext } from '../../context/ThemeContext'
 import { TYPE_ICON_GLYPH } from '../../lib/taskTypes/icons'
 import { typeLook } from '../../lib/taskTypes/look'
 import type { TaskTypeEntry } from '../../lib/taskTypes/typeSet'
 import { Icon } from '../ui/Icon'
-
-/** Light or dark, as the page is drawn; light outside a ThemeProvider. */
-export function useTypeMode(): 'light' | 'dark' {
-  return useContext(ThemeContext)?.resolved ?? 'light'
-}
+import { useTypeMode } from './useTypeMode'
 
 const GLYPH: Record<16 | 20 | 28 | 36, number> = { 16: 11, 20: 13, 28: 16, 36: 20 }
 

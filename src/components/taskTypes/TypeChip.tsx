@@ -2,7 +2,7 @@ import { TYPE_ICON_GLYPH } from '../../lib/taskTypes/icons'
 import { bannerGlyph, typeLook } from '../../lib/taskTypes/look'
 import type { ResolvedType } from '../../lib/taskTypes/typeSet'
 import { Icon } from '../ui/Icon'
-import { useTypeMode } from './TypeIcon'
+import { useTypeMode } from './useTypeMode'
 
 /** The banner's darkest ground, for when the page has no banner color to read. */
 const BANNER_GROUND = '#10162e'

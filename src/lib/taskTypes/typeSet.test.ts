@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TaskTypeEntry } from './typeSet'
 import {
-  defaultTypeSet, parseTypeSet, removedNames, resolveType, typeKey, typeOptions, typeSetProblem, withWas,
+  defaultTypeSet, parseTypeSet, removedNames, resolveType, toDrafts, typeKey, typeOptions, typeSetProblem,
 } from './typeSet'
 
 const e = (slot: TaskTypeEntry['slot'], name: string, extra: Partial<TaskTypeEntry> = {}): TaskTypeEntry => ({
@@ -111,15 +111,18 @@ describe('removedNames', () => {
   })
 })
 
-describe('withWas', () => {
+describe('toDrafts', () => {
   it('marks renamed custom types only', () => {
-    const loaded = work(e(null, 'Epic'), e(null, 'Feature'))
-    const edited = work(e(null, 'Initiative'), e(null, 'Feature'), e(null, 'New'))
-    const drafts = withWas(edited, loaded, new Map([[2, 'Epic']]))
-    expect(drafts[2]).toMatchObject({ name: 'Initiative', was: 'Epic' })
-    expect(drafts[3]).not.toHaveProperty('was')
-    expect(drafts[4]).not.toHaveProperty('was')
+    const drafts = toDrafts([
+      { entry: e('default', 'Research Task'), was: 'Task' },
+      { entry: e(null, 'Initiative'), was: 'Epic' },
+      { entry: e(null, 'Feature'), was: 'Feature' },
+      { entry: e(null, 'New') },
+    ])
+    expect(drafts[1]).toMatchObject({ name: 'Initiative', was: 'Epic' })
     expect(drafts[0]).not.toHaveProperty('was')
+    expect(drafts[2]).not.toHaveProperty('was')
+    expect(drafts[3]).not.toHaveProperty('was')
   })
 })
 

@@ -123,11 +123,11 @@ export function removedNames(set: TaskTypeEntry[], names: (string | null | undef
   return out
 }
 
-/** The set to save: each custom entry renamed in the editor carries the name it was loaded with. */
-export function withWas(edited: TaskTypeEntry[], loaded: TaskTypeEntry[], renames: Map<number, string>): TaskTypeDraft[] {
-  const loadedNames = new Set(loaded.filter((t) => t.slot === null).map((t) => t.name))
-  return edited.map((t, i) => {
-    const was = renames.get(i)
-    return t.slot === null && was && was !== t.name && loadedNames.has(was) ? { ...t, was } : { ...t }
-  })
+/** An editor row: the entry as edited, and its name when the editor loaded it (custom types only). */
+export type TypeRow = { entry: TaskTypeEntry; was?: string }
+
+/** The set to save: a custom type renamed since the editor loaded it carries its old name as `was`. */
+export function toDrafts(rows: TypeRow[]): TaskTypeDraft[] {
+  return rows.map(({ entry, was }) =>
+    entry.slot === null && was && was !== entry.name ? { ...entry, was } : { ...entry })
 }
