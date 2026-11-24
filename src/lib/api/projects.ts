@@ -81,18 +81,29 @@ export type ClassTaskSettings = {
   allow_multiple_assignees: boolean
   require_assignee: boolean
   require_subtasks_done: boolean
+  /** Read only: written through saveTaskTypes (lib/api/taskTypes.ts). */
+  task_type_set?: unknown
+  task_type_set_shown?: string
+  task_type_preset?: string | null
 }
+
+const EDITABLE_CLASS_SETTINGS = [
+  'stages', 'default_priority', 'default_stage', 'allow_subtasks', 'allow_dependencies',
+  'allow_multiple_assignees', 'require_assignee', 'require_subtasks_done',
+] as const
 
 export async function getClassTaskSettings(projectId: string): Promise<ClassTaskSettings> {
   const { data, error } = await supabase.from('projects').select(
-    'stages, task_types, default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done',
+    'stages, task_types, default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done, task_type_set, task_type_set_shown, task_type_preset',
   ).eq('id', projectId).single()
   if (error) throw error
   return data as ClassTaskSettings
 }
 
+/** Saves the settings a professor edits here; task types save on their own (saveTaskTypes). */
 export async function updateClassTaskSettings(projectId: string, settings: ClassTaskSettings) {
-  const { error } = await supabase.from('projects').update(settings).eq('id', projectId)
+  const editable = Object.fromEntries(EDITABLE_CLASS_SETTINGS.map((key) => [key, settings[key]]))
+  const { error } = await supabase.from('projects').update(editable).eq('id', projectId)
   if (error) throw error
 }
 

@@ -8,6 +8,7 @@ import type { FieldType, FieldValue } from './fields'
 import type { GeneralLevel, GeneralPermission, MemberRules, ProjectRole, TaskFlow } from './permissions'
 import type { GeneralTaskStatus } from './progress'
 import type { MilestoneRules } from './milestoneRules'
+import type { TaskTypeEntry } from '../taskTypes/typeSet'
 import type { NotificationRules } from './notificationRules'
 import type { TaskRules } from './taskRules'
 
@@ -65,6 +66,12 @@ export type GeneralProject = {
   taskFlow?: TaskFlow
   /** Extra type choices for work tasks. Task and Bug are built in. */
   taskTypes?: string[]
+  /** The ordered task types with their looks (task-type-looks.sql). Read by getGeneralProject only. */
+  taskTypeSet?: TaskTypeEntry[]
+  /** The set's fingerprint as loaded, sent back with a save. */
+  taskTypeShown?: string
+  /** The last preset applied, or null. */
+  taskTypePreset?: string | null
   /** How milestones are reached, whether they need a due date, may wait for each other and alert when overdue. Read by getGeneralProject only. */
   milestoneRules?: MilestoneRules
   /** What the project sends: sprint, task and milestone reminders and the assignment and completion notices. Read by getGeneralProject only. */

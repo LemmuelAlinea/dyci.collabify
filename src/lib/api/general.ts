@@ -26,6 +26,7 @@ import { DEFAULT_NOTIFICATION_RULES } from '../general/notificationRules'
 import type { MilestoneDueDays, SprintEndDays } from '../general/notificationRules'
 import type { MilestoneCompletion } from '../general/milestoneRules'
 import { DEFAULT_TASK_RULES } from '../general/taskRules'
+import { parseTypeSet } from '../taskTypes/typeSet'
 import type { TaskDependency, TaskRules } from '../general/taskRules'
 import type {
   AdminWorkProject,
@@ -180,7 +181,7 @@ function taskRulesOf(row: TaskRuleRow): TaskRules {
 
 export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
-  const [{ data, error }, stages, look, rules, memberOptions, milestoneOptions, notificationOptions, flowOption] = await Promise.all([
+  const [{ data, error }, stages, look, rules, memberOptions, milestoneOptions, notificationOptions, flowOption, typeLooks] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
     // Its own query, so the stages still load before project-settings-general.sql adds these columns.
@@ -194,6 +195,8 @@ export async function getGeneralProject(projectId: string) {
     supabase.from('general_projects').select(NOTIFICATION_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
     // Its own query, so the project still loads before project-open-tasks.sql adds the column.
     supabase.from('general_projects').select('task_flow, task_types').eq('id', projectId).maybeSingle(),
+    // Its own query, so the project still loads before task-type-looks.sql adds these columns.
+    supabase.from('general_projects').select('task_type_set, task_type_set_shown, task_type_preset').eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
@@ -215,6 +218,9 @@ export async function getGeneralProject(projectId: string) {
   const notificationRow = notificationOptions.error ? null : (notificationOptions.data as NotificationRuleRow | null)
   // Until project-open-tasks.sql is live the column is missing, so the project reads planned. Remove this fallback once it is.
   if (flowOption.error && !isMissingColumn(flowOption.error)) throw flowOption.error
+  // Until task-type-looks.sql is live the columns are missing, so the project reads the default types. Remove this fallback once it is.
+  if (typeLooks?.error && !isMissingColumn(typeLooks.error)) throw typeLooks.error
+  const typeRow = typeLooks?.error ? null : (typeLooks?.data as Record<string, unknown> | null | undefined)
   const taskFlow: TaskFlow = flowOption.error ? 'planned' : ((flowOption.data?.task_flow as TaskFlow | undefined) ?? 'planned')
   return {
     ...(data as GeneralProjectSummary),
@@ -228,6 +234,9 @@ export async function getGeneralProject(projectId: string) {
     taskRules: ruleRow ? taskRulesOf(ruleRow) : DEFAULT_TASK_RULES,
     taskFlow,
     taskTypes: (flowOption.data?.task_types as string[] | undefined) ?? [],
+    taskTypeSet: parseTypeSet(typeRow?.task_type_set, 'work'),
+    taskTypeShown: (typeRow?.task_type_set_shown as string | undefined) ?? '',
+    taskTypePreset: (typeRow?.task_type_preset as string | null | undefined) ?? null,
     memberRules: memberRow
       ? { manageMilestones: memberRow.members_manage_milestones, createTasks: memberRow.members_create_tasks }
       : DEFAULT_MEMBER_RULES,
