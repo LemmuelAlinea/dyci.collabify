@@ -64,3 +64,12 @@
 .stage{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:12px;font-size:16px;font-weight:600;background:var(--surface-sunken);border:1px solid var(--line-strong);white-space:nowrap}
 .btnp{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:12px;font-size:16px;font-weight:700;background:var(--navy-600);color:#fff;white-space:nowrap}
 .mk{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;color:#fff;flex:none;font-family:var(--font-display);font-weight:800;font-size:22px}
+
+/* v3.1 product shots */
+.stp{position:absolute;top:0;display:flex;flex-direction:column;align-items:center;gap:12px;width:120px;margin-left:-60px}
+.stp .dot{width:30px;height:30px;border-radius:50%;background:var(--surface);border:3px solid var(--navy-300);display:grid;place-items:center;box-shadow:0 0 0 6px var(--surface)}
+.stp .dot i{width:12px;height:12px;border-radius:50%;background:var(--navy-600);display:block}
+.stp b{font-size:16px;font-weight:600;white-space:nowrap}
+.stp.new .dot{border-color:#f0b429}.stp.new .dot i{background:#f0b429}
+.rrow{display:flex;align-items:center;gap:20px;padding:18px 22px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:10px}
+.sel2{display:flex;align-items:center;gap:10px;height:42px;padding:0 14px;border:1px solid var(--line-strong);border-radius:11px;background:var(--surface);font-size:15px;font-weight:600;min-width:150px}

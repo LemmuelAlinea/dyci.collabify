@@ -54,51 +54,63 @@
   "text": "Not sure how to pace it? Suggest sprints lays out the cycles for you, from your dates and your work."
  },
  {
-  "id": "v09",
+  "id": "v09a",
   "start": 76.9,
-  "end": 86.052,
-  "text": "Every project, your way. Set the stages, the task rules, priorities, subtasks, and dependencies. Then automate it: when this happens, do that."
+  "end": 78.009,
+  "text": "Every project."
+ },
+ {
+  "id": "v09b",
+  "start": 78.429,
+  "end": 79.219,
+  "text": "Your way."
+ },
+ {
+  "id": "v09c",
+  "start": 79.669,
+  "end": 86.943,
+  "text": "Set the stages, the task rules, priorities, subtasks, and dependencies. Then automate it: when this happens, do that."
  },
  {
   "id": "v10",
-  "start": 88.4,
-  "end": 93.435,
+  "start": 89.4,
+  "end": 94.435,
   "text": "And when it's time to talk, meet right inside Collabify. No links to another app."
  },
  {
   "id": "v11",
-  "start": 96.4,
-  "end": 100.24,
+  "start": 97.4,
+  "end": 101.24,
   "text": "In the classroom, teachers set up each class, its look, and its syllabus."
  },
  {
   "id": "v12",
-  "start": 102.9,
-  "end": 108.148,
+  "start": 103.9,
+  "end": 109.148,
   "text": "Projects start from a brief. Tasks come from a file, and anything off the brief is flagged."
  },
  {
   "id": "v13",
-  "start": 110.2,
-  "end": 114.488,
+  "start": 111.2,
+  "end": 115.488,
   "text": "Groups plan and hand in. Teachers grade with a rubric, right on the work."
  },
  {
   "id": "v14",
-  "start": 116.4,
-  "end": 117.957,
+  "start": 117.4,
+  "end": 118.957,
   "text": "Students rate their team, too."
  },
  {
   "id": "v15",
-  "start": 120.9,
-  "end": 124.484,
+  "start": 121.9,
+  "end": 125.484,
   "text": "And analytics show who needs help, with reports ready to export."
  },
  {
   "id": "v16",
-  "start": 126.9,
-  "end": 129.588,
+  "start": 127.9,
+  "end": 130.588,
   "text": "Collabify. Plan, build, and finish, together."
  }
 ]

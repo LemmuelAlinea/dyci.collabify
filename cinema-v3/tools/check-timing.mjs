@@ -35,7 +35,7 @@ for (const l of lines) {
   const wav = join(root, 'audio/vo', `${l.id}.wav`);
   if (!existsSync(wav)) { errors.push(`${l.id}: missing ${l.id}.wav`); continue; }
   const d = wavSeconds(wav);
-  const start = l.at != null ? T[l.scene] + l.at : prev && prev.scene === l.scene ? prev.end + 0.25 : T[l.scene] + 0.4;
+  const start = l.at != null ? T[l.scene] + l.at : prev && prev.scene === l.scene ? prev.end + (l.gap ?? 0.25) : T[l.scene] + 0.4;
   const end = start + d;
   const limit = nextStart(l.scene) - 0.6;
   if (end > limit) errors.push(`${l.id} (${l.scene}): ends ${end.toFixed(2)} s, beat allows ${limit.toFixed(2)} s (over by ${(end - limit).toFixed(2)} s)`);
