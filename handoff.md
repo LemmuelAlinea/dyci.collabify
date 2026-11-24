@@ -5814,3 +5814,27 @@ accepted." from the setting; no failed requests.
   a window over 52 stages stops early; a cleared milestone link untags the stage's tasks; hand moves clear flags
   without a dependency warning; the upcoming stages are numbered from 1 even midway.
 - Spec `docs/superpowers/specs/2026-11-24-stage-suggestions-design.md`, plan `docs/superpowers/plans/2026-11-24-stage-suggestions.md`.
+
+## 2026-11-25 — Task type icons, colors and presets, on branch `task-type-looks`
+
+- **What.** Every task type has a name, description, color and icon, Task and Bug included. On a work project the
+  project manager (on a class project a professor) edits them in Settings → Tasks → Task types: an inline "Edit task
+  type" panel (name, description, 13 swatches plus a hex field, 68 icons, a preview), "+ Add type", Delete type (asks
+  first, with how many tasks keep the name in gray), drag or arrow keys to reorder. "Browse presets" opens "Explore
+  task type presets" (14 presets); Apply preset replaces the list and names the types with tasks that leave. Every
+  task now shows its type chip (the default included) on the board, list, backlog, sprints, QA queue, task dialog and
+  class cards; pickers show each type's description.
+- **How.** `supabase/task-type-looks.sql` (after `stage-plan.sql`): `task_type_set` jsonb on `general_projects` and
+  `projects`, two fixed slots on work projects (default = null `task_type`, bug = `kind 'bug'`), custom types by name;
+  `save_general_task_types` / `save_class_task_types` take the whole set and the `task_type_set_shown` fingerprint,
+  keep `task_types` in step and rename tasks silently. Front end: `src/lib/taskTypes/` (icons, colors, readable looks,
+  set logic, presets) and `src/components/taskTypes/` (chip, icon, picker, editor, presets dialog, card).
+- SQL applied live with `anon-lockdown.sql`. Suites: `task-type-looks` 77, `project-task-types` 13,
+  `class-task-settings` 19, `anon-lockdown` 15 (the two older suites now set the save flag before their direct writes).
+- Until the frontend ships, the live Settings → Task types save is refused (direct `task_types` writes now need the
+  save functions). One live project uses custom types.
+- Spec `docs/superpowers/specs/2026-11-25-task-type-looks-design.md`, plan `docs/superpowers/plans/2026-11-25-task-type-looks.md`.
+
+**Deferred**
+- Class boards' Backlog and Sprints show no type chip (their items carry no type).
+- The browser check on desktop, tablet and phone in both themes needs a signed-in project manager and professor.

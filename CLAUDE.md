@@ -404,6 +404,17 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   Class tasks gain priority, one-level subtasks, and same-board dependencies. Re-run this file after
   `class-schedule.sql`, `task-stages.sql`, or `tasks.sql` to restore the task view, defaults, and
   typed professor RPCs. Suite: `supabase/tests/class-task-settings.test.sql`.
+- Task type looks (`supabase/task-type-looks.sql`, after `stage-plan.sql`, before `anon-lockdown.sql`): every work and
+  class project keeps `task_type_set`, an ordered list of types with a name, description, color (`#rrggbb`) and icon
+  (`TASK_TYPE_ICONS` in `lib/taskTypes/icons.ts`, held to the SQL list by a test). A work project has two fixed slots,
+  the default (a task with a null `task_type`) and the bug type (`kind = 'bug'`, QA's); a class project has the default
+  only (`task_type = 'Task'`). Custom types match by name; a name the set no longer holds is a removed type, drawn gray.
+  Only `save_general_task_types` (the project manager) and `save_class_task_types` (a professor) write the set; each
+  takes the whole list and the `task_type_set_shown` fingerprint it was loaded with (stale saves are refused), keeps
+  `task_types` in step and carries a renamed type's tasks with it (`was`). Presets are front-end data
+  (`lib/taskTypes/presets.ts`); applying one replaces the list. Draw types with `TypeChip` / `TypeIcon` and pick them
+  with `TypePicker` (`components/taskTypes/`), colors through `typeLook` (never a raw hex in a class name). Settings
+  uses `TaskTypesCard`. Suite: `supabase/tests/task-type-looks.test.sql`.
 - Space workload (`supabase/work-workload.sql`, after `section-students.sql`, before `anon-lockdown.sql`): owns
   `general_tasks.estimated_minutes` (1-60000, work projects only; a signed-in change goes through `set_work_task_estimate`
   under `collabify.estimate_write`, planners or the holder, one `updated` history row), `general_space_capacity` (weekly
