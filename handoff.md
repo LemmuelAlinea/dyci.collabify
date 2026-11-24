@@ -5805,4 +5805,12 @@ accepted." from the setting; no failed requests.
   milestone and due dates, hours by priority, the buffer only from overflow). Released tasks only.
 - `work-ai` is deployed with the `stages` action. Suites: `supabase/tests/stage-plan.test.sql`,
   `src/lib/work/stagePlan.test.ts`, `src/components/work/SuggestStagesDialog.test.tsx`.
+- Checked in the browser on a throwaway project (now in Trash): setup numbers, a 4-stage draft with a 2-week buffer,
+  a hand move with live totals, Apply, a midway re-plan that keeps the running stage, and the stale refusal. That check
+  caught three bugs the SQL suite now pins: the API's pg_safeupdate refuses a DELETE with no WHERE, a
+  `serialization_failure` errcode makes the API retry forever (use `object_not_in_prerequisite_state`), and a 1-day
+  leftover became its own stage (a leftover under half a stage now joins the last one).
+- Deferred (minor): review-state tasks aren't in the planning count; no end date with zero hours gives 26 empty stages;
+  a window over 52 stages stops early; a cleared milestone link untags the stage's tasks; hand moves clear flags
+  without a dependency warning; the upcoming stages are numbered from 1 even midway.
 - Spec `docs/superpowers/specs/2026-11-24-stage-suggestions-design.md`, plan `docs/superpowers/plans/2026-11-24-stage-suggestions.md`.
