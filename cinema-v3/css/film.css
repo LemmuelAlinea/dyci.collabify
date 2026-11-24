@@ -30,3 +30,11 @@
 .spacechip span{display:grid;place-items:center}
 
 #fx-sweep{position:absolute;left:50%;top:-200px;width:360px;height:1500px;margin-left:-180px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,236,190,.55) 45%,rgba(255,255,255,.85) 50%,rgba(255,236,190,.55) 55%,transparent);transform:skewX(-18deg);filter:blur(14px);mix-blend-mode:screen;opacity:0}
+
+/* hook clip */
+#hookwrap{position:absolute;inset:0;overflow:hidden;background:#05071a}
+#hook{position:absolute;left:-2%;top:-2%;width:104%;height:104%;object-fit:cover;filter:brightness(.78) saturate(.92) contrast(1.06)}
+.ping{position:absolute;display:flex;align-items:center;gap:18px;padding:16px 26px 16px 16px;border-radius:22px;background:rgba(12,17,48,.72);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(10px);box-shadow:0 20px 50px rgba(0,0,0,.5);color:#f1f3fb;font-family:var(--font-sans);white-space:nowrap}
+.ping .pi{width:60px;height:60px;border-radius:16px;display:grid;place-items:center;flex:none}
+.ping b{display:block;font-size:28px;font-weight:600;line-height:1.2}
+.ping s{display:block;text-decoration:none;font-size:19px;color:#aeb6d4;font-family:var(--font-mono)}
