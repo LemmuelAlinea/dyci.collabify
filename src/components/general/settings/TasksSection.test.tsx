@@ -9,6 +9,7 @@ import type { GeneralProjectState } from '../useGeneralProject'
 import { previewTaskFlow, setTaskFlow, updateGeneralProject } from '../../../lib/api/general'
 import { DEFAULT_TASK_RULES } from '../../../lib/general/taskRules'
 import { useToast } from '../../ui/Toast'
+import { saveTaskTypes } from '../../../lib/api/taskTypes'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -16,6 +17,11 @@ vi.mock('../../ui/Toast', () => {
   const show = vi.fn()
   return { useToast: () => ({ show }) }
 })
+vi.mock('../../../lib/api/taskTypes', () => ({
+  saveTaskTypes: vi.fn(async () => {}),
+  taskTypeCounts: vi.fn(async () => new Map()),
+  isStaleTypes: () => false,
+}))
 vi.mock('../../../lib/api/general', () => ({
   updateGeneralProject: vi.fn(async () => {}),
   setTaskFlow: vi.fn(async () => 3),
@@ -112,16 +118,32 @@ it('titles the panel and shows every control with its label', async () => {
   expect(host.textContent).toContain("Turning this off keeps current holders; tasks just can't get another.")
 })
 
-it('saves custom task types for the project manager', async () => {
-  await show(makeState({}, { taskTypes: ['Research'] }))
-  await act(async () => button('Add type')!.click())
-  const input = host.querySelector<HTMLInputElement>('[aria-label="Custom task type 2"]')!
+it('edits task types for the project manager and saves through the type set', async () => {
+  const taskTypeSet = [
+    { slot: 'default', name: 'Task', description: '', color: '#2563eb', icon: 'square-check' },
+    { slot: 'bug', name: 'Bug', description: '', color: '#dc2626', icon: 'bug' },
+    { slot: null, name: 'Research', description: '', color: '#0891b2', icon: 'tag' },
+  ]
+  await show(makeState({}, { taskTypes: ['Research'], taskTypeSet, taskTypeShown: 's1', taskTypePreset: null }))
+  expect(host.textContent).toContain('Manage how work is categorized within this project.')
+  expect(button('Browse presets')).toBeDefined()
+  await act(async () => button('Edit Research')!.click())
+  const input = host.querySelector<HTMLInputElement>('[aria-label="Name"]')!
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Design')
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
-  await act(async () => button('Save task types')!.click())
-  expect(updateGeneralProject).toHaveBeenCalledWith('p1', { task_types: ['Research', 'Design'] })
+  await act(async () => button('Save type')!.click())
+  expect(saveTaskTypes).toHaveBeenCalledWith('work', 'p1', [
+    taskTypeSet[0], taskTypeSet[1], { ...taskTypeSet[2], name: 'Design', was: 'Research' },
+  ], 's1', null)
+  expect(reload).toHaveBeenCalled()
+})
+
+it('shows task types read-only to a coordinator', async () => {
+  await show(makeState({ myRole: 'coordinator' }))
+  expect(host.textContent).toContain('Only the project manager changes task types.')
+  expect(button('+ Add type')).toBeUndefined()
 })
 
 it('disables every task rule control for somebody who cannot edit', async () => {

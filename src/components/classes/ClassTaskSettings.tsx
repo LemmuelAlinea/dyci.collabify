@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
-import { Input, Toggle } from '../ui/Field'
+import { Toggle } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { StagesEditor } from '../tasks/StagesEditor'
@@ -11,6 +11,8 @@ import { authErrorMessage } from '../../lib/authError'
 import { PRIORITIES } from '../../lib/general/types'
 import { checkStages, stagesOf, stagesToSave } from '../../lib/stages'
 import type { ProjectSummary } from '../../lib/types'
+import { parseTypeSet } from '../../lib/taskTypes/typeSet'
+import { TaskTypesCard } from '../taskTypes/TaskTypesCard'
 
 export function ClassTaskSettings({ classId, readOnly = false }: { classId: string; readOnly?: boolean }) {
   const { show } = useToast()
@@ -53,7 +55,6 @@ export function ClassTaskSettings({ classId, readOnly = false }: { classId: stri
   const stages = stagesOf(draft.stages)
   const startLimit = stages.length - 2
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setDraft((current) => current && ({ ...current, [key]: value }))
-  const names = draft.task_types
   const switches: { key: keyof Settings; label: string; description: string }[] = [
     { key: 'allow_subtasks', label: 'Allow subtasks', description: 'Let people add one level of subtasks.' },
     { key: 'allow_dependencies', label: 'Allow dependencies', description: 'Let tasks wait for other tasks.' },
@@ -62,17 +63,23 @@ export function ClassTaskSettings({ classId, readOnly = false }: { classId: stri
     { key: 'require_subtasks_done', label: 'Require all subtasks to be done first', description: 'Finish every subtask before its parent.' },
   ]
 
+  // The type card saves on its own; only the type fields are read back, so other unsaved edits stay.
+  async function reloadTypes() {
+    const fresh = await getClassTaskSettings(projectId)
+    const types = {
+      task_types: fresh.task_types, task_type_set: fresh.task_type_set,
+      task_type_set_shown: fresh.task_type_set_shown, task_type_preset: fresh.task_type_preset,
+    }
+    setSaved((current) => current && { ...current, ...types })
+    setDraft((current) => current && { ...current, ...types })
+  }
+
   async function save() {
     if (!draft) return
     const problem = checkStages(stages)
     if (problem) return setError(`Task workflow steps: ${problem}`)
-    const cleaned = names.map((name) => name.trim())
-    if (cleaned.some((name) => !name || name.length > 40 || name.toLowerCase() === 'task')
-      || new Set(cleaned.map((name) => name.toLowerCase())).size !== cleaned.length) {
-      return setError('Use distinct task type names of 1 to 40 characters, apart from Task.')
-    }
     const next = {
-      ...draft, stages: stagesToSave(stages), task_types: cleaned,
+      ...draft, stages: stagesToSave(stages),
       default_stage: draft.require_assignee ? 0 : Math.min(draft.default_stage, startLimit),
     }
     setBusy(true)
@@ -94,16 +101,15 @@ export function ClassTaskSettings({ classId, readOnly = false }: { classId: stri
       <header><h2>Task workflow steps</h2><p className="text-[12px] text-muted">The columns this project's tasks move through.</p></header>
       <StagesEditor value={stages} onChange={(value) => set('stages', stagesToSave(value))} disabled={busy || readOnly} />
     </section>
-    <section className="card space-y-4 p-4 shadow-card sm:p-5">
-      <header><h2>Task types</h2><p className="text-[12px] text-muted">Add choices alongside Task. Existing tasks keep a type you remove.</p></header>
-      <p className="text-[13px] text-muted">Built in: Task</p>
-      {names.map((name, index) => <div key={index} className="flex max-w-md gap-2">
-        <Input aria-label={`Custom task type ${index + 1}`} value={name} maxLength={40} disabled={busy || readOnly}
-          onChange={(e) => set('task_types', names.map((value, i) => i === index ? e.target.value : value))} />
-        <Button variant="ghost" disabled={busy || readOnly} onClick={() => set('task_types', names.filter((_, i) => i !== index))}>Remove</Button>
-      </div>)}
-      <Button variant="outline" disabled={busy || readOnly || names.length >= 20} onClick={() => set('task_types', [...names, ''])}>Add type</Button>
-    </section>
+    <TaskTypesCard
+      family="class"
+      projectId={projectId}
+      set={parseTypeSet(saved?.task_type_set, 'class')}
+      shown={saved?.task_type_set_shown ?? ''}
+      preset={saved?.task_type_preset ?? null}
+      editable={!readOnly}
+      reload={reloadTypes}
+    />
     <section className="card space-y-4 p-4 shadow-card sm:p-5">
       <header><h2>Task rules</h2><p className="text-[12px] text-muted">Defaults and limits for this project's tasks.</p></header>
       <label className="block space-y-1"><span className="text-[13px]">Default priority</span>
