@@ -226,7 +226,7 @@ const BASE_GROUND: Record<Mode, Ground> = {
 /** Where dark mode's depth slider ends: black, with the layers still telling apart. */
 const BLACK_GROUND: Ground = { page: '#000000', surface: '#0b0b0d', sunken: '#131316', raised: '#18181c' }
 
-function mix(a: string, b: string, t: number): string {
+export function mix(a: string, b: string, t: number): string {
   const [x, y] = [hexToRgb(a), hexToRgb(b)]
   return rgbToHex([0, 1, 2].map((i) => x[i] + (y[i] - x[i]) * t) as RGB)
 }
@@ -429,7 +429,7 @@ export function bannerReadable(picks: Picks, mode: Mode): boolean {
 }
 
 /** Pushes `fg` until it reads at `ratio` on the worse of `grounds`. */
-function withContrastAll(fg: string, grounds: string[], ratio: number): string {
+export function withContrastAll(fg: string, grounds: string[], ratio: number): string {
   let out = fg
   for (let i = 0; i < 3; i++) {
     const worst = grounds.reduce((a, b) => (contrast(out, b) < contrast(out, a) ? b : a))
