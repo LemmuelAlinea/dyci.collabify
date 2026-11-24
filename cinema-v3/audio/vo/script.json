@@ -4,7 +4,7 @@
  {"id": "v02", "scene": "s01", "text": "Welcome to Collabify. One place where classes and teams plan, build, and finish together."},
  {"id": "v03", "scene": "s02", "text": "Make it yours. Pick every color, from your banners to your status highlights. Light, or dark."},
  {"id": "v04", "scene": "s03", "text": "Start with a work space. Every project your team runs lives here, with its own look, overview, and reports."},
- {"id": "v05", "scene": "s04", "text": "Give everyone a role: project manager, coordinator, member, QA, or stakeholder. Then build teams, with leads, positions, and the skills each person brings."},
+ {"id": "v05", "scene": "s04", "text": "Give everyone a role: project manager, coordinator, member, QA, or stakeholder. Then build teams, with leads, positions, and the skills each person brings.", "say": "Give everyone a role: project manager, coordinator, member, Q A, or stakeholder. Then build teams, with leads, positions, and the skills each person brings."},
  {"id": "v06", "scene": "s05", "text": "Turn a file or a meeting into work. Upload a plan, or pick a saved discussion, and Collabify drafts the tasks. You keep only what you want."},
  {"id": "v07", "scene": "s06", "text": "Too much for one person? Break down and balance splits a big task, and gives each piece to someone with the skills, and the hours, to do it."},
  {"id": "v08", "scene": "s07", "text": "Not sure how to pace it? Suggest sprints lays out the cycles for you, from your dates and your work."},

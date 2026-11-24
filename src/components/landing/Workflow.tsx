@@ -11,7 +11,7 @@ import { BlueprintField, Glow, Kicker, Shell } from "./parts";
  * until the visitor presses play, and the file is not fetched before then.
  *
  * The captions track carries the voice-over, so the section still reads with
- * the sound off. The film is 2 minutes 15 seconds; the chapter times below are
+ * the sound off. The film is 2 minutes 16 seconds; the chapter times below are
  * where each part opens.
  */
 
@@ -63,17 +63,17 @@ const CHAPTERS = [
     body: "Stages, task rules, priorities, subtasks, dependencies and workflow rules.",
   },
   {
-    at: 88,
+    at: 89,
     title: "Meetings",
     body: "Video calls inside Collabify, with screen sharing.",
   },
   {
-    at: 96,
+    at: 97,
     title: "Classes and class projects",
     body: "Each class with its look and syllabus. Tasks drafted from a file are checked against the project brief.",
   },
   {
-    at: 109.8,
+    at: 110.8,
     title: "Grading, peer ratings and analytics",
     body: "Groups hand in, teachers grade with a rubric, students rate their team and analytics show who needs help.",
   },
@@ -91,13 +91,13 @@ export function Workflow() {
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
-  const [duration, setDuration] = useState(135);
+  const [duration, setDuration] = useState(136);
 
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     const onTime = () => setTime(v.currentTime);
-    const onMeta = () => setDuration(v.duration || 135);
+    const onMeta = () => setDuration(v.duration || 136);
     const onPlay = () => {
       setStarted(true);
       setPlaying(true);
