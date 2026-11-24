@@ -1,6 +1,6 @@
 # Suggest stages
 
-Status: approved approach, awaiting design approval · 2026-11-24
+Status: approved · 2026-11-24
 
 ## Intent
 
@@ -56,7 +56,7 @@ The owner picked A.
 
 ### Who and where
 
-- The button sits in the Stages section's "Coming up" header, next to Create stage, for the project manager and
+- The button sits at the top of the Stages section (the "Coming up" header is in Backlog), for the project manager and
   coordinators (`work_is_project_planner`) of a live, unarchived work project. (Members with the `manage_tasks` grant
   can create stages, but the plan reads people's hours, which only planners read.) My call.
 - It opens a dialog in two steps, like Break down and balance: a short setup, then the review.

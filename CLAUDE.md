@@ -455,6 +455,13 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   parent's `updated` history row with `by: 'subtasks'`, credited to whoever changed the subtask. Break down and balance
   gives a subtask due on the parent's due day the parent's time and moves the parent once. Suite:
   `supabase/tests/subtask-dates.test.sql`.
+- Suggest stages (`supabase/stage-plan.sql`, after `subtask-dates.sql`, before `anon-lockdown.sql`): Plan → Stages
+  offers the project manager and coordinators of a live work project a drafted plan for every stage still to come.
+  `general_stage_plan_context` does the numbers (window, back-to-back slots, free team hours per slot, the buffer, the
+  released tasks to place, a `shown` fingerprint); `work-ai` `stages` only places t1… into s1… and names each stage;
+  `_shared/stagePlan.ts` (`checkStagePlan`, `stageTotals`) repairs and totals it; `apply_stage_plan` writes it in one
+  transaction (running and finished stages never change; a stale fingerprint is refused). App: `SuggestStagesDialog`
+  from `SprintsView`, set by `WorkSource.suggestStages`. Suite: `supabase/tests/stage-plan.test.sql`.
 - Active now (`supabase/active-status.sql`, after `send-to-planner.sql`, before `anon-lockdown.sql`): each open tab
   calls `touch_presence` about once a minute (`usePresenceHeartbeat` in `AppShell`); the Inbox lists
   `my_active_contacts()` (people who share a live class, work space or work project, seen in the last hour). Anyone
