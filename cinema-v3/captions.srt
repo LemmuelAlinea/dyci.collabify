@@ -1,0 +1,115 @@
+1
+00:00:00,900 --> 00:00:04,335
+Chats in one app. Files in another. Deadlines in your head.
+
+2
+00:00:04,585 --> 00:00:06,825
+What if your whole project lived in one place?
+
+3
+00:00:09,900 --> 00:00:11,178
+Welcome to Collabify.
+
+4
+00:00:11,178 --> 00:00:15,255
+One place where classes and teams plan, build, and finish together.
+
+5
+00:00:16,900 --> 00:00:21,346
+Make it yours. Pick every color, from your banners to your status highlights.
+
+6
+00:00:21,346 --> 00:00:22,212
+Light, or dark.
+
+7
+00:00:26,400 --> 00:00:27,868
+Start with a work space.
+
+8
+00:00:27,868 --> 00:00:32,885
+Every project your team runs lives here, with its own look, overview, and reports.
+
+9
+00:00:34,900 --> 00:00:40,197
+Give everyone a role: project manager, coordinator, member, QA, or stakeholder.
+
+10
+00:00:40,197 --> 00:00:45,225
+Then build teams, with leads, positions, and the skills each person brings.
+
+11
+00:00:46,900 --> 00:00:49,238
+Turn a file or a meeting into work.
+
+12
+00:00:49,238 --> 00:00:54,182
+Upload a plan, or pick a saved discussion, and Collabify drafts the tasks.
+
+13
+00:00:54,182 --> 00:00:56,052
+You keep only what you want.
+
+14
+00:00:57,900 --> 00:00:59,314
+Too much for one person?
+
+15
+00:00:59,314 --> 00:01:06,092
+Break down and balance splits a big task, and gives each piece to someone with the skills, and the hours, to do it.
+
+16
+00:01:08,200 --> 00:01:09,576
+Not sure how to pace it?
+
+17
+00:01:09,576 --> 00:01:13,875
+Suggest sprints lays out the cycles for you, from your dates and your work.
+
+18
+00:01:16,900 --> 00:01:18,009
+Every project.
+
+19
+00:01:18,429 --> 00:01:19,219
+Your way.
+
+20
+00:01:19,669 --> 00:01:24,121
+Set the stages, the task rules, priorities, subtasks, and dependencies.
+
+21
+00:01:24,121 --> 00:01:26,943
+Then automate it: when this happens, do that.
+
+22
+00:01:29,400 --> 00:01:34,435
+And when it's time to talk, meet right inside Collabify. No links to another app.
+
+23
+00:01:37,400 --> 00:01:41,240
+In the classroom, teachers set up each class, its look, and its syllabus.
+
+24
+00:01:43,900 --> 00:01:45,533
+Projects start from a brief.
+
+25
+00:01:45,533 --> 00:01:49,148
+Tasks come from a file, and anything off the brief is flagged.
+
+26
+00:01:51,200 --> 00:01:55,488
+Groups plan and hand in. Teachers grade with a rubric, right on the work.
+
+27
+00:01:57,400 --> 00:01:58,957
+Students rate their team, too.
+
+28
+00:02:01,900 --> 00:02:05,484
+And analytics show who needs help, with reports ready to export.
+
+29
+00:02:07,900 --> 00:02:10,588
+Collabify. Plan, build, and finish, together.

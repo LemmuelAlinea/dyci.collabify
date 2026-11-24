@@ -11,60 +11,71 @@ import { BlueprintField, Glow, Kicker, Shell } from "./parts";
  * until the visitor presses play, and the file is not fetched before then.
  *
  * The captions track carries the voice-over, so the section still reads with
- * the sound off. The film is 80 seconds; the chapter times below are where each
- * part opens.
+ * the sound off. The film is 2 minutes 16 seconds; the chapter times below are
+ * where each part opens.
  */
 
 const SRC = "/video/collabify-film.mp4";
 const POSTER = "/video/collabify-film-poster.jpg";
 const CAPTIONS = "/video/collabify-film.en.vtt";
 
-// Start times are where each part opens in the film.
+// Start times are where each part opens in the film (cinema-v3/timings.json).
+// The opening line, before 9.5 s, has no chapter.
 const CHAPTERS = [
   {
-    at: 0,
+    at: 9.5,
     title: "Meet Collabify",
-    body: "The project workspace where classes and teams plan, build and finish together.",
+    body: "One place where classes and teams plan, build and finish together.",
   },
   {
-    at: 7,
+    at: 16.5,
     title: "Make it yours",
     body: "Your own colors for banners, statuses, the sidebar and progress, in light or dark.",
   },
   {
-    at: 15,
-    title: "Two spaces",
-    body: "An educational space for classes and a work space for teams.",
+    at: 26,
+    title: "Work spaces",
+    body: "Every project your team runs, each with its own look, overview and reports.",
   },
   {
-    at: 19,
-    title: "Build from the syllabus",
-    body: "Professors pick the weeks, take a suggested name and let AI draft the brief and rubric.",
+    at: 34.5,
+    title: "Roles, teams and skills",
+    body: "Project manager, coordinator, member, QA or stakeholder, with team leads, positions and skills.",
   },
   {
-    at: 27,
-    title: "Plan by voice",
-    body: "Record in a discussion. Collabify transcribes it, saves a discussion file and drafts the tasks. Nothing is added until you choose.",
+    at: 46.5,
+    title: "Tasks from a file or a discussion",
+    body: "Upload a plan or pick a saved discussion. Collabify drafts the tasks and you keep what you want.",
   },
   {
-    at: 36,
-    title: "Board, files, hand-in",
-    body: "Tasks sit on one board. Files go from draft to review to Main. The group hands in and the professor accepts.",
+    at: 57.5,
+    title: "Break down and balance",
+    body: "AI splits a big task and gives each piece to someone with the skills and the hours.",
   },
   {
-    at: 48,
-    title: "Start from a template, or blank",
-    body: "Add your own fields, upload files and share them with the team.",
+    at: 67.8,
+    title: "Suggest sprints",
+    body: "Sprints laid out from your dates and your work.",
   },
   {
-    at: 59,
-    title: "Teams and positions",
-    body: "Set up teams and every member's position, so the project fits the people on it.",
+    at: 76.5,
+    title: "Project settings",
+    body: "Stages, task rules, priorities, subtasks, dependencies and workflow rules.",
   },
   {
-    at: 67,
-    title: "Summarize long files",
-    body: "Open a long paper on Main and get its key points in one step.",
+    at: 89,
+    title: "Meetings",
+    body: "Video calls inside Collabify, with screen sharing.",
+  },
+  {
+    at: 97,
+    title: "Classes and class projects",
+    body: "Each class with its look and syllabus. Tasks drafted from a file are checked against the project brief.",
+  },
+  {
+    at: 110.8,
+    title: "Grading, peer ratings and analytics",
+    body: "Groups hand in, teachers grade with a rubric, students rate their team and analytics show who needs help.",
   },
 ];
 
@@ -80,13 +91,13 @@ export function Workflow() {
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
-  const [duration, setDuration] = useState(80);
+  const [duration, setDuration] = useState(136);
 
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     const onTime = () => setTime(v.currentTime);
-    const onMeta = () => setDuration(v.duration || 80);
+    const onMeta = () => setDuration(v.duration || 136);
     const onPlay = () => {
       setStarted(true);
       setPlaying(true);
@@ -152,13 +163,13 @@ export function Workflow() {
             <div className="lg:col-span-5 lg:row-start-1 lg:self-end">
               <Kicker>How it runs</Kicker>
               <h2 className="mt-5 font-display text-[clamp(28px,4.2vw,46px)] leading-[1.08] font-bold tracking-[-0.04em] text-amber-50">
-                Watch a chat become
+                Your whole project,
                 <br />
-                <span className="text-amber-300">the plan.</span>
+                <span className="text-amber-300">in one place.</span>
               </h2>
               <p className="mt-4 max-w-md text-[15px] leading-relaxed text-amber-50/60">
-                Eighty seconds, from the first conversation to a project handed
-                in. Pick a chapter to jump to it.
+                Two minutes, from a work space to a graded class project. Pick a
+                chapter to jump to it.
               </p>
             </div>
             {/* ---------------------------------------------------- player */}

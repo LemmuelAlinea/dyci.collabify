@@ -1,0 +1,9 @@
+node_modules/
+renders/
+snapshots/
+audio/tmp/
+*.mp4
+!assets/hook.mp4
+.hyperframes/
+audio/mix.wav
+audio/vo/*.wav

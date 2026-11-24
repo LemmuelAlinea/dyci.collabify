@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Collabify launch film v3</title>
+<link rel="stylesheet" href="css/ui.css">
+<link rel="stylesheet" href="css/film.css">
+<style>
+@font-face{font-family:'Outfit';font-weight:400;src:url('assets/fonts/outfit-400.woff2') format('woff2')}
+@font-face{font-family:'Outfit';font-weight:500;src:url('assets/fonts/outfit-500.woff2') format('woff2')}
+@font-face{font-family:'Outfit';font-weight:600;src:url('assets/fonts/outfit-600.woff2') format('woff2')}
+@font-face{font-family:'Outfit';font-weight:700;src:url('assets/fonts/outfit-700.woff2') format('woff2')}
+@font-face{font-family:'Outfit';font-weight:800;src:url('assets/fonts/outfit-800.woff2') format('woff2')}
+@font-face{font-family:'Instrument Sans';font-weight:400;src:url('assets/fonts/instrument-sans-400.woff2') format('woff2')}
+@font-face{font-family:'Instrument Sans';font-weight:500;src:url('assets/fonts/instrument-sans-500.woff2') format('woff2')}
+@font-face{font-family:'Instrument Sans';font-weight:600;src:url('assets/fonts/instrument-sans-600.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url('assets/fonts/jetbrains-mono-400.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:500;src:url('assets/fonts/jetbrains-mono-500.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:700;src:url('assets/fonts/jetbrains-mono-700.woff2') format('woff2')}
+</style>
+<script src="js/gsap.min.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/timings.js"></script>
+<script src="js/kit.js"></script>
+<script src="js/screens.js"></script>
+<script src="js/beat.js"></script>
+<script src="js/fly.js"></script>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="136" data-width="1920" data-height="1080">
+
+  <!-- the ground: lives under every scene -->
+  <div id="ground">
+    <div id="g-glow"></div>
+    <div id="floorwrap"><div id="floor"></div></div>
+    <div id="dust"></div>
+    <div id="beam1" class="beam"></div><div id="beam2" class="beam"></div>
+  </div>
+
+  <!-- the hook clip (Higgsfield, Minimax Hailuo from the Soul Cinema still), slowed to fill the beat -->
+  <div id="hookwrap"><video id="hook" class="clip" src="assets/hook.mp4" data-start="0" data-duration="9.4" data-playback-rate="0.62" data-track-index="20" muted playsinline></video></div>
+
+  <section id="s00" class="scene clip" data-start="0" data-duration="10" data-track-index="1"></section>
+  <section id="s01" class="scene clip" data-start="9" data-duration="8" data-track-index="2"></section>
+  <section id="s02" class="scene clip" data-start="16" data-duration="10.5" data-track-index="3"></section>
+  <section id="s03" class="scene clip" data-start="25.5" data-duration="9.5" data-track-index="4"></section>
+  <section id="s04" class="scene clip" data-start="34" data-duration="13" data-track-index="5"></section>
+  <section id="s05" class="scene clip" data-start="46" data-duration="12" data-track-index="6"></section>
+  <section id="s06" class="scene clip" data-start="57" data-duration="11.3" data-track-index="7"></section>
+  <section id="s07" class="scene clip" data-start="67.3" data-duration="9.7" data-track-index="8"></section>
+  <section id="s08" class="scene clip" data-start="76" data-duration="13.5" data-track-index="9"></section>
+  <section id="s09" class="scene clip" data-start="88.5" data-duration="9" data-track-index="10"></section>
+  <section id="s10" class="scene clip" data-start="96.5" data-duration="7.5" data-track-index="11"></section>
+  <section id="s11" class="scene clip" data-start="103" data-duration="8.3" data-track-index="12"></section>
+  <section id="s12" class="scene clip" data-start="110.3" data-duration="7.2" data-track-index="13"></section>
+  <section id="s13" class="scene clip" data-start="116.5" data-duration="5.5" data-track-index="14"></section>
+  <section id="s14" class="scene clip" data-start="121" data-duration="7" data-track-index="15"></section>
+  <section id="s15" class="scene clip" data-start="127" data-duration="9" data-track-index="16"></section>
+
+  <div id="chips" data-layout-ignore><div class="chiprow"><div id="chip-work" class="spacechip" style="color:#8dc7ff"><span>BRIEFICON</span><b>Work space</b></div><div id="chip-edu" class="spacechip"><span style="color:#f7c74a">CAPICON</span><b>Educational space</b></div></div></div>
+
+  <!-- finishing layers -->
+  <div id="fx-sweep"></div>
+  <div id="fx-vig"></div>
+  <div id="fx-grain"></div>
+  <div id="fx-flash"></div>
+  <div id="fx-fade"></div>
+
+  <audio id="mix" src="audio/mix.wav" data-start="0" data-duration="136" data-track-index="30" data-volume="1"></audio>
+</div>
+
+<script src="js/s00.js"></script>
+<script src="js/s01.js"></script>
+<script src="js/s02.js"></script>
+<script src="js/s03.js"></script>
+<script src="js/s04.js"></script>
+<script src="js/s05.js"></script>
+<script src="js/s06.js"></script>
+<script src="js/s07.js"></script>
+<script src="js/s08.js"></script>
+<script src="js/s09.js"></script>
+<script src="js/s10.js"></script>
+<script src="js/s11.js"></script>
+<script src="js/s12.js"></script>
+<script src="js/s13.js"></script>
+<script src="js/s14.js"></script>
+<script src="js/s15.js"></script>
+<script>
+(function () {
+  const faces = ['400 16px Outfit','500 16px Outfit','600 16px Outfit','700 16px Outfit','800 16px Outfit','400 16px "Instrument Sans"','500 16px "Instrument Sans"','600 16px "Instrument Sans"','400 16px "JetBrains Mono"','500 16px "JetBrains Mono"','700 16px "JetBrains Mono"'];
+  Promise.all(faces.map((f) => document.fonts.load(f))).then(build, build);
+  function build() {
+  const tl = gsap.timeline({ paused: true });
+  window.TL = tl;
+  const r = rng(7);
+  const END = T.end;
+
+  /* ground: dust, floor, beams */
+  const dust = document.getElementById('dust');
+  for (let i = 0; i < 90; i++) {
+    const d = document.createElement('i');
+    const z = r();
+    const s = 2 + z * 5;
+    d.style.cssText = `position:absolute;left:${r() * 1920}px;top:${r() * 1300 - 100}px;width:${s}px;height:${s}px;border-radius:50%;background:${r() > 0.35 ? '#f7c74a' : '#aeb8e1'};opacity:${0.15 + z * 0.5};filter:blur(${(1 - z) * 2.2}px)`;
+    dust.appendChild(d);
+    tl.to(d, { y: -(240 + z * 700), x: (r() - 0.5) * 200, duration: END, ease: 'none' }, 0);
+  }
+  tl.to('#floor', { backgroundPositionY: 1100, duration: END, ease: 'none' }, 0);
+  tl.fromTo('#beam1', { x: -300, opacity: 0.0 }, { x: 260, opacity: 0.55, duration: 30, ease: 'sine.inOut', yoyo: true, repeat: 3 }, 0);
+  tl.fromTo('#beam2', { x: 300, opacity: 0.0 }, { x: -240, opacity: 0.4, duration: 26, ease: 'sine.inOut', yoyo: true, repeat: 4 }, 2);
+
+  /* scenes */
+  (window.SCENES || []).forEach((s) => s(tl));
+
+  /* a light streak crosses the frame on every cut after the hook */
+  const ids = Object.keys(T).filter((k) => k !== 'end' && k !== 's00' && k !== 's01');
+  ids.forEach((k) => {
+    const t = T[k] - 0.05;
+    tl.fromTo('#fx-sweep', { x: -2300, opacity: 0.0 }, { x: 2300, opacity: 0.9, duration: 0.55, ease: 'power2.inOut', immediateRender: false }, t);
+    tl.to('#fx-sweep', { opacity: 0, duration: 0.01 }, t + 0.56);
+  });
+  gsap.set('#fx-sweep', { opacity: 0 });
+
+  /* persistent space chips: work space beats, then educational beats */
+  document.querySelector('#chip-edu span').innerHTML = ic('cap', 20);
+  document.querySelector('#chip-work span').innerHTML = ic('brief', 20);
+  gsap.set(['#chip-edu', '#chip-work'], { opacity: 0, y: -24 });
+  tl.to('#chip-work', { opacity: 1, y: 0, duration: 0.6, ease: 'expo.out' }, T.s03 + 0.5);
+  tl.to('#chip-work', { opacity: 0, y: -24, duration: 0.4, ease: 'power2.in' }, T.s10 - 0.5);
+  tl.to('#chip-edu', { opacity: 1, y: 0, duration: 0.6, ease: 'expo.out' }, T.s10 + 0.5);
+  tl.to('#chip-edu', { opacity: 0, y: -24, duration: 0.4, ease: 'power2.in' }, T.s15 - 0.5);
+
+  /* master fade in / out */
+  tl.fromTo('#fx-fade', { opacity: 1 }, { opacity: 0, duration: 0.25, ease: 'none' }, 0);
+  tl.fromTo('#fx-fade', { opacity: 0 }, { opacity: 1, duration: 0.6, ease: 'power1.in', immediateRender: false }, END - 0.6);
+  tl.set({}, {}, END);
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines['main'] = tl;
+  }
+})();
+</script>
+</body>
+</html>
