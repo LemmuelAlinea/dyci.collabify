@@ -4,6 +4,8 @@ import { Button } from '../../ui/Button'
 import { Input } from '../../ui/Field'
 import { Select } from '../../ui/Select'
 import { useToast } from '../../ui/Toast'
+import { TypePicker } from '../../taskTypes/TypePicker'
+import { parseTypeSet, resolveType, typeOptions } from '../../../lib/taskTypes/typeSet'
 import { getClassTaskSettings } from '../../../lib/api/projects'
 import type { ClassTaskSettings } from '../../../lib/api/projects'
 import {
@@ -82,17 +84,17 @@ export function TaskExtras({ task, role, viewerId, locked, onOpenTask, onChanged
   const parent = tasks.find((item) => item.id === task.parent_id)
   const dependencies = relations?.dependencies ?? []
   const options = tasks.filter((item) => item.id !== task.id && !dependencies.includes(item.id))
-  const typeOptions = [...new Set(['Task', ...(settings?.task_types ?? []), type])]
+  const typeSet = parseTypeSet(settings?.task_type_set, 'class')
+  const typeChoices = typeOptions(typeSet, { family: 'class', current: resolveType(typeSet, { task_type: type }, 'class') })
 
   return <div className="space-y-6">
     {error && <Alert tone="error">{error}</Alert>}
     <section className="space-y-3">
       <h3 className="text-[14px]">Task details</h3>
       <div className="grid gap-3 sm:grid-cols-3">
-        <label className="space-y-1"><span className="text-[12px] text-muted">Type</span>
-          <Select value={type} disabled={!editable || busy} onChange={(e) => setType(e.target.value)}
-            options={typeOptions.map((name) => ({ value: name, label: name }))} />
-        </label>
+        <div className="space-y-1"><span className="text-[12px] text-muted">Type</span>
+          <TypePicker label="Type" value={type} disabled={!editable || busy} onChange={setType} options={typeChoices} />
+        </div>
         <label className="space-y-1"><span className="text-[12px] text-muted">Priority</span>
           <Select value={priority} disabled={!editable || busy} onChange={(e) => setPriority(e.target.value as ProjectTask['priority'])}
             options={PRIORITIES.map((item) => ({ value: item.value, label: item.label }))} />

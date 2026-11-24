@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { parseTypeSet } from '../../lib/taskTypes/typeSet'
 import { Button } from '../ui/Button'
 import { Alert } from '../ui/Alert'
 import { Icon } from '../ui/Icon'
@@ -204,7 +205,7 @@ export function FanOutForm({
                 }
               : undefined
           }
-          taskTypes={settings?.task_types}
+          taskTypeSet={parseTypeSet(settings?.task_type_set, 'class')}
           defaultPriority={settings?.default_priority}
           onSubmit={save}
         />

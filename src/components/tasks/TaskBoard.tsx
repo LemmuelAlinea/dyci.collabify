@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { parseTypeSet } from '../../lib/taskTypes/typeSet'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -83,6 +84,7 @@ export function TaskBoard({
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [settings, setSettings] = useState<ClassTaskSettings | null>(null)
+  const typeSet = parseTypeSet(settings?.task_type_set, 'class')
   const editingId = editing?.id
   useEffect(() => {
     if (!adding && !editingId) return
@@ -230,6 +232,7 @@ export function TaskBoard({
                   cards={inColumn.map((task) => (
                     <TaskCard
                       key={task.id}
+                      typeSet={typeSet}
                       drag={drag}
                       column={index}
                       draggable={mayMove(task) && drag.pendingColumn(task.id) === undefined}
@@ -330,7 +333,7 @@ export function TaskBoard({
           formId="task-form"
           defaults={editing ?? undefined}
           showStart
-          taskTypes={settings?.task_types}
+          taskTypeSet={typeSet}
           defaultPriority={settings?.default_priority}
           error={formError}
           onSubmit={save}

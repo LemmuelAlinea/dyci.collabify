@@ -13,6 +13,10 @@ vi.mock('../../ui/Toast', () => ({ useToast: () => ({ show: vi.fn() }) }))
 vi.mock('../../../lib/api/projects', () => ({
   getClassTaskSettings: vi.fn(async () => ({
     task_types: ['Research'], allow_subtasks: true, allow_dependencies: true,
+    task_type_set: [
+      { slot: 'default', name: 'Research Task', description: 'General research', color: '#2563eb', icon: 'search' },
+      { slot: null, name: 'Research', description: 'Studies', color: '#9333ea', icon: 'book-open' },
+    ],
   })),
 }))
 vi.mock('../../../lib/api/tasks', () => ({
@@ -56,9 +60,12 @@ const button = (label: string) => [...host.querySelectorAll('button')].find((ite
 it('edits task fields and adds a subtask and dependency', async () => {
   await act(async () => root.render(<TaskExtras task={task} role="student" viewerId="u1" locked={false}
     onOpenTask={vi.fn()} onChanged={vi.fn()} />))
-  const selects = host.querySelectorAll('select')
-  await setSelect(selects[0], 'Research')
-  await setSelect(selects[1], 'high')
+  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Type: Research Task"]')!.click())
+  const names = [...host.querySelectorAll('[role="option"] [data-type-name]')].map((n) => n.textContent)
+  expect(names).toEqual(['Research Task', 'Research'])
+  expect(host.textContent).toContain('Studies')
+  await act(async () => [...host.querySelectorAll<HTMLElement>('[role="option"]')][1].click())
+  await setSelect(host.querySelectorAll('select')[0], 'high')
   await setInput(host.querySelector<HTMLInputElement>('input[type="datetime-local"]')!, '2026-12-01T12:00')
   await act(async () => button('Save details').click())
   expect(updateClassTaskFields).toHaveBeenCalledWith('t1', {
@@ -70,4 +77,11 @@ it('edits task fields and adds a subtask and dependency', async () => {
   await setSelect(host.querySelector<HTMLSelectElement>('[aria-label="Add dependency"]')!, 't2')
   await act(async () => host.querySelector<HTMLElement>('section:nth-of-type(3) button')!.click())
   expect(setClassTaskDependency).toHaveBeenCalledWith('t1', 't2', true)
+})
+
+it('keeps a removed type as the current choice', async () => {
+  await act(async () => root.render(<TaskExtras task={{ ...task, task_type: 'Old' } as unknown as TaskDetail} role="student" viewerId="u1" locked={false}
+    onOpenTask={vi.fn()} onChanged={vi.fn()} />))
+  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Type: Old"]')!.click())
+  expect([...host.querySelectorAll('[role="option"] [data-type-name]')].map((n) => n.textContent)).toEqual(['Research Task', 'Research', 'Old'])
 })

@@ -1,4 +1,7 @@
 import { AssigneePicker } from './AssigneePicker'
+import { TypeChip } from '../taskTypes/TypeChip'
+import { defaultTypeSet, resolveType } from '../../lib/taskTypes/typeSet'
+import type { TaskTypeEntry } from '../../lib/taskTypes/typeSet'
 import { Icon } from '../ui/Icon'
 import { MoveToStage } from './BoardColumn'
 import type { BoardDrag } from './useBoardDrag'
@@ -32,7 +35,10 @@ export function TaskCard({
   column = 0,
   draggable = false,
   moveOptions = [],
+  typeSet,
 }: {
+  /** The class project's task types; every card shows its type. */
+  typeSet?: TaskTypeEntry[]
   task: ProjectTask
   /** This task's slice of the board's 100. */
   share: number
@@ -131,12 +137,11 @@ export function TaskCard({
         </p>
       )}
 
-      {(task.task_type && task.task_type !== 'Task' || task.priority && task.priority !== 'normal' || task.parent_id) &&
-        <div className="pointer-events-none mt-2 flex flex-wrap gap-1 text-[11px] text-muted">
-          {task.task_type && task.task_type !== 'Task' && <span className="rounded-md surface-sunken px-1.5 py-0.5">{task.task_type}</span>}
+      <div className="pointer-events-none mt-2 flex flex-wrap gap-1 text-[11px] text-muted">
+          <TypeChip entry={resolveType(typeSet ?? defaultTypeSet('class'), task, 'class')} />
           {task.priority && task.priority !== 'normal' && <span className="rounded-md surface-sunken px-1.5 py-0.5">{task.priority}</span>}
           {task.parent_id && <span className="rounded-md surface-sunken px-1.5 py-0.5">Subtask</span>}
-        </div>}
+        </div>
 
       {/*
         z-30, not z-10 like its siblings. These rows are only lifted to clear

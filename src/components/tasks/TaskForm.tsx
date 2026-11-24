@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { TypePicker } from '../taskTypes/TypePicker'
+import { defaultTypeSet, resolveType, typeOptions } from '../../lib/taskTypes/typeSet'
+import type { TaskTypeEntry } from '../../lib/taskTypes/typeSet'
 import type { FormEvent } from 'react'
 import { Field, Input } from '../ui/Field'
 import { Alert } from '../ui/Alert'
@@ -19,7 +22,7 @@ export function TaskForm({
   formId,
   defaults,
   showStart = false,
-  taskTypes = [],
+  taskTypeSet,
   defaultPriority = 'normal',
   error,
   onSubmit,
@@ -32,7 +35,8 @@ export function TaskForm({
   }
   /** Students' board only. */
   showStart?: boolean
-  taskTypes?: string[]
+  /** The class project's task types, in order. */
+  taskTypeSet?: TaskTypeEntry[]
   defaultPriority?: ProjectTask['priority']
   error?: string | null
   onSubmit: (input: TaskInput) => void
@@ -41,6 +45,7 @@ export function TaskForm({
   const [details, setDetails] = useState(defaults?.details ?? '')
   const [weight, setWeight] = useState(defaults?.weight ?? 1)
   const [taskType, setTaskType] = useState(defaults?.task_type ?? 'Task')
+  const types = taskTypeSet ?? defaultTypeSet('class')
   const [priority, setPriority] = useState(defaults?.priority ?? defaultPriority)
   const [dueAt, setDueAt] = useState(toLocalInput(defaults?.due_at ?? null))
   const [startsAt, setStartsAt] = useState(toLocalInput(defaults?.starts_at ?? null))
@@ -94,9 +99,8 @@ export function TaskForm({
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Type">{(id) => <Select id={id} value={taskType} onChange={(e) => setTaskType(e.target.value)}
-          options={[{ value: 'Task', label: 'Task' }, ...[...new Set([...taskTypes, taskType])]
-            .filter((name) => name !== 'Task').map((name) => ({ value: name, label: name }))]} />}</Field>
+        <Field label="Type">{(id) => <TypePicker id={id} label="Type" value={taskType} onChange={setTaskType}
+          options={typeOptions(types, { family: 'class', current: resolveType(types, { task_type: taskType }, 'class') })} />}</Field>
         <Field label="Priority">{(id) => <Select id={id} value={priority} onChange={(e) => setPriority(e.target.value as ProjectTask['priority'])}
           options={PRIORITIES.map((option) => ({ value: option.value, label: option.label }))} />}</Field>
       </div>
