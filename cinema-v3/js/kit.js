@@ -14,7 +14,7 @@
   ICONS.grad = ICONS.cap;
 
   W.EV = []; W.sfx = (t, n, d) => W.EV.push([t, n, d]);
-  const HUES = { a: '#e0568b', b: '#3d8bd9', c: '#27a37a', d: '#8a5cf5', e: '#e8903a', f: '#17a6b8' };
+  const HUES = { a: '#c2306a', b: '#2f6fb5', c: '#1b7f5e', d: '#6a3fd6', e: '#b05510', f: '#0e6f7c' };
   W.av = (ini, h = 'a', s = 34, cls = '') => `<span class="av ${cls}" style="width:${s}px;height:${s}px;background:${HUES[h] || h};font-size:${Math.round(s * 0.36)}px">${ini}</span>`;
   W.HUES = HUES;
   W.stack = (arr, s = 34) => `<span style="display:inline-flex">${arr.map((a, i) => av(a[0], a[1], s, '').replace('<span class="av "', `<span class="av" data-i="${i}"`).replace('style="', `style="${i ? 'margin-left:-' + Math.round(s * 0.28) + 'px;' : ''}`)).join('')}</span>`;

@@ -13,7 +13,7 @@
 
   mates.forEach((m, i) => {
     const at = T0 + 1.0 + i * 0.55;
-    panel.querySelectorAll(`.s13-s[data-r="${i}"]`).forEach((s) => {
+    [...panel.querySelectorAll('.s13-s')].filter((s) => +s.dataset.r === i).forEach((s) => {
       if (+s.dataset.n <= m[3]) tl.to(s, { backgroundColor: '#26327a', color: '#ffffff', borderColor: '#26327a', duration: 0.12 }, at + (+s.dataset.n) * 0.05);
     });
     sfx(at, 'tick');

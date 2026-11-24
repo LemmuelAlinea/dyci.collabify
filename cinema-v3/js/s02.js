@@ -47,7 +47,7 @@
         ${[['Sidebar', '--nav-active'], ['Progress', '--progress'], ['Badges', '--badge'], ['Icons', '--icon-glyph']].map((a) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px">${sw(a[1], 26)}<span style="font-size:13.5px;font-weight:600">${a[0]}</span></div>`).join('')}
       </div>
       <!-- the swatch popover -->
-      <div id="w2-pop" style="position:absolute;left:34px;top:392px;width:430px;padding:16px;border-radius:18px;background:var(--surface-raised);border:1px solid var(--line-strong);box-shadow:var(--shadow-lift);opacity:0">
+      <div id="w2-pop" data-layout-ignore style="position:absolute;left:34px;top:392px;width:430px;padding:16px;border-radius:18px;background:var(--surface-raised);border:1px solid var(--line-strong);box-shadow:var(--shadow-lift);opacity:0">
         <div class="eyebrow" style="color:var(--ink-faint);margin-bottom:10px">Pick a color</div>
         <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:9px">${['#080b21', '#26327a', '#0b2540', '#0f2a1d', '#3b0a2a', '#000000', '#00bc7d', '#2f9e44', '#0072b2', '#1c7ed6', '#7048e8', '#e64980', '#fb2c36', '#d55e00', '#f0b429', '#ffd43b', '#59627f', '#ffffff'].map((c, i) => `<i ${i === 4 ? 'id="w2-pick"' : ''} style="display:block;aspect-ratio:1;border-radius:50%;background:${c};border:2px solid rgba(255,255,255,.3)"></i>`).join('')}</div></div>
     </div>`, scope);

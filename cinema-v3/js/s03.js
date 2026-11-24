@@ -34,7 +34,7 @@
   // "its own look": the space mark and the first project's mark change color and icon
   const co = callout(b.hud, { x: 1210, y: 120, w: 420, icon: 'palette', eyebrow: 'Its own look', title: 'Color and icon', sub: 'For the space and every project' });
   tl.to(co, { opacity: 1, z: 140, duration: 0.5, ease: 'expo.out' }, T0 + 3.4);
-  const mk = panel.querySelector('.s3-mk[data-i="0"]');
+  const mk = panel.querySelectorAll('.s3-mk')[0];
   tl.to(mk, { backgroundColor: '#7048e8', duration: 0.4, ease: 'power2.inOut' }, T0 + 3.8);
   tl.to(mk, { scale: 1.25, duration: 0.18, yoyo: true, repeat: 1 }, T0 + 3.8);
   tl.to('#s3-space', { backgroundColor: '#0f6f7c', duration: 0.4 }, T0 + 4.1);

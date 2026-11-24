@@ -53,7 +53,7 @@
   tl.to(owners, { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(2)', stagger: 0.15 }, T0 + 5.0);
   // and the hours: bars settle
   people.forEach((p, i) => {
-    const bar = panel.querySelector(`.s6-bar[data-i="${i}"]`), pct = panel.querySelector(`.s6-pct[data-i="${i}"]`);
+    const bar = panel.querySelectorAll('.s6-bar')[i], pct = panel.querySelectorAll('.s6-pct')[i];
     tl.to(bar, { width: p[4] + '%', backgroundColor: tone(p[4]), duration: 1.0, ease: 'power3.inOut' }, T0 + 6.7 + i * 0.08);
     const o = { v: p[3] };
     tl.to(o, { v: p[4], duration: 1.0, ease: 'power3.inOut', onUpdate: () => { pct.textContent = Math.round(o.v) + '%'; } }, T0 + 6.7 + i * 0.08);

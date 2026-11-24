@@ -26,7 +26,7 @@
   tl.fromTo(panel.querySelector('.s12-in'), { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2)' }, T0 + 1.6);
   const tot = { v: 0 }, totEl = panel.querySelector('#s12-tot');
   crit.forEach((c, i) => {
-    const at = T0 + 2.5 + i * 0.35, o = { v: 0 }, v = panel.querySelector(`.s12-v[data-i="${i}"]`);
+    const at = T0 + 2.5 + i * 0.35, o = { v: 0 }, v = panel.querySelectorAll('.s12-v')[i];
     tl.to(panel.querySelectorAll('.s12-b')[i], { width: (c[1] / c[2]) * 100 + '%', duration: 0.6, ease: 'power3.out' }, at);
     tl.to(o, { v: c[1], duration: 0.6, ease: 'power3.out', onUpdate: () => { v.textContent = Math.round(o.v) + ' / ' + c[2]; } }, at);
   });
