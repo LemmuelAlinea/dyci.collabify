@@ -12,7 +12,7 @@
     const root = document.getElementById(o.id);
     const fade = el(`<div class="fade" style="perspective:2600px"></div>`, root);
     const cam = el(`<div class="cam"></div>`, fade);
-    const world = el(`<div class="p3" style="left:0;top:0;width:${FW}px;height:${FH}px;transform-origin:0 0"></div>`, cam);
+    const world = el(`<div class="p3" data-layout-ignore style="left:0;top:0;width:${FW}px;height:${FH}px;transform-origin:0 0"></div>`, cam);
     const win = el(o.world, world);
     win.style.borderRadius = '0px';
     const scrim = el(`<div style="position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 50%,rgba(5,7,26,.72),rgba(5,7,26,.92));pointer-events:none"></div>`, fade);
@@ -48,17 +48,31 @@
       return n;
     };
 
+    /* a pointer that lives in world space: tap(node, at) travels to the node and clicks it */
+    cut.pointer = (x = 1900, y = 1000) => {
+      const c = cursor(world, x, y);
+      gsap.set(c.el, { opacity: 0 });
+      c.show = (at) => { tl.to(c.el, { opacity: 1, duration: 0.15 }, at); return c; };
+      c.hide = (at) => { tl.to(c.el, { opacity: 0, duration: 0.15 }, at); return c; };
+      c.tap = (node, at, d = 0.45, dx = 0, dy = 0) => {
+        const r = cut.rect(node, 0), px = r.x + r.w / 2 + dx, py = r.y + r.h / 2 + dy;
+        c.to(tl, px, py, at - d - 0.05, d); c.click(tl, at, px, py); sfx(at, 'click');
+        return c;
+      };
+      return c;
+    };
+
     // opening: title over the dimmed wide shot, then the camera goes in
     const start = o.start || cut.full;
     const H = o.hold || 1.3;
     gsap.set(world, cut.frame(start, 1));
     tl.fromTo(fade, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power1.out' }, T0);
-    tl.fromTo(world, { filter: 'blur(10px) brightness(.7)' }, { filter: 'blur(0px) brightness(1)', duration: 0.7, ease: 'power2.out' }, T0 + H + 0.05);
+    tl.fromTo(world, { filter: 'blur(10px) brightness(.7)' }, { filter: 'blur(0px) brightness(1)', duration: 0.6, ease: 'power2.out' }, T0 + H + 0.15);
     tl.fromTo(world, Object.assign({}, cut.frame(start, 0.86), { rotateX: 8 }), Object.assign({}, cut.frame(start, 1), { rotateX: 0, duration: H + 0.7, ease: 'power2.out' }), T0);
     tl.fromTo(title.querySelector('.t-ey'), { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: 'expo.out' }, T0 + 0.15);
     title.querySelectorAll('.tl').forEach((n, i) => tl.fromTo(n, { yPercent: 112 }, { yPercent: 0, duration: 0.7, ease: 'expo.out' }, T0 + (o.lineAt ? o.lineAt[i] : 0.2 + i * 0.1)));
-    tl.to(title, { opacity: 0, scale: 1.08, duration: 0.45, ease: 'power2.in' }, T0 + H);
-    tl.to(scrim, { opacity: 0, duration: 0.6, ease: 'power2.inOut' }, T0 + H + 0.05);
+    tl.to(title, { opacity: 0, scale: 1.06, duration: 0.28, ease: 'power1.in' }, T0 + H);
+    tl.to(scrim, { opacity: 0, duration: 0.5, ease: 'power2.inOut' }, T0 + H + 0.12);
     tl.fromTo(tag, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.5, ease: 'expo.out' }, T0 + H + 0.45);
     // a breath of handheld drift on top of every move
     tl.fromTo(cam, { x: -6, y: 3, rotateZ: -0.25 }, { x: 6, y: -3, rotateZ: 0.25, duration: D, ease: 'sine.inOut' }, T0);
