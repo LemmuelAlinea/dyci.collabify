@@ -77,6 +77,9 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
 
   return {
     loadSprintHours: project && !project.class_board_id ? sprintHours : undefined,
+    suggestStages: project && !project.class_board_id && planner && !state.archived
+      ? { projectId: project.id, reload: () => state.reload() }
+      : undefined,
     terms: state.sprintSettings.terms,
     items: generalWorkItems(state),
     sprints: state.sprints,

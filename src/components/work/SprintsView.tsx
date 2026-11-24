@@ -15,6 +15,7 @@ import { useRunningSprint } from './useRunningSprint'
 import { useNow } from '../../hooks/useNow'
 import { dateRange } from '../../lib/general/dates'
 import { SprintHoursLine } from './SprintHoursLine'
+import { SuggestStagesDialog } from './SuggestStagesDialog'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import { sprintItems } from '../../lib/work/backlog'
 import { authErrorMessage } from '../../lib/authError'
@@ -37,6 +38,8 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
   const [finishing, setFinishing] = useState(false)
   const [changing, setChanging] = useState<string | null>(null)
   const [reopening, setReopening] = useState<Sprint | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
+  const suggest = source.suggestStages
   const organization = source.sprintSettings?.organization ?? 'sequential'
   const teams = source.teams
   const { tabs, activeKey, sprint: running, pick } = useRunningSprint({
@@ -120,6 +123,32 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
   return (
     <div className="space-y-6">
       {source.readOnlyReason && <Alert tone="info">{txt(source.readOnlyReason)}</Alert>}
+
+      {suggest && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line surface px-4 py-3">
+          <p className="text-[13px] text-muted">
+            {txt('Not sure how many sprints you need? Collabify can lay out every sprint still to come from your tasks and hours.')}
+          </p>
+          <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setSuggesting(true)}>
+            <Icon name="spark" size={15} />
+            {txt('Suggest sprints')}
+          </Button>
+        </div>
+      )}
+      {suggest && suggesting && (
+        <SuggestStagesDialog
+          open
+          onClose={() => setSuggesting(false)}
+          projectId={suggest.projectId}
+          terms={source.terms}
+          teams={(teams?.teams ?? []).filter((t) => !t.archived_at).map((t) => ({ id: t.id, name: t.name }))}
+          organization={organization}
+          onApplied={(message) => {
+            void suggest.reload()
+            show(message)
+          }}
+        />
+      )}
 
       {blocked.map((s) => (
         <p key={s.id} className="text-[13px] text-warning-700 dark:text-warning-300">

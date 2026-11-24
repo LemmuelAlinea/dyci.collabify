@@ -1,3 +1,4 @@
+import type { StageContext } from '../../../supabase/functions/_shared/stagePlan.ts'
 import { supabase } from '../supabase'
 
 /** Sets or clears a work task's estimate, in minutes. Planners and holders only. */
@@ -441,4 +442,46 @@ export async function sprintHours(sprintId: string): Promise<SprintHours | null>
   const { data, error } = await supabase.rpc('general_sprint_hours', { p_sprint: sprintId })
   if (error) throw error
   return ((data ?? []) as SprintHours[])[0] ?? null
+}
+
+/**
+ * Suggest stages' numbers for a work project (one team's, in streams): the
+ * window, stage slots and their team hours, the tasks and the fingerprint
+ * `apply_stage_plan` checks. Planners only. `lengthDays` 7, 14, 21 or 28, or
+ * null for the suggested length.
+ */
+export async function stagePlanContext(projectId: string, teamId: string | null, lengthDays: number | null): Promise<StageContext> {
+  const { data, error } = await supabase.rpc('general_stage_plan_context', {
+    p_project: projectId,
+    p_team: teamId,
+    p_length_days: lengthDays,
+  })
+  if (error) throw error
+  return data as StageContext
+}
+
+/** One stage of a reviewed plan; `id` reuses a planned stage, null creates one. */
+export type StagePlanStage = { id: string | null; name: string; goal: string; starts_on: string; ends_on: string }
+
+/**
+ * Saves a reviewed stage plan in one transaction: stages updated, created and
+ * dropped, tasks moved (`stage` is an index into `stages`, null the backlog).
+ * Refused when anything the review was built from (`shown`) has changed.
+ */
+export async function applyStagePlan(
+  projectId: string,
+  teamId: string | null,
+  stages: StagePlanStage[],
+  tasks: { id: string; stage: number | null }[],
+  shown: string,
+): Promise<{ created: number; updated: number; deleted: number; moved: number }> {
+  const { data, error } = await supabase.rpc('apply_stage_plan', {
+    p_project: projectId,
+    p_team: teamId,
+    p_stages: stages,
+    p_tasks: tasks,
+    p_shown: shown,
+  })
+  if (error) throw error
+  return data as { created: number; updated: number; deleted: number; moved: number }
 }

@@ -106,6 +106,11 @@ export type WorkSource = {
   startSprint: (id: string) => Promise<void>
   finishSprint: (id: string, carryTo: string | null) => Promise<void>
   archiveSprint: (id: string, archived: boolean) => Promise<void>
+  /**
+   * Suggest stages: set only for the project manager and coordinators of a
+   * live work project. `reload` refreshes the plan after a save.
+   */
+  suggestStages?: { projectId: string; reload: () => Promise<void> }
   /** A work project's sprint hours against planned work. Unset for a class board. */
   loadSprintHours?: (sprintId: string) => Promise<import('../api/workload').SprintHours | null>
   /** Run a finished sprint again. Set only for those who can run a work project's sprints. */
