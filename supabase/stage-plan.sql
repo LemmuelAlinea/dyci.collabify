@@ -144,6 +144,20 @@ $$;
 
 revoke all on function public.stage_plan_guard(uuid) from public, anon, authenticated;
 
+-- A live team of this project.
+create or replace function public.stage_plan_team_ok(p_project uuid, p_team uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_team is not null and exists (
+    select 1 from public.general_teams t where t.id = p_team and t.project_id = p_project and t.archived_at is null);
+$$;
+
+revoke all on function public.stage_plan_team_ok(uuid, uuid) from public, anon, authenticated;
+
 ------------------------------------------------------------------ fingerprint
 
 -- What a plan was built from: the tasks' stage, hours and due time, and the
@@ -164,7 +178,8 @@ as $$
     || '#' ||
     coalesce((select string_agg(concat_ws('|', g.id, g.ends_on), ';' order by g.id)
                 from public.general_sprints g
-               where g.project_id = p_project and g.state = 'active'), ''));
+               where g.project_id = p_project and g.state = 'active'
+                 and (public.stage_plan_org(p_project) <> 'streams' or g.team_id = p_team)), ''));
 $$;
 
 revoke all on function public.stage_plan_shown(uuid, uuid) from public, anon, authenticated;
@@ -220,12 +235,11 @@ begin
     from (select 1) one
     left join public.general_sprint_settings st on st.project_id = p_project;
 
-  if v_org = 'streams' and (p_team is null or not exists (
-       select 1 from public.general_teams t where t.id = p_team and t.project_id = p_project)) then
+  if v_org = 'streams' and not public.stage_plan_team_ok(p_project, p_team) then
     return jsonb_build_object('blocked', 'Choose a team to plan its stages.', 'project', v_project,
       'length_days', null, 'suggested_length_days', null, 'window', null, 'running', '[]'::jsonb,
       'stages', '[]'::jsonb, 'tasks', '[]'::jsonb, 'milestones', '[]'::jsonb, 'total_minutes', 0,
-      'unestimated', 0, 'planning_count', 0, 'left_out', 0, 'shown', null);
+      'unestimated', 0, 'planning_count', 0, 'left_out', 0, 'outside_count', 0, 'shown', null);
   end if;
 
   -- The running stages (the team's, in streams); the plan starts after the last.
@@ -250,7 +264,7 @@ begin
     return jsonb_build_object('blocked', 'The project ends before another stage could start.', 'project', v_project,
       'length_days', null, 'suggested_length_days', null, 'window', jsonb_build_object('from', v_from, 'to', v_to),
       'running', v_running, 'stages', '[]'::jsonb, 'tasks', '[]'::jsonb, 'milestones', '[]'::jsonb,
-      'total_minutes', 0, 'unestimated', 0, 'planning_count', 0, 'left_out', 0, 'shown', null);
+      'total_minutes', 0, 'unestimated', 0, 'planning_count', 0, 'left_out', 0, 'outside_count', 0, 'shown', null);
   end if;
 
   -- The tasks, due soonest first (undated last, then by rank), at most 200.
@@ -390,6 +404,10 @@ begin
                           and t.routing_state = 'planning'
                           and (v_org <> 'streams' or t.team_id = p_team)),
     'left_out', v_left,
+    'outside_count', (select count(*) from public.general_tasks t
+                       join public.stage_plan_planned(p_project, p_team) g on g.id = t.sprint_id
+                      where t.parent_id is null and t.archived_at is null and t.trashed_at is null
+                        and not exists (select 1 from pg_temp.stage_plan_rows q where q.id = t.id)),
     'shown', public.stage_plan_shown(p_project, p_team));
 end;
 $$;
@@ -430,7 +448,7 @@ declare
 begin
   gp := public.stage_plan_guard(p_project);
   v_org := public.stage_plan_org(p_project);
-  if v_org = 'streams' and p_team is null then
+  if v_org = 'streams' and not public.stage_plan_team_ok(p_project, p_team) then
     raise exception 'Choose a team to plan its stages.' using errcode = 'invalid_parameter_value';
   end if;
 
@@ -520,7 +538,10 @@ begin
     v_stage := (x ->> 'stage')::int;
     update public.general_tasks t
        set sprint_id = case when v_stage is null then null else v_ids[v_stage + 1] end
-     where (t.id = v_id or (t.parent_id = v_id and t.archived_at is null and t.trashed_at is null))
+     where (t.id = v_id
+            or (t.parent_id = v_id and t.archived_at is null and t.trashed_at is null and t.status <> 'done'
+                and (t.sprint_id is null or exists (
+                      select 1 from public.general_sprints g where g.id = t.sprint_id and g.state = 'planned'))))
        and t.sprint_id is distinct from case when v_stage is null then null else v_ids[v_stage + 1] end;
     v_moved := v_moved + 1;
     if v_stage is not null then
@@ -531,6 +552,7 @@ begin
              due_at = (v_e + time '23:59') at time zone 'Asia/Manila'
        where t.due_at is null and t.status <> 'done'
          and t.archived_at is null and t.trashed_at is null
+         and (t.starts_at is null or (t.starts_at at time zone 'Asia/Manila')::date <= v_e)
          and (
            (t.id = v_id and not exists (
               select 1 from public.general_tasks st

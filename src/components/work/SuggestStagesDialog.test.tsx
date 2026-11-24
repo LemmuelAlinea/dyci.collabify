@@ -49,6 +49,7 @@ const context = (over: Partial<StageContext> = {}): StageContext => ({
   unestimated: 3,
   planning_count: 4,
   left_out: 0,
+  outside_count: 0,
   shown: 'abc',
   ...over,
 })
@@ -218,6 +219,34 @@ it('a running stage and a lost milestone link are named', async () => {
   await review()
   expect(text()).toContain('Phase 1 is running and keeps its 8 tasks')
   expect(text()).toContain('Sign-in and setup no longer counts toward Beta')
+})
+
+it('tasks a dropped phase would send back are named', async () => {
+  vi.mocked(draftStagePlan).mockResolvedValue({ result: 'ok', ...draft({ context: context({ outside_count: 2 }) }) })
+  await review()
+  expect(text()).toContain(
+    "2 tasks in planned phases aren't part of this plan (done, waiting for review or past the 200 limit). A phase this plan drops sends them to the backlog.")
+})
+
+it("copy uses the project's stage word", async () => {
+  const ctx = context({ window: { from: '2026-11-30', to: null } })
+  vi.mocked(draftStagePlan).mockResolvedValue({
+    result: 'ok',
+    ...draft({
+      context: ctx,
+      placement: [
+        { task_id: 'id1', stage: 0, flag: 'over_hours' },
+        { task_id: 'id2', stage: 1, flag: null },
+        { task_id: 'id3', stage: 0, flag: null },
+        { task_id: 'id4', stage: null, flag: 'wont_fit' },
+      ],
+    }),
+  })
+  await review()
+  expect(text()).toContain("Over this phase's hours")
+  expect(text()).toContain("Won't fit in these phases")
+  expect(text()).toContain("60 h won't fit in these phases.")
+  expect(text()).not.toMatch(/stage/i)
 })
 
 it('a failed draft shows its message', async () => {

@@ -61,6 +61,7 @@ declare
   today date := (now() at time zone 'Asia/Manila')::date;
   wt date := public.work_today();
   key_of jsonb;
+  fin uuid; t_fin uuid; sub_open uuid; sub_done uuid; t_late uuid; t_old uuid; sh text;
 begin
   for k in 1..5 loop
     insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
@@ -305,6 +306,58 @@ begin
   perform pg_temp.refuse('a member cannot apply',
     format('select public.apply_stage_plan(%L, null, %L, %L, %L)', p, stg, '[]', ctx ->> 'shown'),
     'Only the project manager and coordinators');
+
+  ------------------------------------------------------------------ review fixes
+  -- A done subtask stays in its finished stage when its parent is planned again.
+  perform pg_temp.service();
+  insert into public.general_sprints(project_id, name, starts_on, ends_on)
+    values (p3, 'Zz finished', today - 20, today - 6) returning id into fin;
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, estimated_minutes)
+    values (p3, 'Zz carried parent', 'released', now(), u[1], 60) returning id into t_fin;
+  insert into public.general_tasks(project_id, parent_id, title, routing_state, sent_at, created_by, estimated_minutes)
+    values (p3, t_fin, 'Zz open part', 'released', now(), u[1], 60) returning id into sub_open;
+  insert into public.general_tasks(project_id, parent_id, title, routing_state, sent_at, created_by, estimated_minutes, sprint_id)
+    values (p3, t_fin, 'Zz done part', 'released', now(), u[1], 60, fin) returning id into sub_done;
+  update public.general_tasks set status = 'done' where id = sub_done;
+  update public.general_sprints set state = 'active' where id = fin;
+  update public.general_sprints set state = 'completed' where id = fin;
+  -- An undated task that starts after the first stage ends keeps no due date rather than failing.
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, estimated_minutes, starts_at)
+    values (p3, 'Zz starts late', 'released', now(), u[1], 60, pg_temp.at(today + 400, '09:00')) returning id into t_late;
+  perform pg_temp.act_as(u[1]);
+  ctx := public.general_stage_plan_context(p3);
+  select jsonb_agg(jsonb_build_object('id', t ->> 'id', 'stage', 0)) into tasks from jsonb_array_elements(ctx -> 'tasks') t;
+  perform public.apply_stage_plan(p3, null, pg_temp.stages_of(ctx), tasks, ctx ->> 'shown');
+  perform pg_temp.check('a done subtask stays in its finished stage',
+    (select sprint_id = fin from public.general_tasks where id = sub_done)
+    and (select sprint_id is not null and sprint_id <> fin from public.general_tasks where id = sub_open));
+  perform pg_temp.check('a task starting after its stage ends keeps no due date',
+    (select due_at is null and sprint_id is not null from public.general_tasks where id = t_late));
+
+  -- Tasks in planned stages that the plan leaves out are counted for the review.
+  perform pg_temp.service();
+  insert into public.general_tasks(project_id, title, routing_state, sent_at, created_by, sprint_id)
+    values (p, 'Zz done in a planned stage', 'released', now(), u[1], old1) returning id into t_old;
+  update public.general_tasks set status = 'done' where id = t_old;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('tasks outside the plan are counted',
+    (public.general_stage_plan_context(p) ->> 'outside_count')::int = 1);
+
+  -- Apply checks the team as the context does.
+  perform pg_temp.service();
+  update public.general_tasks set status = 'done' where project_id = p2 and team_id = team;
+  perform pg_temp.act_as(u[1]);
+  update public.general_teams set archived_at = now() where id = team;
+  perform pg_temp.service();
+  sh := public.stage_plan_shown(p2, team);
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('an archived team is not planned',
+    public.general_stage_plan_context(p2, team) ->> 'blocked' = 'Choose a team to plan its stages.');
+  ctx := public.general_stage_plan_context(p);
+  perform pg_temp.refuse('apply refuses an archived team',
+    format('select public.apply_stage_plan(%L, %L, %L, %L, %L)', p2, team,
+      '[{"id":null,"name":"Zz","goal":"","starts_on":"2099-01-01","ends_on":"2099-01-10"}]', '[]',
+      sh), 'Choose a team to plan its stages.');
   perform pg_temp.service();
 end $$;
 

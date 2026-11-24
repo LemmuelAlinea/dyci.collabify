@@ -35,4 +35,10 @@ describe('a refused class project write', () => {
       authErrorMessage({ message: 'new row violates row-level security policy for table "project_tasks"' }),
     ).toContain('project_tasks')
   })
+
+  it('explains a work task that would start after it is due', () => {
+    expect(
+      authErrorMessage({ message: 'new row for relation "general_tasks" violates check constraint "general_tasks_starts_before_due"' }),
+    ).toBe('A task cannot start after it is due. Move one of the two dates.')
+  })
 })

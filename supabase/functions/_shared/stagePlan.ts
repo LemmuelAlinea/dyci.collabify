@@ -57,6 +57,8 @@ export type StageContext = {
   unestimated: number
   planning_count: number
   left_out: number
+  /** Tasks in planned stages the plan leaves out (done, in review, past the cap); a dropped stage sends them to the backlog. */
+  outside_count: number
   shown: string
 }
 

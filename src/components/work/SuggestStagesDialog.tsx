@@ -21,12 +21,13 @@ import {
 
 const LENGTHS = [7, 14, 21, 28].map((d) => ({ value: String(d), label: d === 7 ? '1 week' : `${d / 7} weeks` }))
 
-const FLAG_TEXT: Record<StageFlag, string> = {
+/** Flag copy; sprint words go through stageText, and "won't fit" names the end date only when there is one. */
+const flagText = (flag: StageFlag, hasEnd: boolean): string => ({
   late: "Can't meet its milestone or due date",
   overdue: 'Already due',
-  over_hours: "Over this stage's hours",
-  wont_fit: "Won't fit before the project ends",
-}
+  over_hours: "Over this sprint's hours",
+  wont_fit: hasEnd ? "Won't fit before the project ends" : "Won't fit in these sprints",
+})[flag]
 
 /** "16 Nov" from YYYY-MM-DD. */
 const day = (date: string) => formatDayLabel(date).replace(/^\w+ /, '')
@@ -265,7 +266,7 @@ function Setup({
         <div className="rounded-xl border border-line surface-sunken px-4 py-3">
           <p className="font-mono text-[13px] text-ink">{summary(ctx)}</p>
           <p className="mt-1 text-[12px] text-muted">
-            {txt(`${ctx.stages.length} ${plural(ctx.stages.length, 'sprint', 'sprints')} fit`)}
+            {txt(`${ctx.stages.length} ${plural(ctx.stages.length, 'sprint', 'sprints')} ${ctx.window.to ? 'fit' : 'needed'}`)}
             {ctx.stages.length > 1 && ', the last kept for testing and fixes'}
             {ctx.suggested_length_days !== ctx.length_days &&
               ` · suggested length: ${LENGTHS.find((l) => l.value === String(ctx.suggested_length_days))?.label}`}
@@ -320,7 +321,7 @@ function Review({
     return (
       <li key={p.task_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
         <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{t.title}</span>
-        {p.flag && <span className="text-[12px] text-warning-700 dark:text-warning-300">{FLAG_TEXT[p.flag]}</span>}
+        {p.flag && <span className="text-[12px] text-warning-700 dark:text-warning-300">{txt(flagText(p.flag, Boolean(ctx.window.to)))}</span>}
         <span className="w-20 shrink-0 text-right font-mono text-[12px] text-muted">
           {t.minutes === null ? 'No estimate' : formatHours(t.minutes)}
         </span>
@@ -347,6 +348,11 @@ function Review({
             {r.name} is running and keeps its {r.task_count} {plural(r.task_count, 'task', 'tasks')}
           </p>
         ))}
+        {ctx.outside_count > 0 && (
+          <p className="mt-1 text-[13px] text-muted">
+            {txt(`${ctx.outside_count} ${plural(ctx.outside_count, 'task', 'tasks')} in planned sprints ${plural(ctx.outside_count, "isn't", "aren't")} part of this plan (done, waiting for review or past the 200 limit). A sprint this plan drops sends them to the backlog.`)}
+          </p>
+        )}
         {draft.note && <p className="mt-2 text-[13px] text-ink">{draft.note}</p>}
       </div>
 
@@ -399,7 +405,7 @@ function Review({
         <section className="rounded-xl border border-dashed border-line px-4 py-3">
           <p className="eyebrow text-faint">Backlog</p>
           <p className="mt-1 text-[13px] text-muted">
-            {formatHours(backlogMinutes)} won&apos;t fit {ctx.window.to ? `before ${day(ctx.window.to)}` : 'in these stages'}.{' '}
+            {formatHours(backlogMinutes)} won&apos;t fit {ctx.window.to ? `before ${day(ctx.window.to)}` : txt('in these sprints')}.{' '}
             {backlog.length === 1 ? 'This task stays' : `These ${backlog.length} tasks stay`} in the backlog.
           </p>
           <ul className="mt-2 divide-y divide-[var(--line)]">{backlog.map(row)}</ul>
