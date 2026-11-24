@@ -39,7 +39,8 @@ import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stage
 import { QA_PASSES, inQa, qaStageIndex } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
-import { PRIORITIES, taskTypeOf, taskTypeOptions } from '../../lib/general/types'
+import { PRIORITIES, taskTypeOf } from '../../lib/general/types'
+import { defaultTypeSet, resolveType, typeOptions as buildTypeOptions } from '../../lib/taskTypes/typeSet'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPriority } from '../../lib/general/types'
 import { blockersOf, DEFAULT_TASK_RULES, subtasksOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
@@ -58,7 +59,8 @@ import type { TaskViewer } from '../../lib/general/permissions'
 import { QaActions } from '../work/QaActions'
 import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
-import { BugBadge } from './BugBadge'
+import { TypeChip } from '../taskTypes/TypeChip'
+import { TypePicker } from '../taskTypes/TypePicker'
 import { TaskDependencies } from './TaskDependencies'
 import { TaskAttachmentCard } from './TaskAttachmentCard'
 import { TaskDescription } from './TaskDescription'
@@ -157,7 +159,7 @@ export function TaskDialog({
       description={
         task ? (
           <span className="inline-flex flex-wrap items-center gap-2">
-            <BugBadge kind={task.kind} taskType={task.task_type} onBanner />
+            <TypeChip entry={resolveType(state.project?.taskTypeSet ?? defaultTypeSet('work'), task, 'work')} onBanner />
             {stageName(state.project?.stages, task)}
             {!state.project?.class_board_id && <>
               <span aria-hidden="true">·</span>
@@ -715,9 +717,12 @@ function TaskDetails({
   const canEstimate = hasEstimateField && !state.readOnly && (state.myRole === 'pm' || state.myRole === 'coordinator' || holdsTask)
   // The task timer: the task's holder on a live work task, who may log time on it.
   const canTime = work && holdsTask && !state.readOnly && !task.archived_at && state.myRole !== 'stakeholder'
-  const typeOptions = task.kind === 'bug'
-    ? [{ value: 'bug', label: 'Bug' }]
-    : taskTypeOptions([...new Set([...(state.project.taskTypes ?? []), ...(task.task_type ? [task.task_type] : [])])]).filter((option) => option.value !== 'bug')
+  const typeSet = state.project.taskTypeSet ?? defaultTypeSet('work')
+  const currentType = resolveType(typeSet, task, 'work')
+  // A bug stays QA's bug; any other task picks among the project's types, a removed one kept as it is.
+  const typeChoices = task.kind === 'bug'
+    ? buildTypeOptions(typeSet, { family: 'work', role: 'qa' })
+    : buildTypeOptions(typeSet, { family: 'work', current: currentType }).filter((option) => option.value !== 'bug')
   const waiting = blockersOf(state.dependencies ?? [], state.tasks, task.id).length > 0
   const mobileDetails = (
     <button
@@ -749,7 +754,7 @@ function TaskDetails({
               <dl className="mt-4 grid gap-3 text-[13px] sm:grid-cols-2 lg:grid-cols-1">
               <div><dt className="text-[12px] text-faint">Workflow step</dt><dd className="text-ink">{stageName(stages, task)}</dd></div>
               {work && <div><dt className="text-[12px] text-faint">Priority</dt><dd className="text-ink">{PRIORITIES.find((p) => p.value === (task.priority ?? 'normal'))?.label}</dd></div>}
-              {work && <div><dt className="text-[12px] text-faint">Type</dt><dd className="text-ink">{taskTypeOf(task) === 'task' ? 'Task' : taskTypeOf(task) === 'bug' ? 'Bug' : taskTypeOf(task)}</dd></div>}
+              {work && <div><dt className="text-[12px] text-faint">Type</dt><dd className="mt-0.5"><TypeChip entry={currentType} /></dd></div>}
               <div><dt className="text-[12px] text-faint">Starts</dt><dd className="text-ink">{task.starts_at ? formatDue(task.starts_at) : 'Not set'}</dd></div>
               <div>
                 <dt className="text-[12px] text-faint">Due</dt>
@@ -877,12 +882,13 @@ function TaskDetails({
               )}
               {work && (
                 <Field label="Type">
-                  {(id) => <Select
+                  {(id) => <TypePicker
                     id={id}
+                    label="Type"
                     disabled={!canEdit || task.kind === 'bug'}
                     value={taskType}
-                    onChange={(e) => setTaskType(e.target.value)}
-                    options={typeOptions}
+                    onChange={setTaskType}
+                    options={typeChoices}
                   />}
                 </Field>
               )}

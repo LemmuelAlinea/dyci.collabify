@@ -1,4 +1,4 @@
-import { BugBadge } from '../general/BugBadge'
+import { TypeChip } from '../taskTypes/TypeChip'
 import { PersonBadge } from '../general/RoleBadge'
 import type { GeneralProjectState } from '../general/useGeneralProject'
 import { QaActions } from './QaActions'
@@ -6,6 +6,7 @@ import { useNow } from '../../hooks/useNow'
 import { plural } from '../../lib/plural'
 import { stagesOf } from '../../lib/stages'
 import { inQa, qaStageIndex, queueOrder, waitedFor } from '../../lib/work/qa'
+import { defaultTypeSet, resolveType } from '../../lib/taskTypes/typeSet'
 
 /**
  * The tasks waiting in the project's QA stage, longest-waiting first. QA and
@@ -14,6 +15,7 @@ import { inQa, qaStageIndex, queueOrder, waitedFor } from '../../lib/work/qa'
 export function QaQueue({ state, onOpenTask }: { state: GeneralProjectState; onOpenTask: (id: string) => void }) {
   const now = useNow()
   const stages = stagesOf(state.project?.stages)
+  const typeSet = state.project?.taskTypeSet ?? defaultTypeSet('work')
   const stageLabel = stages[qaStageIndex(stages, state.project?.qa_stage)] ?? 'QA'
   const waiting = queueOrder(state.tasks.filter((t) => (state.project?.class_board_id || (t.routing_state ?? 'released') === 'released') && inQa(t, stages, state.project?.qa_stage)))
   // Only while the project has active QA; the section itself shows only then.
@@ -49,7 +51,7 @@ export function QaQueue({ state, onOpenTask }: { state: GeneralProjectState; onO
                   >
                     {t.title}
                   </button>
-                  <BugBadge kind={t.kind} />
+                  <TypeChip entry={resolveType(typeSet, t, 'work')} />
                 </div>
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-faint">
                   {t.assignee_ids.length === 0 ? (

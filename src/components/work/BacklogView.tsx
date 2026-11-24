@@ -1,3 +1,4 @@
+import type { TaskTypeEntry } from '../../lib/taskTypes/typeSet'
 // src/components/work/BacklogView.tsx
 import { useState } from 'react'
 import type { FormEvent } from 'react'
@@ -8,7 +9,7 @@ import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
-import { BugBadge } from '../general/BugBadge'
+import { WorkItemType } from '../taskTypes/WorkItemType'
 import { SprintDialog } from './SprintDialog'
 import { useTeamFilter } from './useTeamFilter'
 import { useNow } from '../../hooks/useNow'
@@ -125,6 +126,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
       <ul className="divide-y divide-[var(--line)]">
         {items.map((item, index) => (
           <ItemRow
+            typeSet={source.taskTypeSet}
             key={item.id}
             item={item}
             canPlan={source.canPlan}
@@ -357,6 +359,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
 
 function ItemRow({
   item,
+  typeSet,
   canPlan,
   canStep,
   checked,
@@ -371,6 +374,7 @@ function ItemRow({
   last,
 }: {
   item: WorkItem
+  typeSet?: TaskTypeEntry[]
   canPlan: boolean
   canStep: boolean
   checked: boolean
@@ -409,7 +413,7 @@ function ItemRow({
           >
             {item.title}
           </button>
-          <BugBadge kind={item.kind} taskType={item.task_type} />
+          <WorkItemType set={typeSet} item={item} />
         </div>
         <p className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-faint">
           <span className={item.holders.length ? '' : 'text-warning-700 dark:text-warning-300'}>

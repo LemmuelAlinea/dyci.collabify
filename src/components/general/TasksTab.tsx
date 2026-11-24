@@ -40,7 +40,8 @@ import { projectProgress } from '../../lib/general/progress'
 import { routingViewer, routingWaitingCount, showsRouting } from '../../lib/general/routing'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
-import { PRIORITIES, taskTypeOf, taskTypeOptions } from '../../lib/general/types'
+import { PRIORITIES, taskTypeOf } from '../../lib/general/types'
+import { defaultTypeSet, removedNames, resolveType, typeOptions as buildTypeOptions } from '../../lib/taskTypes/typeSet'
 import type { GeneralTask, TaskKind, TaskPriority } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
@@ -56,7 +57,8 @@ import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { TimelineView } from '../work/TimelineView'
-import { BugBadge } from './BugBadge'
+import { TypeChip } from '../taskTypes/TypeChip'
+import { TypePicker } from '../taskTypes/TypePicker'
 import { PriorityBadge } from './PriorityBadge'
 import { PriorityFilter } from './PriorityFilter'
 import { SubtaskCount, WaitingMarker } from './TaskMarks'
@@ -143,7 +145,12 @@ export function TasksTab({
   }, [scoped, query, team, teamLinks, assignee, status, type, projectStages, priorityView])
 
   if (!project) return null
-  const typeOptions = taskTypeOptions([...new Set([...(project.taskTypes ?? []), ...state.tasks.map((task) => task.task_type).filter((name): name is string => Boolean(name))])])
+  // The project's types in order, then names tasks still carry from types since removed.
+  const typeSet = project.taskTypeSet ?? defaultTypeSet('work')
+  const typeOptions = [
+    ...buildTypeOptions(typeSet, { family: 'work' }).map((option) => ({ value: option.value, label: option.entry.name })),
+    ...removedNames(typeSet, state.tasks.map((task) => task.task_type), 'work').map((name) => ({ value: name, label: `${name} (removed)` })),
+  ]
   const progress = projectProgress(scoped)
   // Subtasks and waiting are a work project's; a class board's tasks have neither.
   const marksOf = (t: GeneralTask): TaskMarkData | null =>
@@ -666,7 +673,7 @@ function TaskCard({
               Cover
             </span>
           )}
-          <BugBadge kind={task.kind} taskType={task.task_type} />
+          <TypeChip entry={resolveType(state.project?.taskTypeSet ?? defaultTypeSet('work'), task, 'work')} />
           <PriorityBadge priority={task.priority} />
           {teamName && (
             <span className="max-w-[8rem] truncate rounded-md bg-navy-50 px-1.5 py-0.5 text-[12px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
@@ -806,7 +813,7 @@ function TaskTable({
                     {t.title}
                   </button>
                   <span className="mt-0.5 flex items-center gap-3 text-[12px] text-faint">
-                    <BugBadge kind={t.kind} taskType={t.task_type} />
+                    <TypeChip entry={resolveType(state.project?.taskTypeSet ?? defaultTypeSet('work'), t, 'work')} />
                     <PriorityBadge priority={t.priority} />
                     {marks?.partOf && <span className="max-w-[200px] truncate">{marks.partOf}</span>}
                     <SubtaskCount progress={marks?.subtasks ?? null} />
@@ -916,6 +923,8 @@ export function NewTaskDialog({
   const isOpen = work && project?.taskFlow === 'open'
   // A planned project's Member sends a plain task to the planners; it starts in planning and they cannot read it back.
   const isMember = work && !isOpen && state.myRole === 'member'
+  const newTypeSet = project?.taskTypeSet ?? defaultTypeSet('work')
+  const bugTypeName = newTypeSet.find((t) => t.slot === 'bug')?.name ?? 'Bug'
   // A planned project's QA bug goes to the planners, who set its priority.
   const showPriority = work && !isMember && (isOpen || !isQa)
   const showHolders = isOpen && !isQa
@@ -1130,28 +1139,30 @@ export function NewTaskDialog({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           {work && (
-            <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
+            <Field label="Type" hint={isQa ? `QA creates ${bugTypeName} tasks only.` : undefined}>
               {(id) => (
-                <Select
+                <TypePicker
                   id={id}
+                  label="Type"
                   value={isQa ? 'bug' : pickedType}
                   disabled={isQa}
-                  onChange={(e) => setPickedType(e.target.value)}
-                  options={taskTypeOptions(project?.taskTypes).filter((option) => !isMember || option.value !== 'bug')}
+                  onChange={setPickedType}
+                  options={buildTypeOptions(newTypeSet, { family: 'work', role: isQa ? 'qa' : undefined, memberPlanned: isMember })}
                 />
               )}
             </Field>
           )}
           {!isMember && (
             <>
-              {!work && <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
+              {!work && <Field label="Type" hint={isQa ? `QA creates ${bugTypeName} tasks only.` : undefined}>
                 {(id) => (
-                  <Select
+                  <TypePicker
                     id={id}
+                    label="Type"
                     value={kind}
                     disabled={isQa}
-                    onChange={(e) => setPickedKind(e.target.value as TaskKind)}
-                    options={taskTypeOptions()}
+                    onChange={(value) => setPickedKind(value as TaskKind)}
+                    options={buildTypeOptions(newTypeSet, { family: 'work', role: isQa ? 'qa' : undefined })}
                   />
                 )}
               </Field>}

@@ -353,9 +353,6 @@ export const PRIORITIES: readonly { value: TaskPriority; label: string }[] = [
 /** general_task_overview, with priority and parent_id read beside it from general_tasks. */
 /** A bug is a task QA raised; everything else is a plain task. */
 export type TaskKind = 'task' | 'bug'
-export function taskTypeOptions(custom: string[] = []) {
-  return [{ value: 'task', label: 'Task' }, { value: 'bug', label: 'Bug' }, ...custom.map((name) => ({ value: name, label: name }))]
-}
 export function taskTypeOf(task: Pick<GeneralTask, 'kind' | 'task_type'>) {
   return task.kind === 'bug' ? 'bug' : task.task_type ?? 'task'
 }

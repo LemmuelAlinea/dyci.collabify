@@ -242,10 +242,44 @@ it('shows a planner hours beside each holder', async () => {
   } finally { holderHours.labels = new Map() }
 })
 
+const typedSet = [
+  { slot: 'default', name: 'Research Task', description: '', color: '#2563eb', icon: 'search' },
+  { slot: 'bug', name: 'Defect', description: '', color: '#dc2626', icon: 'bug' },
+  { slot: null, name: 'Research', description: 'Studies', color: '#9333ea', icon: 'book-open' },
+]
+async function pickType(name: string) {
+  await act(async () => (control('Type') as HTMLButtonElement).click())
+  const row = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')]
+    .find((o) => o.querySelector('[data-type-name]')?.textContent === name)!
+  await act(async () => row.click())
+}
+const typeNames = async () => {
+  await act(async () => (control('Type') as HTMLButtonElement).click())
+  const names = [...document.body.querySelectorAll('[role="option"] [data-type-name]')].map((n) => n.textContent)
+  await act(async () => (control('Type') as HTMLButtonElement).click())
+  return names
+}
+
+it("lists the project's types in order for the project manager", async () => {
+  await open(makeState('pm', { taskTypeSet: typedSet }))
+  expect(await typeNames()).toEqual(['Research Task', 'Defect', 'Research'])
+})
+
+it('leaves the bug type out for a Member in a planned project', async () => {
+  await open(makeState('member', { taskFlow: 'planned', taskTypeSet: typedSet }))
+  expect(await typeNames()).toEqual(['Research Task', 'Research'])
+})
+
+it('names the bug type for QA', async () => {
+  await open(makeState('qa', { taskTypeSet: typedSet }))
+  expect((control('Type') as HTMLButtonElement).textContent).toContain('Defect')
+  expect(document.body.textContent).toContain('QA creates Defect tasks only.')
+})
+
 it('offers the project manager\'s custom types without changing QA kind', async () => {
-  await open(makeState('member', { taskTypes: ['Research'] }))
+  await open(makeState('member', { taskTypes: ['Research'], taskTypeSet: typedSet }))
   await act(async () => type(control('Title')!, 'Survey'))
-  await act(async () => type(control('Type')!, 'Research'))
+  await pickType('Research')
   await act(async () => button('Add task')!.click())
   expect(createOpenTask).toHaveBeenCalledWith(expect.objectContaining({ kind: 'task', taskType: 'Research' }))
 })

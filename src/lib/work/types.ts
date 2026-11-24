@@ -1,3 +1,4 @@
+import type { TaskTypeEntry } from '../taskTypes/typeSet'
 import type { MilestoneCompletion } from '../general/milestoneRules'
 import type { SprintSettings } from './sprintSettings'
 import type { StageTerms } from './stageTerms'
@@ -71,6 +72,8 @@ export type WorkTeams = {
  * viewer may do, and how to do it. Every action reloads the space when done.
  */
 export type WorkSource = {
+  /** A work project's task types, so items show theirs; a class board leaves it out. */
+  taskTypeSet?: TaskTypeEntry[]
   terms?: StageTerms
   items: WorkItem[]
   sprints: Sprint[]

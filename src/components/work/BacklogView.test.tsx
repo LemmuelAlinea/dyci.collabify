@@ -88,3 +88,24 @@ it('puts the backlog before planned sprints', async () => {
     host.remove()
   }
 })
+
+it("shows each task's type when the source has a type set, and none on a class board", async () => {
+  const taskTypeSet = [
+    { slot: 'default', name: 'Research Task', description: '', color: '#2563eb', icon: 'search' },
+    { slot: 'bug', name: 'Defect', description: '', color: '#dc2626', icon: 'bug' },
+    { slot: null, name: 'Epic', description: '', color: '#db2777', icon: 'zap' },
+  ]
+  const item = (id: string, over: Record<string, unknown>) => ({
+    id, title: id, status: 'todo', due_at: null, done_at: null, sprint_id: null, milestone_id: null, rank: 1, holders: [], created_at: '2026-11-01', ...over,
+  })
+  const items = [item('a', { kind: 'task', task_type: null }), item('b', { kind: 'task', task_type: 'Epic' }), item('c', { kind: 'bug', task_type: null })]
+  const base = { items, sprints: [], canPlan: false, canRunSprints: false, canAdd: false, readOnlyReason: '', openTask: vi.fn() }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  await act(async () => root.render(<BacklogView source={{ ...base, taskTypeSet } as unknown as WorkSource} />))
+  expect([...host.querySelectorAll('[data-type-chip]')].map((c) => c.textContent)).toEqual(['Research Task', 'Epic', 'Defect'])
+  await act(async () => root.render(<BacklogView source={base as unknown as WorkSource} />))
+  expect(host.querySelectorAll('[data-type-chip]')).toHaveLength(0)
+  await act(async () => root.unmount())
+})

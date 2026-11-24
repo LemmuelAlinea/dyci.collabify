@@ -483,3 +483,39 @@ it('picker shows away', async () => {
     expect(document.querySelector('[data-away-holder]')?.textContent).toContain('Away until')
   } finally { await act(async () => root.unmount()); container.remove(); away.map = new Map() }
 })
+
+const typedSet = [
+  { slot: 'default', name: 'Research Task', description: 'General research', color: '#2563eb', icon: 'search' },
+  { slot: 'bug', name: 'Defect', description: '', color: '#dc2626', icon: 'bug' },
+  { slot: null, name: 'Epic', description: 'Large bodies of work', color: '#db2777', icon: 'zap' },
+]
+
+it('shows the task type as a chip, in the header and the details', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    const state = workState({ project: { id: 'p', class_board_id: null, stages: ['Todo', 'Doing', 'Done'], taskTypeSet: typedSet } })
+    await act(async () => root.render(<TaskDialog state={state} taskId="main" onClose={vi.fn()} />))
+    const chips = [...document.querySelectorAll('[data-type-chip]')].map((c) => c.textContent)
+    expect(chips.filter((c) => c === 'Research Task').length).toBeGreaterThanOrEqual(2)
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('keeps a removed type as the current choice and saves no type change with other edits', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    const base = workState({ project: { id: 'p', class_board_id: null, stages: ['Todo', 'Doing', 'Done'], taskTypeSet: typedSet } })
+    const tasks = base.tasks.map((t) => (t.id === 'main' ? { ...t, task_type: 'Gone' } : t))
+    await act(async () => root.render(<TaskDialog state={{ ...base, tasks } as unknown as GeneralProjectState} taskId="main" onClose={vi.fn()} />))
+    const gone = [...document.querySelectorAll<HTMLElement>('[data-type-chip]')].filter((c) => c.textContent === 'Gone')
+    expect(gone.some((c) => c.className.includes('text-muted'))).toBe(true)
+    const picker = document.querySelector<HTMLButtonElement>('button[aria-label="Type: Gone"]')!
+    await act(async () => picker.click())
+    const names = [...document.querySelectorAll('[role="option"] [data-type-name]')].map((n) => n.textContent)
+    expect(names).toEqual(['Research Task', 'Epic', 'Gone'])
+    await act(async () => { document.querySelector<HTMLElement>('[role="listbox"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    const title = document.querySelector<HTMLInputElement>('[role="dialog"] header input[aria-label="Task title"]')!
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(title, 'Renamed'); title.dispatchEvent(new Event('input', { bubbles: true })) })
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('footer button')].find(button => button.textContent === 'Save changes')!.click())
+    expect(vi.mocked(updateTask).mock.calls[0][1]).not.toHaveProperty('task_type')
+  } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
+})

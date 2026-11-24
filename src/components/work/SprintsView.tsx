@@ -7,7 +7,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
-import { BugBadge } from '../general/BugBadge'
+import { WorkItemType } from '../taskTypes/WorkItemType'
 import { SprintTimeline } from './SprintTimeline'
 import { FinishSprintDialog } from './FinishSprintDialog'
 import { RunningSprintTabs } from './RunningSprintTabs'
@@ -95,7 +95,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                       <button type="button" onClick={() => source.openTask(i.id)} className="text-left text-[13px] text-ink hover:underline">
                         {i.title}
                       </button>
-                      <BugBadge kind={i.kind} taskType={i.task_type} />
+                      <WorkItemType set={source.taskTypeSet} item={i} />
                     </li>
                   ))}
                   {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}
@@ -232,7 +232,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                               >
                                 {i.title}
                               </button>
-                              <BugBadge kind={i.kind} taskType={i.task_type} />
+                              <WorkItemType set={source.taskTypeSet} item={i} />
                             </li>
                           ))}
                           {column.length === 0 && <li className="text-[12px] text-faint">Nothing here</li>}

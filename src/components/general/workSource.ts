@@ -1,3 +1,4 @@
+import { defaultTypeSet } from '../../lib/taskTypes/typeSet'
 // src/components/general/workSource.ts
 import { sprintHours } from '../../lib/api/workload'
 import {
@@ -77,6 +78,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
 
   return {
     loadSprintHours: project && !project.class_board_id ? sprintHours : undefined,
+    taskTypeSet: project ? project.taskTypeSet ?? defaultTypeSet('work') : undefined,
     suggestStages: project && !project.class_board_id && planner && !state.archived
       ? { projectId: project.id, reload: () => state.reload() }
       : undefined,
