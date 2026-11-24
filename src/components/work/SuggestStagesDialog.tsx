@@ -322,7 +322,7 @@ function Review({
       <li key={p.task_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
         <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{t.title}</span>
         {p.flag && <span className="text-[12px] text-warning-700 dark:text-warning-300">{txt(flagText(p.flag, Boolean(ctx.window.to)))}</span>}
-        <span className="w-20 shrink-0 text-right font-mono text-[12px] text-muted">
+        <span className="w-24 shrink-0 whitespace-nowrap text-right font-mono text-[12px] text-muted">
           {t.minutes === null ? 'No estimate' : formatHours(t.minutes)}
         </span>
         <Select
@@ -386,7 +386,7 @@ function Review({
               />
               <Textarea
                 aria-label={`${singular} ${i + 1} goal`}
-                rows={1}
+                rows={2}
                 value={names[i]?.goal ?? ''}
                 maxLength={200}
                 placeholder="What is true when it ends"

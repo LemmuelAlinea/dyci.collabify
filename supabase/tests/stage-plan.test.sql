@@ -119,6 +119,19 @@ begin
     values (p, 'Zz old two', today + 21, today + 30) returning id into old2;
   update public.general_tasks set sprint_id = old2 where id = t_ms;
 
+  -- The API runs with pg_safeupdate, which refuses a DELETE with no WHERE.
+  perform pg_temp.check('no delete without a where',
+    not exists (select 1 from pg_proc
+                 where pronamespace = 'public'::regnamespace
+                   and (proname like 'stage_plan%' or proname in ('general_stage_plan_context', 'apply_stage_plan'))
+                   and prosrc ~* 'delete\s+from\s+\S+\s*;'));
+
+  -- A serialization_failure makes the API retry the call over and over; a stale plan is a plain refusal.
+  perform pg_temp.check('the stale refusal is not retried',
+    not exists (select 1 from pg_proc
+                 where pronamespace = 'public'::regnamespace and proname = 'apply_stage_plan'
+                   and prosrc ilike '%serialization_failure%'));
+
   ------------------------------------------------------------------ reading
   perform pg_temp.act_as(u[1]);
   ctx := public.general_stage_plan_context(p);
@@ -179,6 +192,11 @@ begin
   perform pg_temp.check('a chosen length is used',
     (ctx2 ->> 'length_days')::int = 7
     and (ctx2 -> 'stages' -> 0 ->> 'ends_on')::date = (ctx2 -> 'stages' -> 0 ->> 'starts_on')::date + 6);
+  -- 57 days in 2-week stages leaves 1 day over; it joins the last stage instead of becoming one.
+  perform pg_temp.check('a short remainder joins the last stage',
+    (select ((x ->> 'ends_on')::date - (x ->> 'starts_on')::date + 1) >= 7
+       from jsonb_array_elements(public.general_stage_plan_context(p, null, 14) -> 'stages') with ordinality a(x, o)
+      order by o desc limit 1));
   perform pg_temp.check('an odd length falls back',
     (public.general_stage_plan_context(p, null, 10) ->> 'length_days')::int = (ctx ->> 'suggested_length_days')::int);
 

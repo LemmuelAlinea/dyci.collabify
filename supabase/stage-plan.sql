@@ -271,7 +271,7 @@ begin
   create temporary table if not exists pg_temp.stage_plan_rows (
     ord int, id uuid, title text, description text, minutes int, priority text, rank double precision,
     due_at timestamptz, milestone_id uuid, sprint_id uuid, subtasks int) on commit drop;
-  delete from pg_temp.stage_plan_rows;
+  delete from pg_temp.stage_plan_rows where true; -- the API refuses a DELETE with no WHERE
   insert into pg_temp.stage_plan_rows
   select row_number() over (order by t.due_at nulls last, t.rank, t.id)::int, t.*
     from public.stage_plan_tasks(p_project, p_team) t;
@@ -300,7 +300,8 @@ begin
   loop
     exit when v_to is not null and v_start > v_to;
     v_end := v_start + v_len - 1;
-    if v_to is not null and v_end >= v_to then
+    -- A leftover shorter than half a stage joins this one instead of becoming a stage.
+    if v_to is not null and (v_end >= v_to or v_to - v_end < ceil(v_len / 2.0)) then
       v_end := v_to;
     else
       select m.due_on into v_snap
@@ -455,7 +456,7 @@ begin
   perform 1 from public.general_sprints where project_id = p_project for update;
   if p_shown is null or public.stage_plan_shown(p_project, p_team) is distinct from p_shown then
     raise exception 'Something changed while you were reviewing. Suggest again to see the latest.'
-      using errcode = 'serialization_failure';
+      using errcode = 'object_not_in_prerequisite_state';
   end if;
 
   if jsonb_typeof(p_stages) <> 'array' or jsonb_array_length(p_stages) not between 1 and 52 then
