@@ -196,6 +196,185 @@ end $$;
 
 select public.backfill_task_type_sets();
 
+-- ---------------------------------------------------------------- saving
+
+-- The stored set: p_types without each entry's "was". Anything but an array stays as it is, so
+-- the validator names the problem.
+create or replace function public.task_type_set_from_draft(p_types jsonb)
+returns jsonb language sql immutable set search_path = public as $$
+  select case when jsonb_typeof(p_types) = 'array' then
+    coalesce((select jsonb_agg(case when jsonb_typeof(x.e) = 'object' then x.e - 'was' else x.e end order by x.ord)
+                from jsonb_array_elements(p_types) with ordinality x(e, ord)), '[]'::jsonb)
+  else p_types end
+$$;
+
+-- The custom types renamed in this save, as [{old_name, new_name}]: "was" names a custom type in
+-- the stored set and differs from the new name. Two entries claiming one old name are refused.
+create or replace function public.task_type_renames(p_types jsonb, p_stored jsonb)
+returns jsonb language plpgsql stable set search_path = public as $$
+begin
+  if jsonb_typeof(p_types) <> 'array' then return '[]'::jsonb; end if;
+  if (select count(*) <> count(distinct x ->> 'was') from jsonb_array_elements(p_types) x
+       where jsonb_typeof(x) = 'object' and jsonb_typeof(x -> 'was') = 'string') then
+    raise exception 'Each task type needs a slot, name, description, color and icon.' using errcode = 'check_violation';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('old_name', x ->> 'was', 'new_name', x ->> 'name'))
+      from jsonb_array_elements(p_types) x
+     where jsonb_typeof(x) = 'object' and jsonb_typeof(x -> 'slot') = 'null'
+       and jsonb_typeof(x -> 'was') = 'string' and x ->> 'was' <> x ->> 'name'
+       and exists (select 1 from jsonb_array_elements(p_stored) s
+                    where s ->> 'slot' is null and s ->> 'name' = x ->> 'was')), '[]'::jsonb);
+end $$;
+
+-- The custom names, in set order: what task_types keeps.
+create or replace function public.task_type_custom_names(p_set jsonb)
+returns text[] language sql immutable set search_path = public as $$
+  select coalesce(array_agg(x.e ->> 'name' order by x.ord), '{}')
+    from jsonb_array_elements(p_set) with ordinality x(e, ord) where x.e ->> 'slot' is null
+$$;
+
+/**
+ * The project manager saves a work project's task types. p_types is the whole ordered set, each
+ * entry optionally carrying "was" (its name when the editor loaded it); p_shown is the
+ * task_type_set_shown the editor loaded, so a save made from an out-of-date list is refused.
+ * Renamed custom types carry their tasks with them (trashed ones too), silently: the rename runs as
+ * the service role would, so no guard, history row or notification sees a person's edit.
+ */
+create or replace function public.save_general_task_types(
+  p_project uuid, p_types jsonb, p_shown text, p_preset text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  gp public.general_projects%rowtype;
+  v_set jsonb := public.task_type_set_from_draft(p_types);
+  v_renames jsonb;
+  problem text;
+  prior_flag text := coalesce(current_setting('collabify.task_type_save', true), 'off');
+  prior_claims text := current_setting('request.jwt.claims', true);
+  prior_sub text := current_setting('request.jwt.claim.sub', true);
+begin
+  select * into gp from public.general_projects where id = p_project for update;
+  if gp.id is null or auth.uid() is null or public.general_role_of(gp.id, auth.uid()) is distinct from 'pm' then
+    raise exception 'Only the project manager changes task types.' using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(gp.id) then
+    raise exception 'Restore the project before changing task types.' using errcode = 'check_violation';
+  end if;
+  if gp.class_board_id is not null then
+    raise exception 'Class board files do not use work task types.' using errcode = 'check_violation';
+  end if;
+  if p_shown is distinct from gp.task_type_set_shown then
+    raise exception 'Someone changed these task types. Reload to see them.'
+      using errcode = 'object_not_in_prerequisite_state';
+  end if;
+  problem := public.task_type_set_problem(v_set, 'work');
+  if problem is not null then raise exception '%', problem using errcode = 'check_violation'; end if;
+  v_renames := public.task_type_renames(p_types, gp.task_type_set);
+
+  perform set_config('collabify.task_type_save', 'on', true);
+  update public.general_projects
+     set task_type_set = v_set, task_types = public.task_type_custom_names(v_set),
+         task_type_preset = coalesce(p_preset, task_type_preset)
+   where id = gp.id;
+  perform set_config('collabify.task_type_save', prior_flag, true);
+
+  if jsonb_array_length(v_renames) > 0 then
+    begin
+      perform set_config('request.jwt.claims', '', true);
+      perform set_config('request.jwt.claim.sub', '', true);
+      update public.general_tasks t set task_type = m.new_name
+        from jsonb_to_recordset(v_renames) m(old_name text, new_name text)
+       where t.project_id = gp.id and t.task_type = m.old_name;
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+    exception when others then
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+      raise;
+    end;
+  end if;
+end $$;
+
+/** A professor saves a class project's task types: the same rules, on every board's tasks. */
+create or replace function public.save_class_task_types(
+  p_project uuid, p_types jsonb, p_shown text, p_preset text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  cp public.projects%rowtype;
+  v_set jsonb := public.task_type_set_from_draft(p_types);
+  v_renames jsonb;
+  problem text;
+  prior_flag text := coalesce(current_setting('collabify.task_type_save', true), 'off');
+  prior_claims text := current_setting('request.jwt.claims', true);
+  prior_sub text := current_setting('request.jwt.claim.sub', true);
+begin
+  select * into cp from public.projects where id = p_project for update;
+  if cp.id is null or auth.uid() is null or not public.is_class_professor(cp.class_id) then
+    raise exception 'Only a professor changes task types.' using errcode = 'insufficient_privilege';
+  end if;
+  if p_shown is distinct from cp.task_type_set_shown then
+    raise exception 'Someone changed these task types. Reload to see them.'
+      using errcode = 'object_not_in_prerequisite_state';
+  end if;
+  problem := public.task_type_set_problem(v_set, 'class');
+  if problem is not null then raise exception '%', problem using errcode = 'check_violation'; end if;
+  v_renames := public.task_type_renames(p_types, cp.task_type_set);
+
+  perform set_config('collabify.task_type_save', 'on', true);
+  update public.projects
+     set task_type_set = v_set, task_types = public.task_type_custom_names(v_set),
+         task_type_preset = coalesce(p_preset, task_type_preset)
+   where id = cp.id;
+  perform set_config('collabify.task_type_save', prior_flag, true);
+
+  if jsonb_array_length(v_renames) > 0 then
+    begin
+      perform set_config('request.jwt.claims', '', true);
+      perform set_config('request.jwt.claim.sub', '', true);
+      update public.project_tasks t set task_type = m.new_name
+        from jsonb_to_recordset(v_renames) m(old_name text, new_name text), public.project_boards b
+       where b.project_id = cp.id and t.board_id = b.id and t.task_type = m.old_name;
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+    exception when others then
+      perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+      perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+      raise;
+    end;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------- counts, for the confirmations
+
+/** Live (not trashed) tasks per custom type name, private planning rows included. The pm only. */
+create or replace function public.general_task_type_counts(p_project uuid)
+returns table(name text, tasks int) language sql stable security definer set search_path = public as $$
+  select t.task_type, count(*)::int from public.general_tasks t
+   where t.project_id = p_project and t.trashed_at is null and t.task_type is not null
+     and public.general_role_of(p_project, auth.uid()) = 'pm'
+   group by t.task_type
+$$;
+
+/** Live tasks per custom type name over every board's copy. The class's professors only. */
+create or replace function public.class_task_type_counts(p_project uuid)
+returns table(name text, tasks int) language sql stable security definer set search_path = public as $$
+  select t.task_type, count(*)::int
+    from public.project_tasks t join public.project_boards b on b.id = t.board_id
+    join public.projects p on p.id = b.project_id
+   where b.project_id = p_project and t.trashed_at is null and t.task_type <> 'Task'
+     and public.is_class_professor(p.class_id)
+   group by t.task_type
+$$;
+
+revoke all on function public.task_type_set_from_draft(jsonb), public.task_type_renames(jsonb, jsonb),
+  public.task_type_custom_names(jsonb) from public, anon, authenticated;
+revoke all on function public.save_general_task_types(uuid, jsonb, text, text),
+  public.save_class_task_types(uuid, jsonb, text, text),
+  public.general_task_type_counts(uuid), public.class_task_type_counts(uuid) from public, anon;
+grant execute on function public.save_general_task_types(uuid, jsonb, text, text),
+  public.save_class_task_types(uuid, jsonb, text, text),
+  public.general_task_type_counts(uuid), public.class_task_type_counts(uuid) to authenticated;
+
 revoke all on function public.task_type_set_problem(jsonb, text), public.guard_task_type_set(),
   public.backfill_task_type_sets() from public, anon, authenticated;
 -- Column defaults run as the inserting person, so these two stay callable.

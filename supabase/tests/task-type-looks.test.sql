@@ -220,4 +220,237 @@ begin
     (select jsonb_array_length(task_type_set) = 4 from public.general_projects where id = p2));
 end $$;
 
+-- ------------------------------------------------------------ part 2: saving, renames, counts
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+    gen_random_uuid(), gen_random_uuid()];  -- pm, coordinator, member, qa, stakeholder, outsider
+  p uuid; arch uuid;
+  shown text;
+  t_epic1 uuid; t_epic2 uuid; t_epic_trash uuid; t_feat uuid; t_plain uuid; t_bug uuid;
+  stamp timestamptz;
+  events_before int; notes_before int;
+  c uuid; prof uuid; student uuid; student2 uuid; gs uuid; g1 uuid; g2 uuid; cp uuid; b1 uuid; b2 uuid;
+  ct1 uuid; ct2 uuid;
+  base jsonb;
+begin
+  for i in 1..6 loop
+    insert into auth.users(id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+      values(u[i], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'zz-type-save-' || i || '@example.test', '', now(), now());
+    insert into public.profiles(id, email, first_name, last_name, role, status, can_manage_projects)
+      values(u[i], 'zz-type-save-' || i || '@example.test', 'Save', i::text, 'member', 'active', i = 1);
+  end loop;
+  perform pg_temp.act_as(u[1]);
+  p := (public.create_general_project('Zz type saves', '')).id;
+  arch := (public.create_general_project('Zz archived types', '')).id;
+  perform pg_temp.service();
+  insert into public.general_members(project_id, user_id, role) values
+    (p, u[2], 'coordinator'), (p, u[3], 'member'), (p, u[4], 'qa'), (p, u[5], 'stakeholder');
+
+  -- The pm saves a set with new types and a preset key.
+  perform pg_temp.act_as(u[1]);
+  select task_type_set_shown into shown from public.general_projects where id = p;
+  perform public.save_general_task_types(p,
+    pg_temp.work(pg_temp.e(null, 'Epic', '#db2777', 'zap'), pg_temp.e(null, 'Feature', '#9333ea', 'layers')),
+    shown, 'software');
+  perform pg_temp.check('pm saves the set, the names and the preset',
+    (select task_type_set = pg_temp.work(pg_temp.e(null, 'Epic', '#db2777', 'zap'), pg_temp.e(null, 'Feature', '#9333ea', 'layers'))
+        and task_types = array['Epic', 'Feature'] and task_type_preset = 'software'
+       from public.general_projects where id = p));
+
+  -- Others are refused.
+  for i in 2..6 loop
+    perform pg_temp.act_as(u[i]);
+    perform pg_temp.refuse('role ' || i || ' cannot save',
+      format('select public.save_general_task_types(%L, %L, %L)', p, pg_temp.work(),
+        (select task_type_set_shown from public.general_projects where id = p)),
+      'Only the project manager changes task types.');
+  end loop;
+  perform pg_temp.service();
+  update public.general_projects set archived_at = now() where id = arch;
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('archived project refused',
+    format('select public.save_general_task_types(%L, %L, %L)', arch, pg_temp.work(),
+      (select task_type_set_shown from public.general_projects where id = arch)),
+    'Restore the project before changing task types.');
+  perform pg_temp.refuse('a stale save is refused',
+    format('select public.save_general_task_types(%L, %L, %L)', p, pg_temp.work(), md5('old')),
+    'Someone changed these task types. Reload to see them.');
+  begin
+    perform public.save_general_task_types(p, pg_temp.work(), md5('old'));
+  exception when others then
+    perform pg_temp.check('stale errcode is 55000', sqlstate = '55000');
+  end;
+  perform pg_temp.check('a stale save changes nothing',
+    (select task_types = array['Epic', 'Feature'] from public.general_projects where id = p));
+  perform pg_temp.refuse('an invalid set is refused',
+    format('select public.save_general_task_types(%L, %L, %L)', p, '[]',
+      (select task_type_set_shown from public.general_projects where id = p)),
+    'Keep one default type.');
+
+  -- Tasks to rename.
+  insert into public.general_tasks(project_id, title, task_type) values (p, 'Zz epic 1', 'Epic') returning id into t_epic1;
+  insert into public.general_tasks(project_id, title, task_type) values (p, 'Zz epic 2', 'Epic') returning id into t_epic2;
+  insert into public.general_tasks(project_id, title, task_type) values (p, 'Zz epic 3', 'Epic') returning id into t_epic_trash;
+  insert into public.general_tasks(project_id, title, task_type) values (p, 'Zz feature', 'Feature') returning id into t_feat;
+  insert into public.general_tasks(project_id, title) values (p, 'Zz plain') returning id into t_plain;
+  perform pg_temp.service();
+  update public.general_tasks set archived_at = now(), trashed_at = now() where id = t_epic_trash;
+  insert into public.general_tasks(project_id, title, kind) values (p, 'Zz bug', 'bug') returning id into t_bug;
+
+  -- Counts: live tasks per custom name, for the pm only.
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.check('pm counts live tasks per type',
+    (select coalesce(jsonb_object_agg(name, tasks), '{}') from public.general_task_type_counts(p))
+      = '{"Epic": 2, "Feature": 1}'::jsonb);
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('a member counts nothing', not exists (select 1 from public.general_task_type_counts(p)));
+
+  -- Rename Epic to Initiative.
+  perform pg_temp.service();
+  select count(*) into events_before from public.general_task_events where task_id in (t_epic1, t_epic2, t_epic_trash, t_feat);
+  select count(*) into notes_before from public.notifications;
+  perform pg_temp.act_as(u[1]);
+  perform public.save_general_task_types(p,
+    pg_temp.work(pg_temp.e(null, 'Initiative', '#db2777', 'zap') || '{"was":"Epic"}',
+      pg_temp.e(null, 'Feature', '#9333ea', 'layers') || '{"was":"Feature"}'),
+    (select task_type_set_shown from public.general_projects where id = p));
+  perform pg_temp.service();
+  perform pg_temp.check('renamed tasks follow, trashed ones included',
+    (select count(*) = 3 from public.general_tasks where id in (t_epic1, t_epic2, t_epic_trash) and task_type = 'Initiative'));
+  perform pg_temp.check('the stored set has no was',
+    (select not (task_type_set -> 2 ? 'was') and task_types = array['Initiative', 'Feature']
+       from public.general_projects where id = p));
+  perform pg_temp.check('a rename writes no task history',
+    (select count(*) = events_before from public.general_task_events where task_id in (t_epic1, t_epic2, t_epic_trash, t_feat)));
+  perform pg_temp.check('a rename sends no notification', (select count(*) = notes_before from public.notifications));
+
+  -- Swap two names in one save.
+  perform pg_temp.act_as(u[1]);
+  perform public.save_general_task_types(p,
+    pg_temp.work(pg_temp.e(null, 'Feature', '#db2777', 'zap') || '{"was":"Initiative"}',
+      pg_temp.e(null, 'Initiative', '#9333ea', 'layers') || '{"was":"Feature"}'),
+    (select task_type_set_shown from public.general_projects where id = p));
+  perform pg_temp.service();
+  perform pg_temp.check('a swap trades the names',
+    (select task_type = 'Feature' from public.general_tasks where id = t_epic1)
+    and (select task_type = 'Initiative' from public.general_tasks where id = t_feat));
+
+  -- Slots rename without touching a task row; a dropped custom type stays on its tasks.
+  select updated_at into stamp from public.general_tasks where id = t_plain;
+  perform pg_temp.act_as(u[1]);
+  base := jsonb_build_array(pg_temp.e('default', 'Research Task', '#2563eb', 'search') || '{"was":"Task"}',
+    pg_temp.e('bug', 'Defect', '#dc2626', 'bug') || '{"was":"Bug"}',
+    pg_temp.e(null, 'Feature', '#db2777', 'zap') || '{"was":"Feature"}');
+  perform public.save_general_task_types(p, base, (select task_type_set_shown from public.general_projects where id = p));
+  perform pg_temp.service();
+  perform pg_temp.check('a slot rename touches no task',
+    (select updated_at = stamp and task_type is null from public.general_tasks where id = t_plain)
+    and (select kind = 'bug' and task_type is null from public.general_tasks where id = t_bug));
+  perform pg_temp.check('a removed type stays on its tasks',
+    (select task_type = 'Initiative' from public.general_tasks where id = t_feat));
+
+  -- A removed name can't be given to another task, until it is added back.
+  perform pg_temp.act_as(u[1]);
+  perform pg_temp.refuse('removed name refused on edit',
+    format('update public.general_tasks set task_type = %L where id = %L', 'Initiative', t_epic2),
+    'Choose a task type');
+  perform public.save_general_task_types(p,
+    jsonb_build_array(pg_temp.e('default', 'Research Task', '#2563eb', 'search'), pg_temp.e('bug', 'Defect', '#dc2626', 'bug'),
+      pg_temp.e(null, 'Feature', '#db2777', 'zap'), pg_temp.e(null, 'Initiative', '#9333ea', 'layers')),
+    (select task_type_set_shown from public.general_projects where id = p), null);
+  update public.general_tasks set task_type = 'Initiative' where id = t_epic2;
+  perform pg_temp.check('added back, the name works again',
+    (select task_type = 'Initiative' from public.general_tasks where id = t_epic2));
+  perform pg_temp.check('a null preset keeps the stored one',
+    (select task_type_preset = 'software' from public.general_projects where id = p));
+
+  -- Rename one type and delete another in one save.
+  perform public.save_general_task_types(p,
+    jsonb_build_array(pg_temp.e('default', 'Research Task', '#2563eb', 'search'), pg_temp.e('bug', 'Defect', '#dc2626', 'bug'),
+      pg_temp.e(null, 'Epic', '#db2777', 'zap') || '{"was":"Feature"}'),
+    (select task_type_set_shown from public.general_projects where id = p));
+  perform pg_temp.service();
+  perform pg_temp.check('rename and delete together',
+    (select task_type = 'Epic' from public.general_tasks where id = t_epic1)
+    and (select task_type = 'Initiative' from public.general_tasks where id = t_epic2));
+
+  -- QA keeps its rule.
+  perform pg_temp.act_as(u[1]);
+  perform public.set_general_task_flow(p, 'open');
+  perform pg_temp.act_as(u[4]);
+  perform pg_temp.check('QA still raises bugs',
+    public.create_general_open_task(p, 'Zz qa bug', '', null, null, null, null, 'bug', '{}'::uuid[]) is not null);
+  perform pg_temp.refuse('QA still cannot raise a task',
+    format('select public.create_general_open_task(%L, %L, %L, null, null, null, null, %L, %L::uuid[])',
+      p, 'Bad', '', 'task', '{}'), 'QA creates bug tasks only.');
+
+  -- Class projects: the professor saves; renames reach every board.
+  perform pg_temp.service();
+  select cl.id, cl.professor_id, m.student_id into c, prof, student
+    from public.classes cl join public.class_members m on m.class_id = cl.id and m.status = 'active'
+    where (select count(*) from public.class_members x where x.class_id = cl.id and x.status = 'active') >= 2
+    order by cl.created_at limit 1;
+  perform pg_temp.check('class fixture available', c is not null and student is not null);
+  select student_id into student2 from public.class_members where class_id = c
+    and status = 'active' and student_id <> student order by student_id limit 1;
+  insert into public.group_sets(class_id, name, mode) values(c, 'zz-type-looks', 'manual') returning id into gs;
+  insert into public.groups(set_id, name) values(gs, 'Type group 1') returning id into g1;
+  insert into public.groups(set_id, name) values(gs, 'Type group 2') returning id into g2;
+  insert into public.group_members(group_id, set_id, student_id) values (g1, gs, student), (g2, gs, student2);
+  insert into public.projects(class_id, created_by, title, type, start_week, end_week, audience, group_set_id, due_at)
+    values(c, prof, 'zz-type-looks-class', 'activity', 1, 2, 'group', gs, now() + interval '14 days') returning id into cp;
+  perform public.ensure_project_boards(cp);
+  select id into b1 from public.project_boards where project_id = cp and group_id = g1;
+  select id into b2 from public.project_boards where project_id = cp and group_id = g2;
+
+  perform pg_temp.act_as(prof);
+  perform public.save_class_task_types(cp,
+    jsonb_build_array(pg_temp.e('default', 'Task', '#2563eb', 'square-check'), pg_temp.e(null, 'Review', '#0d9488', 'clipboard-check')),
+    (select task_type_set_shown from public.projects where id = cp), 'research');
+  perform pg_temp.check('professor saves the class set',
+    (select task_types = array['Review'] and task_type_preset = 'research' from public.projects where id = cp));
+  perform pg_temp.refuse('class sets keep their own rules',
+    format('select public.save_class_task_types(%L, %L, %L)', cp, pg_temp.work(),
+      (select task_type_set_shown from public.projects where id = cp)),
+    'Class projects have no bug type.');
+  perform pg_temp.act_as(student);
+  perform pg_temp.refuse('a student cannot save',
+    format('select public.save_class_task_types(%L, %L, %L)', cp,
+      jsonb_build_array(pg_temp.e('default', 'Task')), (select task_type_set_shown from public.projects where id = cp)),
+    'Only a professor changes task types.');
+
+  perform pg_temp.service();
+  insert into public.project_tasks(board_id, title, created_by, task_type)
+    values (b1, 'Zz class review', student, 'Review') returning id into ct1;
+  insert into public.project_tasks(board_id, title, created_by, task_type, status)
+    values (b2, 'Zz class review started', student2, 'Review', 'in_progress') returning id into ct2;
+  update public.project_boards set submitted_at = now() where id = b2;
+
+  perform pg_temp.act_as(prof);
+  perform pg_temp.check('professor counts every copy',
+    (select tasks = 2 from public.class_task_type_counts(cp) where name = 'Review'));
+  perform public.save_class_task_types(cp,
+    jsonb_build_array(pg_temp.e('default', 'Research Task', '#2563eb', 'search') || '{"was":"Task"}',
+      pg_temp.e(null, 'Peer Review', '#0d9488', 'clipboard-check') || '{"was":"Review"}'),
+    (select task_type_set_shown from public.projects where id = cp));
+  perform pg_temp.service();
+  perform pg_temp.check('class rename reaches started and submitted boards',
+    (select count(*) = 2 from public.project_tasks where id in (ct1, ct2) and task_type = 'Peer Review'));
+  perform pg_temp.act_as(student);
+  perform pg_temp.check('a student counts nothing', not exists (select 1 from public.class_task_type_counts(cp)));
+  perform pg_temp.service();
+end $$;
+
+-- Nobody signed out runs the functions.
+do $$
+begin
+  perform pg_temp.check('anon cannot save or count',
+    not has_function_privilege('anon', 'public.save_general_task_types(uuid, jsonb, text, text)', 'execute')
+    and not has_function_privilege('anon', 'public.save_class_task_types(uuid, jsonb, text, text)', 'execute')
+    and not has_function_privilege('anon', 'public.general_task_type_counts(uuid)', 'execute')
+    and not has_function_privilege('anon', 'public.class_task_type_counts(uuid)', 'execute'));
+end $$;
+
 rollback;
