@@ -5838,3 +5838,7 @@ accepted." from the setting; no failed requests.
 **Deferred**
 - Class boards' Backlog and Sprints show no type chip (their items carry no type).
 - The browser check on desktop, tablet and phone in both themes needs a signed-in project manager and professor.
+- From the final review (minor): a failed reorder keeps the unsaved order on screen until reload; reordering while the
+  edit panel has unsaved changes drops them without asking; a failed reload after a good save reads as a save error;
+  `ProjectPatch.task_types` is now refused by the database; class card chips sit in a `pointer-events-none` row, so
+  their tooltip never shows.
