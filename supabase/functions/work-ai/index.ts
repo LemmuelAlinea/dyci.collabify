@@ -35,6 +35,8 @@ import { breakdownRowProperties, readableNote, validateBreakdown } from '../_sha
 import { checkStagePlan, stageGoal, stageName, stageNote } from '../_shared/stagePlan.ts'
 import type { StageContext, StageDraft } from '../_shared/stagePlan.ts'
 import { buildClassBrief, FIT_RULES, FIT_SCHEMA_FIELDS, normalizeFit, readClassBrief, THIN_NOTE } from '../_shared/classBrief.ts'
+import { normalizeNoteTaskFields, noteTypeChoices } from '../_shared/notesTaskFields.ts'
+import type { NotePriority } from '../_shared/notesTaskFields.ts'
 
 const MODEL = 'claude-opus-5'
 /** The most tasks one Tasks from notes run can draft. */
@@ -498,7 +500,7 @@ async function tasksAction(ctx: Ctx) {
   const fileName = String(ctx.body.file_name ?? '').slice(0, 200)
 
   const [{ data: project }, { data: members, error: membersError }, { data: teams }] = await Promise.all([
-    ctx.caller.from('general_projects').select('name, starts_on, ends_on').eq('id', ctx.projectId).maybeSingle(),
+    ctx.caller.from('general_projects').select('name, starts_on, ends_on, default_priority, task_type_set').eq('id', ctx.projectId).maybeSingle(),
     ctx.caller
       .from('general_members')
       .select('user_id, profile:profiles (first_name, last_name)')
@@ -523,6 +525,9 @@ async function tasksAction(ctx: Ctx) {
   }
   const judge = Boolean(classBrief && !classBrief.thin)
   const teamNames = ((teams ?? []) as { name: string }[]).map((t) => t.name)
+  const typeChoices = noteTypeChoices(work ? project?.task_type_set : null)
+  const defaultPriority: NotePriority = ['low', 'normal', 'high', 'urgent'].includes(project?.default_priority)
+    ? project.default_priority as NotePriority : 'normal'
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
   const anchor = project?.starts_on && project.starts_on > today ? project.starts_on : today
   const { data: naming } = work
@@ -541,6 +546,9 @@ discussion, not background, not things already done.
   there is none.
 - assignee: ${work ? 'the person label (person1, person2...) explicitly named in the text, else empty. Never assign a person' : 'the id of the member the text names for it, matched by name, else empty. Never guess from roles alone' }.
 - team: one of the team names given if the text puts it there, else empty.
+${work ? `- priority: low, normal, high, or urgent only when the text explicitly states one for this task; otherwise empty.
+- task_type: one of the project type values below when the text explicitly names that type for this task; otherwise empty. Match type labels to their values.
+- estimated_hours: decimal hours only when the text explicitly estimates this task's work (for example, 90 minutes is "1.5"); otherwise empty. Do not infer hours from dates or task size. Maximum 1000 hours.` : ''}
 - start and due: YYYY-MM-DD for every task. Keep dates the text gives or
   clearly implies exactly (resolve relative days against today). When it gives
   a start and an end, due is the end. For missing dates, estimate a realistic
@@ -592,6 +600,7 @@ ${judge ? `\n${FIT_RULES}\n` : ''}${VOICE}`,
         `Project: ${project?.name ?? ''}${project?.starts_on ? `, runs ${project.starts_on} to ${project.ends_on ?? 'open'}` : ''}`,
         work ? '' : `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
         teamNames.length ? `Teams: ${teamNames.join(', ')}` : 'Teams: none',
+        work ? `Task types (value: label): ${typeChoices.map((t) => `${t.value}: ${t.label}`).join(', ')}. Default priority: ${defaultPriority}.` : '',
         judge ? `\nClass project brief:\n${classBrief!.text}` : '',
         '',
         !work && fileName ? `Text (read from the uploaded file "${fileName}"):` : 'Text:',
@@ -607,6 +616,7 @@ ${judge ? `\n${FIT_RULES}\n` : ''}${VOICE}`,
           description: str,
           assignee: str,
           team: str,
+          ...(work ? { priority: str, task_type: str, estimated_hours: str } : {}),
           due: str,
           start: str,
           sprint: str,
@@ -682,6 +692,7 @@ ${judge ? `\n${FIT_RULES}\n` : ''}${VOICE}`,
         assignee: work ? '' : ids.has(String(t.assignee)) ? String(t.assignee) : '',
         named: work ? people.find((_, i) => String(t.assignee) === `person${i + 1}`)?.name ?? '' : '',
         team: teamNames.includes(String(t.team)) ? String(t.team) : '',
+        ...(work ? normalizeNoteTaskFields(t, typeChoices, defaultPriority) : {}),
         due,
         // A start after the due day is refused by the table; drop it rather than the task.
         start: start && due && start > due ? '' : start,

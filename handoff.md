@@ -5857,3 +5857,9 @@ accepted." from the setting; no failed requests.
 - `TasksFromNotes` saves drafts from pasted notes, uploads (including CSV) and discussions with `createOpenTask` when `task_flow = 'open'`; they are live and unassigned. Planned projects keep `createTask` and the Plan & route handoff. Class-board `onSave` stays separate.
 - Open tasks are moved to their drafted sprint after creation. If placement fails, the save still completes and tells the person to move the live task from Backlog; retrying the whole draft would duplicate it.
 - Frontend regression tests cover Open, Planned and failed sprint placement. Vitest: 3,081 passed before integration; the integrated change's 12 targeted tests and lint passed. `project-open-tasks.test.sql`, `work-workload.test.sql` and the updated `project-task-types.test.sql` passed. No SQL changed here.
+
+## 2026-11-26 — From notes drafts priority, type and estimate
+
+- The shared `work-ai` tasks action reads the work project's task type set and default priority. It extracts priority, type and estimated hours only when stated by pasted notes, uploaded files or saved discussions; otherwise it uses the default priority, Task and an empty estimate. The response is checked against valid project types and the 1–60,000 minute estimate range.
+- Each work draft shows editable Priority, Type and Estimated hours fields. Open saves all three in `createOpenTask`; Planned saves priority/type in `createTask` then calls `setTaskEstimate`. If that estimate write fails after creation, the success notice identifies the task's missing estimate so retry does not duplicate it. Class-board drafts retain their existing save path.
+- Twelve focused tests passed, including all three sources, both task flows, edits, defaults and an estimate-write failure. ESLint and the production build passed. `work-ai` was deployed. No SQL changed.

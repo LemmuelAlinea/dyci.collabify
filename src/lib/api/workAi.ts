@@ -29,6 +29,10 @@ export type DraftedWorkTask = {
   milestone: string
   /** Shared discussion files the discussion ties to this task (their ids). */
   files: string[]
+  /** Work projects only; absent from older function deployments. */
+  priority?: 'low' | 'normal' | 'high' | 'urgent'
+  task_type?: string
+  estimated_hours?: string
   /** On a class board only: the check against the class project. Absent from an older deploy. */
   fit?: 'fits' | 'off'
   fit_reason?: string

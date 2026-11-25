@@ -15,11 +15,16 @@ import { canCreateWorkTask } from '../../lib/general/permissions'
 import { createMilestone, tagTasks } from '../../lib/api/milestones'
 import { createSprint, moveTasksToSprint, setSprintMilestone } from '../../lib/api/sprints'
 import { draftWorkTasks } from '../../lib/api/workAi'
+import { setTaskEstimate } from '../../lib/api/workload'
 import type { DraftSharedFile, DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
 import { noteFitDefaults } from '../../lib/classFileTasks'
 import { isAssignCandidate } from '../../lib/work/assignDraft'
 import { formatDue } from '../../lib/general/dates'
+import { PRIORITIES } from '../../lib/general/types'
+import { DEFAULT_TASK_RULES } from '../../lib/general/taskRules'
+import { parseHours } from '../../lib/work/hours'
+import { defaultTypeSet, typeOptions } from '../../lib/taskTypes/typeSet'
 import { NOTES_FILE_ACCEPT, NOTES_FILE_MAX, NotesFileError, readNotesFile } from '../../lib/general/notesFile'
 import {
   addedMessage,
@@ -122,6 +127,9 @@ export function TasksFromNotes({
   const projectId = state.project?.id
   // A class board's hidden Files project: drafted tasks come back checked against the class project.
   const classBoard = Boolean(state.project?.class_board_id)
+  const taskTypes = typeOptions(state.project?.taskTypeSet ?? defaultTypeSet('work'), { family: 'work' })
+    .map(({ value, entry }) => ({ value, label: entry.name }))
+  const defaultPriority = state.project?.taskRules?.defaultPriority ?? DEFAULT_TASK_RULES.defaultPriority
   const mayAssign = onSave ? (mayAssignOverride ?? state.can('manage_tasks')) : false
   const workPlans = Boolean(state.project) && !state.readOnly && state.can('manage_tasks')
   const scope: NotesPlanScope = planOverride ?? {
@@ -208,7 +216,9 @@ export function TasksFromNotes({
             : { discussion_id: discussionId },
       )
       if (res.result !== 'ok') return setError(res.message)
-      const tasks = res.tasks.map((t) => ({ ...t, start: t.start ?? '', sprint: t.sprint ?? '', milestone: t.milestone ?? '' }))
+      const tasks = res.tasks.map((t) => ({ ...t, start: t.start ?? '', sprint: t.sprint ?? '', milestone: t.milestone ?? '',
+        priority: t.priority ?? defaultPriority, task_type: t.task_type ?? 'task', estimated_hours: t.estimated_hours ?? '',
+      }))
       const shaped = shapePlan(
         { tasks, sprints: res.sprints, milestones: res.milestones },
         { sprints: scope.sprints, milestones: scope.milestones },
@@ -255,6 +265,8 @@ export function TasksFromNotes({
     if (!onSave && (state.readOnly || !canCreateWorkTask(state.myRole, 'task'))) return
     const keep = (rows ?? []).filter((r) => r.keep && r.title.trim())
     if (keep.length === 0) return
+    if (!onSave && keep.some((r) => parseHours(r.estimated_hours ?? '') === 'invalid'))
+      return setError('Enter estimated hours from 0.02 to 1000, or leave the field empty.')
     const problem = planProblem(sprints, milestones)
     if (problem) return setError(txt(problem))
     setSaving(true)
@@ -275,6 +287,7 @@ export function TasksFromNotes({
     let missed = 0
     let untagged = 0
     let unplaced = 0
+    let unestimated = 0
     try {
       const created = await commitPlan(sprints, milestones, {
         sprint: (input, milestoneId) => createSprint(home, input, milestoneId),
@@ -290,11 +303,22 @@ export function TasksFromNotes({
           dueAt: endOfDay(r.due),
           startsAt: startsAt(r),
           teamId: state.teams.find((t) => t.name === r.team)?.id ?? null,
+          priority: r.priority ?? defaultPriority,
+          kind: r.task_type === 'bug' ? 'bug' as const : 'task' as const,
+          taskType: r.task_type && r.task_type !== 'task' && r.task_type !== 'bug' ? r.task_type : null,
         }
+        const estimateMinutes = parseHours(r.estimated_hours ?? '')
         const sprintId = resolveKey(r.sprintKey, created)
         const taskId = openFlow
-          ? await createOpenTask({ ...task, priority: null, kind: 'task', holderIds: [] })
+          ? await createOpenTask({ ...task, holderIds: [], estimateMinutes: typeof estimateMinutes === 'number' ? estimateMinutes : null })
           : await createTask({ ...task, sprintId })
+        if (!openFlow && typeof estimateMinutes === 'number') {
+          try {
+            await setTaskEstimate(taskId, estimateMinutes)
+          } catch {
+            unestimated++
+          }
+        }
         if (openFlow && sprintId) {
           try {
             await moveTasksToSprint(home, [taskId], sprintId)
@@ -318,7 +342,8 @@ export function TasksFromNotes({
         txt(addedMessage(keep.length, sprints.filter((s) => s.keep).length, milestones.filter((m) => m.keep).length)) +
           (missed > 0 ? `. ${missed} ${missed === 1 ? 'file' : 'files'} could not be added to ${missed === 1 ? 'its task' : 'their tasks'}.` : '') +
           (unplaced > 0 ? `. ${unplaced} ${unplaced === 1 ? 'task' : 'tasks'} could not be put in ${unplaced === 1 ? 'its' : 'their'} sprint; move ${unplaced === 1 ? 'it' : 'them'} from Backlog.` : '') +
-          (untagged > 0 ? `. ${untagged} could not be put on their milestone; tag them from Milestones.` : ''),
+          (untagged > 0 ? `. ${untagged} could not be put on their milestone; tag them from Milestones.` : '') +
+          (unestimated > 0 ? `. ${unestimated} ${unestimated === 1 ? 'estimate' : 'estimates'} could not be saved; set ${unestimated === 1 ? 'it' : 'them'} on the task.` : ''),
       )
       onClose()
     } catch (err) {
@@ -688,6 +713,21 @@ export function TasksFromNotes({
                         <div className="grid gap-2 sm:grid-cols-3">
                           <DateField label="Starts" value={r.start} aria={`Task ${i + 1} start date`} onChange={(v) => patch(i, { start: v })} />
                           <DateField label="Due" value={r.due} aria={`Task ${i + 1} due date`} onChange={(v) => patch(i, { due: v })} />
+                          {!onSave && !classBoard && <>
+                            <label className="text-[12px] text-faint">Priority
+                              <Select value={r.priority ?? defaultPriority} onChange={(e) => patch(i, { priority: e.target.value as Row['priority'] })}
+                                aria-label={`Task ${i + 1} priority`} options={PRIORITIES.map((p) => ({ value: p.value, label: p.label }))} className="mt-1 !h-10 !text-[13px]" />
+                            </label>
+                            <label className="text-[12px] text-faint">Type
+                              <Select value={r.task_type ?? 'task'} onChange={(e) => patch(i, { task_type: e.target.value })}
+                                aria-label={`Task ${i + 1} type`} options={taskTypes} className="mt-1 !h-10 !text-[13px]" />
+                            </label>
+                            <label className="text-[12px] text-faint">Estimated hours
+                              <Input type="number" min="0.02" max="1000" step="any" value={r.estimated_hours ?? ''}
+                                onChange={(e) => patch(i, { estimated_hours: e.target.value })}
+                                aria-label={`Task ${i + 1} estimated hours`} className="mt-1 !h-10 !text-[13px]" />
+                            </label>
+                          </>}
                           {scope.maySprint && sprintOptions.length > 0 && (
                             <Select
                               value={shown(r.sprintKey, sprintOptions)}

@@ -395,6 +395,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   write with claims cleared and redefine no guard, so edit rights don't widen. Open-created tasks keep `sent_at` null,
   so their creator keeps the creator rule. Plan & route shows in an open project only while work waits in planning
   (`showsRouting`). Suite: `supabase/tests/project-open-tasks.test.sql`.
+  Tasks from notes uses the project's task flow, type set and default priority. Pasted notes, files and saved
+  discussions draft explicit priority, type and estimated hours for review; planned tasks receive estimates after creation.
 - Custom work task types (`supabase/project-task-types.sql`, after `stage-terminology.sql`, before
   `anon-lockdown.sql`): a project manager sets extra names alongside Task and Bug; removed names stay on old
   tasks. `kind` still enforces the QA Bug rule. Re-run this file after `project-member-rules.sql` or
