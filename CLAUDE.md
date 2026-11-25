@@ -128,8 +128,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - Project skill tags live in `general_member_skills`, from `member-skills.sql`
   (after the seven-file chain). The Edge Function matches positions and skills;
   `supabase/functions/_shared/assignPick.ts` selects teams or receiving-team people.
-  Suggestions stay drafts until the Tasks review confirms them. From notes creates
-  planning tasks and never releases or assigns them.
+  Suggestions stay drafts until the Tasks review confirms them. From notes saves
+  live, unassigned tasks in Open projects and planning tasks in Planned projects.
 - `work-task-handoff.sql` is the final task owner, after `project-requests.sql`
   and the complete company-role/member-skills chain; the files after it
   (`project-settings-general.sql` through `space-roles.sql`) follow, then

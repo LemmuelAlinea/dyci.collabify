@@ -10,10 +10,10 @@ import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { listDiscussionFolders, listDiscussions } from '../../lib/api/discussions'
 import { attachSharedFiles } from '../../lib/general/sharedFiles'
-import { GENERAL_FILE_LIMIT, createTask, uploadTaskFile } from '../../lib/api/general'
+import { GENERAL_FILE_LIMIT, createOpenTask, createTask, uploadTaskFile } from '../../lib/api/general'
 import { canCreateWorkTask } from '../../lib/general/permissions'
 import { createMilestone, tagTasks } from '../../lib/api/milestones'
-import { createSprint, setSprintMilestone } from '../../lib/api/sprints'
+import { createSprint, moveTasksToSprint, setSprintMilestone } from '../../lib/api/sprints'
 import { draftWorkTasks } from '../../lib/api/workAi'
 import type { DraftSharedFile, DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
@@ -271,8 +271,10 @@ export function TasksFromNotes({
       return
     }
     const home = { kind: 'work', projectId } as const
+    const openFlow = state.project?.taskFlow === 'open'
     let missed = 0
     let untagged = 0
+    let unplaced = 0
     try {
       const created = await commitPlan(sprints, milestones, {
         sprint: (input, milestoneId) => createSprint(home, input, milestoneId),
@@ -281,15 +283,25 @@ export function TasksFromNotes({
       })
       const tagged: { taskId: string; milestoneId: string | null }[] = []
       for (const r of keep) {
-        const taskId = await createTask({
+        const task = {
           projectId,
           title: r.title,
           description: r.description,
           dueAt: endOfDay(r.due),
           startsAt: startsAt(r),
           teamId: state.teams.find((t) => t.name === r.team)?.id ?? null,
-          sprintId: resolveKey(r.sprintKey, created),
-        })
+        }
+        const sprintId = resolveKey(r.sprintKey, created)
+        const taskId = openFlow
+          ? await createOpenTask({ ...task, priority: null, kind: 'task', holderIds: [] })
+          : await createTask({ ...task, sprintId })
+        if (openFlow && sprintId) {
+          try {
+            await moveTasksToSprint(home, [taskId], sprintId)
+          } catch {
+            unplaced++
+          }
+        }
         tagged.push({ taskId, milestoneId: resolveKey(milestoneOf(r), created) })
         missed += await attachSharedFiles(r.files, shared, GENERAL_FILE_LIMIT, (file) =>
           uploadTaskFile(projectId, taskId, file),
@@ -305,6 +317,7 @@ export function TasksFromNotes({
       show(
         txt(addedMessage(keep.length, sprints.filter((s) => s.keep).length, milestones.filter((m) => m.keep).length)) +
           (missed > 0 ? `. ${missed} ${missed === 1 ? 'file' : 'files'} could not be added to ${missed === 1 ? 'its task' : 'their tasks'}.` : '') +
+          (unplaced > 0 ? `. ${unplaced} ${unplaced === 1 ? 'task' : 'tasks'} could not be put in ${unplaced === 1 ? 'its' : 'their'} sprint; move ${unplaced === 1 ? 'it' : 'them'} from Backlog.` : '') +
           (untagged > 0 ? `. ${untagged} could not be put on their milestone; tag them from Milestones.` : ''),
       )
       onClose()
@@ -603,7 +616,9 @@ export function TasksFromNotes({
               <p className="text-[12px] text-faint">
                 {onSave
                   ? 'These stay in planning. Send them to a team when ready; its lead assigns members.'
-                  : 'These tasks stay in planning with nobody assigned until they are sent to a team.'}
+                  : state.project?.taskFlow === 'open'
+                    ? 'These tasks go straight onto the project board with nobody assigned. Assign holders when ready.'
+                    : 'These tasks stay in planning with nobody assigned until they are sent to a team.'}
               </p>
             )}
             <section aria-label="Tasks to add" className="space-y-2">

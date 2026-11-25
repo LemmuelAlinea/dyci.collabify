@@ -5851,3 +5851,9 @@ accepted." from the setting; no failed requests.
   edit panel has unsaved changes drops them without asking; a failed reload after a good save reads as a save error;
   `ProjectPatch.task_types` is now refused by the database; class card chips sit in a `pointer-events-none` row, so
   their tooltip never shows.
+
+## 2026-11-25 — From notes follows a work project's task flow
+
+- `TasksFromNotes` saves drafts from pasted notes, uploads (including CSV) and discussions with `createOpenTask` when `task_flow = 'open'`; they are live and unassigned. Planned projects keep `createTask` and the Plan & route handoff. Class-board `onSave` stays separate.
+- Open tasks are moved to their drafted sprint after creation. If placement fails, the save still completes and tells the person to move the live task from Backlog; retrying the whole draft would duplicate it.
+- Frontend regression tests cover Open, Planned and failed sprint placement. Vitest: 3,081 passed before integration; the integrated change's 12 targeted tests and lint passed. `project-open-tasks.test.sql`, `work-workload.test.sql` and the updated `project-task-types.test.sql` passed. No SQL changed here.

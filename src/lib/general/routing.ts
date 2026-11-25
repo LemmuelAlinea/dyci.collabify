@@ -76,8 +76,8 @@ export function routingWaitingCount(viewer: RoutingViewer & { readOnly: boolean 
 
 /**
  * Whether Plan & route work shows. Always in a planned project; in an open
- * project only while live work still waits in planning or review (From notes
- * and AI drafts start there), so nothing is stranded.
+ * project only while live work still waits in planning or review, so nothing
+ * is stranded.
  */
 export function showsRouting(flow: TaskFlow | undefined, tasks: readonly GeneralTask[]): boolean {
   if (flow !== 'open') return true
