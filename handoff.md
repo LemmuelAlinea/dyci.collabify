@@ -5831,13 +5831,22 @@ accepted." from the setting; no failed requests.
   set logic, presets) and `src/components/taskTypes/` (chip, icon, picker, editor, presets dialog, card).
 - SQL applied live with `anon-lockdown.sql`. Suites: `task-type-looks` 77, `project-task-types` 13,
   `class-task-settings` 19, `anon-lockdown` 15 (the two older suites now set the save flag before their direct writes).
+- Browser checked as a project manager on a throwaway work project: Construction preset, Deficiency renamed with
+  `#ffff00`, keyboard and drag reordering, a task with a deleted type retaining its gray chip, and chips on Board,
+  List, Backlog, Stages and the task dialog. The preset sheet, editor, picker and class board cards were checked at
+  desktop, 768 px and 375 px in both themes. The co-teacher's class Tasks settings and task detail loaded. The
+  throwaway project is in Trash. The QA queue was not populated for this account, so its chip was verified by its
+  component code and tests, not in the browser. No class type changes were saved to the existing class.
+- Final checks: 3,130 Vitest tests pass; three unrelated Docx/PDF suites cannot load in this worktree because
+  `node_modules` links outside Vite's allowed root. The build and five post-build scripts exit 0 (`legal-ready`
+  still reports existing contact placeholders). Repo-wide lint has 619 errors in files this branch does not touch;
+  changed files lint clean.
 - Until the frontend ships, the live Settings → Task types save is refused (direct `task_types` writes now need the
   save functions). One live project uses custom types.
 - Spec `docs/superpowers/specs/2026-11-25-task-type-looks-design.md`, plan `docs/superpowers/plans/2026-11-25-task-type-looks.md`.
 
 **Deferred**
 - Class boards' Backlog and Sprints show no type chip (their items carry no type).
-- The browser check on desktop, tablet and phone in both themes needs a signed-in project manager and professor.
 - From the final review (minor): a failed reorder keeps the unsaved order on screen until reload; reordering while the
   edit panel has unsaved changes drops them without asking; a failed reload after a good save reads as a save error;
   `ProjectPatch.task_types` is now refused by the database; class card chips sit in a `pointer-events-none` row, so
