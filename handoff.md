@@ -5868,4 +5868,4 @@ accepted." from the setting; no failed requests.
 
 - Each draft now separates Starts/Due, Priority/Type/Estimated hours, and optional routing fields into responsive groups. They stack on phones; dates use two columns from `sm`; task attributes and routing use two columns from `sm` and three from `lg`.
 - The groups have distinct accessible names. Class boards keep the schedule and routing layout without work-only Priority, Type or Estimated hours.
-- Focused Vitest, TypeScript, ESLint and the production build passed. Browser automation could not open the local app because its helper failed during initialization, so responsive breakpoints are pinned by the component test.
+- Full Vitest passed (3,177 tests in 323 files) after the worktree's external dependency junction was explicitly allowed; TypeScript, ESLint and the production build passed. Browser automation could not open the local app because its helper failed during initialization, so responsive breakpoints are pinned by the component test.
