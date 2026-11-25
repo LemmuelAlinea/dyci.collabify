@@ -710,24 +710,28 @@ export function TasksFromNotes({
                             )}
                           </div>
                         )}
-                        <div className="grid gap-2 sm:grid-cols-3">
+                        <fieldset aria-label={`Task ${i + 1} schedule`} className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                           <DateField label="Starts" value={r.start} aria={`Task ${i + 1} start date`} onChange={(v) => patch(i, { start: v })} />
                           <DateField label="Due" value={r.due} aria={`Task ${i + 1} due date`} onChange={(v) => patch(i, { due: v })} />
-                          {!onSave && !classBoard && <>
-                            <label className="text-[12px] text-faint">Priority
+                        </fieldset>
+                        {!onSave && !classBoard && (
+                          <fieldset aria-label={`Task ${i + 1} attributes`} className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            <label className="min-w-0 text-[12px] text-faint">Priority
                               <Select value={r.priority ?? defaultPriority} onChange={(e) => patch(i, { priority: e.target.value as Row['priority'] })}
                                 aria-label={`Task ${i + 1} priority`} options={PRIORITIES.map((p) => ({ value: p.value, label: p.label }))} className="mt-1 !h-10 !text-[13px]" />
                             </label>
-                            <label className="text-[12px] text-faint">Type
+                            <label className="min-w-0 text-[12px] text-faint">Type
                               <Select value={r.task_type ?? 'task'} onChange={(e) => patch(i, { task_type: e.target.value })}
                                 aria-label={`Task ${i + 1} type`} options={taskTypes} className="mt-1 !h-10 !text-[13px]" />
                             </label>
-                            <label className="text-[12px] text-faint">Estimated hours
+                            <label className="min-w-0 text-[12px] text-faint">Estimated hours
                               <Input type="number" min="0.02" max="1000" step="any" value={r.estimated_hours ?? ''}
                                 onChange={(e) => patch(i, { estimated_hours: e.target.value })}
                                 aria-label={`Task ${i + 1} estimated hours`} className="mt-1 !h-10 !text-[13px]" />
                             </label>
-                          </>}
+                          </fieldset>
+                        )}
+                        <fieldset aria-label={`Task ${i + 1} optional fields`} className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {scope.maySprint && sprintOptions.length > 0 && (
                             <Select
                               value={shown(r.sprintKey, sprintOptions)}
@@ -748,7 +752,7 @@ export function TasksFromNotes({
                               className="!h-10 !text-[13px]"
                             />
                           )}
-                          {r.why && <p className="text-[12px] text-muted sm:col-span-3">{r.why}</p>}
+                          {r.why && <p className="text-[12px] text-muted sm:col-span-2 lg:col-span-3">{r.why}</p>}
                           {teams.length > 0 && (
                             <Select
                               value={r.team}
@@ -769,7 +773,7 @@ export function TasksFromNotes({
                               className="!h-10 !text-[13px]"
                             />
                           )}
-                        </div>
+                        </fieldset>
                       </div>
                     </div>
                   </li>

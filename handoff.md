@@ -5863,3 +5863,9 @@ accepted." from the setting; no failed requests.
 - The shared `work-ai` tasks action reads the work project's task type set and default priority. It extracts priority, type and estimated hours only when stated by pasted notes, uploaded files or saved discussions; otherwise it uses the default priority, Task and an empty estimate. The response is checked against valid project types and the 1–60,000 minute estimate range.
 - Each work draft shows editable Priority, Type and Estimated hours fields. Open saves all three in `createOpenTask`; Planned saves priority/type in `createTask` then calls `setTaskEstimate`. If that estimate write fails after creation, the success notice identifies the task's missing estimate so retry does not duplicate it. Class-board drafts retain their existing save path.
 - Twelve focused tests passed, including all three sources, both task flows, edits, defaults and an estimate-write failure. ESLint and the production build passed. `work-ai` was deployed. No SQL changed.
+
+## 2026-11-26 — Responsive From notes draft fields
+
+- Each draft now separates Starts/Due, Priority/Type/Estimated hours, and optional routing fields into responsive groups. They stack on phones; dates use two columns from `sm`; task attributes and routing use two columns from `sm` and three from `lg`.
+- The groups have distinct accessible names. Class boards keep the schedule and routing layout without work-only Priority, Type or Estimated hours.
+- Focused Vitest, TypeScript, ESLint and the production build passed. Browser automation could not open the local app because its helper failed during initialization, so responsive breakpoints are pinned by the component test.

@@ -33,11 +33,11 @@ vi.mock('../../lib/api/workAi', () => ({ draftWorkTasks: vi.fn(async () => ({
 
 beforeEach(() => vi.clearAllMocks())
 
-async function saveDraft(flow: 'planned' | 'open', edit = false, source: 'file' | 'paste' | 'discussion' = 'file') {
+async function saveDraft(flow: 'planned' | 'open', edit = false, source: 'file' | 'paste' | 'discussion' = 'file', classBoard = false) {
   const reload = vi.fn(async () => {})
   const onClose = vi.fn()
   const state = {
-    project: { id: 'project-1', class_board_id: null, taskFlow: flow, taskTypeSet: [
+    project: { id: 'project-1', class_board_id: classBoard ? 'board-1' : null, taskFlow: flow, taskTypeSet: [
       { slot: 'default', name: 'Task' }, { slot: 'bug', name: 'Bug' }, { slot: null, name: 'Research' },
     ] },
     myRole: 'pm', readOnly: false, can: () => true, members: [],
@@ -51,7 +51,8 @@ async function saveDraft(flow: 'planned' | 'open', edit = false, source: 'file' 
   const root = createRoot(container)
   const button = (label: string) => [...container.querySelectorAll('button')].find((x) => x.textContent?.includes(label))!
   try {
-    await act(async () => root.render(<TasksFromNotes state={state} open onClose={onClose} />))
+    await act(async () => root.render(<TasksFromNotes state={state} open onClose={onClose}
+      onSave={classBoard ? async () => 'Added 1 task.' : undefined} />))
     if (source === 'file') {
       await act(async () => button('Upload a file').click())
       await act(async () => button('Choose CSV').click())
@@ -70,6 +71,10 @@ async function saveDraft(flow: 'planned' | 'open', edit = false, source: 'file' 
     const preview = container.textContent ?? ''
     const field = (label: string) => container.querySelector(`[aria-label="Task 1 ${label}"]`) as HTMLInputElement | HTMLSelectElement
     const initial = { priority: field('priority')?.value, type: field('type')?.value, hours: field('estimated hours')?.value }
+    const schedule = container.querySelector('[aria-label="Task 1 schedule"]')
+    const details = container.querySelector('fieldset[aria-label="Task 1 attributes"]')
+    const optional = container.querySelector('[aria-label="Task 1 optional fields"]')
+    const layout = { schedule: schedule?.className, details: details?.className, optional: optional?.className }
     if (edit) {
       await act(async () => {
         const priority = field('priority')
@@ -84,7 +89,7 @@ async function saveDraft(flow: 'planned' | 'open', edit = false, source: 'file' 
       })
     }
     await act(async () => button('Add 1 task').click())
-    return { preview, initial, reload, onClose }
+    return { preview, initial, layout, reload, onClose }
   } finally {
     await act(async () => root.unmount())
     container.remove()
@@ -120,6 +125,21 @@ it('saves the drafted fields and estimate in Planned flow', async () => {
   expect(initial).toEqual({ priority: 'high', type: 'Research', hours: '2' })
   expect(createTask).toHaveBeenCalledWith(expect.objectContaining({ priority: 'high', kind: 'task', taskType: 'Research' }))
   expect(setTaskEstimate).toHaveBeenCalledWith('task-1', 120)
+})
+
+it('groups draft fields for phone, tablet and desktop widths', async () => {
+  const { layout } = await saveDraft('open')
+  expect(layout).toEqual({
+    schedule: 'grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2',
+    details: 'grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3',
+    optional: 'grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3',
+  })
+})
+
+it('keeps work-only draft details off class boards', async () => {
+  const { layout } = await saveDraft('planned', false, 'file', true)
+  expect(layout.schedule).toBe('grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2')
+  expect(layout.details).toBeUndefined()
 })
 
 it.each(['paste', 'discussion'] as const)('shows the same editable fields for %s notes', async (source) => {
