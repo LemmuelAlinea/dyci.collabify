@@ -1,6 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { MarkAwayDialog } from '../../components/general/MarkAwayDialog'
+import { WorkTaskOverlay } from '../../components/general/WorkTaskOverlay'
+import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
@@ -193,6 +195,9 @@ export default function SpaceWorkload() {
   // Who is away today or later, read once per space and again after a change.
   const [away, setAway] = useState<{ space: string; rows: AwayRange[] } | null>(null)
   const [marking, setMarking] = useState<string | null>(null)
+  // A task opened from a person's list shows over this page; the page stays put.
+  const [viewing, setViewing] = useState<{ projectId: string; taskId: string } | null>(null)
+  const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => readFilters(searchParams), [searchParams])
   const setFilters = (next: Partial<WorkloadFilters>) =>
@@ -518,7 +523,14 @@ export default function SpaceWorkload() {
                               <ul className="mt-1 space-y-1 border-l border-line pl-3">
                                 {rows.map((t) => (
                                   <li key={t.task_id} className="flex items-baseline justify-between gap-3">
-                                    <span className="min-w-0 truncate text-ink">{t.title}</span>
+                                    <button
+                                      type="button"
+                                      data-open-task={t.task_id}
+                                      onClick={() => setViewing({ projectId: t.project_id, taskId: t.task_id })}
+                                      className="min-w-0 truncate text-left text-ink hover:text-navy-600 hover:underline focus-visible:text-navy-600"
+                                    >
+                                      {t.title}
+                                    </button>
                                     <span className="shrink-0 font-mono text-muted">{t.unestimated ? 'No estimate' : formatHours(t.minutes)}</span>
                                   </li>
                                 ))}
@@ -548,6 +560,16 @@ export default function SpaceWorkload() {
           initial={rangesOf(marking)[0] ? { from: rangesOf(marking)[0].first_day, to: rangesOf(marking)[0].last_day } : undefined}
           onClose={() => setMarking(null)}
           onSaved={loadAway}
+        />
+      )}
+
+      {viewing && (
+        <WorkTaskOverlay
+          key={viewing.projectId}
+          projectId={viewing.projectId}
+          taskId={viewing.taskId}
+          viewerId={profile?.id}
+          onClose={() => setViewing(null)}
         />
       )}
     </section>

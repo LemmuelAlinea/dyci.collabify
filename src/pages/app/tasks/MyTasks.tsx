@@ -9,8 +9,7 @@ import type { ArchivedTaskItem } from '../../../components/general/ArchivedTasks
 import { MyTasksPanel } from '../../../components/general/DashboardPanels'
 import { PriorityFilter } from '../../../components/general/PriorityFilter'
 import { usePriorityView } from '../../../components/general/usePriorityView'
-import { TaskDialog } from '../../../components/general/TaskDialog'
-import { useGeneralProject } from '../../../components/general/useGeneralProject'
+import { WorkTaskOverlay } from '../../../components/general/WorkTaskOverlay'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { MyTaskBoard, MyTaskList, MyTasksViewSwitch } from '../../../components/tasks/MyTasksViews'
 import type { MyTaskItem } from '../../../components/tasks/MyTasksViews'
@@ -128,25 +127,6 @@ function dueStamp(iso: string | null) {
     hour: 'numeric',
     minute: '2-digit',
   })
-}
-
-/**
- * A work task opened over My tasks, with its project's state loaded behind it.
- * Closing it leaves the reader where they were instead of on the project page.
- */
-function WorkTaskOverlay({
-  projectId,
-  taskId,
-  viewerId,
-  onClose,
-}: {
-  projectId: string
-  taskId: string
-  viewerId: string | undefined
-  onClose: () => void
-}) {
-  const state = useGeneralProject(projectId, viewerId)
-  return <TaskDialog state={state} taskId={taskId} onClose={onClose} />
 }
 
 export default function MyTasks() {

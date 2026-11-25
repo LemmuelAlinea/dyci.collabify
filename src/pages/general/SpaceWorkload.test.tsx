@@ -44,6 +44,15 @@ vi.mock('../../components/general/MarkAwayDialog', () => ({
   MarkAwayDialog: (p: { open: boolean; name: string; initial?: { from: string; to: string } }) =>
     p.open ? <div data-testid="mark-away">{p.name} {p.initial ? `${p.initial.from}..${p.initial.to}` : 'new'}</div> : null,
 }))
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ profile: { id: 'pm' } }) }))
+vi.mock('../../components/general/WorkTaskOverlay', () => ({
+  WorkTaskOverlay: (p: { projectId: string; taskId: string; viewerId?: string; onClose: () => void }) => (
+    <div data-testid="task-overlay">
+      {p.projectId}/{p.taskId}/{p.viewerId}
+      <button type="button" onClick={p.onClose}>Close task</button>
+    </div>
+  ),
+}))
 
 const hours = (user_id: string, weekly: number | null, off = 0) =>
   ({ user_id, weekly_minutes: weekly, own_weekly_minutes: weekly, available_minutes: weekly == null ? null : weekly - off, time_off_minutes: weekly == null ? null : off })
@@ -117,6 +126,22 @@ it('pm sees folded other work', async () => {
   expect(document.body.textContent).toContain('Build the form')
   expect(document.body.textContent).toContain('Login work')
   expect(document.body.textContent).toContain('Other work in this space · 6 h')
+})
+
+it('a task in the list opens over the page', async () => {
+  await render('/spaces/s1/workload?status=over')
+  await act(async () => document.querySelector<HTMLButtonElement>('[data-person="ben"] button[aria-expanded]')!.click())
+  await act(async () => {})
+  await act(async () => document.querySelector<HTMLButtonElement>('[data-open-task="t1"]')!.click())
+  const overlay = document.querySelector('[data-testid="task-overlay"]')!
+  expect(overlay.textContent).toContain('p1/t1/pm')
+  // The row and the filters stay as they were behind it.
+  expect(document.querySelector('[data-person="ben"] button[aria-expanded]')!.getAttribute('aria-expanded')).toBe('true')
+  expect(document.querySelector('[aria-pressed="true"]')!.textContent).toContain('Over')
+  const close = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Close task')!
+  await act(async () => close.click())
+  expect(document.querySelector('[data-testid="task-overlay"]')).toBeNull()
+  expect(document.body.textContent).toContain('Build the form')
 })
 
 it('expand loads tasks once', async () => {
